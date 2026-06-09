@@ -1,0 +1,12 @@
+{"ts": "2026-06-15T03:13:40Z", "level": "INFO",  "msg": "connection pool size 180/200, growing under load"}
+{"ts": "2026-06-15T03:13:48Z", "level": "WARN",  "msg": "connection pool 195/200 — saturation warning"}
+{"ts": "2026-06-15T03:13:55Z", "level": "ERROR", "msg": "connection pool exhausted, max=200"}
+{"ts": "2026-06-15T03:13:57Z", "level": "ERROR", "msg": "transaction rolled back: could not acquire connection within 5s"}
+{"ts": "2026-06-15T03:14:00Z", "level": "ERROR", "msg": "OOM kill: process killed by oom-killer (RSS 14.2 GB > limit 14 GB)"}
+{"ts": "2026-06-15T03:14:02Z", "level": "WARN",  "msg": "primary DB reconnect attempt 1 — failed"}
+{"ts": "2026-06-15T03:14:05Z", "level": "WARN",  "msg": "replica lag 32s — replicas not yet ready for failover"}
+{"ts": "2026-06-15T03:14:08Z", "level": "ERROR", "msg": "downstream call to inventory-api failed: connection refused"}
+{"ts": "2026-06-15T03:14:12Z", "level": "WARN",  "msg": "replica lag 47s — increasing"}
+{"ts": "2026-06-15T03:14:15Z", "level": "INFO",  "msg": "alerting: paging on-call SRE"}
+{"ts": "2026-06-15T03:14:22Z", "level": "ERROR", "msg": "primary DB unresponsive >20s; promoting alert to CRITICAL"}
+{"ts": "2026-06-15T03:14:25Z", "level": "INFO",  "msg": "connection-pool reaper thread blocked on lock acquired by killed process"}

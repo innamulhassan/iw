@@ -1,0 +1,48 @@
+[project]
+name = "lunasre"
+version = "0.1.0"
+description = "Multi-agent SRE incident-investigation toy — D3 hands-on across the 14-layer agentic stack"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Innamul Hassan Abdul Azeez", email = "innamul@gmail.com" },
+]
+# Dependencies are added per-phase ("earned"). Chunk 1 needs the MCP + registry + tooling deps below.
+# Chunk 2 will add langgraph + litellm. Phase 2 will add a2a-sdk. Phase 4 will add opentelemetry-* etc.
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "fastapi>=0.124.4",
+    "httpx>=0.28.1",
+    "langgraph>=1.2.4",
+    "langgraph-checkpoint-sqlite>=3.1.0",
+    "litellm[proxy]>=1.87.0",
+    "openai>=2.41.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.42.1",
+    "opentelemetry-sdk>=1.42.1",
+    "py-key-value-aio>=0.4.5",
+    "pydantic>=2",
+    "pyyaml",
+    "structlog",
+    "uvicorn>=0.33.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "pyright",
+    "pytest",
+    "pytest-asyncio",
+    "pre-commit",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lunasre"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]

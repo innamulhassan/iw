@@ -1,0 +1,15 @@
+# MCP Gateway per-agent tool scope (L3 / L9 — least privilege).
+# When registries.kind == "gateway", an agent only resolves the MCP servers
+# listed here. An agent absent from this map gets all servers (scope = None).
+#
+# This is the gateway's defining behaviour: credential isolation + least-privilege
+# scope. The real agentic-community/mcp-gateway-registry (Docker) enforces the
+# same, plus holds the actual tool credentials.
+
+scopes:
+  ic-agent: [mock_datadog]
+  dbops-agent: [mock_logs, mock_pg]
+  netops-agent: [mock_traces]
+  deployops-agent: [mock_logs]
+  # rca-agent has no MCP tools (synthesis only) -> empty scope
+  rca-agent: []

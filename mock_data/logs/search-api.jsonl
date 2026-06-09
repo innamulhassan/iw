@@ -1,0 +1,8 @@
+{"ts": "2026-06-15T03:12:00Z", "level": "INFO",  "msg": "deploy 4f3a2e1 rolled out to us-east-1a"}
+{"ts": "2026-06-15T03:12:30Z", "level": "INFO",  "msg": "deploy 4f3a2e1 rolled out to us-east-1b — full traffic"}
+{"ts": "2026-06-15T03:13:00Z", "level": "INFO",  "msg": "error rate baseline 0.1%"}
+{"ts": "2026-06-15T03:14:00Z", "level": "WARN",  "msg": "error rate 1.2% — 12x baseline"}
+{"ts": "2026-06-15T03:14:30Z", "level": "WARN",  "msg": "error rate 5.4% — primarily 5xx on /search endpoint"}
+{"ts": "2026-06-15T03:14:58Z", "level": "ERROR", "msg": "5xx surge since deploy 4f3a2e1 — analyzer/v2 throwing NullPointerException"}
+{"ts": "2026-06-15T03:15:01Z", "level": "WARN",  "msg": "error rate 8x baseline, 8.7% on /search"}
+{"ts": "2026-06-15T03:15:04Z", "level": "ERROR", "msg": "stacktrace: analyzer.v2.QueryBuilder.build(NPE at line 87)"}

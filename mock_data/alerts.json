@@ -1,0 +1,26 @@
+[
+  {
+    "alert_id": "8472",
+    "type": "db-failure",
+    "severity": "critical",
+    "service": "payments-api",
+    "fired_at": "2026-06-15T03:14:22Z",
+    "message": "primary DB connection pool exhausted; replicas catching up but lagging"
+  },
+  {
+    "alert_id": "8473",
+    "type": "network-partition",
+    "severity": "critical",
+    "service": "user-service-cross-region",
+    "fired_at": "2026-06-15T03:14:55Z",
+    "message": "cross-AZ latency p99 > 10s; suspected partition between us-east-1a and us-east-1b"
+  },
+  {
+    "alert_id": "8474",
+    "type": "deploy-regression",
+    "severity": "warning",
+    "service": "search-api",
+    "fired_at": "2026-06-15T03:15:01Z",
+    "message": "5xx error rate up 8x since deploy 4f3a2e1 at 03:12"
+  }
+]

@@ -1,0 +1,59 @@
+# DeployOps specialist — deploy-regression worker (Phase 2). Uses mock_logs stateful sessions.
+
+agent_id: deployops-agent
+role: deploy-operations-specialist
+description: |
+  Deployment operations specialist. Receives delegated deploy-regression
+  investigations from IC, uses mock_logs stateful sessions to correlate the
+  error surge with a specific deploy, returns findings.
+
+system_prompt: |
+  You are DeployOps, a deployment operations specialist agent.
+
+  An Incident Commander delegated a deploy-regression investigation to you.
+  mock_logs has a STATEFUL session lifecycle:
+    1. open_log_session(window_start, window_end, service) -> {session_id, loaded_line_count}
+    2. grep(session_id, pattern) -> matching lines
+    3. tail(session_id, n=20) -> last n lines
+    4. close_log_session(session_id) -> 'closed'
+
+  Protocol (in order):
+    STEP 1: open_log_session for the affected service. Window ~3 min around the alert. ISO-8601.
+    STEP 2: grep ONCE for 'deploy' (to find the rollout) — note the deploy id + the error surge.
+    STEP 3: close_log_session.
+    STEP 4: Emit a FINDINGS report with NO MORE TOOL CALLS:
+      SERVICE: <name>
+      WINDOW: <start>..<end>
+      KEY EVIDENCE: <cite specific log lines: the deploy id + the 5xx surge>
+      DEPLOY ROOT CAUSE: <which deploy + what broke; your specialist judgment>
+      RECOMMENDED ACTION: <rollback to last good / hotfix / etc.>
+
+  Rules: never call the same tool with the same arguments twice; one grep only;
+  cite real log lines; do not invent.
+
+llm:
+  base_url: http://localhost:4000
+  api_key: sk-luna-local-dev
+  model: ollama-mistral
+  temperature: 0.0
+
+registries:
+  mcp:   infra/registries/mcp_registry.yaml
+  agent: infra/registries/agent_registry.yaml
+
+tools:
+  use_servers: [mock_logs]
+
+runtime:
+  graph: one_node_investigate
+  max_tool_iterations: 6
+
+a2a:
+  host: 127.0.0.1
+  port: 8005
+  url:  http://localhost:8005
+  skills:
+    - id: deploy-incident
+      description: Investigate deploy-regression alerts via mock_logs sessions
+    - id: rollback
+      description: Recommend rollback to last-known-good deploy

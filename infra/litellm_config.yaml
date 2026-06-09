@@ -1,0 +1,59 @@
+# LiteLLM proxy — OpenAI-compatible /v1/chat/completions for the LunaSRE agent stack.
+#
+# This is the L1 portability layer (per ARCHITECTURE.md §1 step 20):
+#   agents talk to localhost:4000/v1/chat/completions and never name a vendor SDK.
+#   Switching vendors = changing the `model:` line in an agent's config YAML.
+#
+# Start:  uv run litellm --config infra/litellm_config.yaml --port 4000
+# Verify: curl -s http://localhost:4000/v1/models | jq .
+
+model_list:
+
+  # ─── Active in Chunk 2 (L27.P): Ollama qwen2.5:7b for IC ───────────────────────
+  # Local, free, no key needed; supports tool calling. Chunk 2's IC uses this.
+
+  - model_name: ollama-qwen
+    litellm_params:
+      model: ollama/qwen2.5:7b
+      api_base: http://localhost:11434
+
+  # ─── Templated for Phase 2 (XAI_API_KEY required) ──────────────────────────────
+  # IC + DBOps + NetOps + DeployOps + Grok Reviewer all use this row.
+  # Activates when XAI_API_KEY is set in the LiteLLM proxy's environment.
+
+  - model_name: grok-3
+    litellm_params:
+      model: xai/grok-3
+      api_key: os.environ/XAI_API_KEY
+
+  # ─── Templated for Phase 2 (GOOGLE_API_KEY required) ───────────────────────────
+  # RCA + PM Writer use this row when Phase 2 lands.
+
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: os.environ/GOOGLE_API_KEY
+
+  # ─── Other Ollama models present locally (alternatives for experimentation) ────
+
+  - model_name: ollama-qwen-large
+    litellm_params:
+      model: ollama/qwen2.5-7b-large
+      api_base: http://localhost:11434
+
+  - model_name: ollama-mistral
+    litellm_params:
+      model: ollama/ministral-3:8b
+      api_base: http://localhost:11434
+
+
+litellm_settings:
+  drop_params: True          # silently drop unsupported params per provider
+  set_verbose: False
+  request_timeout: 120
+
+
+general_settings:
+  # Local dev — no auth gate on the proxy itself.
+  # Phase 4 would set a master_key + enable per-agent virtual keys for L9/L12.
+  master_key: sk-luna-local-dev

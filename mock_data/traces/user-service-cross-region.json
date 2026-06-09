@@ -1,0 +1,13 @@
+{
+  "trace_id": "tr-8473-cross-region",
+  "service": "user-service-cross-region",
+  "root_span": "handle_user_request",
+  "spans": [
+    {"name": "handle_user_request", "service": "user-service", "duration_ms": 12400, "status": "error", "az": "us-east-1a"},
+    {"name": "auth_lookup", "service": "user-service", "duration_ms": 45, "status": "ok", "az": "us-east-1a"},
+    {"name": "cross_az_call:user-service-1b", "service": "user-service", "duration_ms": 10200, "status": "timeout", "az": "us-east-1b"},
+    {"name": "retry:user-service-1b", "service": "user-service", "duration_ms": 10050, "status": "timeout", "az": "us-east-1b"},
+    {"name": "fallback_local", "service": "user-service", "duration_ms": 120, "status": "ok", "az": "us-east-1a"}
+  ],
+  "note": "Two cross-AZ calls to us-east-1b both timed out at ~10s; local fallback succeeded. Partition between us-east-1a and us-east-1b strongly indicated."
+}

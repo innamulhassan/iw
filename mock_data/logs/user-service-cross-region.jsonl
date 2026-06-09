@@ -1,0 +1,8 @@
+{"ts": "2026-06-15T03:14:40Z", "level": "INFO",  "msg": "cross-AZ p99 latency 1.2s (baseline)"}
+{"ts": "2026-06-15T03:14:45Z", "level": "WARN",  "msg": "cross-AZ p99 latency 4.8s — climbing"}
+{"ts": "2026-06-15T03:14:50Z", "level": "WARN",  "msg": "cross-AZ p99 latency 8.2s"}
+{"ts": "2026-06-15T03:14:52Z", "level": "ERROR", "msg": "timeout calling user-service us-east-1b after 5s"}
+{"ts": "2026-06-15T03:14:55Z", "level": "ERROR", "msg": "timeout calling user-service us-east-1b after 10s"}
+{"ts": "2026-06-15T03:14:58Z", "level": "WARN",  "msg": "circuit breaker for us-east-1b OPEN"}
+{"ts": "2026-06-15T03:15:01Z", "level": "ERROR", "msg": "p99 latency 12.4s — partition strongly suspected"}
+{"ts": "2026-06-15T03:15:04Z", "level": "INFO",  "msg": "fallback: serving us-east-1a only"}

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LunaSRE — Incident Console</title>
+  <style>
+    :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#c9d1d9; --muted:#8b949e;
+            --green:#3fb950; --amber:#d29922; --red:#f85149; --blue:#58a6ff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+    header { padding:16px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; }
+    header h1 { font-size:16px; margin:0; font-weight:600; }
+    header .sub { color:var(--muted); font-size:12px; }
+    main { max-width:920px; margin:0 auto; padding:24px; }
+    .controls { display:flex; gap:8px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
+    select, button { font:inherit; padding:8px 14px; border-radius:6px; border:1px solid var(--border);
+                     background:var(--panel); color:var(--text); cursor:pointer; }
+    button.primary { background:var(--blue); color:#fff; border-color:var(--blue); font-weight:600; }
+    button.approve { background:var(--green); color:#04210d; border-color:var(--green); font-weight:600; }
+    button.reject { background:var(--red); color:#2a0707; border-color:var(--red); font-weight:600; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+    .timeline { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+    .step { padding:10px 14px; border:1px solid var(--border); border-radius:8px; background:var(--panel);
+            display:flex; align-items:center; gap:10px; opacity:0; transform:translateY(6px);
+            animation:in .25s forwards; }
+    @keyframes in { to { opacity:1; transform:none; } }
+    .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); flex:none; }
+    .dot.done { background:var(--green); } .dot.active { background:var(--amber); }
+    .step .name { font-weight:600; } .step .meta { color:var(--muted); font-size:12px; }
+    .panel { border:1px solid var(--border); border-radius:8px; background:var(--panel); padding:16px; margin-bottom:16px; }
+    .panel h3 { margin:0 0 10px; font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+    pre { white-space:pre-wrap; word-wrap:break-word; margin:0; font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .gate { border:1px solid var(--amber); }
+    .gate h3 { color:var(--amber); }
+    .actions { display:flex; gap:10px; margin-top:14px; }
+    .result.ok { border-color:var(--green); } .result.ok h3 { color:var(--green); }
+    .result.rej { border-color:var(--red); } .result.rej h3 { color:var(--red); }
+    .badge { font-size:11px; padding:2px 8px; border-radius:10px; background:#21262d; color:var(--muted); }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌙 LunaSRE</h1>
+    <span class="sub">Multi-agent incident console · supervisor → specialist → RCA → human approval</span>
+  </header>
+  <main>
+    <div class="controls">
+      <select id="alert"></select>
+      <button class="primary" id="run">Investigate</button>
+      <span class="badge" id="status">idle</span>
+    </div>
+
+    <div class="timeline" id="timeline"></div>
+
+    <div class="panel hidden" id="reportPanel">
+      <h3>Incident report</h3>
+      <pre id="report"></pre>
+    </div>
+
+    <div class="panel gate hidden" id="gatePanel">
+      <h3>⏸ Human approval required — execute remediation?</h3>
+      <pre id="remediation"></pre>
+      <div class="actions">
+        <button class="approve" id="approve">✅ Approve &amp; execute</button>
+        <button class="reject" id="reject">⛔ Reject</button>
+      </div>
+    </div>
+
+    <div class="panel result hidden" id="resultPanel">
+      <h3 id="resultTitle"></h3>
+      <pre id="resultBody"></pre>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let threadId = null, alertId = null, evtSource = null;
+
+    const NODE_LABEL = {
+      run_started: "Run started",
+      investigate: "IC investigates (mock_datadog)",
+      delegate: "Delegate to specialist (A2A)",
+      rca: "RCA root-cause synthesis",
+      summarize: "Compose incident report",
+    };
+
+    async function loadAlerts() {
+      const r = await fetch("/alerts"); const j = await r.json();
+      $("alert").innerHTML = j.alerts.map(a =>
+        `<option value="${a.alert_id}">${a.alert_id} — ${a.type} (${a.service})</option>`).join("");
+    }
+
+    function addStep(node, meta) {
+      const el = document.createElement("div");
+      el.className = "step";
+      el.innerHTML = `<span class="dot done"></span><span class="name">${NODE_LABEL[node] || node}</span>` +
+                     (meta ? `<span class="meta">${meta}</span>` : "");
+      $("timeline").appendChild(el);
+    }
+
+    function reset() {
+      $("timeline").innerHTML = ""; $("report").textContent = "";
+      ["reportPanel","gatePanel","resultPanel"].forEach(id => $(id).classList.add("hidden"));
+      threadId = null;
+    }
+
+    function run() {
+      reset();
+      alertId = $("alert").value;
+      $("status").textContent = "investigating…"; $("run").disabled = true;
+      evtSource = new EventSource(`/incidents/${alertId}/stream`);
+
+      evtSource.addEventListener("run_started", (e) => {
+        const d = JSON.parse(e.data); threadId = d.thread_id; addStep("run_started", d.thread_id);
+      });
+      evtSource.addEventListener("node", (e) => {
+        const d = JSON.parse(e.data);
+        let meta = "";
+        if (d.node === "investigate") meta = `${d.alert_type || "?"} on ${d.service || "?"}`;
+        else if (d.node === "delegate") meta = "→ " + (d.delegated_to || []).join(", ");
+        else if (d.node === "rca") meta = d.rca ? "synthesis produced" : "skipped";
+        else if (d.node === "summarize" && d.summary) { $("report").textContent = d.summary; $("reportPanel").classList.remove("hidden"); }
+        addStep(d.node, meta);
+      });
+      evtSource.addEventListener("awaiting_approval", (e) => {
+        const d = JSON.parse(e.data);
+        threadId = d.thread_id;
+        if (d.summary) { $("report").textContent = d.summary; $("reportPanel").classList.remove("hidden"); }
+        $("remediation").textContent = d.proposed_remediation || "(see report)";
+        $("gatePanel").classList.remove("hidden");
+        $("status").textContent = "awaiting approval"; $("run").disabled = false;
+        evtSource.close();
+      });
+      evtSource.addEventListener("done", (e) => { $("status").textContent = "done (no remediation)"; $("run").disabled = false; evtSource.close(); });
+      evtSource.addEventListener("error", (e) => {
+        $("status").textContent = "error"; $("run").disabled = false;
+        try { addStep("error", JSON.parse(e.data).message); } catch (_) {}
+        evtSource.close();
+      });
+    }
+
+    async function decide(approved) {
+      $("approve").disabled = true; $("reject").disabled = true;
+      $("status").textContent = approved ? "executing…" : "rejecting…";
+      const r = await fetch(`/incidents/${threadId}/approve`, {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ approved, alert_id: alertId }),
+      });
+      const j = await r.json();
+      $("gatePanel").classList.add("hidden");
+      const p = $("resultPanel"); p.classList.remove("hidden");
+      p.className = "panel result " + (j.executed ? "ok" : "rej");
+      $("resultTitle").textContent = j.executed ? "✅ Remediation executed" : "⛔ Remediation rejected";
+      $("resultBody").textContent = j.last_message || "";
+      $("status").textContent = j.executed ? "executed" : "rejected";
+      $("approve").disabled = false; $("reject").disabled = false;
+    }
+
+    $("run").addEventListener("click", run);
+    $("approve").addEventListener("click", () => decide(true));
+    $("reject").addEventListener("click", () => decide(false));
+    loadAlerts();
+  </script>
+</body>
+</html>
