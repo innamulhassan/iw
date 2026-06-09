@@ -1,5 +1,7 @@
 # LunaSRE — Multi-Agent SRE Incident Investigation
 
+[![CI](https://github.com/innamulhassan/lunasre/actions/workflows/ci.yml/badge.svg)](https://github.com/innamulhassan/lunasre/actions/workflows/ci.yml)
+
 A reference implementation that exercises **all 14 layers of the agentic-AI stack**
 in one focused system: MCP tools · A2A agent-to-agent delegation · a LangGraph
 supervisor with human-in-the-loop approval · AG-UI streaming · OpenTelemetry
