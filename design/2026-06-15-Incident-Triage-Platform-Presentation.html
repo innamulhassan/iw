@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage AIOps — System Brief</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:30px 22px 60px}
+  .cover{border-bottom:3px solid var(--accent);padding-bottom:15px;margin-bottom:6px}
+  .cover h1{font-size:28px;margin:0 0 5px;color:var(--accent);letter-spacing:-.3px}
+  .cover .sub{font-size:15px;color:var(--ink2);margin:0}
+  .cover .meta{font-size:12px;color:var(--ink2);font-style:italic;margin-top:8px}
+  .page{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0;box-shadow:0 1px 4px rgba(20,40,80,.05)}
+  .pn{font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 11px;display:inline-block;margin-bottom:7px}
+  .page h2{font-size:21px;color:var(--accent);margin:0 0 4px}
+  .one{font-size:14.5px;color:var(--ink);margin:0 0 12px}
+  figure{margin:6px 0 0}
+  figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px}
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .ph{background:#eef4fb;border:1px solid #cfe0f0;border-radius:9px;padding:8px 15px;font-weight:700;color:var(--accent);font-size:14px}
+  .ar{color:#9AA5B1;font-weight:700}.re{font-size:12px;color:var(--warn);font-weight:700;margin-left:6px}
+  .pts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:6px}
+  .pt{border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:#fcfdfe;font-size:13px}
+  .pt b{color:var(--head)}
+  footer{margin-top:24px;border-top:1px solid var(--line);padding-top:12px;font-size:12.5px;color:var(--ink2)}
+  pre.code{background:#f6f8fa;border:1px solid var(--line);border-radius:8px;padding:13px 15px;font-size:11px;line-height:1.5;overflow:auto;font-family:'SF Mono',Consolas,Menlo,monospace;color:#1f2937;margin:8px 0 4px}
+  .cap{font-size:13px;color:var(--head);font-weight:700;margin:14px 0 2px}
+  .sm{font-size:13px;color:var(--ink2)}
+  table.dm{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0 4px}
+  table.dm th,table.dm td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  table.dm th{background:#eef4fb;color:var(--accent);font-weight:600}
+  table.dm code{font-family:'SF Mono',Consolas,Menlo,monospace;font-size:.9em;background:#eef1f5;border-radius:3px;padding:0 3px}
+</style></head><body><div class="wrap">
+
+<div class="cover">
+  <h1>Incident Triage AIOps — System Brief</h1>
+  <p class="sub">A governed, in-house engine for production incident support — one console, one capability layer, no vendor lock-in.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · for leadership · full design in the HLD + LLD</p>
+</div>
+
+<section class="page">
+  <div class="pn">1 · The system</div>
+  <h2>What it is, and how it connects</h2>
+  <p class="one">One <b>engine</b> drives the work and calls <b>abstract capabilities</b> — never tools directly, so it never changes when a source does. One <b>governed capability layer</b> sits over every source and binds each by its <b>kind</b>, in a clear priority: <b>native MCP</b> where a tool already speaks it; else <b>register the API</b> (its OpenAPI spec) <b>as a dynamic MCP</b> — no per-endpoint code, the way most REST tools onboard; else <b>A2A</b> for the deep, per-layer specialist agents — <b>App, DB, Network</b> root-cause, plus <b>Amelia / BladeLogic</b> wrapped as governed capabilities. Whichever kind, every call passes the same <b>allow / ask / deny</b> gate and is audited. The operator works in <b>one console</b>.</p>
+  <figure><img src="diagrams/system-arch.png" alt="System architecture component diagram"></figure>
+</section>
+
+<section class="page">
+  <div class="pn">2 · How it runs</div>
+  <h2>The engine drives a playbook — the process is a document, not code</h2>
+  <p class="one">The engine takes an incident through four <b>re-enterable</b> phases, gated and audited. The process lives in a <b>versioned playbook</b>; change how incidents are handled by editing the playbook — the engine never changes.</p>
+  <div class="flow"><span class="ph">Assess</span><span class="ar">→</span><span class="ph">Root cause</span><span class="ar">→</span><span class="ph">Remediation</span><span class="ar">→</span><span class="ph">Verify &amp; close</span><span class="re">↺ re-enterable</span></div>
+  <div class="pts">
+    <div class="pt"><b>Every phase</b> asks a few questions, calls the capabilities it's allowed, and records <b>what it did + the evidence</b>.</div>
+    <div class="pt"><b>Every write</b> pauses for approval, in the conversation; closing is always a human act.</div>
+    <div class="pt"><b>Durable</b> — checkpointed, exactly-once, resumable; it survives pauses and crashes.</div>
+  </div>
+  <p class="one" style="margin-top:14px">The process is a real, versioned <b>Markdown file</b> — front-matter the engine executes, a body the agent follows. The essentials, in brief:</p>
+  <pre style="background:#f2f4f7;border:1px solid #dce3ec;border-radius:8px;padding:11px 13px;font-size:11.5px;line-height:1.5;overflow:auto;font-family:'SF Mono',Consolas,Menlo,monospace;color:#1f2937">---
+id: incident-triage   ·   version: 1.2.0   ·   domain: app-incident
+defaults: { on_failure: run-remaining, retry: {max: 3, backoff: exponential} }
+unknown_access: ask                    # default gate for unknown-effect capabilities
+phases:
+  - { id: assess,       capabilities: [servicenow.incident.read, cmdb.read, slo.read, …], output: AssessResult }
+  - { id: root-cause,   capabilities: [appd.metrics.read, logs.search, traces.read],      output: RootCauseResult, min_confidence: 0.7 }
+  - { id: remediation,  capabilities: [k8s.rollback, k8s.restart, runbook.run],           output: RemediationResult, gate_writes: true }
+  - { id: verify-close, capabilities: [telemetry.read, synthetic.replay],                 output: VerifyResult }
+---</pre>
+  <p class="one" style="font-size:13px;color:var(--ink2)">The complete file — every phase body and the output schemas — is on the next page.</p>
+</section>
+
+<section class="page">
+  <div class="pn">3 · The playbook</div>
+  <h2>The complete playbook — the format we build to</h2>
+  <p class="one">The whole incident process is <b>one versioned Markdown file</b>: front-matter the engine executes (the phases, the capabilities each may call, the gates and defaults) and a body the agent follows. This is the actual <code>incident-triage.playbook.md</code> — to change how incidents are handled, you edit this file; the engine never changes.</p>
+  <pre class="code">---
+id: incident-triage
+version: 1.2.0
+domain: app-incident
+status: active
+owner: iro-sre
+changelog:
+  - { version: 1.0.0, date: 2026-06-17, by: iro-sre, note: "First published process." }
+  - { version: 1.1.0, date: 2026-06-17, by: iro-sre, note: "Added retry + unknown_access defaults." }
+  - { version: 1.2.0, date: 2026-06-18, by: iro-sre, note: "Multi-app topology in Assess; closing is human." }
+
+# defaults are inherited by every phase unless the phase overrides them
+defaults:
+  on_failure: run-remaining                  # finish independent steps, then report
+  retry: { max: 3, backoff: exponential }    # retry TRANSIENT errors only; permanent -> escalate
+
+# this playbook's default gate for capabilities whose effect is unknown
+unknown_access: ask                          # deny | ask | allow
+
+phases:
+  - id: assess
+    name: Assess
+    goal: Identify the affected service(s), how bad it is, what changed, and the context around it.
+    capabilities: [servicenow.incident.read, cmdb.read, appd.flowmap.read,
+                   slo.read, changelog.read, incidents.search]
+    output: AssessResult
+
+  - id: root-cause
+    name: Root cause
+    goal: Find the probable cause, with evidence and a confidence score (ranked candidates, never one).
+    capabilities: [appd.metrics.read, logs.search, traces.read, changelog.read]
+    output: RootCauseResult
+    min_confidence: 0.7                        # below this -> gather more, or ask the operator
+
+  - id: remediation
+    name: Remediation
+    goal: Apply the safest reversible fix (often, roll back the change).
+    capabilities: [k8s.rollback, k8s.restart, k8s.scale, runbook.run, telemetry.read]
+    output: RemediationResult
+    gate_writes: true                          # force the approval gate on every write here
+
+  - id: verify-close
+    name: Verify &amp; close
+    goal: Confirm recovery from the user's side; the operator confirms and closes.
+    capabilities: [telemetry.read, synthetic.replay]
+    output: VerifyResult
+
+# output contracts, versioned with the playbook (validated on author, publish, and load)
+schemas:
+  AssessResult:      { type: object, required: [affected_services, impact, priority] }
+  RootCauseResult:   { type: object, required: [candidates, status] }
+  RemediationResult: { type: object, required: [action, approval, execution] }
+  VerifyResult:      { type: object, required: [verification_outcome, resolution] }
+---
+
+## assess
+Identify the affected service(s) — it may span several apps and their dependencies. Establish
+severity / impact + blast radius; pull recent changes; load the topology and check health across
+nodes; link related / prior incidents; set the owner and an initial suspected locus. Derive
+priority from impact × urgency (read-only, the operator can override).
+
+## root-cause
+Walk the topology from the symptom toward the suspected locus. Correlate metrics / traces / logs
+with recent changes and unhealthy dependencies. Produce ranked candidates with evidence and a
+confidence score — never a single asserted cause. Rule out alternatives and record why. If the top
+candidate is below min_confidence, gather more evidence or ask the operator.
+
+## remediation
+Propose the safest reversible fix — usually rolling back the offending change. Show the blast
+radius and the rollback plan. Every write is gated: the operator approves, refines, or denies
+the plan before it runs. Execute with an idempotency key (exactly-once). Retry transient failures
+per retry; a permanent failure or a blocked action goes to the error handler (escalate / manual).
+
+## verify-close
+Re-check health and replay the user journey (synthetic). Confirm the symptom is cleared and the SLO
+is recovering; capture before / after. If recovery did not hold, backtrack to root cause with the
+new evidence. Closing the incident is a human action — the operator confirms resolution and
+closes; the engine never auto-closes.</pre>
+  <p class="cap">The output each phase must produce — the data model</p>
+  <p class="one sm">Every phase returns a typed result, validated against the <code>schemas</code> above — a small <b>typed core</b> (queryable) plus a <b>JSONB extension</b> for source-specific richness, so new sources need no schema change. Within a phase, every step is recorded in one universal shape — an <b>Action</b> (the capability called, its input and output) plus its <b>Evidence</b> — so the audit trail is identical across all phases.</p>
+  <table class="dm">
+    <tr><th>Phase</th><th>Output</th><th>Core fields&nbsp; (typed; + JSONB extension)</th></tr>
+    <tr><td>Assess</td><td><code>AssessResult</code></td><td><code>affected_services[]</code> · <code>impact</code> · <code>priority</code> · <code>severity</code> · <code>topology</code> · <code>suspected_locus</code> · <code>links[]</code></td></tr>
+    <tr><td>Root cause</td><td><code>RootCauseResult</code></td><td><code>candidates[]</code> (cause · evidence[] · confidence) · <code>status</code> · <code>ruled_out[]</code></td></tr>
+    <tr><td>Remediation</td><td><code>RemediationResult</code></td><td><code>action</code> (capability · input · output) · <code>approval</code> · <code>execution</code> (idempotency_key · status · rollback)</td></tr>
+    <tr><td>Verify &amp; close</td><td><code>VerifyResult</code></td><td><code>verification_outcome</code> · <code>resolution</code> · <code>recovery_confidence</code> · <code>slo_restored_pct</code> · <code>watch_window</code></td></tr>
+  </table>
+  <p class="one sm">A populated example of a phase output — and of how a capability is declared and governed — is in the <b>Appendix</b>.</p>
+</section>
+
+<section class="page">
+  <div class="pn">4 · The operator UI</div>
+  <h2>One workbench — watch the engine think, decide at the gates</h2>
+  <p class="one">The only UI, in the Claude-Desktop three-pane shape: <b>Incidents</b> on the left; in the center, <b>Triage</b> — the entire incident's chat, where the agent's steps, evidence, and suggestions appear and the <b>approval gate is inline</b>; and on the right, <b>Playbook &amp; Progress</b> — the phases, their steps, and each step's output. It evolves with the operator as autonomy is earned.</p>
+  <figure><img src="diagrams/ui-console.png" alt="The triage console — one workbench, three panes"></figure>
+</section>
+
+<section class="page">
+  <div class="pn">5 · Delivery</div>
+  <h2>Phased — value early, autonomy earned, the incumbent retired gradually</h2>
+  <p class="one">Five milestones over ~14 two-week sprints. Each is gated, audited, and reversible; <b>Amelia runs alongside</b> and is dialled down only as in-house actions prove themselves — no big-bang cutover.</p>
+  <div class="flow">
+    <span class="ph">M0 Foundation · S1–2</span><span class="ar">→</span>
+    <span class="ph">M1 Assisted · S3–5</span><span class="ar">→</span>
+    <span class="ph">M2 Remediation · S6–8</span><span class="ar">→</span>
+    <span class="ph">M3 Coverage · S9–11</span><span class="ar">→</span>
+    <span class="ph">M4 Autonomy · S12–14</span>
+  </div>
+  <div class="pts">
+    <div class="pt"><b>M1</b> — assisted triage (read-only): faster diagnosis, no write risk.</div>
+    <div class="pt"><b>M2</b> — governed remediation (gated writes): MTTR down, behind hardening.</div>
+    <div class="pt"><b>M4</b> — earned autonomy for proven low-risk actions; human-on-the-loop.</div>
+  </div>
+  <p class="one" style="font-size:13px;color:var(--ink2)">Full by-sprint plan + the timeline (Gantt) + the parallel hardening track: the <b>Delivery Plan</b>.</p>
+</section>
+
+<section class="page">
+  <div class="pn">Appendix · reference</div>
+  <h2>What the artifacts actually look like</h2>
+  <p class="one">For the architecture and engineering review — how a capability is declared and governed, and the data a single run produces. These are the real shapes the platform reads and writes; the worked example follows one incident, <code>INC-4821</code> on <code>payments-api</code>.</p>
+  <p class="cap">A · The capability layer — declared (machine-synced) vs granted (human-owned), and how govern() decides</p>
+  <pre class="code"># DeclaredCapability — synced from the provider's manifest (read-only, machine-owned)
+- id: k8s.rollback
+  kind: mcp_local            # skill | mcp_local | mcp_remote | a2a_agent | api
+  provider: k8s-mcp
+  effect_hint: write
+  input:  { deployment: string, to_revision: int }
+  output: { revision: int, status: string }
+
+# CapabilityPolicy — human-owned, sticky (the grant that actually governs the call)
+- capability_id: k8s.rollback
+  effect: write              # may override effect_hint
+  access: ask                # allow | ask | deny
+  trust:  trusted
+
+# govern() — resolved at call time, every time:
+effect = policy.effect ?? declared.effect_hint ?? unknown
+access = policy.access ?? (effect == unknown ? playbook.unknown_access
+                                              : DEFAULT[trust][effect])
+# -> here: effect = write, access = ask   =>   pause for approval, then invoke, then audit</pre>
+  <p class="cap">B · A worked run record — the Remediation phase output (one Action + Evidence, the approval, the execution)</p>
+  <pre class="code">{
+  "incident": "INC-4821",
+  "phase":    "remediation",
+  "action": {
+    "capability": "k8s.rollback",
+    "input":  { "deployment": "payments-api", "to_revision": 47 },
+    "output": { "revision": 47, "status": "rolled_back" }
+  },
+  "evidence": [
+    { "kind": "metric", "ref": "appd://payments-api/error_rate?window=14:02-14:18" },
+    { "kind": "change", "ref": "servicenow://CHG-9931" }
+  ],
+  "approval": {
+    "actor":    "j.rivera · sre-oncall",
+    "decision": "approved",
+    "at":       "2026-06-18T14:21:07Z"
+  },
+  "execution": {
+    "idempotency_key": "INC-4821:remediation:k8s.rollback:rev47",
+    "status":          "succeeded",
+    "rollback":        "redeploy revision 48"
+  }
+}</pre>
+  <p class="one sm">The same shape carries every phase and every step: an <b>Action</b> {capability · input · output} with its <b>Evidence</b>, plus the human <b>approval</b> and the <b>execution</b> record — the spine of the audit trail.</p>
+</section>
+
+<footer>Full design: the High-Level Design (HLD) + the Low-Level Design (LLD) · delivery timeline in the companion Delivery Plan · reference examples in the Appendix. Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor lock-in.</footer>
+
+</div></body></html>
