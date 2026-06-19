@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage AIOps — System Brief</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:30px 22px 60px}
+  .cover{border-bottom:3px solid var(--accent);padding-bottom:15px;margin-bottom:6px}
+  .cover h1{font-size:28px;margin:0 0 5px;color:var(--accent);letter-spacing:-.3px}
+  .cover .sub{font-size:15px;color:var(--ink2);margin:0}
+  .cover .meta{font-size:12px;color:var(--ink2);font-style:italic;margin-top:8px}
+  .page{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0;box-shadow:0 1px 4px rgba(20,40,80,.05)}
+  .pn{font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 11px;display:inline-block;margin-bottom:7px}
+  .page h2{font-size:21px;color:var(--accent);margin:0 0 4px}
+  .one{font-size:14.5px;color:var(--ink);margin:0 0 12px}
+  figure{margin:6px 0 0}
+  figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px}
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .ph{background:#eef4fb;border:1px solid #cfe0f0;border-radius:9px;padding:8px 15px;font-weight:700;color:var(--accent);font-size:14px}
+  .ar{color:#9AA5B1;font-weight:700}.re{font-size:12px;color:var(--warn);font-weight:700;margin-left:6px}
+  .pts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:6px}
+  .pt{border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:#fcfdfe;font-size:13px}
+  .pt b{color:var(--head)}
+  footer{margin-top:24px;border-top:1px solid var(--line);padding-top:12px;font-size:12.5px;color:var(--ink2)}
+  pre.code{background:#f6f8fa;border:1px solid var(--line);border-radius:8px;padding:13px 15px;font-size:11px;line-height:1.5;overflow:auto;font-family:'SF Mono',Consolas,Menlo,monospace;color:#1f2937;margin:8px 0 4px}
+  .cap{font-size:13px;color:var(--head);font-weight:700;margin:14px 0 2px}
+  .sm{font-size:13px;color:var(--ink2)}
+  table.dm{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0 4px}
+  table.dm th,table.dm td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  table.dm th{background:#eef4fb;color:var(--accent);font-weight:600}
+  table.dm code{font-family:'SF Mono',Consolas,Menlo,monospace;font-size:.9em;background:#eef1f5;border-radius:3px;padding:0 3px}
+</style></head><body><div class="wrap">
+<div style="font:700 12px/1 -apple-system,Segoe UI,Arial;margin-bottom:12px"><a href="index.html" style="color:#1F4E79;text-decoration:none">← Design-set index</a></div>
+
+
+<div class="cover">
+  <h1>Incident Triage AIOps — System Brief</h1>
+  <p class="sub">A governed, in-house engine for production incident support — one console, one capability layer, no vendor lock-in.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · for leadership · full design in the companion Design doc</p>
+</div>
+
+<section class="page">
+  <div class="pn">1 · The system</div>
+  <h2>What it is, and how it connects</h2>
+  <p class="one">One <b>engine</b> drives the work and calls <b>abstract capabilities</b> — never tools directly, so it never changes when a source does. One <b>governed capability layer</b> sits over every source and binds each by its <b>kind</b> — a built-in <b>skill</b>, an <b>MCP</b> server, a <b>registered API</b> (a plugin wrapped as a dynamic MCP), or an <b>A2A agent</b> — in a clear onboarding priority: <b>native MCP</b> where a tool already speaks it; else <b>register the API</b> (its OpenAPI spec) <b>as a dynamic MCP</b> — no per-endpoint code, the way most REST tools onboard; else <b>A2A</b> for the deep, per-layer specialist agents — <b>App, DB, Network</b> root-cause, plus <b>Amelia / BladeLogic</b> wrapped as governed capabilities. Whichever kind, every call passes the same <b>allow / ask / deny</b> gate and is audited. The operator works in <b>one console</b>.</p>
+  <figure><img src="diagrams/system-arch.png" alt="System architecture component diagram"></figure>
+</section>
+
+<section class="page">
+  <div class="pn">2 · How it runs</div>
+  <h2>The engine drives a playbook — the process is a document, not code</h2>
+  <p class="one">The engine takes an incident through four <b>re-enterable</b> phases, gated and audited. The process lives in a <b>versioned playbook</b>; change how incidents are handled by editing the playbook — the engine never changes. The engine is <b>domain-neutral</b>: a different playbook runs a different investigation domain (provisioning, capacity…) on the same engine.</p>
+  <div class="flow"><span class="ph">Assess</span><span class="ar">→</span><span class="ph">Root cause</span><span class="ar">→</span><span class="ph">Remediation</span><span class="ar">→</span><span class="ph">Verify &amp; close</span><span class="re">↺ re-enterable</span></div>
+  <div class="pts">
+    <div class="pt"><b>Every phase</b> asks a few questions, calls the capabilities it's allowed, and records <b>what it did + the evidence</b>.</div>
+    <div class="pt"><b>Every write</b> pauses for approval, in the conversation; closing is always a human act.</div>
+    <div class="pt"><b>Durable</b> — checkpointed, exactly-once, resumable; it survives pauses and crashes.</div>
+  </div>
+  <p class="one" style="margin-top:14px">Running the playbook does <b>three things</b>: ① it <b>follows the process</b> (the phases); ② it <b>builds an investigation graph — in stages</b>; ③ you <b>watch where it is</b>, phase by phase and as a graph, in the console.</p>
+  <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0 6px;background:#fcfdfe">
+    <div style="font-size:12.5px;font-weight:700;color:var(--head);margin-bottom:2px">② The playbook builds an investigation graph — in stages</div>
+    <svg viewBox="0 0 920 152" style="width:100%;display:block">
+      <defs>
+        <marker id="pa" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto"><path d="M0,0 L5,3 L0,6 z" fill="#9AA5B1"/></marker>
+        <marker id="pc" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto"><path d="M0,0 L5,3 L0,6 z" fill="#C77D11"/></marker>
+      </defs>
+      <text x="228" y="80" font-size="17" fill="#cfd6df">→</text><text x="454" y="80" font-size="17" fill="#cfd6df">→</text><text x="680" y="80" font-size="17" fill="#cfd6df">→</text>
+      <text x="100" y="13" font-size="11" font-weight="700" fill="#1F4E79" text-anchor="middle">1 · Assess</text>
+      <rect x="70" y="22" width="60" height="17" rx="5" fill="#fff" stroke="#1F4E79"/><text x="100" y="34" font-size="8.5" font-weight="700" fill="#1f2937" text-anchor="middle">INC-4821</text>
+      <line x1="100" y1="39" x2="100" y2="52" stroke="#9AA5B1" stroke-width="1.4" marker-end="url(#pa)"/>
+      <rect x="62" y="54" width="76" height="18" rx="5" fill="#FCF3EC" stroke="#C26B4E"/><text x="100" y="66" font-size="8.5" font-weight="700" fill="#1f2937" text-anchor="middle">payments-api</text>
+      <circle cx="62" cy="86" r="4" fill="#FCF6F0" stroke="#E6CDB8"/><circle cx="82" cy="92" r="4" fill="#FCF6F0" stroke="#E6CDB8"/><circle cx="118" cy="92" r="4" fill="#FCF6F0" stroke="#E6CDB8"/><circle cx="138" cy="86" r="4" fill="#FCF6F0" stroke="#E6CDB8"/>
+      <line x1="100" y1="72" x2="82" y2="89" stroke="#E0B483" stroke-width="1"/><line x1="100" y1="72" x2="118" y2="89" stroke="#E0B483" stroke-width="1"/>
+      <text x="100" y="136" font-size="9" fill="#51606e" text-anchor="middle">seeded · 147 nodes, 12 impacted</text>
+      <text x="326" y="13" font-size="11" font-weight="700" fill="#1F4E79" text-anchor="middle">2 · Root cause</text>
+      <rect x="296" y="22" width="60" height="16" rx="5" fill="#fff" stroke="#1F4E79"/><text x="326" y="33" font-size="8" font-weight="700" fill="#1f2937" text-anchor="middle">INC-4821</text>
+      <line x1="326" y1="38" x2="326" y2="46" stroke="#C77D11" stroke-width="1.6" marker-end="url(#pc)"/>
+      <rect x="290" y="48" width="72" height="15" rx="5" fill="#FCF3EC" stroke="#C26B4E"/><text x="326" y="59" font-size="7.5" font-weight="700" fill="#1f2937" text-anchor="middle">payments-api</text>
+      <line x1="326" y1="63" x2="326" y2="70" stroke="#C77D11" stroke-width="1.6" marker-end="url(#pc)"/>
+      <rect x="302" y="72" width="48" height="14" rx="5" fill="#fff" stroke="#E7E4DA"/><text x="326" y="82" font-size="7.5" font-weight="700" fill="#1f2937" text-anchor="middle">DB</text>
+      <line x1="326" y1="86" x2="326" y2="93" stroke="#C77D11" stroke-width="1.6" marker-end="url(#pc)"/>
+      <rect x="290" y="95" width="72" height="17" rx="5" fill="#FBF1EC" stroke="#C77D11" stroke-width="1.4"/><text x="326" y="107" font-size="7.5" font-weight="700" fill="#9A4A12" text-anchor="middle">⚠ pay-vol</text>
+      <text x="326" y="136" font-size="9" fill="#51606e" text-anchor="middle">cause path → suspect</text>
+      <text x="552" y="13" font-size="11" font-weight="700" fill="#1F4E79" text-anchor="middle">3 · Remediation</text>
+      <rect x="522" y="22" width="60" height="16" rx="5" fill="#fff" stroke="#1F4E79"/><text x="552" y="33" font-size="8" font-weight="700" fill="#1f2937" text-anchor="middle">INC-4821</text>
+      <line x1="552" y1="38" x2="552" y2="46" stroke="#C77D11" stroke-width="1.6" marker-end="url(#pc)"/>
+      <rect x="516" y="48" width="72" height="15" rx="5" fill="#FCF3EC" stroke="#C26B4E"/><text x="552" y="59" font-size="7.5" font-weight="700" fill="#1f2937" text-anchor="middle">payments-api</text>
+      <line x1="552" y1="63" x2="552" y2="70" stroke="#C77D11" stroke-width="1.6" marker-end="url(#pc)"/>
+      <rect x="528" y="72" width="48" height="14" rx="5" fill="#fff" stroke="#E7E4DA"/><text x="552" y="82" font-size="7.5" font-weight="700" fill="#1f2937" text-anchor="middle">DB</text>
+      <line x1="552" y1="86" x2="552" y2="93" stroke="#C77D11" stroke-width="1.6" marker-end="url(#pc)"/>
+      <rect x="516" y="95" width="72" height="17" rx="5" fill="#FBF1EC" stroke="#C77D11" stroke-width="1.4"/><text x="552" y="107" font-size="7.5" font-weight="700" fill="#9A4A12" text-anchor="middle">⚠ pay-vol</text>
+      <rect x="594" y="78" width="56" height="15" rx="7" fill="#fff" stroke="#C26B4E"/><text x="622" y="89" font-size="7" font-weight="700" fill="#C26B4E" text-anchor="middle">⟳ failover</text>
+      <text x="552" y="136" font-size="9" fill="#51606e" text-anchor="middle">gated fix applied</text>
+      <text x="800" y="13" font-size="11" font-weight="700" fill="#1F4E79" text-anchor="middle">4 · Verify &amp; close</text>
+      <rect x="770" y="22" width="60" height="17" rx="5" fill="#fff" stroke="#1F4E79"/><text x="800" y="34" font-size="8.5" font-weight="700" fill="#1f2937" text-anchor="middle">INC-4821</text>
+      <line x1="800" y1="39" x2="800" y2="52" stroke="#16A34A" stroke-width="1.4"/>
+      <rect x="760" y="54" width="80" height="18" rx="5" fill="#EAF7EC" stroke="#16A34A"/><text x="800" y="66" font-size="8.5" font-weight="700" fill="#16631f" text-anchor="middle">payments-api ✓</text>
+      <rect x="762" y="82" width="76" height="15" rx="5" fill="#fff" stroke="#E7E4DA"/><text x="800" y="92" font-size="7.5" fill="#51606e" text-anchor="middle">p99 4.2s → 260ms</text>
+      <text x="800" y="136" font-size="9" fill="#16631f" font-weight="700" text-anchor="middle">recovered → closed</text>
+    </svg>
+    <div style="font-size:12px;color:var(--ink2);margin-top:2px">One graph, grown across the phases. ③ You watch it build — the <b>phases &amp; steps</b> and the <b>graph view</b> — in the console (§4).</div>
+  </div>
+  <p class="one" style="margin-top:14px">The process is a real, versioned <b>Markdown file</b> — front-matter the engine executes, a body the agent follows. The essentials, in brief:</p>
+  <pre style="background:#f2f4f7;border:1px solid #dce3ec;border-radius:8px;padding:11px 13px;font-size:11.5px;line-height:1.5;overflow:auto;font-family:'SF Mono',Consolas,Menlo,monospace;color:#1f2937">---
+id: incident-triage   ·   version: 1.0.0   ·   domain: app-incident
+defaults: { on_failure: run-remaining, retry: {max: 3, backoff: exponential} }
+unknown_access: ask                    # default gate for unknown-effect capabilities
+phases:                                # TOOL-AGNOSTIC — an intent (needs) + an effect, never a tool name
+  - { id: assess,       effect: read-only, needs: [incident-source, topology, change-history, telemetry, similar-incidents], output: AssessResult }
+  - { id: root-cause,   effect: read-only, needs: [metrics, logs, traces, topology, change-history], output: RootCauseResult, min_confidence: 0.7 }
+  - { id: remediation,  effect: write,     needs: [remediation-action, escalation], output: RemediationResult, gate_writes: true }
+  - { id: verify-close, effect: read-only, needs: [telemetry, synthetic-replay], output: VerifyResult }
+# the engine resolves `needs` (intents) -> concrete capabilities from the live registry, bounded by `effect`
+---</pre>
+  <p class="one" style="font-size:13px;color:var(--ink2)">The complete file — every phase body and the output schemas — is on the next page.</p>
+</section>
+
+<section class="page">
+  <div class="pn">3 · The playbook</div>
+  <h2>The complete playbook — the format we build to</h2>
+  <p class="one">The whole incident process is <b>one versioned Markdown file</b>: front-matter the engine executes (the phases as <b>intents</b>, not tools; the gates and defaults; the domain <b>type system</b>) and a body the agent follows. This is the actual <code>incident-triage.playbook.md</code> — to change how incidents are handled you edit this file; the engine never changes, and a <b>different file runs a different domain</b>.</p>
+  <pre class="code">---
+id: incident-triage
+version: 1.0.0
+domain: app-incident                         # ONE engine, many playbooks — swap this file for a new domain
+status: active
+owner: iro-sre
+
+# defaults are inherited by every phase unless the phase overrides them
+defaults:
+  on_failure: run-remaining                  # finish independent steps, then report
+  retry: { max: 3, backoff: exponential }    # retry TRANSIENT errors only; permanent -> error_handler
+unknown_access: ask                          # default gate for unknown-effect capabilities (deny|ask|allow)
+error_handler: { action: escalate, to: on-call, via: pagerduty }
+
+# phases are TOOL-AGNOSTIC: each declares an INTENT (needs) + an effect, NEVER a tool name.
+# the engine resolves `needs` -> concrete capabilities from the live registry, bounded by `effect`.
+phases:
+  - { id: assess,       effect: read-only, output: AssessResult,
+      goal: "What's affected, how bad, what changed — surface impact + early suggestions.",
+      needs: [incident-source, topology, change-history, telemetry, similar-incidents] }
+  - { id: root-cause,   effect: read-only, output: RootCauseResult, min_confidence: 0.7,
+      goal: "The most probable cause — ranked, with evidence and a stated basis.",
+      needs: [metrics, logs, traces, topology, change-history, layer-deep-dive] }
+  - { id: remediation,  effect: write, gate_writes: true, output: RemediationResult,
+      goal: "The safest fix — reverse, mitigate, or escalate; stop the bleeding.",
+      needs: [remediation-action, escalation] }
+  - { id: verify-close, effect: read-only, output: VerifyResult,
+      goal: "Confirm recovery from the user's side; revert temporaries; a human closes.",
+      needs: [telemetry, synthetic-replay] }
+
+# the domain TYPE SYSTEM travels with the playbook, so the engine + UI stay domain-neutral
+graph_schema:
+  node_types: { system: [app, service, database, network, storage, compute, external],
+                incident: [incident, cluster], change: [change], alert: [alert] }
+  edges: [depends_on, hosted_on, runs_on, routes_to, located_in, changed, affects,
+          suspected_cause, related_to, member_of, observed_on]
+  facts: [health, latency, error_rate, impact_state]
+
+# output contracts, versioned with the playbook (validated on author, publish, and load)
+output_schemas:
+  AssessResult:      { required: [incident_type, symptom, affected, impact_assessment, changed, suggestions] }
+  RootCauseResult:   { required: [candidates, selected, status] }
+  RemediationResult: { required: [actions] }
+  VerifyResult:      { required: [recovered, resolution] }
+---
+
+## assess
+Build the picture (read-only): the affected service(s) + neighbourhood from topology, light health
+on the symptom, recent changes, related / similar priors — and USE the priors (a similar incident's
+fix becomes an early suggestion). `changed:[]` is a first-class "checked-and-clean" assertion.
+
+## root-cause
+Ranked candidates — never one asserted — each with a cause path (victim -> ... -> cause) and a
+confidence whose BASIS is stated. Walk the graph; rule out alternatives with evidence. Pivot if the
+health-walk dead-ends (data, async-lag, expiry can read green on health). Cause may be a node,
+change, zone, or a time factor.
+
+## remediation
+The safest fix — every write gated. kind: reverse | mitigate (temporary ones carry revert_when) |
+escalate. Each action carries expected_effect, blast_radius, and rollback. Idempotency key
+(exactly-once); a permanent failure goes to the error_handler.
+
+## verify-close
+Confirm recovery from the user's side (before / after + synthetic replay). Revert every temporary
+action before close. Record the resolution — what actually fixed it, which the next incident learns
+from. If recovery did not hold, backtrack to root cause. A human closes; the engine never auto-closes.</pre>
+  <p class="cap">The data each run produces — the model in brief</p>
+  <p class="one sm">Each run builds <b>one investigation graph</b> — typed <b>nodes</b> (systems, the incident, changes, alerts), <b>edges</b> (<code>depends_on</code>, <code>hosted_on</code>, <code>suspected_cause</code>…) and <b>facts</b> (health, latency, <code>impact_state</code>) — shared across all four phases. Each phase records its <b>journey</b> (ordered steps; every tool-call carries an <b>evidence</b> deep-link) and a <b>typed output</b>. The subject is named domain-neutrally as <code>{domain, id}</code>, so the same model serves any investigation domain. It is stored in two planes: the incident document (denormalized) in <b>MongoDB</b>; the playbook + capability registry (normalized) in <b>PostgreSQL</b>; the live run state is <b>LangGraph</b>'s checkpoint, kept separate.</p>
+  <table class="dm">
+    <tr><th>Phase</th><th>Output</th><th>Fields (every one defined, in full, in the data-model doc)</th></tr>
+    <tr><td>Assess</td><td><code>AssessResult</code></td><td><code>incident_type</code> · <code>symptom</code> · <code>affected[]</code> · <code>impact_assessment</code> · <code>changed[]</code> · <code>suspected_locus</code> · <code>suggestions[]</code></td></tr>
+    <tr><td>Root cause</td><td><code>RootCauseResult</code></td><td><code>candidates[]</code> (cause · node · <code>confidence{value, basis}</code> · <code>path</code> · evidence) · <code>selected</code> · <code>ruled_out[]</code> · <code>status</code></td></tr>
+    <tr><td>Remediation</td><td><code>RemediationResult</code></td><td><code>actions[]</code> (kind · technique · <code>expected_effect</code> · <code>blast_radius</code> · <code>rollback</code> · temporary/<code>revert_when</code> · approval · result) · <code>status</code></td></tr>
+    <tr><td>Verify &amp; close</td><td><code>VerifyResult</code></td><td><code>recovered</code> · <code>before_after</code> · <code>resolution</code> · <code>temporary_actions_status[]</code> · <code>status</code></td></tr>
+  </table>
+  <p class="one sm">The full data model — every node, edge, fact, phase record and output, each <i>defined → explained → shown as JSON → tabled</i> — is the companion <b>Data-Model</b> doc; a worked capability and the gated <code>INC-4821</code> run are in the <b>Design</b> doc.</p>
+</section>
+
+<section class="page">
+  <div class="pn">4 · The operator UI</div>
+  <h2>One workbench — watch the engine think, decide at the gates</h2>
+  <p class="one">The only UI, in the Claude-Desktop three-pane shape: <b>Incidents</b> on the left; in the center, <b>Triage</b> — the entire incident's chat, where the agent's steps, evidence, and suggestions appear and the <b>approval gate is inline</b>; and on the right, <b>Phases &amp; Steps</b> with a <b>Graph</b> tab — the phases with their typed outputs, or the live investigation graph with the cause path highlighted. It evolves with the operator as autonomy is earned.</p>
+  <figure><img src="diagrams/ui-console.png" alt="The triage console — three panes, right pane on Phases & Steps"></figure>
+  <p class="one sm" style="margin:7px 0 0">Right pane on <b>Phases &amp; Steps</b> — the four phases, each step, and its typed output. The worked run: <code>INC-4821</code> — a failed disk → RAID rebuild → DB I/O → checkout latency.</p>
+  <figure style="margin-top:11px"><img src="diagrams/ui-console-graph.png" alt="The triage console — right pane switched to the Graph tab"></figure>
+  <p class="one sm" style="margin:7px 0 0">Same console, right pane switched to <b>Graph</b> — the investigation graph, the cause path <code>app → db → storage</code> highlighted to the suspect; the deploy is greyed as ruled-out, the similar prior is a reference. One incident node (the subject); others are references.</p>
+</section>
+
+<section class="page">
+  <div class="pn">5 · Delivery</div>
+  <h2>Phased — value early, autonomy earned, the incumbent retired gradually</h2>
+  <p class="one">Five milestones over ~14 two-week sprints. Each is gated, audited, and reversible; <b>Amelia runs alongside</b> and is dialled down only as in-house actions prove themselves — no big-bang cutover.</p>
+  <div class="flow">
+    <span class="ph">M0 Foundation · S1–2</span><span class="ar">→</span>
+    <span class="ph">M1 Assisted · S3–5</span><span class="ar">→</span>
+    <span class="ph">M2 Remediation · S6–8</span><span class="ar">→</span>
+    <span class="ph">M3 Coverage · S9–11</span><span class="ar">→</span>
+    <span class="ph">M4 Autonomy · S12–14</span>
+  </div>
+  <div class="pts">
+    <div class="pt"><b>M1</b> — assisted triage (read-only): faster diagnosis, no write risk.</div>
+    <div class="pt"><b>M2</b> — governed remediation (gated writes): MTTR down, behind hardening.</div>
+    <div class="pt"><b>M4</b> — earned autonomy for proven low-risk actions; human-on-the-loop.</div>
+  </div>
+  <p class="one" style="font-size:13px;color:var(--ink2)">Full by-sprint plan + the timeline (Gantt) + the parallel hardening track: the <b>Delivery Plan</b>.</p>
+</section>
+
+<footer>Full design: the companion <b>Design</b> doc (architecture · the engine on LangGraph · data model · low-level design) · delivery timeline in the <b>Delivery Plan</b>. Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor lock-in.</footer>
+
+</div></body></html>

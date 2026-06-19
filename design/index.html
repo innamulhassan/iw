@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage — Design Set</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--bg:#f4f6f9;--card:#fff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:38px 24px 64px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:16px;margin-bottom:6px}
+  h1{font-size:27px;margin:0 0 5px;color:var(--accent);letter-spacing:-.3px}
+  .sub{font-size:15px;color:var(--ink2);margin:0}
+  .meta{font-size:12.5px;color:var(--ink2);font-style:italic;margin-top:9px}
+  .start{background:#eef4fb;border:1px solid #cfe0f0;border-radius:10px;padding:11px 15px;margin:16px 0;font-size:13.5px;color:var(--head)}
+  .start b{color:var(--accent)}
+  .grp{font-size:12px;font-weight:700;color:var(--head);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:5px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  a.card{display:flex;gap:13px;align-items:flex-start;text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(20,40,80,.05);transition:border-color .12s,box-shadow .12s}
+  a.card:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(20,40,80,.10)}
+  .num{flex:0 0 30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .ct{min-width:0}
+  .ct .t{font-size:15px;font-weight:700;color:var(--head);margin:1px 0 3px}
+  .ct .t .arr{color:var(--accent);font-weight:700}
+  .ct .d{font-size:12.5px;color:var(--ink2);line-height:1.5}
+  .ct .who{font-size:10.5px;font-weight:700;color:var(--accent);background:#eef4fb;border:1px solid #cfe0f0;border-radius:6px;padding:1px 7px;display:inline-block;margin-top:7px}
+  footer{margin-top:26px;border-top:1px solid var(--line);padding-top:13px;font-size:12.5px;color:var(--ink2)}
+  footer code{font-family:'SF Mono',Consolas,Menlo,monospace;font-size:.92em;background:#eef1f5;border-radius:4px;padding:1px 5px}
+  @media(max-width:680px){.cards{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+
+<header>
+  <h1>Incident Triage — Investigation Engine</h1>
+  <p class="sub">The design set. A governed, in-house, <b>domain-neutral</b> investigation engine; incident triage is the first domain.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · v2 (current) · governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in</p>
+</header>
+
+<div class="start"><b>New here?</b> Start with <b>01 · Presentation</b> for the pitch, then <b>03 · Design</b> for the complete picture. Every doc has a <b>← Design-set index</b> link back here.</div>
+
+<div class="grp">Brief &amp; scope</div>
+<div class="cards">
+  <a class="card" href="01-presentation.html"><div class="num">01</div><div class="ct"><div class="t">Presentation <span class="arr">→</span></div><div class="d">The leadership brief — what it is, how it connects, the playbook, the console (both views), the staged graph, and delivery.</div><span class="who">for leadership</span></div></a>
+  <a class="card" href="02-spec.html"><div class="num">02</div><div class="ct"><div class="t">Spec <span class="arr">→</span></div><div class="d">The one-page scope — what we're building, the agent loop, the capability layer, three scenarios, and the build component spec.</div><span class="who">scope to start from</span></div></a>
+</div>
+
+<div class="grp">The design</div>
+<div class="cards">
+  <a class="card" href="03-design.html"><div class="num">03</div><div class="ct"><div class="t">Design <span class="arr">→</span></div><div class="d"><b>The complete design</b> — the engine on LangGraph (load → plan → execute → capability loop → gate → checkpoint), the capability layer, the full data model, the physical/LLD, operations, and delivery. Combines the HLD + LLD.</div><span class="who">the master doc</span></div></a>
+  <a class="card" href="04-data-model.html"><div class="num">04</div><div class="ct"><div class="t">Data Model <span class="arr">→</span></div><div class="d">Every schema in full — the investigation graph (Node/Fact/Edge), the Phase Record (PhaseRecord/Step), the four phase outputs, SubjectRef, storage planes, and the incident document — as JSON + field tables.</div><span class="who">the schema reference</span></div></a>
+</div>
+
+<div class="grp">Operations &amp; delivery</div>
+<div class="cards">
+  <a class="card" href="05-runbook.html"><div class="num">05</div><div class="ct"><div class="t">Runbook <span class="arr">→</span></div><div class="d">The incident walkthrough (INC-4821) — per phase: the questions, the capability intents, the steps, and the data each adds.</div><span class="who">operations</span></div></a>
+  <a class="card" href="06-delivery-plan.html"><div class="num">06</div><div class="ct"><div class="t">Delivery Plan <span class="arr">→</span></div><div class="d">Five milestones over ~14 sprints — the by-sprint plan + the timeline (Gantt) + the parallel hardening + Amelia ramp-down.</div><span class="who">the plan</span></div></a>
+  <a class="card" href="07-capability-layer.html"><div class="num">07</div><div class="ct"><div class="t">Capability Layer <span class="arr">→</span></div><div class="d">The capability-layer visual — how <code style="font-size:.92em">govern()</code> decides allow / ask / deny at the boundary.</div><span class="who">governance visual</span></div></a>
+</div>
+
+<footer>
+  Read order: <b>01</b> Presentation → <b>02</b> Spec → <b>03</b> Design → <b>04</b> Data Model → <b>05</b> Runbook → <b>06</b> Delivery → <b>07</b> Capability Layer. · The worked example <code>INC-4821</code> (failed disk → RAID rebuild → DB I/O → checkout latency) runs consistently through every doc. · Older drafts: <code>../v1/</code> (superseded, old model) · the separate HLD/LLD now combined into <b>03 · Design</b>: <code>_superseded/</code>.
+</footer>
+
+</div></body></html>

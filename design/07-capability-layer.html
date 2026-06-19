@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage — The Capability Layer (Visual)</title>
+<style>
+  :root{
+    --ink:#1f2937; --ink2:#51606e; --head:#0f3b5e; --line:#dce3ec;
+    --teal-fill:#E6F3F1; --teal-stroke:#2A9D8F;
+    --amber-fill:#FBF1DD; --amber-stroke:#C8860D;
+    --neutral-fill:#F7F8FA; --neutral-stroke:#9AA5B1;
+    --arrow:#94A3B8; --accent:#1F4E79; --ok:#2E7D32;
+    --card:#ffffff; --bg:#f4f6f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:40px 28px 64px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:18px;margin-bottom:8px}
+  h1{font-size:30px;margin:0 0 6px;color:var(--accent);letter-spacing:-.2px}
+  .sub{font-size:16px;color:var(--ink2);margin:0}
+  .meta{font-size:13px;color:var(--ink2);font-style:italic;margin-top:10px}
+  h2{font-size:21px;color:var(--accent);margin:38px 0 10px;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-size:14px;font-weight:700;color:#fff;background:var(--accent);
+    border-radius:6px;padding:2px 9px;letter-spacing:.3px}
+  p{margin:0 0 12px}
+  .principle{background:#eef4fb;border-left:5px solid var(--accent);
+    border-radius:8px;padding:14px 18px;margin:18px 0 8px}
+  .principle b{color:var(--accent)}
+  .fig{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:18px 18px 8px;margin:14px 0 18px;box-shadow:0 1px 3px rgba(20,40,80,.05)}
+  .fig figcaption{font-size:13px;color:var(--ink2);margin:6px 2px 6px;text-align:center}
+  ul{margin:6px 0 14px;padding-left:20px}
+  li{margin:5px 0}
+  li b{color:var(--head)}
+  .rec{background:#f1f7f1;border-left:5px solid var(--ok);border-radius:8px;
+    padding:13px 18px;margin:14px 0}
+  .rec b{color:var(--ok)}
+  footer{margin-top:42px;border-top:1px solid var(--line);padding-top:14px;
+    font-size:13px;color:var(--ink2)}
+  code{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:.92em;
+    background:#eef1f5;border-radius:4px;padding:1px 5px}
+  /* shared SVG diagram styling */
+  svg{width:100%;height:auto;display:block;font-family:inherit}
+  .t{fill:var(--ink);font-weight:600;font-size:14px}
+  .ts{fill:var(--ink2);font-size:12px}
+  .th{fill:var(--head);font-weight:700;font-size:15px}
+  .teal rect,.teal polygon{fill:var(--teal-fill);stroke:var(--teal-stroke);stroke-width:1.3}
+  .amber rect,.amber polygon{fill:var(--amber-fill);stroke:var(--amber-stroke);stroke-width:1.3}
+  .lbox{fill:var(--neutral-fill);stroke:var(--neutral-stroke);stroke-width:1.3}
+  .lnk{stroke:var(--arrow);stroke-width:1.6;fill:none}
+  .dsh{stroke-dasharray:5 4}
+  @media print{ body{background:#fff} .wrap{max-width:none;padding:0}
+    .fig,.principle,.rec{box-shadow:none;break-inside:avoid} h2{break-after:avoid} }
+</style>
+</head>
+<body>
+<div style="font:700 12px/1 -apple-system,Segoe UI,Arial;padding:14px 0 0 16px"><a href="index.html" style="color:#1F4E79;text-decoration:none">← Design-set index</a></div>
+<div class="wrap">
+
+  <header>
+    <h1>Incident Triage — The Capability Layer</h1>
+    <p class="sub">A visual architecture: where it sits, the path of a call, and why it is built this way.</p>
+    <p class="meta">Infrastructure Resilience &amp; Operations · AIOps Incident Automation · June 2026</p>
+  </header>
+
+  <div class="principle">
+    <p style="margin:0"><b>Own the domain, rent the orchestrator — applied to tools.</b>
+    The agents never call Datadog, ServiceNow, or a browser directly. They call <b>abstract capabilities</b>
+    (<code>observe_service</code>, <code>restart_workload</code>, <code>verify_user_journey</code>). One governed
+    layer maps each to whatever concrete tool implements it today — an existing MCP server, an internal API,
+    one of our own skills, or Playwright. Swap what is underneath; the engine never changes.
+    <b>Reuse before we build; govern every capability the same way.</b></p>
+  </div>
+
+  <h2><span class="n">1</span> Where the Capability Layer sits</h2>
+  <p>An incident engine is only as good as what it can <i>see</i> and <i>do</i> — and it sees and does
+  everything through tools. This is that layer: one place between the engine and everything it touches.</p>
+
+  <figure class="fig">
+    <svg viewBox="0 0 680 366" role="img" xmlns="http://www.w3.org/2000/svg">
+    <title>Where the Capability Layer sits and its four sources</title>
+    <desc>The engine calls abstract capabilities into one governed Capability Layer, which fans out to four sources reaching the real world.</desc>
+    <defs><marker id="ahA" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--arrow)"/></marker></defs>
+    <text class="th" x="40" y="24" text-anchor="start">Where the Capability Layer sits — and its four sources</text>
+    <g class="teal"><rect x="40" y="38" width="600" height="48" rx="8"/>
+    <text class="t" x="56" y="60">The engine — the closed loop</text>
+    <text class="ts" x="56" y="78">Triage → Root cause → Remediate → Verify</text>
+    <text class="ts" x="624" y="67" text-anchor="end">reasons; calls capabilities</text></g>
+    <line class="lnk" x1="340" y1="86" x2="340" y2="103" marker-end="url(#ahA)"/>
+    <text class="ts" x="352" y="99">calls an abstract capability</text>
+    <g class="amber"><rect x="40" y="106" width="600" height="72" rx="8"/>
+    <text class="t" x="56" y="128">One governed Capability Layer</text>
+    <text class="ts" x="56" y="151" font-weight="700">Registry</text>
+    <text class="ts" x="56" y="167">the catalogue</text>
+    <text class="ts" x="280" y="151" font-weight="700">Uniform contract</text>
+    <text class="ts" x="280" y="167">every tool the same</text>
+    <text class="ts" x="480" y="151" font-weight="700">Governance</text>
+    <text class="ts" x="480" y="167">dial · gate · audit</text></g>
+    <line class="lnk" x1="340" y1="178" x2="106" y2="199" marker-end="url(#ahA)"/>
+    <line class="lnk" x1="340" y1="178" x2="261" y2="199" marker-end="url(#ahA)"/>
+    <line class="lnk" x1="340" y1="178" x2="419" y2="199" marker-end="url(#ahA)"/>
+    <line class="lnk" x1="340" y1="178" x2="574" y2="199" marker-end="url(#ahA)"/>
+    <g class="teal"><rect x="40" y="200" width="126" height="54" rx="8"/>
+    <text class="t" x="103" y="224" text-anchor="middle">Existing MCP</text>
+    <text class="ts" x="103" y="241" text-anchor="middle">servers</text></g>
+    <g class="teal"><rect x="198" y="200" width="126" height="54" rx="8"/>
+    <text class="t" x="261" y="224" text-anchor="middle">Internal APIs</text>
+    <text class="ts" x="261" y="241" text-anchor="middle">WF REST</text></g>
+    <g class="teal"><rect x="356" y="200" width="126" height="54" rx="8"/>
+    <text class="t" x="419" y="224" text-anchor="middle">Our skills</text>
+    <text class="ts" x="419" y="241" text-anchor="middle">we build these</text></g>
+    <g class="teal"><rect x="514" y="200" width="126" height="54" rx="8"/>
+    <text class="t" x="577" y="224" text-anchor="middle">Playwright</text>
+    <text class="ts" x="577" y="241" text-anchor="middle">browser</text></g>
+    <line class="lnk" x1="103" y1="254" x2="103" y2="269" marker-end="url(#ahA)"/>
+    <line class="lnk" x1="261" y1="254" x2="261" y2="269" marker-end="url(#ahA)"/>
+    <line class="lnk" x1="419" y1="254" x2="419" y2="269" marker-end="url(#ahA)"/>
+    <line class="lnk" x1="577" y1="254" x2="577" y2="269" marker-end="url(#ahA)"/>
+    <rect class="lbox" x="40" y="270" width="600" height="34" rx="6"/>
+    <text class="ts" x="340" y="291" text-anchor="middle">the real world — Datadog · ServiceNow · Kubernetes · Cloud · Browsers</text>
+    <text class="ts" x="340" y="322" text-anchor="middle">reuse three, build one — and swap any source without touching the engine</text>
+    <g class="teal"><rect x="40" y="336" width="13" height="13" rx="3"/></g>
+    <text class="ts" x="60" y="346">engine &amp; tools (governed)</text>
+    <g class="amber"><rect x="300" y="336" width="13" height="13" rx="3"/></g>
+    <text class="ts" x="320" y="346">the one control layer</text>
+    </svg>
+    <figcaption>The engine calls abstract capabilities; one governed layer fans out to four sources.</figcaption>
+  </figure>
+
+  <ul>
+    <li><b>The engine calls verbs, not tools.</b> It asks for <code>restart_workload</code>, never "POST to the k8s API."</li>
+    <li><b>One layer, four sources.</b> Registry + uniform contract + governance, fed by existing MCP servers, internal APIs, our own skills, and Playwright.</li>
+    <li><b>Reuse three, build one.</b> We connect to what already exists and build only our own domain skills.</li>
+    <li><b>Why:</b> one catalogue and one way to act is what keeps a bank's blast radius governable — and lets us swap any source without touching the engine.</li>
+  </ul>
+
+  <h2><span class="n">2</span> The path of a single call</h2>
+  <p>Every action — a metric query, a restart, a browser click — takes the <i>same</i> path. That is where
+  the control lives.</p>
+
+  <figure class="fig">
+    <svg viewBox="0 0 680 448" role="img" xmlns="http://www.w3.org/2000/svg">
+    <title>The path of one tool call through governance</title>
+    <desc>A single call flows top to bottom through resolve, the dial, a human gate for writes only, execute and validate, and audit. Reads skip the gate.</desc>
+    <defs><marker id="ahB" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--arrow)"/></marker></defs>
+    <text class="th" x="40" y="24" text-anchor="start">The path of one tool call — how every action is governed</text>
+    <g class="teal"><rect x="200" y="40" width="280" height="46" rx="8"/>
+    <text class="t" x="340" y="62" text-anchor="middle">1 · Agent calls a capability</text>
+    <text class="ts" x="340" y="78" text-anchor="middle">an abstract verb, not a tool</text></g>
+    <line class="lnk" x1="340" y1="86" x2="340" y2="103" marker-end="url(#ahB)"/>
+    <rect class="lbox" x="200" y="104" width="280" height="46" rx="8"/>
+    <text class="t" x="340" y="126" text-anchor="middle">2 · Resolve to a concrete tool</text>
+    <text class="ts" x="340" y="142" text-anchor="middle">read side-effect class + risk</text>
+    <line class="lnk" x1="340" y1="150" x2="340" y2="167" marker-end="url(#ahB)"/>
+    <g class="amber"><rect x="200" y="168" width="280" height="46" rx="8"/>
+    <text class="t" x="340" y="190" text-anchor="middle">3 · The dial — policy check</text>
+    <text class="ts" x="340" y="206" text-anchor="middle">observe → allow · actuate → gate</text></g>
+    <line class="lnk" x1="340" y1="214" x2="340" y2="231" marker-end="url(#ahB)"/>
+    <g class="amber"><rect x="200" y="232" width="280" height="54" rx="8" stroke-dasharray="6 4"/>
+    <text class="t" x="340" y="254" text-anchor="middle">4 · Human gate (writes only)</text>
+    <text class="ts" x="340" y="271" text-anchor="middle">approve in console · pauses &amp; resumes</text></g>
+    <line class="lnk" x1="340" y1="286" x2="340" y2="303" marker-end="url(#ahB)"/>
+    <text class="ts" x="575" y="250" text-anchor="middle">observe (reads)</text>
+    <text class="ts" x="575" y="266" text-anchor="middle">skip this step</text>
+    <line class="lnk dsh" x1="558" y1="272" x2="484" y2="261" marker-end="url(#ahB)"/>
+    <g class="teal"><rect x="200" y="304" width="280" height="46" rx="8"/>
+    <text class="t" x="340" y="326" text-anchor="middle">5 · Execute &amp; validate output</text>
+    <text class="ts" x="340" y="342" text-anchor="middle">via the provider</text></g>
+    <line class="lnk" x1="340" y1="350" x2="340" y2="367" marker-end="url(#ahB)"/>
+    <rect class="lbox" x="200" y="368" width="280" height="46" rx="8"/>
+    <text class="t" x="340" y="390" text-anchor="middle">6 · Immutable audit record</text>
+    <text class="ts" x="340" y="406" text-anchor="middle">logged — then result returns to the agent</text>
+    <text class="ts" x="340" y="434" text-anchor="middle" font-weight="700">Why: governance lives at the boundary, not in the prompt.</text>
+    </svg>
+    <figcaption>One path for every call; reads flow through, writes meet the gate, everything is audited.</figcaption>
+  </figure>
+
+  <ul>
+    <li><b>Reads flow straight through.</b> Observe-tier calls (triage, root cause, verify) run freely.</li>
+    <li><b>Writes meet the dial, then the gate.</b> Actuate-tier calls consult the per-phase / per-service / per-severity policy; if approval is required the engine <code>pauses</code> and <code>resumes</code> — checkpointed, so a pause survives a restart.</li>
+    <li><b>Everything is audited.</b> Who, what, when, inputs, result, approver — immutable.</li>
+    <li><b>Why:</b> a prompt can be talked around; a boundary check cannot. This is the control a regulator wants to see.</li>
+  </ul>
+
+  <h2><span class="n">3</span> Why it is built this way</h2>
+  <ul>
+    <li><b>No vendor lock-in.</b> Sources are swappable adapters; the engine is portable. Replacing Datadog with Splunk is a config change, not a rewrite.</li>
+    <li><b>Safe by construction.</b> The read/write line <i>is</i> the gate line — autonomy is a dial you turn up per phase as trust is earned.</li>
+    <li><b>Playwright where it is uniquely right.</b> User's-eye health checks, actions through consoles with no API, end-to-end verification, and screenshot evidence — run isolated and origin-allow-listed, credentials out-of-band.</li>
+  </ul>
+  <div class="rec">
+    <b>What I recommend.</b> Build the read-only path end-to-end first (Triage + Root cause, observe-only),
+    prove the audit trail, then enable the first gated write. Reuse before you build; treat Playwright as the
+    bridge-and-verifier, not the default actuator; and insist on one registry — if a capability is not in the
+    catalogue, the engine cannot use it.
+  </div>
+
+  <footer>
+    Companion to the written specification <b>2026-06-15-Incident-Triage-Capability-Layer.docx</b>.
+    Both extend the operating model (supervised-autonomy, closed-loop AIOps) and the platform AI Registry
+    (Models · Agents · Skills · MCP).
+  </footer>
+
+</div>
+</body>
+</html>

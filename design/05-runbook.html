@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage — Runbook (per phase: questions · needs · data)</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;--code:#f2f4f7;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:34px 26px 70px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:16px;margin-bottom:10px}
+  h1{font-size:26px;margin:0 0 5px;color:var(--accent)}
+  .sub{font-size:15px;color:var(--ink2);margin:0}.meta{font-size:12.5px;color:var(--ink2);font-style:italic;margin-top:9px}
+  h2{font-size:21px;color:var(--accent);margin:34px 0 6px;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-size:13px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:2px 9px}
+  h3{font-size:14px;color:var(--head);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.03em}
+  p{margin:0 0 11px}b{color:var(--head)}
+  ul,ol{margin:6px 0 12px;padding-left:22px}li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 12px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:#eef4fb;color:var(--accent);font-weight:600}
+  code{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:.9em;background:#eef1f5;border-radius:4px;padding:1px 5px}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;font-size:12px;line-height:1.5;font-family:"SF Mono",Consolas,Menlo,monospace}
+  .lead{background:#eef4fb;border-left:5px solid var(--accent);border-radius:8px;padding:13px 17px;margin:14px 0}
+  .data{background:#f1f7f1;border-left:5px solid var(--ok);border-radius:8px;padding:8px 14px;margin:8px 0}
+  .data .l{font-size:11px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.04em}
+  .gate{color:var(--warn);font-weight:700}
+  .map{background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:10px 16px;margin:12px 0;font-size:13.5px}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--ink2)}
+</style></head><body><div class="wrap">
+<div style="font:700 12px/1 -apple-system,Segoe UI,Arial;margin-bottom:12px"><a href="index.html" style="color:#1F4E79;text-decoration:none">← Design-set index</a></div>
+
+
+<header>
+  <h1>Incident Triage — Runbook</h1>
+  <p class="sub">What each phase asks, the capability <b>intents</b> it needs and what they gather, the steps, and how the <b>investigation graph + record</b> build up — phase by phase.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · the operational detail behind the Design doc + the Data-Model doc · worked on INC-4821 / payments-api (a storage root-cause incident)</p>
+</header>
+
+<div class="lead"><b>How to read this.</b> Each phase has four parts: the <b>questions</b> it must answer · the capability <b>intents</b> (<code>needs</code>) it calls and <b>what each gathers</b> (with the access it needs) · the <b>steps</b> · and the <b>data it adds</b> — the typed output and the graph it touches. Phases name <b>intents, never tools</b>; the engine resolves each to a concrete capability from the live registry, bounded by <code>effect</code>. Reads flow through; the one <span class="gate">write</span> (remediation) stops at the approval gate.</div>
+
+<div class="map"><b>Two things grow as the run proceeds.</b> The <b>graph</b> — one per incident, shared by all phases (nodes · facts · edges). The <b>record</b> — <code>AssessResult</code> → <code>+ RootCauseResult</code> → <code>+ RemediationResult</code> → <code>+ VerifyResult</code>. Each phase reads what's there and adds its typed output; a backtrack re-enters a phase with <i>more</i> context. The subject is <code>{domain, id}</code> = <code>{app-incident, INC-4821}</code> — domain-neutral.</div>
+
+<h2><span class="n">1</span> Assess — what broke, how bad, the context</h2>
+<h3>Questions</h3>
+<ul>
+  <li>Which <b>node(s)</b> are affected — one app, or several across layers (app · DB · network · storage)?</li>
+  <li>How bad — <b>impact × urgency → priority</b>, and the <b>business impact</b>?</li>
+  <li>What <b>changed</b> recently (deploys / config / flags)? <i>(<code>changed:[]</code> = checked &amp; clean.)</i></li>
+  <li>What's the <b>blast radius</b>, and which neighbours show an <b>impact_state</b>?</li>
+  <li>Are there <b>related or similar</b> priors — and what fixed them?</li>
+</ul>
+<h3>Needs (intents) — and what each gathers</h3>
+<table>
+  <tr><th>Need (intent)</th><th>What it gathers</th><th>Effect</th></tr>
+  <tr><td><code>incident-source</code></td><td>the incident record — symptom, reporter, the firing alert(s)</td><td>read</td></tr>
+  <tr><td><code>topology</code></td><td>the affected node + its neighbourhood (depends_on / hosted_on / runs_on), owner / on-call</td><td>read</td></tr>
+  <tr><td><code>telemetry</code></td><td>light health on the symptom path — golden signals + <code>impact_state</code> per node</td><td>read</td></tr>
+  <tr><td><code>change-history</code></td><td>recent deploys / changes on the node + its dependencies</td><td>read</td></tr>
+  <tr><td><code>similar-incidents</code></td><td>related / similar priors — and their <code>resolution</code> (becomes a suggestion)</td><td>read</td></tr>
+</table>
+<h3>Steps</h3>
+<ol>
+  <li>Seed the graph from <code>incident-source</code> — the <b>incident</b> node (the subject) + the firing <b>alert</b>.</li>
+  <li>Load the <b>topology</b> (the affected app + neighbourhood) and overlay <b>light health</b>.</li>
+  <li>Compute the <b>blast radius</b> in business terms; classify <code>incident_type</code>.</li>
+  <li>Pull <b>recent changes</b> — record <code>changed:[]</code> as a positive "checked &amp; clean" if none implicate.</li>
+  <li>Link <b>related / similar</b> priors and <b>use</b> them — a prior's <code>resolution</code> → a <code>suggestion</code>.</li>
+  <li>Set an initial <code>suspected_locus</code> to give Root cause a head start.</li>
+</ol>
+<div class="data"><div class="l">Data after Assess — AssessResult (+ the seeded graph)</div>
+<pre>{ incident_type:"performance",
+  symptom:"checkout p99 0.4s→4.2s, errors 18%",
+  affected:["app:payments-api","biz:checkout-journey"],
+  impact_assessment:{ scope:"customer-facing", blast_radius:["app:payments-api"],
+                      severity:"P1", urgency:"high", business_impact:"checkout / revenue path" },
+  changed:["chg:deploy-rev47"],                       // present, but will be ruled out in root-cause
+  time_factor:null,
+  suspected_locus:{ node:"db:payments-ora", why:"DB-backed latency on the symptom path" },
+  related:["INC-4820"], cluster:null,
+  suggestions:[{ possible_fix:"failover DB to standby", basis:"similar_incident", confidence:0.7 }],
+  owner:"payments-sre" }
+// graph seeded: INC-4821(incident) —affects→ app:payments-api —depends_on→ db:payments-ora ;
+//               alert:7741 —observed_on→ db ; INC-4821 —related_to(similar)→ INC-4820</pre></div>
+
+<h2><span class="n">2</span> Root cause — the probable cause, with evidence and a basis</h2>
+<h3>Questions</h3>
+<ul>
+  <li>What is the <b>probable cause</b> — and the ranked alternatives?</li>
+  <li>How <b>confident</b>, on what <b>basis</b>, and with what <b>evidence</b>?</li>
+  <li>Does it sit <b>below</b> the unhealthy node (a deeper layer), or in a change / a zone / a time factor?</li>
+  <li>What can we <b>rule out</b>, with the evidence that kills it?</li>
+</ul>
+<h3>Needs (intents) — and what each gathers</h3>
+<table>
+  <tr><th>Need (intent)</th><th>What it gathers</th><th>Effect</th></tr>
+  <tr><td><code>traces</code></td><td>where the latency actually originates across the path (here: 75% is the DB call)</td><td>read</td></tr>
+  <tr><td><code>metrics</code></td><td>golden signals for the suspect nodes around onset — incl. the layer below (DB I/O, storage latency)</td><td>read</td></tr>
+  <tr><td><code>logs</code></td><td>error lines / signatures for the window</td><td>read</td></tr>
+  <tr><td><code>change-history</code></td><td>the diff of any suspect change (rev47), to confirm or rule out</td><td>read</td></tr>
+  <tr><td><code>layer-deep-dive</code></td><td>the per-layer specialist (DB / storage / network agent) for the deep signal</td><td>read</td></tr>
+</table>
+<h3>Steps</h3>
+<ol>
+  <li>Walk the graph from the symptom toward <code>suspected_locus</code> — and <b>below</b> it if that layer reads slow.</li>
+  <li>Correlate traces / metrics / logs; follow the path <b>app → DB → storage</b>.</li>
+  <li>Form <b>ranked candidates</b>, each with a <code>path</code> and a <code>confidence{value, basis}</code> — the basis states <i>why</i>.</li>
+  <li><b>Rule out</b> alternatives and record the killing evidence; <b>pivot</b> if the health-walk dead-ends.</li>
+  <li>If top confidence &lt; <code>min_confidence</code> → gather more, or ask the operator.</li>
+</ol>
+<div class="data"><div class="l">Data added — RootCauseResult (+ the graph side-effect)</div>
+<pre>{ candidates:[
+    { cause:"pay-vol disk failure → RAID rebuild → DB I/O", node:"stor:pay-vol",
+      confidence:{ value:0.9, basis:"evidence-complete + matches INC-4820" }, rank:1,
+      path:["app:payments-api","db:payments-ora","stor:pay-vol"],
+      evidence:["otel://trace/9af3","oem://payments-ora/awr","netapp://aggr01/disk/1.4.7"],
+      recommended_fix:"failover DB to standby" } ],
+  selected:0,
+  ruled_out:[ {hyp:"rev47 deploy", evidence:"trace shows DB cost, not app code"},
+              {hyp:"gemini-api",   evidence:"429s are downstream retries"},
+              {hyp:"network/compute", evidence:"clean"} ],
+  status:"confident" }
+// graph: stor:pay-vol gains label `suspect`; edge  INC-4821 —suspected_cause→ stor:pay-vol {0.9, path:[…]}</pre></div>
+
+<h2><span class="n">3</span> Remediation — the safest fix, gated</h2>
+<h3>Questions</h3>
+<ul>
+  <li>What's the safest fix — <b>reverse</b>, <b>mitigate</b>, or <b>escalate</b>?</li>
+  <li>What will it <b>do</b> (expected_effect), who does it <b>touch</b> (blast_radius), how do we <b>undo</b> it (rollback)?</li>
+  <li>Is it <b>temporary</b> — and when must it be reverted (revert_when)?</li>
+  <li>Is it <b>approved</b> — and did it actually run?</li>
+</ul>
+<h3>Needs (intents) — and what each does</h3>
+<table>
+  <tr><th>Need (intent)</th><th>What it does</th><th>Effect · access</th></tr>
+  <tr><td><code>remediation-action</code></td><td><b>writes</b>: the chosen fix (here: failover <code>db:payments-ora → standby</code>); returns the result</td><td><span class="gate">write · ask (gated)</span></td></tr>
+  <tr><td><code>escalation</code></td><td><b>writes</b>: hand a durable fix to the owning team (replace the failed disk) — a ticket / page</td><td><span class="gate">write · ask</span></td></tr>
+</table>
+<h3>Steps</h3>
+<ol>
+  <li>Propose the fix from the <code>selected</code> cause — here a <b>mitigate / failover</b>; state <b>expected_effect · blast_radius · rollback</b>, and <b>temporary</b> + <code>revert_when</code>.</li>
+  <li><span class="gate">Approval gate</span> — the operator <b>approves / refines / denies</b> inline (recorded as a <code>decision</code> step).</li>
+  <li>Execute with an <b>idempotency key</b> (exactly-once); capture the result + evidence.</li>
+  <li><b>On failure</b> — retry transient errors per the playbook <code>retry</code>; permanent / blocked → <code>error_handler</code> (escalate).</li>
+  <li>Record <b>followups</b> for the durable fix owned elsewhere.</li>
+</ol>
+<div class="data"><div class="l">Data added — RemediationResult</div>
+<pre>{ actions:[
+    { action_id:"a1", kind:"mitigate", technique:"failover", target:"db:payments-ora",
+      expected_effect:"DB served by standby; I/O normal", blast_radius:"payments read path",
+      rollback:"fail back once disk replaced", temporary:true, revert_when:"incident_close",
+      idempotency_key:"INC-4821-a1", gated:true,
+      approval:{ decision:"approve", actor:"j.rivera", at:"14:21" },
+      result:"applied; I/O 28ms→4ms", status:"done" } ],
+  followups:[{ detail:"replace disk 1.4.7", basis:"escalate", owner:"storage" }],
+  status:"applied" }</pre></div>
+
+<h2><span class="n">4</span> Verify &amp; close — confirm recovery, then a human closes</h2>
+<h3>Questions</h3>
+<ul>
+  <li>Did it <b>recover</b> — from the <b>user's</b> side (before / after)?</li>
+  <li>Does the <b>user journey</b> work (synthetic replay)?</li>
+  <li>Is every <b>temporary</b> action reverted-or-scheduled?</li>
+  <li>What actually fixed it (the <b>resolution</b>)? Safe to <b>close</b>? (a human decision)</li>
+</ul>
+<h3>Needs (intents) — and what each gathers</h3>
+<table>
+  <tr><th>Need (intent)</th><th>What it gathers</th><th>Effect</th></tr>
+  <tr><td><code>telemetry</code></td><td>before / after on the symptom — p99, error rate</td><td>read</td></tr>
+  <tr><td><code>synthetic-replay</code></td><td>runs the key user journey and returns pass / fail + evidence</td><td>read</td></tr>
+</table>
+<h3>Steps</h3>
+<ol>
+  <li>Re-check the symptom + <b>replay the journey</b>; capture <b>before / after</b>.</li>
+  <li>Confirm recovery <b>from the user's side</b> (not just "the metric came back").</li>
+  <li>Confirm every <b>temporary</b> action is reverted-or-scheduled — none may dangle.</li>
+  <li>Record the <b>resolution</b> (what the next incident will learn from). If it didn't hold → <b>backtrack</b> to Root cause.</li>
+  <li>The <b>operator confirms and closes</b> — closing is a human act, never automatic.</li>
+</ol>
+<div class="data"><div class="l">Data added — VerifyResult</div>
+<pre>{ recovered:true,
+  before_after:"p99 4.2s→260ms, errors 18%→0.2%",
+  watch_window:"15m", recovery_confidence:0.95,
+  resolution:"failover to standby; durable fix = disk replacement",
+  temporary_actions_status:[{ action_id:"a1", status:"scheduled" }],
+  residual:[{ item:"replace disk", owner:"storage" }],
+  closed_by:"j.rivera", status:"closed" }</pre></div>
+
+<h2><span class="n">5</span> What the triage needs — intents, resolved by the registry</h2>
+<p>Phases name <b>intents</b>; the registry resolves each to a concrete capability and the human-owned policy gates it (<code>allow / ask / deny</code>). Onboarding priority per source: <b>native MCP</b> → else <b>register the API as a dynamic MCP</b> → else <b>A2A</b> for the per-layer specialists.</p>
+<table>
+  <tr><th>Intent</th><th>Resolves to (examples)</th><th>Effect · access</th><th>Used in</th></tr>
+  <tr><td><code>incident-source</code> · <code>similar-incidents</code></td><td>ITSM / incident store</td><td>read · allow</td><td>Assess</td></tr>
+  <tr><td><code>topology</code> · <code>telemetry</code> · <code>metrics</code></td><td>CMDB · APM (native MCP or dynamic-MCP)</td><td>read · allow</td><td>Assess · Root cause · Verify</td></tr>
+  <tr><td><code>logs</code> · <code>traces</code></td><td>log / trace backends (dynamic-MCP)</td><td>read · allow</td><td>Root cause</td></tr>
+  <tr><td><code>change-history</code></td><td>change / deploy records</td><td>read · allow</td><td>Assess · Root cause</td></tr>
+  <tr><td><code>layer-deep-dive</code></td><td><b>App / DB / Network / Storage specialist agents</b> (A2A, scoped)</td><td>read · allow (scoped)</td><td>Root cause</td></tr>
+  <tr><td><code>remediation-action</code> · <code>escalation</code></td><td>action providers (native MCP · dynamic-MCP · wrapped A2A) — incl. the wrapped incumbent (Amelia / BladeLogic)</td><td><span class="gate">write · ask (gated)</span></td><td>Remediation</td></tr>
+  <tr><td><code>synthetic-replay</code></td><td>synthetic-journey runner (skill)</td><td>read · allow</td><td>Verify</td></tr>
+</table>
+
+<h2><span class="n">6</span> The playbook that drives this</h2>
+<p>The process above is a <b>versioned playbook</b> (Markdown + YAML front-matter) — tool-agnostic, so it never names a tool; change it without changing the engine, and a <b>different playbook runs a different domain</b>. The full file + the <code>graph_schema</code> are in the Data-Model doc (§1); the essentials:</p>
+<pre>---
+id: incident-triage
+version: 1.0.0
+domain: app-incident                         # one engine, many playbooks
+defaults: { on_failure: run-remaining, retry: { max: 3, backoff: exponential } }
+unknown_access: ask
+error_handler: { action: escalate, to: on-call, via: pagerduty }
+phases:                                        # TOOL-AGNOSTIC — intent (needs) + effect, never a tool
+  - { id: assess,       effect: read-only, output: AssessResult,
+      needs: [incident-source, topology, change-history, telemetry, similar-incidents] }
+  - { id: root-cause,   effect: read-only, output: RootCauseResult, min_confidence: 0.7,
+      needs: [metrics, logs, traces, topology, change-history, layer-deep-dive] }
+  - { id: remediation,  effect: write, gate_writes: true, output: RemediationResult,
+      needs: [remediation-action, escalation] }
+  - { id: verify-close, effect: read-only, output: VerifyResult,
+      needs: [telemetry, synthetic-replay] }
+output_schemas:
+  AssessResult:      { required: [incident_type, symptom, affected, impact_assessment, changed, suggestions] }
+  RootCauseResult:   { required: [candidates, selected, status] }
+  RemediationResult: { required: [actions] }
+  VerifyResult:      { required: [recovered, resolution] }
+---
+## assess        Build the picture (read-only); use similar priors; changed:[] is "checked & clean".
+## root-cause    Ranked candidates with a path + a confidence basis; rule out; pivot if health reads green.
+## remediation   Safest fix — reverse | mitigate | escalate; every write gated; expected_effect · blast · rollback.
+## verify-close  Confirm recovery from the user's side; revert temporaries; record resolution; a human closes.</pre>
+
+<footer>The operational detail behind the Design doc + the Data-Model doc (every schema in full). Worked on INC-4821 / payments-api (a <b>storage</b> root cause — failed disk → RAID rebuild → DB I/O → app latency); the same shape covers any application, and the same engine any domain.</footer>
+
+</div></body></html>

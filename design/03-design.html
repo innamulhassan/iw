@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage — Engine &amp; Platform Design</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;--mono:'SF Mono',Consolas,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:34px 26px 70px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:16px;margin-bottom:10px}
+  h1{font-size:27px;margin:0 0 5px;color:var(--accent)}
+  .sub{font-size:15px;color:var(--ink2);margin:0}.meta{font-size:12.5px;color:var(--ink2);font-style:italic;margin-top:9px}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 20px;margin:16px 0;column-count:2;column-gap:30px;font-size:13px}
+  .toc a{color:var(--accent);text-decoration:none;display:block;padding:2px 0;break-inside:avoid}
+  .toc .pt{font-weight:700;color:var(--head);margin-top:7px;text-transform:uppercase;letter-spacing:.03em;font-size:11px}
+  .toc .pt:first-child{margin-top:0}
+  .part{font-size:12px;font-weight:700;color:#fff;background:var(--head);border-radius:6px;padding:3px 12px;display:inline-block;margin:34px 0 0;letter-spacing:.03em}
+  h2{font-size:20px;color:var(--accent);margin:14px 0 6px;display:flex;align-items:baseline;gap:10px;scroll-margin-top:12px}
+  h2 .n{font-size:12.5px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:2px 9px}
+  h3{font-size:14px;color:var(--head);margin:16px 0 4px}
+  p{margin:0 0 11px}b{color:var(--head)}
+  ul,ol{margin:6px 0 12px;padding-left:22px}li{margin:4px 0}
+  figure{margin:10px 0}figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0 12px;table-layout:fixed}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}
+  th{background:#eef4fb;color:var(--accent);font-weight:600}
+  td.f{font-family:var(--mono);font-weight:700;color:var(--head)}
+  code{font-family:var(--mono);font-size:.9em;background:#eef1f5;border-radius:4px;padding:1px 5px;overflow-wrap:anywhere}
+  pre{background:#f6f8fa;border:1px solid var(--line);border-radius:9px;padding:12px 14px;overflow-x:auto;font-size:11px;line-height:1.5;font-family:var(--mono);color:#1f2937;margin:7px 0;white-space:pre}
+  pre.json{background:#0f2233;color:#d6e2ee;border-color:#0b1a27}
+  pre .c{color:#6f8aa3}pre.json .k{color:#9ad0ff}
+  .lead{background:#eef4fb;border-left:5px solid var(--accent);border-radius:8px;padding:12px 16px;margin:13px 0;font-size:13.5px}
+  .lead.dn{background:#eef7f1;border-left-color:var(--ok)}
+  .lead.key{background:#fbf7ee;border-left-color:var(--warn)}
+  .flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:9px 0;font-size:12.5px}
+  .flow .b{background:#eef4fb;border:1px solid #cfe0f0;border-radius:8px;padding:5px 11px;font-weight:700;color:var(--accent)}
+  .flow .ar{color:#9AA5B1;font-weight:700}
+  .step-trace{counter-reset:tr;font-size:12.5px;margin:8px 0}
+  .step-trace .t{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:6px 0;background:#fcfdfe}
+  .step-trace .t b{color:var(--head)}
+  .new{background:#eaf7ec;color:#1d6b2a;border-radius:4px;padding:0 4px;font-size:.8em;font-weight:700}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:14px;font-size:12.5px;color:var(--ink2)}
+  @media(max-width:720px){.toc{column-count:1}table{table-layout:auto}}
+</style></head><body><div class="wrap">
+<div style="font:700 12px/1 -apple-system,Segoe UI,Arial;margin-bottom:12px"><a href="index.html" style="color:#1F4E79;text-decoration:none">← Design-set index</a></div>
+
+
+<header>
+  <h1>Incident Triage — Engine &amp; Platform Design</h1>
+  <p class="sub">The complete design, in one place: the system, <b>the engine on LangGraph</b>, the capability layer, the full data model, the physical/LLD detail, operations, and the release schedule. Domain-neutral; incident triage is the first domain.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · v1.0 · combines the HLD + LLD + data model + delivery · companion: the Presentation (leadership) · worked on INC-4821 / payments-api</p>
+</header>
+
+<nav class="toc">
+  <div class="pt">A · The system</div>
+  <a href="#a1">A1 · What &amp; why — goals</a>
+  <a href="#a2">A2 · Three levels — domain-neutral</a>
+  <a href="#a3">A3 · Architecture</a>
+  <div class="pt">B · The engine on LangGraph</div>
+  <a href="#b1">B1 · Loading the playbook → compiling the run</a>
+  <a href="#b2">B2 · The run state</a>
+  <a href="#b3">B3 · The phase loop — plan → execute</a>
+  <a href="#b4">B4 · Running the capability layer in the loop</a>
+  <a href="#b5">B5 · The gate, checkpoint, resume</a>
+  <a href="#b6">B6 · Phase transitions — conditional edges</a>
+  <a href="#b7">B7 · A full run trace (INC-4821)</a>
+  <div class="pt">C · Capability layer &amp; governance</div>
+  <a href="#c1">C1 · Connection priority</a>
+  <a href="#c2">C2 · The registry</a>
+  <a href="#c3">C3 · govern()</a>
+  <a href="#c4">C4 · Intent resolution</a>
+  <a href="#c5">C5 · Autonomy ladder &amp; feedback</a>
+  <div class="pt">D · The data model</div>
+  <a href="#d1">D1 · The investigation graph</a>
+  <a href="#d2">D2 · The phase record</a>
+  <a href="#d3">D3 · The four phase outputs</a>
+  <a href="#d4">D4 · Subject &amp; storage planes</a>
+  <a href="#d5">D5 · Feedback · D6 · Incident document</a>
+  <div class="pt">E · Physical / LLD</div>
+  <a href="#e1">E1 · Postgres DDL</a>
+  <a href="#e2">E2 · Mongo collections</a>
+  <a href="#e3">E3 · Engine API</a>
+  <a href="#e4">E4 · Errors, retries, recovery</a>
+  <div class="pt">F · Operations</div>
+  <a href="#f1">F1 · The console</a>
+  <a href="#f2">F2 · Cross-cutting</a>
+  <div class="pt">G · Delivery</div>
+  <a href="#g1">G1 · Milestones &amp; timeline</a>
+  <a href="#g2">G2 · NFRs</a>
+</nav>
+
+<!-- ============================ PART A ============================ -->
+<div class="part">A · The system</div>
+
+<h2 id="a1"><span class="n">A1</span> What &amp; why — goals</h2>
+<p>A governed, in-house <b>investigation engine</b> for production operations. One engine runs a versioned <b>playbook</b> through gated, audited phases; it builds a <b>graph</b> of the situation, reasons over it with the model, calls <b>governed capabilities</b> (never tools directly), and a human approves every write. The first domain is incident triage; the same engine runs other domains by loading a different playbook.</p>
+<table>
+  <tr><th style="width:26%">Goal</th><th>How the design meets it</th></tr>
+  <tr><td class="f">No vendor lock-in</td><td>the engine calls abstract capabilities; a source can change without touching the engine (Part C).</td></tr>
+  <tr><td class="f">No domain lock-in</td><td>everything domain-specific is in the playbook (types · phases · outputs); the engine, shapes, registry, governance, storage and console are universal (A2).</td></tr>
+  <tr><td class="f">Governed at the boundary</td><td>every call passes <code>allow / ask / deny</code>; every write is human-approved; closing is human (B5, C3).</td></tr>
+  <tr><td class="f">Durable + reversible</td><td>checkpointed, exactly-once, resumable; every write carries a rollback (B5, E4).</td></tr>
+  <tr><td class="f">Evidence-based + auditable</td><td>every fact carries an <code>evidence_ref</code>; the Step journey is the audit trail (D, F2).</td></tr>
+  <tr><td class="f">Gradual</td><td>Amelia runs alongside, wrapped as a governed capability, dialled down per proven slice (G1).</td></tr>
+</table>
+
+<h2 id="a2"><span class="n">A2</span> Three levels — domain-neutral</h2>
+<table>
+  <tr><th style="width:18%">Level</th><th style="width:48%">What it is</th><th>Domain-specific?</th></tr>
+  <tr><td class="f">Engine</td><td>the shapes (Node·Edge·Fact·PhaseRecord·Step), the run loop, <code>govern()</code>, gates, retries, clustering, the registry, feedback, storage, the console</td><td><b>No</b> — universal</td></tr>
+  <tr><td class="f">Playbook</td><td>the type system (<code>graph_schema</code>), the phases (+ <code>needs</code>/<code>effect</code>), the output contracts</td><td><b>Yes</b> — one file per domain</td></tr>
+  <tr><td class="f">Runtime</td><td>the concrete nodes/edges/records of one investigation</td><td>instances</td></tr>
+</table>
+<div class="lead dn"><b>The subject is named domain-neutrally</b> as a <b><code>SubjectRef {domain, id, kind}</code></b> (unique key <code>(domain, id)</code>), never a hardcoded <code>incident_id</code> — so the engine never assumes the word "incident". incident-triage fills it <code>{app-incident, INC-4821}</code>; provisioning <code>{provisioning, REQ-123}</code>.</div>
+
+<h2 id="a3"><span class="n">A3</span> Architecture</h2>
+<figure><img src="diagrams/system-arch.png" alt="System architecture — components and how external sources connect"></figure>
+<table>
+  <tr><th style="width:24%">Component</th><th>Responsibility</th><th style="width:20%">Where</th></tr>
+  <tr><td class="f">Engine (orchestrator)</td><td>loads the playbook; runs the phases; drives the per-phase model loop; enforces <code>effect</code>; checkpoints; re-enters</td><td>Part B</td></tr>
+  <tr><td class="f">Capability layer</td><td>resolves intents → concrete capabilities; binds sources by kind; runs <code>govern()</code></td><td>Part C</td></tr>
+  <tr><td class="f">Capability registry</td><td>Provider · DeclaredCapability · CapabilityPolicy</td><td>C2 · E1</td></tr>
+  <tr><td class="f">Graph builder</td><td>builds/updates the per-incident graph; clustering; the cause walk</td><td>D1</td></tr>
+  <tr><td class="f">Stores</td><td>Mongo (incident docs) · Postgres (playbook + registry) · LangGraph checkpointer (run state)</td><td>D4 · E1–E2</td></tr>
+  <tr><td class="f">Console</td><td>the single operator UI — three panes + inline gate + graph view</td><td>F1</td></tr>
+  <tr><td class="f">Connectors</td><td>native MCP · dynamic-MCP (OpenAPI) · A2A specialists (App/DB/Network; Amelia/BladeLogic wrapped)</td><td>C1</td></tr>
+</table>
+
+<!-- ============================ PART B ============================ -->
+<div class="part">B · The engine on LangGraph</div>
+<div class="lead key"><b>This is the heart of the design.</b> The engine is a <b>LangGraph</b> application. It (B1) <i>loads a playbook and compiles it into a state machine</i>, (B3) runs each phase as <i>a model-driven agent loop</i> that (B4) <i>calls the capability layer in the loop</i> and folds results into the graph, (B5) <i>pauses at the gate and checkpoints</i>, and (B6) <i>moves between phases by conditional edges</i> — looping for confidence and backtracking on failed recovery. B7 is a full trace.</div>
+
+<h2 id="b1"><span class="n">B1</span> Loading the playbook → compiling the run</h2>
+<p>On startup (and on every playbook publish), the engine <b>loads the playbook row</b> from Postgres and <b>compiles it into a LangGraph <code>StateGraph</code></b>. The playbook is data; the compiled graph is what runs.</p>
+<ol>
+  <li><b>Parse + validate</b> the front-matter: <code>phases[]</code> (each with <code>id · effect · needs · output · min_confidence?</code>), <code>graph_schema</code> (node_types, edges, facts, labels, conventions), <code>output_schemas</code>, <code>defaults</code>, <code>unknown_access</code>, <code>error_handler</code>.</li>
+  <li><b>Register the domain types</b> from <code>graph_schema</code> (so the graph builder + UI know the vocabulary) and the <code>output_schemas</code> (JSON Schema, used to validate each phase output, D3/E).</li>
+  <li><b>Build the state machine</b>: one node per phase, edges in declared order, conditional edges for loop/backtrack (B6), <code>interrupt_before</code> on writes (B5), and the checkpointer.</li>
+</ol>
+<pre>def compile_run(playbook):                          <span class="c"># playbook = the Postgres row, pinned @version</span>
+    pb = parse_frontmatter(playbook.body_md, playbook.phases, playbook.schemas)
+    validate(pb)                                     <span class="c"># phases, graph_schema, output_schemas well-formed</span>
+    register_types(pb.graph_schema)                  <span class="c"># node_types / edges / facts → graph builder + UI</span>
+    register_schemas(pb.output_schemas)              <span class="c"># JSON Schema per phase output</span>
+
+    g = StateGraph(RunState)
+    for ph in pb.phases:
+        g.add_node(ph.id, make_phase_node(ph, pb))   <span class="c"># B3 — the agent loop for this phase</span>
+    g.set_entry_point(pb.phases[0].id)               <span class="c"># assess</span>
+    wire_edges(g, pb.phases)                          <span class="c"># sequential + conditional (B6)</span>
+    return g.compile(checkpointer=PostgresSaver(...), # B5 — durable, resumable
+                     interrupt_before=["__gate__"])   <span class="c"># pause before any write</span></pre>
+<p class="lead">Because the phases, types and contracts all come from the playbook, <b>compiling a different playbook yields a different engine behaviour with zero code change</b> — the domain-neutral promise, realized at compile time.</p>
+
+<h2 id="b2"><span class="n">B2</span> The run state</h2>
+<p>One run = one LangGraph <code>thread_id</code>. The state is the working set every phase reads and writes; LangGraph checkpoints it after each step.</p>
+<pre>class RunState(TypedDict):
+    subject:        SubjectRef            <span class="c"># {domain, id, kind} — the thing under investigation</span>
+    playbook_ref:   str                   <span class="c"># "incident-triage@1.0.0" (pinned for reproducibility)</span>
+    graph:          InvestigationGraph    <span class="c"># nodes / edges / facts — SHARED across all phases (Part D)</span>
+    phase_records:  Annotated[list, append]   <span class="c"># one PhaseRecord per phase entered (D2)</span>
+    messages:       Annotated[list, append]   <span class="c"># the conversation (operator + agent)</span>
+    current_phase:  str
+    pending_gate:   Optional[Action]      <span class="c"># set when a write is awaiting approval (B5)</span>
+    status:         str                   <span class="c"># running | waiting_approval | waiting_input | done | failed</span></pre>
+<p>The <b>graph</b> is the shared world (it persists and grows across phases); each <b>PhaseRecord</b> is one phase's journey + typed output. On phase completion the engine <b>writes through</b> to the Mongo incident document (D6); the live state stays in the checkpointer until close.</p>
+
+<h2 id="b3"><span class="n">B3</span> The phase loop — plan → execute</h2>
+<p>Each phase node is a <b>model-driven agent loop</b>, bounded by the phase's <code>needs</code> (which intents it may use) and <code>effect</code> (read-only or write). The model <b>plans</b>, then loops — pick a need, call a capability, fold the result into the graph, log a Step, update the output — until the typed output is <b>sufficient</b> (its required fields are present + validate).</p>
+<pre>def make_phase_node(ph, pb):
+  def node(state):
+    rec = PhaseRecord(id=f"{state.subject.id}:{ph.id}:{attempt(state, ph)}",
+                      phase=ph.id, goal=ph.goal, plan=model.plan(state, ph), steps=[])
+    while not sufficient(rec.output, pb.output_schemas[ph.output]):
+        need, args = model.next_action(state, rec, allowed=ph.needs)   <span class="c"># 1 · model picks an INTENT</span>
+        result     = capability_layer.call(need, args, effect=ph.effect, state=state)  <span class="c"># 2 · Part B4 / C</span>
+        fold_into_graph(state.graph, result)                            <span class="c"># 3 · nodes / facts / edges + side-effects</span>
+        rec.steps.append(Step(kind="tool_call", capability=result.cap_id,
+                              input=args, result=result.data,
+                              touched=result.node_ids, evidence=result.evidence))
+        rec.output = model.update_output(rec, state.graph)              <span class="c"># 4 · build the typed output incrementally</span>
+        if model.wants_operator(rec): return pause(state, "waiting_input")   <span class="c"># ask a question</span>
+    validate(rec.output, pb.output_schemas[ph.output])                  <span class="c"># 5 · contract check (E)</span>
+    state.phase_records.append(rec); write_through_to_mongo(state)
+    return state
+  return node</pre>
+<p><b>Steps are emergent, not scripted</b> — the model decides the next need each iteration given what the graph already shows (e.g. "the DB span dominates → look below the DB"). The loop ends when the output is sufficient; reasoning, suggestions and the gate decision are also Steps (different <code>kind</code>).</p>
+
+<h2 id="b4"><span class="n">B4</span> Running the capability layer in the loop</h2>
+<p>Step 2 above — <code>capability_layer.call(need, …)</code> — is where intents become governed, real calls, <b>every iteration of the loop</b>. The layer never lets the model touch a tool directly.</p>
+<pre>def call(need, args, effect, state):
+    caps = resolve_intent(need, effect)        <span class="c"># C4 — match DeclaredCapabilities by intent + effect</span>
+    cap  = rank(caps)[0]                        <span class="c"># by trust, freshness, fit</span>
+    dec  = govern(cap, playbook_of(state))      <span class="c"># C3 — effect × access (allow | ask | deny)</span>
+    if dec.access == "deny":  raise Denied(cap)             <span class="c"># model must find another path / escalate</span>
+    if dec.access == "ask":   return request_gate(cap, args, state)   <span class="c"># B5 — pause for approval</span>
+    raw = invoke(cap, args)                     <span class="c"># native MCP | dynamic-MCP | A2A (C1)</span>
+    return Result(cap_id=cap.id, data=raw,
+                  node_ids=raw.touched,         <span class="c"># which graph nodes this read/wrote</span>
+                  evidence=raw.evidence_refs)   <span class="c"># deep links — fold into Fact.evidence_ref + output</span></pre>
+<table>
+  <tr><th style="width:24%">In the loop</th><th>What happens</th></tr>
+  <tr><td class="f">resolve_intent</td><td><code>need</code> (e.g. <code>metrics</code>) → DeclaredCapabilities tagged with that intent whose <code>effect</code> is compatible with the phase (a read-only phase can never select a write capability).</td></tr>
+  <tr><td class="f">govern</td><td>resolves <code>effect × access</code> at call time; read → usually allow; write → ask (the gate); unknown → <code>playbook.unknown_access</code>.</td></tr>
+  <tr><td class="f">invoke</td><td>dispatches to the connector for the provider's <i>kind</i> — native MCP, a dynamic-MCP-wrapped API, or an A2A specialist agent.</td></tr>
+  <tr><td class="f">fold</td><td>the result updates the <b>graph</b> (new/updated nodes, facts with <code>evidence_ref</code>, edges) and the Step records <code>touched[]</code> + <code>evidence[]</code>.</td></tr>
+</table>
+
+<h2 id="b5"><span class="n">B5</span> The gate, checkpoint, resume</h2>
+<p><b>The gate.</b> A write capability (<code>effect=write</code>) in a <code>gate_writes</code> phase resolves <code>access=ask</code>. The phase sets <code>pending_gate</code> and the compiled graph's <code>interrupt_before</code> <b>pauses the run</b> (<code>status=waiting_approval</code>) — the engine returns control to the operator with the proposed <code>Action</code> (its <code>expected_effect · blast_radius · rollback · temporary/revert_when</code>).</p>
+<p><b>Resume.</b> The operator answers via the API (<code>approve | refine | deny</code>); the engine resumes the checkpointed thread. On <code>approve</code> it invokes (guarded by the idempotency key — exactly-once even on double-approve), records a <code>decision</code> Step + the action <code>result</code>, and continues.</p>
+<pre><span class="c"># resume path</span>
+if seen(action.idempotency_key): return cached_result          <span class="c"># exactly-once</span>
+result = invoke(action); record Step(kind="decision", decision=op.decision, actor=op.actor)
+<span class="c"># checkpoint: LangGraph persists RunState after EVERY step (PostgresSaver, thread_id = run_id),</span>
+<span class="c"># so a pause or crash resumes exactly where it stopped — no work lost, no double write.</span></pre>
+
+<h2 id="b6"><span class="n">B6</span> Phase transitions — conditional edges</h2>
+<p>Phases run in declared order, but two edges are conditional — this is what makes the run <b>adaptive and re-enterable</b>, not a fixed pipeline.</p>
+<div class="flow"><span class="b">assess</span><span class="ar">→</span><span class="b">root-cause</span><span class="ar">↺ if conf &lt; min</span><span class="ar">→</span><span class="b">remediation</span><span class="ar">→</span><span class="b">verify</span><span class="ar">↺ if not recovered → root-cause</span><span class="ar">→</span><span class="b">END</span></div>
+<pre>g.add_edge("assess", "root_cause")
+g.add_conditional_edges("root_cause",
+    lambda s: "root_cause" if top_confidence(s) &lt; min_conf(s) else "remediation")  <span class="c"># gather more, or proceed</span>
+g.add_conditional_edges("verify",
+    lambda s: "root_cause" if not recovered(s) else END)        <span class="c"># backtrack with new evidence, or close</span></pre>
+<p>A re-entered phase opens a <b>new attempt</b> (<code>…:root-cause:2</code>); the graph and prior records are retained as context, so the second pass is better-informed. A human performs the final close after Verify reaches END.</p>
+<div class="lead"><b>Related incidents — human-guided, one focus.</b> A run investigates <b>one</b> incident in its own focus. On launch (and as it looks out during its cycle), the engine <b>checks for an existing session on a similar incident</b>; if it finds one it <b>asks the operator</b> — link this as <i>related</i> (into a <code>cluster</code> via <code>member_of</code>), or open a new triage. It never auto-merges and never runs "at cluster scope" — each incident keeps its own session, phases, and closure; a linked cluster just lets the shared cause/fix propagate.</div>
+
+<h2 id="b7"><span class="n">B7</span> A full run trace — INC-4821</h2>
+<p>The state machine, walked end to end on the worked incident (failed disk → RAID rebuild → DB I/O → checkout latency).</p>
+<div class="step-trace">
+  <div class="t"><b>Load.</b> Compile <code>incident-triage@1.0.0</code>; <code>thread_id = INC-4821:run:1</code>; seed the graph — <code>INC-4821(incident)</code>, <code>alert:7741</code>, from <code>incident-source</code>.</div>
+  <div class="t"><b>assess</b> (read-only loop): <code>topology</code> → app+DB+storage neighbourhood; <code>telemetry</code> → health; <code>change-history</code> → <code>rev47</code> (recorded, not yet ruled out); <code>similar-incidents</code> → <code>INC-4820</code> (its <code>resolution</code> → a suggestion). → <b>AssessResult</b> (perf · P1 · suspected_locus=DB · suggestion=failover). Checkpoint. Edge → root_cause.</div>
+  <div class="t"><b>root-cause</b> (read-only loop): <code>traces</code> → 75% is the DB call; <code>metrics</code> → DB I/O 28ms; <code>metrics</code>(storage) → <b>pay-vol disk reconstructing since 13:58</b>; rule out rev47/gemini/network. → <b>RootCauseResult</b> (<code>stor:pay-vol</code> 0.9, basis stated, path app→db→storage). <code>top_confidence 0.9 ≥ 0.7</code> → edge to remediation. Graph: <code>stor:pay-vol</code> gains <code>suspect</code> + a <code>suspected_cause</code> edge.</div>
+  <div class="t"><b>remediation</b> (write, gated): model proposes <code>failover db:payments-ora → standby</code> with expected_effect/blast/rollback/temporary. <code>govern()</code> → write → <b>ask</b> → <code>interrupt_before</code> <b>pauses</b> (<code>status=waiting_approval</code>). Operator <b>approves</b> → resume → invoke (idempotency-guarded) → <b>RemediationResult</b> (applied; I/O 28ms→4ms) + a <code>followups</code> escalation to replace the disk.</div>
+  <div class="t"><b>verify</b> (read-only loop): <code>telemetry</code> + <code>synthetic-replay</code> → p99 4.2s→260ms; <code>recovered(s)=true</code> → edge to END. → <b>VerifyResult</b> (resolution = failover + disk replacement; temporary action scheduled to revert). <b>Human closes.</b> Final state written through to the Mongo incident document (D6).</div>
+</div>
+
+<!-- ============================ PART C ============================ -->
+<div class="part">C · Capability layer &amp; governance</div>
+
+<h2 id="c1"><span class="n">C1</span> Connection priority</h2>
+<p>The engine calls abstract capabilities; the layer binds each source by its <b>kind</b>, in this onboarding priority:</p>
+<div class="flow"><span class="b">native MCP</span><span class="ar">else →</span><span class="b">register API as dynamic MCP</span><span class="ar">else →</span><span class="b">A2A specialist agent</span></div>
+<table>
+  <tr><th style="width:26%">Kind</th><th>When · examples</th></tr>
+  <tr><td class="f">native MCP</td><td>the tool already speaks MCP → use directly.</td></tr>
+  <tr><td class="f">dynamic MCP (API)</td><td>a REST tool with an OpenAPI spec → register as a dynamic MCP server, no per-endpoint code.</td></tr>
+  <tr><td class="f">A2A agent</td><td>per-layer specialists — App / DB / Network / Storage root-cause; Amelia / BladeLogic wrapped as governed capabilities.</td></tr>
+</table>
+
+<h2 id="c2"><span class="n">C2</span> The registry</h2>
+<table>
+  <tr><th style="width:28%">Entity</th><th>Role · key fields</th></tr>
+  <tr><td class="f">Provider</td><td>a source — <code>id · name · kind</code> (skill\|mcp_local\|mcp_remote\|a2a_agent\|api) <code>· connection · trusted · status · last_synced</code>.</td></tr>
+  <tr><td class="f">DeclaredCapability</td><td>one action — <code>id (provider__action) · provider · description · input_schema · output_schema · effect_hint · intents[]</code> (which needs it satisfies).</td></tr>
+  <tr><td class="f">CapabilityPolicy</td><td><b>human-owned</b> — <code>capability_id · effect · access</code> (allow\|ask\|deny) <code>· status</code> (active\|pending_review) <code>· reviewed_by · reviewed_at</code>. A new capability lands <code>pending_review · deny</code>.</td></tr>
+</table>
+<p>DDL is in E1. Declarations are machine-synced and refresh; the policy is human-owned and sticky across syncs.</p>
+
+<h2 id="c3"><span class="n">C3</span> <code>govern()</code> — resolved at call time, every time</h2>
+<pre>effect = policy(cap).effect ?? cap.effect_hint ?? "unknown"
+access = policy(cap).access ?? (playbook.unknown_access if effect=="unknown"
+                                else DEFAULT[trust(cap)][effect])</pre>
+<table>
+  <tr><th style="width:20%">access</th><th>behaviour</th></tr>
+  <tr><td class="f">allow</td><td>invoke directly, then audit.</td></tr>
+  <tr><td class="f">ask</td><td>pause (interrupt) → operator approve / refine / deny → on approve, invoke; record the decision.</td></tr>
+  <tr><td class="f">deny</td><td>refuse; the model finds another path or escalates.</td></tr>
+</table>
+
+<h2 id="c4"><span class="n">C4</span> Intent resolution</h2>
+<pre>def resolve_intent(need, phase_effect):
+    return rank([c for c in declared_capabilities
+                 if need in c.intents                       <span class="c"># satisfies the intent</span>
+                 and compatible(c.effect_hint, phase_effect)])  <span class="c"># read-only phase ⇒ no write caps</span></pre>
+<p>The playbook names <code>needs:[metrics, logs, …]</code>; resolution turns each into the concrete, allowed capability. <b>The <code>effect</code> boundary is enforced here</b>, at resolution — not only at the gate — so a read-only phase provably cannot select a write.</p>
+
+<h2 id="c5"><span class="n">C5</span> Autonomy ladder &amp; feedback</h2>
+<p>Operator <b>feedback</b> (D5), kept separate from the run, drives an <b>autonomy ladder</b> per <i>phase × node-type × severity</i>: a proven low-risk action can move <code>ask → allow</code> (earned autonomy); a declared <code>failure</code>/<code>correction</code> moves it back. Autonomy is narrow, evidence-based, and always reversible — the same <code>CapabilityPolicy</code> row is what changes.</p>
+
+<!-- ============================ PART D ============================ -->
+<div class="part">D · The data model</div>
+<div class="lead">Two schemas. The <b>Investigation Graph</b> — the per-incident world (Node · Fact · Edge), shared by all phases. The <b>Phase Record</b> — the per-phase journey (PhaseRecord · Step) + a typed output. Every field is here; <span class="new">NEW</span> marks a field the phase-output sufficiency check added.</div>
+
+<h2 id="d1"><span class="n">D1</span> The investigation graph</h2>
+<div class="lead dn"><b>The incident &amp; cluster rule.</b> A graph has <b>exactly one <code>incident</code> node</b> — the subject of <i>this</i> investigation. <b>Other incidents are referenced and actively used</b> (correlate · carry knowledge · link), never loaded as full nodes — they live in their own documents; <code>related_to</code> holds an id + kind. When incidents share a cause, the engine surfaces the match and the <b>operator</b> may <b>link</b> them into a <b><code>cluster</code></b> (<code>member_of</code>) — a human-confirmed grouping, <b>not a separate run</b>; each incident keeps its own session, phases, and closure. One playbook (incident); no "cluster playbook."</div>
+
+<h3>Node — a thing in the investigation</h3>
+<pre class="json">{
+  <span class="k">"id"</span>:     "app:payments-api",        <span class="c">// kind:name — stable; everything refers to a node by id</span>
+  <span class="k">"kind"</span>:   "system",                  <span class="c">// value from the playbook's node_types</span>
+  <span class="k">"type"</span>:   "app",                     <span class="c">// a type within the kind (or "generic")</span>
+  <span class="k">"layer"</span>:  "app",                     <span class="c">// system only: business|app|database|network|storage|compute|location|external</span>
+  <span class="k">"name"</span>:   "Payments API",
+  <span class="k">"labels"</span>: ["pci","tier-0","suspect"],  <span class="c">// open tags; some drive triage</span>
+  <span class="k">"props"</span>:  { "owner_team":"payments-sre", "on_call":"j.rivera" },
+  <span class="k">"facts"</span>:  [ <span class="c">/* Fact[] — observations made during the run */</span> ],
+  <span class="k">"summary"</span>: "degraded since 14:02; DB-backed latency",  <span class="k">"sources"</span>: ["servicenow-cmdb","appd"]
+}</pre>
+<table>
+  <tr><th style="width:16%">Field</th><th>Meaning</th></tr>
+  <tr><td class="f">id · kind · type · layer</td><td>stable id (<code>kind:name</code>); the top category + specific type from the playbook's <code>node_types</code>; <code>layer</code> (system nodes) tells the engine which deep-dive applies.</td></tr>
+  <tr><td class="f">name · labels[] · props{}</td><td>label; open tags (conventional: <code>suspect</code>·<code>policy_block</code>·<code>central</code>); source attrs + ownership.</td></tr>
+  <tr><td class="f">facts[] · summary · sources[]</td><td>embedded observations (below); rolling summary; tools that contributed.</td></tr>
+</table>
+<h3>Node types — incident-triage's vocabulary</h3>
+<table>
+  <tr><th style="width:14%">kind</th><th style="width:30%">type</th><th>represents</th></tr>
+  <tr><td class="f">system</td><td>business_service · app · service · component · database · network_device · storage · compute · zone · region · external_service · <b>generic</b></td><td>the estate, by layer; <code>generic</code> = the escape hatch (never dropped).</td></tr>
+  <tr><td class="f">incident</td><td>incident · cluster</td><td>the one subject; or the cluster it belongs to.</td></tr>
+  <tr><td class="f">change</td><td>change</td><td>a deploy / config / flag / ticket.</td></tr>
+  <tr><td class="f">alert</td><td>alert</td><td>a fired alert — its own node (identity + lifecycle).</td></tr>
+</table>
+<h3>Fact — an observation on a node</h3>
+<pre class="json">{
+  <span class="k">"key"</span>: "health", <span class="k">"value"</span>: "degraded", <span class="k">"source"</span>: "appd",
+  <span class="k">"evidence_ref"</span>: "appd://payments-api/bt?t=14:02",   <span class="c">// deep link — auditable</span>
+  <span class="k">"observed_at"</span>: "2026-06-18T14:02Z",                 <span class="c">// NO ttl — freshness judged at read time</span>
+  <span class="k">"confidence"</span>: 0.9,
+  <span class="k">"impact_state"</span>: "degraded"   <span class="c">// erroring|degraded|stalled|lagging|wrong-data|ok — SEPARATE from health</span>
+}</pre>
+<table>
+  <tr><th style="width:20%">Field</th><th>Meaning</th></tr>
+  <tr><td class="f">key · value · source</td><td>what's observed + value + the tool.</td></tr>
+  <tr><td class="f">evidence_ref</td><td>deep link to backing data — the fact is auditable (this is why no separate Evidence entity is needed).</td></tr>
+  <tr><td class="f">observed_at · confidence</td><td><b>no ttl</b> — freshness judged at read time; 0–1, discounted for noisy sources.</td></tr>
+  <tr><td class="f">impact_state <span class="new">NEW</span></td><td>distinct from <code>health</code> — a <code>health:ok</code> node can still be impacted (lagging, wrong-data) and counts toward blast radius.</td></tr>
+</table>
+<h3>Edge — a typed relationship</h3>
+<pre class="json">{
+  <span class="k">"type"</span>: "suspected_cause", <span class="k">"from"</span>: "INC-4821", <span class="k">"to"</span>: "stor:pay-vol",
+  <span class="k">"props"</span>: { "confidence":{"value":0.9,"basis":"evidence-complete + matches INC-4820"},
+            "rank":1, "path":["app:payments-api","db:payments-ora","stor:pay-vol"] }
+}</pre>
+<table>
+  <tr><th style="width:18%">edge</th><th>connects · meaning</th></tr>
+  <tr><td class="f">part_of · depends_on · runs_on · hosted_on · routes_to · located_in</td><td>containment · logical dependency · deployment · storage backing · network path · physical locality.</td></tr>
+  <tr><td class="f">changed · affects · suspected_cause</td><td>a change touched a node · the incident impacts a node · the ranked cause (props: <code>confidence{value,basis}</code> · <code>rank</code> · <code>path</code>).</td></tr>
+  <tr><td class="f">related_to · member_of</td><td>links other incidents (<code>kind</code> = child\|related\|caused_by\|chained\|similar) · is linked into a cluster (operator-confirmed).</td></tr>
+  <tr><td class="f">observed_on · correlated_into</td><td>an alert fired on a node · the alert was grouped into the incident/cluster.</td></tr>
+</table>
+<h3>Conventions &amp; clustering</h3>
+<table>
+  <tr><th style="width:18%">rule</th><th>meaning</th></tr>
+  <tr><td class="f">policy_block</td><td>a node healthy on its own signals but the cause (a bad firewall rule, expired cert, bad data) — a change/fact on a healthy node on the victim's path → suspect despite health.</td></tr>
+  <tr><td class="f">realized_by</td><td><code>depends_on.props.realized_by</code> names the physical path of a logical dependency — blast-radius and fault-localization reconcile.</td></tr>
+  <tr><td class="f">alert_noise · cluster</td><td>noisy alerts count for clustering, discounted for cause-confidence; on a shared fingerprint + converging walk the engine surfaces the match and the operator links the incidents into a cluster — never auto, never a separate run.</td></tr>
+</table>
+
+<h2 id="d2"><span class="n">D2</span> The phase record</h2>
+<h3>PhaseRecord — the per-phase journey</h3>
+<pre class="json">{
+  <span class="k">"id"</span>: "INC-4821:root-cause:1",   <span class="c">// subject.id:phase:attempt</span>
+  <span class="k">"subject"</span>: { "domain":"app-incident", "id":"INC-4821", "kind":"incident" },  <span class="c">// SubjectRef</span>
+  <span class="k">"phase"</span>: "root-cause", <span class="k">"goal"</span>: "Find the most probable cause — ranked, with evidence.",
+  <span class="k">"state"</span>: "done",                 <span class="c">// active|waiting_input|waiting_approval|blocked|done|failed</span>
+  <span class="k">"plan"</span>: "Walk below the app; correlate vs rev47; rank with a path.",
+  <span class="k">"steps"</span>: [ <span class="c">/* Step[] */</span> ], <span class="k">"output"</span>: { <span class="c">/* the typed output */</span> },
+  <span class="k">"summary"</span>: "Cause = pay-vol disk failure, conf 0.9.", <span class="k">"opened_at"</span>:"14:04", <span class="k">"closed_at"</span>:"14:07"
+}</pre>
+<table>
+  <tr><th style="width:20%">Field</th><th>Meaning</th></tr>
+  <tr><td class="f">id · subject</td><td><code>subject.id:phase:attempt</code> (attempt enables backtrack re-runs); the <b>SubjectRef</b> {domain, id, kind} — the one incident this record belongs to (no "cluster scope"); never a bare incident_id.</td></tr>
+  <tr><td class="f">phase · goal · state · plan</td><td>which phase + its goal (from the playbook); lifecycle; what it set out to do.</td></tr>
+  <tr><td class="f">steps[] · output · summary</td><td>the ordered journey (below) — the audit; the typed result (D3); rolling summary.</td></tr>
+</table>
+<h3>Step — one entry in the journey</h3>
+<pre class="json">{
+  <span class="k">"seq"</span>:2, <span class="k">"at"</span>:"14:04:30", <span class="k">"kind"</span>:"tool_call",   <span class="c">// tool_call|reasoning|suggestion|decision|user_input</span>
+  <span class="k">"capability"</span>:"traces", <span class="k">"input"</span>:{"trace":"checkout"}, <span class="k">"result"</span>:{"db_span_ms":3140},
+  <span class="k">"touched"</span>:["svc:checkout","db:payments-ora"],   <span class="c">// → graph node/fact ids</span>
+  <span class="k">"evidence"</span>:["otel://trace/9af3"], <span class="k">"note"</span>:"75% of latency is the DB call"
+}
+<span class="c">// other kinds: suggestion → {proposal, rationale} · decision → {decision, actor} · user_input → {message}</span></pre>
+<table>
+  <tr><th style="width:20%">Field</th><th>Meaning (by kind)</th></tr>
+  <tr><td class="f">seq · at · kind</td><td><i>(all)</i> order · timestamp · the discriminator. One ordered log = the audit (subsumes the HLD's Action+HumanInteraction+RunEvent).</td></tr>
+  <tr><td class="f">capability · input · result</td><td><i>tool_call</i> — the capability (from a <code>need</code>, never hardcoded) + args + return.</td></tr>
+  <tr><td class="f">touched[] · evidence[]</td><td><i>tool_call</i> — the two hooks: <code>touched</code> → the graph; <code>evidence</code> → the output.</td></tr>
+  <tr><td class="f">proposal/rationale · decision/actor · message</td><td><i>suggestion</i> · <i>decision</i> (the gate) · <i>user_input</i>.</td></tr>
+</table>
+<h3>Worked example — a Root-cause PhaseRecord, connected</h3>
+<pre class="json">{ "id":"INC-4821:root-cause:1",
+  "subject":{"domain":"app-incident","id":"INC-4821","kind":"incident"}, "phase":"root-cause", "state":"done",
+  "steps":[
+    {"seq":2,"kind":"tool_call","capability":"traces","result":{"db_span_ms":3140,"pct":"75%"},
+     "touched":["svc:checkout","db:payments-ora"],"evidence":["otel://trace/9af3"]},
+    {"seq":4,"kind":"tool_call","capability":"metrics(storage)","result":{"disk":"reconstructing since 13:58"},
+     "touched":["stor:pay-vol"],"evidence":["netapp://aggr01/disk/1.4.7"]},          <span class="c">// ROOT</span>
+    {"seq":7,"kind":"suggestion","proposal":"Cause: pay-vol disk failure. Conf 0.9."},
+    {"seq":8,"kind":"decision","decision":"approve","actor":"j.rivera"} ],            <span class="c">// the gate</span>
+  "output":{ "candidates":[{"cause":"pay-vol disk failure → RAID rebuild → DB I/O","node":"stor:pay-vol",
+      "confidence":{"value":0.9,"basis":"evidence-complete + matches INC-4820"},"rank":1,
+      "path":["app:payments-api","db:payments-ora","stor:pay-vol"],
+      "evidence":["otel://trace/9af3","netapp://aggr01/disk/1.4.7"]}], "selected":0, "status":"confident" } }
+<span class="c">// chain: step.touched → graph · step.evidence → output.candidates[].evidence · suggestion(7) → decision(8) → output</span>
+<span class="c">// graph side-effect on commit: stor:pay-vol gains label `suspect` + an INC-4821 —suspected_cause→ stor:pay-vol edge</span></pre>
+
+<h2 id="d3"><span class="n">D3</span> The four phase outputs</h2>
+<h3>AssessResult — the framed situation</h3>
+<pre class="json">{ <span class="k">"incident_type"</span>:"performance", <span class="k">"symptom"</span>:"checkout p99 0.4s→4.2s, errors 18%",
+  <span class="k">"affected"</span>:["app:payments-api","biz:checkout-journey"],
+  <span class="k">"impact_assessment"</span>:{"scope":"customer-facing","blast_radius":["app:payments-api"],"bounded_by":null,
+    "severity":"P1","urgency":"high","business_impact":"checkout / revenue path"},
+  <span class="k">"changed"</span>:["chg:deploy-rev47"],  <span class="c">// [] = checked & clean (not "unknown")</span>
+  <span class="k">"time_factor"</span>:null, <span class="k">"suspected_locus"</span>:{"node":"db:payments-ora","why":"DB span dominates"},
+  <span class="k">"related"</span>:["INC-4820"], <span class="k">"cluster"</span>:null,
+  <span class="k">"suggestions"</span>:[{"possible_fix":"failover DB to standby","basis":"similar_incident","confidence":0.7}],
+  <span class="k">"owner"</span>:"payments-sre" }</pre>
+<p style="font-size:12px;color:var(--ink2);margin:0 0 10px"><b>Fields:</b> <code>incident_type</code> <span class="new">NEW</span> · <code>symptom</code> <span class="new">NEW</span> · <code>affected[]</code> · <code>impact_assessment</code> (+ <code>bounded_by</code>) · <code>changed[]</code> (<code>[]</code> = checked &amp; clean) · <code>time_factor?</code> · <code>suspected_locus?</code> <span class="new">NEW</span> · <code>related[]</code>/<code>cluster?</code> <span class="new">NEW</span> · <code>suggestions[]</code> (from priors — the learning loop) · <code>owner</code>.</p>
+<h3>RootCauseResult — the ranked cause</h3>
+<pre class="json">{ <span class="k">"candidates"</span>:[{ "cause":"…", "node":"stor:pay-vol",
+    "confidence":{"value":0.9,"basis":"evidence-complete + matches INC-4820"},  <span class="c">// basis = WHY</span>
+    "rank":1, "path":[…], "evidence":[…], "recommended_fix":"failover DB to standby" }],
+  <span class="k">"selected"</span>:0, <span class="k">"ruled_out"</span>:[{"hyp":"rev47 deploy","evidence":"trace shows DB cost, not app code"}],
+  <span class="k">"status"</span>:"confident" }  <span class="c">// confident | needs-input | escalated</span></pre>
+<p style="font-size:12px;color:var(--ink2);margin:0 0 10px"><b>Fields:</b> <code>candidates[]</code> (cause · node · <code>confidence{value,basis}</code> <span class="new">NEW</span> · rank · path · evidence · <code>recommended_fix?</code> <span class="new">NEW</span>) · <code>selected</code> <span class="new">NEW</span> · <code>ruled_out[]</code> (+ killing evidence) · <code>status</code>.</p>
+<h3>RemediationResult — the gated fix</h3>
+<pre class="json">{ <span class="k">"actions"</span>:[{ "action_id":"a1", "kind":"mitigate", "technique":"failover", "target":"db:payments-ora",
+    "expected_effect":"DB served by standby; I/O normal", "blast_radius":"payments read path",
+    "rollback":"fail back once disk replaced", "temporary":true, "revert_when":"incident_close",
+    "idempotency_key":"INC-4821-a1", "gated":true,
+    "approval":{"decision":"approve","actor":"j.rivera","at":"14:21"},
+    "result":"applied; I/O 28ms→4ms", "status":"done" }],
+  <span class="k">"followups"</span>:[{"detail":"replace disk 1.4.7","basis":"escalate","owner":"storage"}], <span class="k">"status"</span>:"applied" }</pre>
+<p style="font-size:12px;color:var(--ink2);margin:0 0 10px"><b>Fields:</b> <code>actions[]</code> (kind reverse\|mitigate\|escalate · technique? · target · <code>expected_effect</code> <span class="new">NEW</span> · <code>blast_radius</code> <span class="new">NEW</span> · <code>rollback</code> <span class="new">NEW</span> · temporary?/<code>revert_when?</code> · idempotency_key · gated · <code>approval</code> <span class="new">NEW</span> · <code>result</code> <span class="new">NEW</span> · status) · <code>followups[]</code> · <code>status</code>.</p>
+<h3>VerifyResult — recovery, confirmed</h3>
+<pre class="json">{ <span class="k">"recovered"</span>:true, <span class="k">"before_after"</span>:"p99 4.2s→260ms, errors 18%→0.2%",
+  <span class="k">"watch_window"</span>:"15m", <span class="k">"recovery_confidence"</span>:0.95,
+  <span class="k">"resolution"</span>:"failover to standby; durable fix = disk replacement",   <span class="c">// what the next incident learns from</span>
+  <span class="k">"temporary_actions_status"</span>:[{"action_id":"a1","status":"scheduled"}],   <span class="c">// reverted | scheduled — must be clear</span>
+  <span class="k">"residual"</span>:[{"item":"replace disk","owner":"storage"}], <span class="k">"closed_by"</span>:"j.rivera", <span class="k">"status"</span>:"closed" }</pre>
+<p style="font-size:12px;color:var(--ink2);margin:0 0 10px"><b>Fields:</b> <code>recovered</code> (user's side) · <code>before_after</code> <span class="new">NEW</span> · <code>watch_window?</code>/<code>recovery_confidence?</code> <span class="new">NEW</span> · <code>resolution</code> <span class="new">NEW</span> (the learning-loop field) · <code>temporary_actions_status[]</code> (must be clear) · <code>residual[]</code> · <code>closed_by</code>/<code>status</code>.</p>
+
+<h2 id="d4"><span class="n">D4</span> Subject &amp; storage planes</h2>
+<pre class="json">{ <span class="k">"domain"</span>:"app-incident", <span class="k">"id"</span>:"INC-4821", <span class="k">"kind"</span>:"incident" }  <span class="c">// SubjectRef — unique key (domain, id); used by PhaseRecord, Feedback, the run, the read-model</span></pre>
+<table>
+  <tr><th style="width:18%">Plane · store</th><th>Holds · shape</th></tr>
+  <tr><td class="f">data · MongoDB</td><td>the <b>incident document</b> — graph + phase outputs + feedback; <b>denormalized</b>, one per subject; one read (D6).</td></tr>
+  <tr><td class="f">config · PostgreSQL</td><td>the <b>playbook</b> (md + version + fields) + the <b>capability registry</b>; <b>normalized</b>, versioned, governed (E1).</td></tr>
+  <tr><td class="f">run · LangGraph</td><td>the <b>live checkpoint</b> + conversation; the engine's mechanism — <b>not hand-modeled</b>; materialized into the incident doc on close.</td></tr>
+</table>
+<div class="lead key"><b>What we purge:</b> no bespoke run-state schema (no Session/Run/PhaseRun/Action/RunEvent/Checkpoint tables) — LangGraph's checkpointer owns the live run; the durable journey is the Phase Record, written into the incident document on close. Planes link by one field: <code>playbook@version</code> on the incident, <code>subject {domain,id}</code> from the run.</div>
+
+<h2 id="d5"><span class="n">D5</span> Feedback · <span class="n" style="background:var(--accent)">D6</span> Incident document</h2>
+<h3 id="d5h">Feedback — the operator's verdict (separate from the run)</h3>
+<pre class="json">{ <span class="k">"_id"</span>:"fb-9912", <span class="k">"subject"</span>:{"domain":"app-incident","id":"INC-4821"}, <span class="k">"run_id"</span>:"INC-4821:run:1",
+  <span class="k">"actor"</span>:"j.rivera", <span class="k">"kind"</span>:"outcome",   <span class="c">// outcome | failure | correction</span>
+  <span class="k">"verdict"</span>:"fix held; good call on the failover", <span class="k">"at"</span>:"2026-06-19T09:00Z" }</pre>
+<p style="font-size:12px;color:var(--ink2);margin:0 0 10px">Kept apart from the run so it can't taint the audit; feeds the autonomy ladder (failure/correction lower autonomy) + the suggestions (outcome confirms the resolution).</p>
+<h3 id="d6h">The incident document — MongoDB (one denormalized doc per incident)</h3>
+<pre class="json"><span class="c">// db.incidents — one per subject; nodes conform to the loaded playbook's graph_schema</span>
+{ "_id":"INC-4821", "domain":"app-incident",   <span class="c">// global subject identity = (domain, _id)</span>
+  "incident_type":"performance", "symptom":"checkout p99 0.4s→4.2s, errors 0.5%→18%",
+  "priority":"P1", "state":"closed", "owner_team":"payments-sre", "playbook":"incident-triage@1.0.0",
+  "impact_assessment":{ … },
+  "graph":{
+    "nodes":[
+      {"id":"INC-4821","kind":"incident","type":"incident"},                  <span class="c">// the ONE subject node</span>
+      {"id":"app:payments-api","kind":"system","type":"app","layer":"app","facts":[{"key":"health","value":"degraded","evidence_ref":"appd://…"}]},
+      {"id":"db:payments-ora","kind":"system","type":"database","layer":"database"},
+      {"id":"stor:pay-vol","kind":"system","type":"storage","layer":"storage","labels":["suspect"],"facts":[{"key":"latency_ms","value":22.4,"impact_state":"degraded","evidence_ref":"netapp://…"}]},
+      {"id":"chg:deploy-rev47","kind":"change","type":"change"}, {"id":"alert:7741","kind":"alert","type":"alert"} ],
+    "edges":[
+      {"type":"depends_on","from":"app:payments-api","to":"db:payments-ora"},
+      {"type":"hosted_on","from":"db:payments-ora","to":"stor:pay-vol"},
+      {"type":"suspected_cause","from":"INC-4821","to":"stor:pay-vol","props":{"confidence":{"value":0.9,"basis":"…"},"path":[…]}},
+      {"type":"related_to","from":"INC-4821","to":"INC-4820","props":{"kind":"similar"}} ] },   <span class="c">// other incident = a reference</span>
+  "phases":[ {"phase":"root-cause","output":{…}}, {"phase":"remediation","output":{…}}, {"phase":"verify-close","output":{…}} ] }</pre>
+<p style="font-size:12px;color:var(--ink2);margin:0 0 0"><b>Indexes:</b> <code>_id</code> · <code>incident_type</code> · <code>graph.nodes.id</code> · <code>graph.edges.type</code> · <code>related_to</code> + a fingerprint/embedding index for similar-search. Links: <code>playbook@version</code> → config; <code>{domain,id}</code> ← the run, written through on close.</p>
+
+<!-- ============================ PART E ============================ -->
+<div class="part">E · Physical / LLD</div>
+
+<h2 id="e1"><span class="n">E1</span> PostgreSQL — config plane (normalized)</h2>
+<pre class="json"><span class="k">CREATE TABLE</span> playbook (              <span class="c">-- PK (id, version): every edit is a new immutable row</span>
+  id text, version text, domain text, status text, owner text, body_md text,
+  phases jsonb, schemas jsonb, defaults jsonb, unknown_access text, changelog text,
+  PRIMARY KEY (id, version) );
+<span class="k">CREATE TABLE</span> provider (
+  id text PRIMARY KEY, name text, kind text,            <span class="c">-- skill|mcp_local|mcp_remote|a2a_agent|api</span>
+  connection jsonb, trusted bool, status text, last_synced timestamptz );
+<span class="k">CREATE TABLE</span> declared_capability (
+  id text PRIMARY KEY, provider text REFERENCES provider(id),  <span class="c">-- id = provider__action</span>
+  description text, input_schema jsonb, output_schema jsonb,
+  effect_hint text, intents text[], last_synced timestamptz );   <span class="c">-- intents[] = which needs it satisfies</span>
+<span class="k">CREATE TABLE</span> capability_policy (                    <span class="c">-- human-owned, sticky</span>
+  capability_id text PRIMARY KEY REFERENCES declared_capability(id),
+  effect text, access text, status text,                <span class="c">-- access: allow|ask|deny ; status: active|pending_review</span>
+  reviewed_by text, reviewed_at timestamptz );</pre>
+<p>The LangGraph checkpointer uses its own Postgres tables (<code>PostgresSaver</code>); <code>thread_id</code> = the run id. We do not hand-model them (D4).</p>
+
+<h2 id="e2"><span class="n">E2</span> MongoDB — data plane (denormalized)</h2>
+<pre class="json"><span class="c">// db.incidents — one document per subject (shape = D6)</span>
+{ _id, domain, incident_type, symptom, priority, state, owner_team, playbook,
+  opened_at, closed_at, impact_assessment, graph:{nodes,edges}, phases:[{phase,output}] }
+<span class="c">// db.feedback — operator verdicts, separate from the run (D5)</span>
+{ _id, subject:{domain,id}, run_id?, actor, kind, verdict, note, at }
+<span class="c">// indexes</span>
+db.incidents.createIndex({ incident_type:1, state:1 })
+db.incidents.createIndex({ "graph.nodes.id":1 }); db.incidents.createIndex({ "graph.edges.type":1 })
+db.incidents.createIndex({ fingerprint:1 })   <span class="c">// + a vector index for similar-incident search</span></pre>
+
+<h2 id="e3"><span class="n">E3</span> Engine API (surface)</h2>
+<table>
+  <tr><th style="width:34%">Endpoint</th><th>Purpose</th></tr>
+  <tr><td class="f">POST /runs</td><td>start a run: { subject:{domain,id}, playbook } → seeds the graph, begins Assess; returns run_id.</td></tr>
+  <tr><td class="f">GET /runs/{id}</td><td>current state: current_phase, status, the pending gate (if any), the latest phase output.</td></tr>
+  <tr><td class="f">POST /runs/{id}/resume</td><td>answer a gate / input: { decision: approve\|refine\|deny, actor, note? } → resumes the checkpointed run (B5).</td></tr>
+  <tr><td class="f">GET /incidents/{id}</td><td>the denormalized incident document (graph + phase outputs) from Mongo.</td></tr>
+  <tr><td class="f">POST /feedback</td><td>{ subject, run_id?, actor, kind, verdict } → the feedback store (feeds the autonomy ladder).</td></tr>
+  <tr><td class="f">POST /playbooks · /providers · /policies</td><td>config-plane admin (author/validate/publish a playbook; register a provider; set a policy).</td></tr>
+</table>
+
+<h2 id="e4"><span class="n">E4</span> Errors, retries, recovery</h2>
+<ul>
+  <li><b>Transient</b> capability failure → retry per <code>defaults.retry</code> (max + backoff); <b>permanent / blocked</b> → <code>error_handler</code> (escalate to on-call).</li>
+  <li><b>on_failure: run-remaining</b> — independent steps in a phase finish before the phase reports.</li>
+  <li><b>Exactly-once</b> — every write carries an <code>idempotency_key</code>; a replay after a crash returns the cached result, never double-applies.</li>
+  <li><b>Crash recovery</b> — the run resumes from the last checkpoint (every step is checkpointed); in-flight writes are idempotency-guarded.</li>
+  <li><b>Backtrack</b> — Verify failing recovery routes to Root cause as a new attempt; the graph + prior records are retained as context (B6).</li>
+</ul>
+
+<!-- ============================ PART F ============================ -->
+<div class="part">F · Operations</div>
+
+<h2 id="f1"><span class="n">F1</span> The console</h2>
+<p>The only operator UI, in the Claude-Desktop three-pane shape: <b>Incidents</b> (left) · <b>Triage</b> — the whole incident's chat with the <b>approval gate inline</b> (center) · <b>Phases &amp; Steps</b> with a <b>Graph</b> tab (right). It evolves as autonomy is earned (the autonomy badge).</p>
+<figure><img src="diagrams/ui-console.png" alt="The triage console — Phases & Steps"></figure>
+<p style="font-size:12px;color:var(--ink2);margin:6px 0 0">Right pane on <b>Phases &amp; Steps</b> — the four phases, each step, and its typed output (worked run: INC-4821).</p>
+<figure style="margin-top:11px"><img src="diagrams/ui-console-graph.png" alt="The triage console — the Graph tab"></figure>
+<p style="font-size:12px;color:var(--ink2);margin:6px 0 0">Right pane switched to <b>Graph</b> — the investigation graph, cause path <code>app → db → storage</code> highlighted to the suspect; the deploy greyed as ruled-out, the similar prior a reference. One incident node (the subject); others are references.</p>
+
+<h2 id="f2"><span class="n">F2</span> Cross-cutting</h2>
+<table>
+  <tr><th style="width:22%">Concern</th><th>Design</th></tr>
+  <tr><td class="f">Audit</td><td>the Step journey is append-only and IS the audit trail; every tool-call carries an evidence deep-link; approvals record actor + decision + time. Regulator-grade, reconstructable.</td></tr>
+  <tr><td class="f">Security / hardening</td><td>secrets / KMS, encryption at-rest + in-transit, least-privilege capability scopes, audit immutability — in place before any write ships (gates M2).</td></tr>
+  <tr><td class="f">Safety</td><td>read-only phases provably cannot write (the <code>effect</code> boundary is enforced at intent resolution, C4); every write is gated + reversible.</td></tr>
+  <tr><td class="f">DR / resilience</td><td>checkpointed run state (resumable); RTO/RPO targets; a <code>need</code> with no healthy capability degrades gracefully + asks.</td></tr>
+  <tr><td class="f">Feedback / learning</td><td>operator verdicts (D5) feed the autonomy ladder (C5) + the similar-incident suggestions.</td></tr>
+  <tr><td class="f">Observability</td><td>the engine emits its own metrics (phase latency, gate decisions, autonomy mix) for the autonomy dashboard.</td></tr>
+</table>
+
+<!-- ============================ PART G ============================ -->
+<div class="part">G · Delivery</div>
+
+<h2 id="g1"><span class="n">G1</span> Milestones &amp; timeline</h2>
+<div class="flow">
+  <span class="b">M0 Foundation · S1–2</span><span class="ar">→</span><span class="b">M1 Assisted · S3–5</span><span class="ar">→</span>
+  <span class="b">M2 Remediation · S6–8</span><span class="ar">→</span><span class="b">M3 Coverage · S9–11</span><span class="ar">→</span><span class="b">M4 Autonomy · S12–14</span>
+</div>
+<table>
+  <tr><th style="width:16%">Milestone</th><th>Ships · exit</th></tr>
+  <tr><td class="f">M0 Foundation</td><td>engine skeleton, registry, stores, <code>govern()</code>, checkpointer, console shell — an assisted run end-to-end on a read-only capability, in shadow.</td></tr>
+  <tr><td class="f">M1 Assisted</td><td>Assess + Root cause (read-only), the full console + HITL surface — triages real incidents read-only on a pilot slice.</td></tr>
+  <tr><td class="f">M2 Remediation</td><td>the first gated writes + Verify &amp; close + rollback + error_handler — gated fixes execute safely, exactly-once. (Hardening baseline green.)</td></tr>
+  <tr><td class="f">M3 Coverage</td><td>multi-app topology + incident relationships + A2A specialists + Amelia wrapped + playbook studio — handles a multi-app incident; N playbooks live.</td></tr>
+  <tr><td class="f">M4 Autonomy</td><td>earned autonomy for proven low-risk actions + the feedback→policy loop + dashboard; Amelia ramped down per proven slice.</td></tr>
+</table>
+<p>Two parallel tracks: <b>hardening</b> gates production writes (in place before M2); <b>Amelia</b> runs alongside, is wrapped as a governed A2A capability, and is dialled down per proven slice. The full by-sprint plan + Gantt is the companion <b>Delivery Plan</b>.</p>
+
+<h2 id="g2"><span class="n">G2</span> Non-functional requirements</h2>
+<table>
+  <tr><th style="width:22%">NFR</th><th>Target</th></tr>
+  <tr><td class="f">Auditability</td><td>every action + decision reconstructable from the Step journey; immutable, regulator-grade.</td></tr>
+  <tr><td class="f">Safety</td><td>no un-gated write; every write reversible; read-only phases provably cannot write.</td></tr>
+  <tr><td class="f">Latency</td><td>assisted triage returns a first assessment in minutes; the gate is the only human wait.</td></tr>
+  <tr><td class="f">Availability / scale</td><td>concurrent incidents; degrade gracefully when a source is down; engine horizontal.</td></tr>
+  <tr><td class="f">Extensibility</td><td>a new source needs only a registry entry; a new domain only a new playbook — no engine change.</td></tr>
+</table>
+
+<footer>The complete design, in one place: <b>A</b> system · <b>B</b> the engine on LangGraph · <b>C</b> capability layer · <b>D</b> data model · <b>E</b> physical/LLD · <b>F</b> operations · <b>G</b> delivery. Companion: the <b>Presentation</b> (leadership) and the <b>Delivery Plan</b> (by-sprint Gantt). Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in.</footer>
+
+</div></body></html>

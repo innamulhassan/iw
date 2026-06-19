@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Engine — Project Spec</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;--mono:'SF Mono',Consolas,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:30px 22px 60px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:14px;margin-bottom:8px}
+  h1{font-size:26px;color:var(--accent);margin:0 0 5px;letter-spacing:-.3px}
+  .sub{font-size:14.5px;color:var(--ink2);margin:0}
+  .meta{font-size:12px;color:var(--ink2);font-style:italic;margin-top:8px}
+  .one-line{font-size:14px;font-weight:700;color:var(--head);background:#eef4fb;border:1px solid #cfe0f0;border-radius:9px;padding:9px 13px;margin:12px 0 0}
+  .flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:11px 0 0;font-size:12px}
+  .flow .b{background:#eef4fb;border:1px solid #cfe0f0;border-radius:8px;padding:4px 10px;font-weight:700;color:var(--accent)}
+  .flow .ar{color:#9AA5B1;font-weight:700}
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0;box-shadow:0 1px 4px rgba(20,40,80,.05)}
+  .tag{font-size:12px;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:3px 11px;display:inline-block;margin-bottom:8px}
+  .sec h2{font-size:20px;color:var(--accent);margin:0 0 4px}
+  .lead{font-size:14px;color:var(--ink);margin:0 0 10px}
+  h3{font-size:14px;color:var(--head);margin:16px 0 4px}
+  ol.loop{margin:6px 0 0;padding-left:20px;font-size:13px}
+  ol.loop li{margin:5px 0}
+  ol.loop b{color:var(--head)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0;table-layout:fixed}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{background:#eef4fb;color:var(--accent);font-weight:600}
+  td.f{font-family:var(--mono);font-weight:700;color:var(--head)}
+  code{font-family:var(--mono);font-size:.9em;background:#eef1f5;border-radius:4px;padding:1px 5px}
+  .note{background:#eef4fb;border-left:5px solid var(--accent);border-radius:8px;padding:10px 14px;margin:12px 0;font-size:13px}
+  .note.dn{background:#eef7f1;border-left-color:var(--ok)}
+  .scn{border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin:10px 0;background:#fcfdfe}
+  .scn .sh{font-size:13.5px;font-weight:700;color:var(--head)}
+  .scn .tagk{font-size:10.5px;font-weight:700;border-radius:5px;padding:2px 8px;margin-left:7px;vertical-align:middle}
+  .tagk.inc{background:#fbeceb;color:#9a3b2b;border:1px solid #f0cfc9}
+  .tagk.clu{background:#fdf3e6;color:#92400e;border:1px solid #f0dcc2}
+  .tagk.dom{background:#eaf2ff;color:#1F4E79;border:1px solid #cfe0f0}
+  .scn .sym{font-size:12.5px;color:var(--ink);margin:5px 0 7px}
+  .scn .row{font-size:12px;color:var(--ink);padding:3px 0;border-top:1px solid #eef1f5;display:flex;gap:9px}
+  .scn .ph{flex:0 0 96px;font-weight:700;color:var(--accent);font-family:var(--mono);font-size:11px}
+  .scn .shows{font-size:11.5px;color:var(--ink2);margin-top:7px;font-style:italic}
+  footer{margin-top:22px;border-top:1px solid var(--line);padding-top:12px;font-size:12px;color:var(--ink2)}
+  @media(max-width:720px){table{table-layout:auto}}
+</style></head><body><div class="wrap">
+<div style="font:700 12px/1 -apple-system,Segoe UI,Arial;margin-bottom:12px"><a href="index.html" style="color:#1F4E79;text-decoration:none">← Design-set index</a></div>
+
+
+<header>
+  <h1>Investigation Engine — Project Spec</h1>
+  <p class="sub">The clean, single capture — <b>what we're building, how it works, and what to build</b>. Consolidates the HLD + LLD against the settled model; the full data model is the companion doc.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · v1.0 · for human + machine scoping · KISS · domain-neutral</p>
+  <div class="one-line">Plan in a <b>playbook</b> · reason over a <b>graph</b> · act through <b>governed capabilities</b> · a <b>human</b> at every write.</div>
+</header>
+
+<!-- 1 -->
+<section class="sec">
+  <div class="tag">1 · What we're building</div>
+  <h2>A governed, in-house investigation engine</h2>
+  <p class="lead">One <b>engine</b> runs a versioned <b>playbook</b> through gated, audited phases. It builds a <b>graph</b> of the situation, reasons over it with the model, calls <b>governed capabilities</b> (never tools directly), and a human approves every write. The first domain is <b>incident triage</b>; the <i>same engine</i> runs other domains (provisioning, capacity…) by loading a different playbook.</p>
+  <div class="note dn"><b>Two kinds of "no lock-in".</b> <b>No vendor lock-in</b> — the engine calls abstract capabilities, so a source can be swapped without touching it. <b>No domain lock-in</b> — everything domain-specific lives in the playbook (types · phases · outputs); the engine, the graph shapes, the registry, governance, storage and the console are universal.</div>
+  <table>
+    <tr><th style="width:18%">Level</th><th style="width:42%">What it is</th><th>Domain-specific?</th></tr>
+    <tr><td class="f">Engine</td><td>the shapes (Node·Edge·Fact·PhaseRecord·Step), the run loop, <code>govern()</code>, gates, retries, clustering, the registry, feedback, storage, the console</td><td><b>No</b> — universal</td></tr>
+    <tr><td class="f">Playbook</td><td>the type system (<code>graph_schema</code>), the phases (+ <code>needs</code>/<code>effect</code>), the output contracts</td><td><b>Yes</b> — one file per domain</td></tr>
+    <tr><td class="f">Runtime</td><td>the concrete nodes/edges/records of one investigation</td><td>instances</td></tr>
+  </table>
+</section>
+
+<!-- 2 -->
+<section class="sec">
+  <div class="tag">2 · How it works — the agent loop</div>
+  <h2>The plan is the playbook; the model drives a governed loop; the human closes</h2>
+  <div class="flow"><span class="b">Assess</span><span class="ar">→</span><span class="b">Root cause</span><span class="ar">→</span><span class="b">Remediation</span><span class="ar">→</span><span class="b">Verify &amp; close</span><span class="ar">↺</span><span style="font-size:11.5px;color:var(--warn);font-weight:700">re-enterable</span></div>
+  <ol class="loop">
+    <li><b>Load</b> the playbook (the run pins <code>playbook@version</code>) and <b>seed the graph</b> from the incident source.</li>
+    <li><b>Per phase</b>, the model <b>plans</b>, then loops: resolve a <code>need</code> → a governed capability, <b>call</b> it (gated by policy), <b>fold</b> the result into the graph (nodes · facts · edges) and <b>log a Step</b> — repeat until the phase's typed <b>output</b> is sufficient. Steps are emergent at runtime, not scripted.</li>
+    <li><b>Every write pauses at the gate</b> (<code>allow / ask / deny</code>); the operator <b>approves / refines / denies</b> inline. Read-only phases <i>cannot</i> write.</li>
+    <li><b>Durable</b> — checkpointed (LangGraph), exactly-once (idempotency key), resumable across pauses and crashes.</li>
+    <li><b>Re-enterable</b> — Verify can backtrack to Root cause with new evidence; a phase can re-run (a new attempt).</li>
+    <li><b>A human closes</b> — the engine never auto-closes. <b>Feedback</b> (separate from the run) feeds the learning loop and the autonomy ladder.</li>
+  </ol>
+  <p class="lead" style="margin-top:10px">Every capability call passes <code>govern()</code> — <code>effect</code> (read/write) × <code>access</code> (allow/ask/deny), resolved at call time; unknown-effect → <code>ask</code>. Everything is logged: the journey IS the audit trail.</p>
+</section>
+
+<!-- 3 -->
+<section class="sec">
+  <div class="tag">3 · Architecture &amp; the capability layer</div>
+  <h2>One engine, one governed layer over every source</h2>
+  <p class="lead">The engine calls <b>abstract capabilities</b>; a governed layer binds each source by its <b>kind</b>, in a clear onboarding priority. Every call — whatever the kind — passes the same gate and is audited.</p>
+  <div class="flow"><span class="b">native MCP</span><span class="ar">else →</span><span class="b">register API as dynamic MCP</span><span class="ar">else →</span><span class="b">A2A specialist agent</span></div>
+  <table>
+    <tr><th style="width:26%">Kind (priority)</th><th>When · examples</th></tr>
+    <tr><td class="f">native MCP</td><td>the tool already speaks MCP → use it directly.</td></tr>
+    <tr><td class="f">dynamic MCP (API)</td><td>a REST tool with an OpenAPI spec → register it as a dynamic MCP server, no per-endpoint code (how most tools onboard).</td></tr>
+    <tr><td class="f">A2A agent</td><td>deep, per-layer specialists — <b>App / DB / Network</b> root-cause agents; <b>Amelia / BladeLogic</b> wrapped as governed capabilities.</td></tr>
+  </table>
+  <p class="lead" style="margin-top:8px">The <b>registry</b> makes this concrete: <code>Provider</code> (a source) → <code>DeclaredCapability</code> (one action, synced) → <code>CapabilityPolicy</code> (human-owned <code>allow/ask/deny</code>). A playbook <code>need</code> resolves to capabilities by <b>intent + effect</b>, the policy gates each, and the call is logged as a <code>Step</code>. A new capability lands <code>pending_review · deny</code> until a human rules.</p>
+</section>
+
+<!-- 4 -->
+<section class="sec">
+  <div class="tag">4 · The data model</div>
+  <h2>A graph per run, a record per phase — domain-neutral</h2>
+  <table>
+    <tr><th style="width:22%">Piece</th><th>In brief</th></tr>
+    <tr><td class="f">Investigation graph</td><td><b>Node</b> (kind·type·layer·labels·props·facts) · <b>Edge</b> (depends_on, hosted_on, suspected_cause, related_to…) · <b>Fact</b> (health, latency, <code>impact_state</code>, with an <code>evidence_ref</code>). One graph per run; <b>one subject node</b>, other incidents are references actively used.</td></tr>
+    <tr><td class="f">Phase Record</td><td><b>PhaseRecord</b> (plan · steps · typed output) + <b>Step</b> (the single ordered journey log — tool_call · reasoning · suggestion · decision). <code>touched[]</code> ties a step to the graph, <code>evidence[]</code> to the output.</td></tr>
+    <tr><td class="f">Phase outputs</td><td><code>AssessResult · RootCauseResult · RemediationResult · VerifyResult</code> — typed per playbook; e.g. confidence carries a <code>{value, basis}</code>, causes carry a <code>path</code>, writes carry <code>expected_effect · blast_radius · rollback</code>.</td></tr>
+    <tr><td class="f">Subject identity</td><td><b>SubjectRef <code>{domain, id}</code></b> — domain-neutral; never a bare <code>incident_id</code>.</td></tr>
+    <tr><td class="f">Storage (3 homes)</td><td><b>MongoDB</b> — the incident document (denormalized, 1/incident) · <b>PostgreSQL</b> — the playbook + capability registry (normalized) · <b>LangGraph</b> — the live run state (checkpoint + conversation), kept separate.</td></tr>
+  </table>
+  <p class="lead" style="margin-top:6px">Every node, edge, fact, record and output — each <i>defined → explained → JSON → tabled</i> — is the companion <b>Data-Model</b> doc (<code>incident-triage-data-model.html</code>).</p>
+</section>
+
+<!-- 5 -->
+<section class="sec">
+  <div class="tag">5 · The console</div>
+  <h2>One workbench — watch the engine think, decide at the gates</h2>
+  <p class="lead">The only UI, three panes: <b>Incidents</b> (left) · <b>Triage</b> — the whole incident's chat with the <b>approval gate inline</b> (center) · <b>Phases &amp; Steps</b> with a <b>Graph</b> tab — the phases + typed outputs, or the live investigation graph with the cause path highlighted (right). It evolves as autonomy is earned. Mockup: <code>diagrams/ui-console.png</code> (+ <code>…-graph.png</code>).</p>
+</section>
+
+<!-- 6 -->
+<section class="sec">
+  <div class="tag">6 · Scenarios — the system, end to end</div>
+  <h2>Three realistic runs — incident, related incidents, and a different domain</h2>
+
+  <div class="scn">
+    <div class="sh">1 · Deep incident — cross-layer root cause<span class="tagk inc">incident</span></div>
+    <div class="sym"><b>INC-4821</b> · checkout p99 0.4s→4.2s, errors 18% · P1, revenue path.</div>
+    <div class="row"><span class="ph">assess</span><span>topology + health + changes (rev47) + similar prior INC-4820 → <code>AssessResult</code>: perf, P1, suspected_locus = the DB, suggestion = failover.</span></div>
+    <div class="row"><span class="ph">root-cause</span><span>walk <b>app → DB → storage</b>: trace (75% is the DB) → DB I/O 28ms → <b>pay-vol disk reconstructing</b>. → <code>RootCauseResult</code>: <code>stor:pay-vol</code> 0.9 (basis: evidence-complete + matches INC-4820), path app→db→stor; rev47 / gemini / network ruled out.</span></div>
+    <div class="row"><span class="ph">remediation</span><span>gated <b>failover</b> <code>db:payments-ora → standby</code> (expected_effect · blast · rollback · temporary). Operator approves.</span></div>
+    <div class="row"><span class="ph">verify</span><span>p99 4.2s→260ms; resolution = failover + disk replacement scheduled; temporary action flagged to revert.</span></div>
+    <div class="shows">Shows: the graph walk <i>below</i> the unhealthy app, confidence with a basis, a gated reversible write, the learning loop reusing a prior's fix.</div>
+  </div>
+
+  <div class="scn">
+    <div class="sh">2 · Related incidents — detected, linked under human control<span class="tagk clu">related</span></div>
+    <div class="sym">INC-4821 is already under investigation (its own session, its own focus). A second incident — INC-4830 on orders-api — pops up, looking similar (shared fingerprint; its walk converging on the same zone).</div>
+    <div class="row"><span class="ph">on launch</span><span>the operator opens a triage for INC-4830. The engine <b>checks for an existing session on a similar incident</b> → finds INC-4821's, and <b>asks the operator</b>: "looks related to INC-4821 — <b>link as related, or open a new triage?</b>"</span></div>
+    <div class="row"><span class="ph">if linked</span><span>INC-4830 joins a <code>cluster</code> with INC-4821 (<code>member_of</code>, operator-confirmed). INC-4821's cause/fix <b>propagates as context</b> — INC-4830 doesn't re-derive from zero. Each keeps its <b>own session, phases, and closure</b>.</span></div>
+    <div class="row"><span class="ph">if new</span><span>the operator declines — a fresh, fully independent triage runs. Human decides, every time.</span></div>
+    <div class="shows">Shows: <b>one playbook</b>, <b>one incident = one focus</b>; the engine <i>looks out</i> for related incidents and <i>surfaces</i> them — but linking into a cluster is <b>human-controlled</b>. No auto-merge; nothing runs "at cluster scope."</div>
+  </div>
+
+  <div class="scn">
+    <div class="sh">3 · A different domain — same engine<span class="tagk dom">provisioning</span></div>
+    <div class="sym"><b>REQ-123</b> · provision a payments staging DB — a <i>provisioning</i> investigation on the <b>same engine</b>, a different playbook.</div>
+    <div class="row"><span class="ph">validate</span><span>graph: <code>request → requires → resource(db)</code>, <code>quota</code>, <code>approver</code>. Facts: quota_available, policy_check → <code>ValidationResult</code>.</span></div>
+    <div class="row"><span class="ph">allocate</span><span>gated <b>write</b> — provision the resource (same gate, same audit) → <code>AllocationResult</code>.</span></div>
+    <div class="row"><span class="ph">verify</span><span>resource health green → <code>VerifyResult</code>; a human closes.</span></div>
+    <div class="shows">Shows: <b>no domain lock-in</b> — identical Node/Edge/Fact/PhaseRecord/Step shapes, registry, governance and console; only the playbook's <code>graph_schema</code>, phases and outputs differ. <code>subject = {provisioning, REQ-123}</code>.</div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="sec">
+  <div class="tag">7 · What to build — the component spec</div>
+  <h2>The pieces a machine can pick up and build</h2>
+  <table>
+    <tr><th style="width:25%">Component</th><th style="width:48%">Responsibility</th><th>Store / tech</th></tr>
+    <tr><td class="f">Playbook loader</td><td>load + validate a playbook (front-matter, <code>graph_schema</code>, <code>output_schemas</code>); pin <code>@version</code>.</td><td>Postgres · YAML/MD</td></tr>
+    <tr><td class="f">Capability registry</td><td>Provider · DeclaredCapability · CapabilityPolicy; sync from sources; <code>govern()</code> at call time.</td><td>Postgres</td></tr>
+    <tr><td class="f">Intent resolver</td><td>map a phase <code>need</code> → DeclaredCapabilities by intent + <code>effect</code>; apply policy (allow/ask/deny).</td><td>engine</td></tr>
+    <tr><td class="f">Connectors</td><td>native MCP client · dynamic-MCP (register OpenAPI) · A2A specialist agents (App/DB/Network, Amelia/BladeLogic).</td><td>MCP · A2A</td></tr>
+    <tr><td class="f">Graph store + builder</td><td>build/update the investigation graph (Node/Edge/Fact); clustering; the cause walk.</td><td>Mongo (read-model)</td></tr>
+    <tr><td class="f">Run loop</td><td>phase state machine; the per-phase model agent loop; gates; retries; backtrack; checkpoint.</td><td>LangGraph</td></tr>
+    <tr><td class="f">Output validator</td><td>validate each phase output against the playbook's <code>output_schemas</code>.</td><td>engine</td></tr>
+    <tr><td class="f">Audit + feedback</td><td>the Step journey as the audit trail; the Feedback store (separate from the run).</td><td>Mongo</td></tr>
+    <tr><td class="f">Console UI</td><td>three panes + the Phases ⇄ Graph tab; the inline approval gate; autonomy badge.</td><td>web</td></tr>
+  </table>
+</section>
+
+<!-- 8 -->
+<section class="sec">
+  <div class="tag">8 · Delivery</div>
+  <h2>Phased — value early, autonomy earned, the incumbent retired gradually</h2>
+  <div class="flow">
+    <span class="b">M0 Foundation</span><span class="ar">→</span><span class="b">M1 Assisted (read-only)</span><span class="ar">→</span>
+    <span class="b">M2 Remediation (gated writes)</span><span class="ar">→</span><span class="b">M3 Coverage</span><span class="ar">→</span><span class="b">M4 Earned autonomy</span>
+  </div>
+  <p class="lead" style="margin-top:8px">Each milestone is gated, audited, reversible; <b>Amelia runs alongside</b> and is dialled down only as in-house actions prove themselves — no big-bang cutover. Full by-sprint plan + timeline: the companion <b>Delivery Plan</b>.</p>
+</section>
+
+<footer>
+  This spec is the single, KISS capture — consolidating the HLD + LLD against the settled model. Companions: the <b>Data-Model</b> doc (every schema in full), the <b>Presentation</b> (leadership brief), the <b>Delivery Plan</b> (by-sprint). Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in.
+</footer>
+
+</div></body></html>
