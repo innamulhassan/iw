@@ -1,0 +1,877 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage AIOps Platform — Design</title>
+<style>
+  :root{
+    --ink:#1f2937; --ink2:#51606e; --head:#0f3b5e; --accent:#1F4E79; --line:#dce3ec;
+    --ok:#2E7D32; --warn:#B45309; --bg:#f4f6f9; --card:#fff; --code:#f2f4f7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:880px;margin:0 auto;padding:40px 28px 72px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:18px;margin-bottom:10px}
+  h1{font-size:30px;margin:0 0 6px;color:var(--accent);letter-spacing:-.2px}
+  .sub{font-size:17px;color:var(--ink2);margin:0}
+  .meta{font-size:13px;color:var(--ink2);font-style:italic;margin-top:10px}
+  h2{font-size:22px;color:var(--accent);margin:40px 0 8px;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-size:14px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:2px 9px}
+  h3{font-size:16px;color:var(--head);margin:22px 0 6px}
+  p{margin:0 0 12px}
+  ul{margin:6px 0 14px;padding-left:22px} li{margin:5px 0}
+  b{color:var(--head)}
+  .lead{background:#eef4fb;border-left:5px solid var(--accent);border-radius:8px;padding:14px 18px;margin:16px 0}
+  .lead b{color:var(--accent)}
+  .map{background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:10px 16px;margin:14px 0;font-size:14px}
+  figure{margin:18px 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 16px 8px;box-shadow:0 1px 3px rgba(20,40,80,.05)}
+  figure img{width:100%;height:auto;display:block;border-radius:6px}
+  figcaption{font-size:13px;color:var(--ink2);text-align:center;margin-top:8px}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;font-size:12.5px;line-height:1.5;font-family:"SF Mono",Consolas,Menlo,monospace}
+  code{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:.92em;background:#eef1f5;border-radius:4px;padding:1px 5px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0 16px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:#eef4fb;color:var(--accent);font-weight:600}
+  .rec{background:#f1f7f1;border-left:5px solid var(--ok);border-radius:8px;padding:13px 18px;margin:14px 0}
+  .rec b{color:var(--ok)}
+  footer{margin-top:44px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--ink2)}
+  @media print{body{background:#fff}.wrap{max-width:none;padding:0}figure,.lead,.rec{box-shadow:none;break-inside:avoid}h2{break-after:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Incident Triage AIOps Platform — Design</h1>
+  <p class="sub">A reusable, declarative, human-governed automation platform for production support — incidents first.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · AIOps Incident Automation · June 2026 · <b>High-Level Design (HLD) · v1.3 (draft)</b> — developer detail in the companion <b>LLD</b>; revision history in §7.5</p>
+</header>
+
+<div class="lead"><b>In one line.</b> A self-investigating, human-governed incident engine that earns more autonomy as it proves itself — <b>supervised-autonomy, closed-loop AIOps</b>. The AI does the toil (gather, correlate, propose); the human owns the judgment; nothing touches prod by surprise; everything is auditable.</div>
+
+<div class="map"><b>How to read this.</b> <b>1 Goal</b> (why) → <b>2 Components</b> (the parts) → <b>3 Actions</b> (what they do) → <b>4 Interactions</b> (how they work) → <b>5 Data model</b> (the contracts) → <b>6 UI</b> (the operator surface) → <b>7 Build &amp; operate</b>. This is the <b>High-Level Design</b>; developer-level detail (interfaces, API, data-model reference, tests) lives in the companion <b>Low-Level Design (LLD)</b>.</div>
+
+<h2><span class="n">1</span> Goal &amp; principles</h2>
+<h3>1.1 What it is</h3>
+<p>A governed engine that takes an incident through four re-enterable phases — <b>assess → root cause → remediation → verify</b> — doing the investigative toil and proposing fixes, with a human owning every consequential decision. When an incident fires, the engine opens a <b>working session with a chat</b>, runs the defined phases, calls whatever capabilities each phase needs (telemetry, CMDB, specialist database/network agents, runbooks), and works <b>alongside the Major Incident Management (MIM) team</b> — proposing, pausing for approval, resolving. It replaces a blunt vendor auto-heal with a transparent, auditable one that scales, with no vendor lock-in.</p>
+<h3>1.2 One platform, many automations</h3>
+<p>The engine, capability layer, governance, registry, human-in-the-loop, and audit are <b>domain-agnostic</b>. Incident-triage is the <b>first application</b>; provisioning, patching, capacity, and cost follow on the <i>same</i> core — configuration, not a rebuild.</p>
+<figure><img src="diagrams/platform.png" alt="One platform, many automations"><figcaption>One reusable platform — incidents and alerts is the first application; the rest follow as configuration.</figcaption></figure>
+<h3>1.3 The autonomy ladder</h3>
+<p>The engine starts <b>assisted</b> and is dialed up <b>per phase × service × severity</b> — never globally, always behind the gate + audit — as evidence accrues:</p>
+<ul>
+  <li><b>Assisted</b> — the AI investigates and proposes; a human acts. (where every phase starts)</li>
+  <li><b>Augmented</b> — the AI acts, but a human approves each action. (the default for writes)</li>
+  <li><b>Autonomous</b> — for low-risk, high-confidence, proven actions, the AI acts within bounds and a human supervises (human-on-the-loop).</li>
+</ul>
+<p>That governed progression is how a blunt vendor auto-heal is replaced <b>safely</b> — autonomy is earned and reversible, not switched on. <b>Promotion is by evidence</b>, tracked via <code>Feedback</code> (§5.5): a capability climbs a rung only after a run of <b>clean incidents</b> (no regression) for that <i>phase × service × severity</i> — and a single bad outcome <b>demotes</b> it. The thresholds (how many, what error-rate ceiling) are an org policy, set deliberately, not guessed.</p>
+<h3>1.4 Principles</h3>
+<ul>
+  <li><b>Own the domain, rent the orchestrator</b> — phases, incident model, capabilities, and governance stay framework-agnostic, so the orchestrator (LangGraph today) stays replaceable.</li>
+  <li><b>Governance at the boundary, not in the prompt</b> — the host enforces allow/ask/deny on every capability call; the model can't talk its way past it.</li>
+  <li><b>Declared vs granted</b> — providers declare what they can do; humans grant access; anything ungranted defaults to <code>ask</code>.</li>
+  <li><b>Goal-driven phases</b> — each phase works toward a goal using available capabilities, not a fixed script.</li>
+  <li><b>Earned, reversible autonomy</b> — the ladder above, dialed narrowly, always behind the gate + audit.</li>
+  <li><b>Delegation narrows, never widens</b> — a specialist agent (database, network) or an incumbent (Amelia, BladeLogic) is just an <b>A2A/API capability</b> a phase calls: it gets only the scope granted, its consequential actions surface to the <i>same</i> gate, and its steps nest in the audit. Delegation is a governed capability call, not an exception.</li>
+</ul>
+
+<h2><span class="n">2</span> Components</h2>
+<p>The building blocks and what each is responsible for. Actions (§3) and Interactions (§4) reference these by name.</p>
+<figure><img src="diagrams/arch.png" alt="Capability layer, five sources"><figcaption>The map: the engine calls abstract capabilities; one governed layer fans out to five sources, then to the real world.</figcaption></figure>
+<p><b>2.1 Phased engine</b> — drives the four phases as a stateful, checkpointed graph (LangGraph) with durable execution + recovery (§4.6); a modular monolith scaled by stateless replicas (§7.1). It calls abstract capabilities, never tools directly.</p>
+<p><b>2.2 Capability layer</b> — the <b>registry</b> (the catalogue), per-kind <b>adapters</b> (skill · mcp · a2a · api), and the <code>govern()</code> <b>boundary</b> every call passes through. One uniform contract over five sources.</p>
+<p><b>2.3 Playbook</b> — the declarative, versioned process (Markdown + YAML front-matter) that drives <i>both</i> the engine and the workbench; change the process by editing the playbook, not the code. It holds only the workflow — access lives on the capability, engine config is runtime, RBAC is org config.</p>
+<figure><img src="diagrams/playbook-anatomy.png" alt="The playbook anatomy"><figcaption>The playbook holds only the workflow and drives both the engine and the workbench; access, engine config, and RBAC live elsewhere.</figcaption></figure>
+<p><b>2.4 Governance</b> — the <b>dial</b> (the autonomy level), the <b>gate</b> (allow / ask / deny, host-enforced), and the immutable <b>audit</b>.</p>
+<p><b>2.5 Workbench</b> — the operator UI, our own console (not Amelia's): the <b>incident queue</b>, the <b>triage console</b> (the run, cited evidence, and the inline approval surface), and the governance / playbook / dashboard screens. Full design in <b>§6</b>.</p>
+<figure><img src="diagrams/workbench.png" alt="The triage console at a glance"><figcaption>The triage console at a glance — the run, the approval surface, and incident context; the full seven-screen UI is in §6.</figcaption></figure>
+<p><b>2.6 Stores</b> — <b>Postgres</b> (control plane: registry, governance, engine state, audit) + <b>MongoDB</b> (data plane: incidents, evidence, timeline). A thin repository layer hides the split. Detail in §5.</p>
+
+<h2><span class="n">3</span> Actions</h2>
+<p>What the system does — the operations the components perform.</p>
+<h3>3.1 The four phases (re-enterable)</h3>
+<p>Four <b>goal-driven</b> phases. Each has a goal; it works toward it with available capabilities; when the goal is met <b>and the user approves</b>, it advances, carrying prior phases' context forward. The order is a <b>default, not a rigid chain</b> — see re-enterability below.</p>
+<ul>
+  <li><b>Assess</b> — <i>what broke, how bad, and the context around it</i>: the affected service; severity/impact + customer blast radius; recent changes/deploys; dependencies and which are unhealthy; related/active incidents; owner &amp; on-call. <span style="color:var(--ink2)">(Intake + Impact, merged — one picture of the situation.)</span></li>
+  <li><b>Root cause</b> — probable cause(s) with <b>evidence and a confidence score</b>: <b>ranked candidates</b>, never one asserted cause; correlate metrics/traces/logs against recent changes + dependency health.</li>
+  <li><b>Remediation</b> — the safest <b>reversible</b> fix (often: roll back the change); blast radius + rollback plan; executed behind the prod gate, with an on-failure policy.</li>
+  <li><b>Verify &amp; close</b> — confirm recovery from the user's side (health + journey replay); resolve and close.</li>
+</ul>
+<p><b>Re-enterable, not a rigid chain.</b> Google SRE puts <i>mitigation above all else</i> — so <b>Remediation can run before Root cause completes</b> (mitigate now, diagnose after), and any later phase can <b>backtrack</b> to an earlier one to fill a gap (Verify fails → reopen Root cause; Remediation reveals the cause was wrong → back to Root cause). The phase order is the happy path; the <b>state machine (§5.7)</b> governs the real transitions.</p>
+<figure><img src="diagrams/journey.png" alt="User journey and possible paths"><figcaption>The user journey: the engine investigates, the operator decides at one console, every path is audited.</figcaption></figure>
+<p>The phases are declared in the playbook — the minimal form (defaults do the rest):</p>
+<pre>---
+id: incident-triage
+version: 1.0.0
+phases:
+  - id: assess
+    name: Assess
+    goal: Identify the affected service, how bad it is, what changed, and the context around it.
+    capabilities: [servicenow.incident.read, cmdb.read, appd.flowmap.read, slo.read, changelog.read]
+    output: AssessResult
+  - id: root-cause
+    name: Root cause
+    goal: Find the probable cause, with evidence and a confidence score.
+    capabilities: [appd.metrics.read, logs.search, traces.read, changelog.read]
+    output: RootCauseResult
+    min_confidence: 0.7         # below this -> gather more, or ask
+  - id: remediation
+    name: Remediation
+    goal: Apply the safest reversible fix.
+    capabilities: [k8s.rollback, k8s.restart, k8s.scale, runbook.run]
+    output: RemediationResult
+    gate_writes: true
+    on_failure: run-remaining   # or fail-immediately
+  - id: verify-close
+    name: Verify &amp; close
+    goal: Confirm recovery from the user's side, then close.
+    capabilities: [telemetry.read, synthetic.replay]
+    output: VerifyResult
+---
+## assess
+Affected service; severity/impact + blast radius; recent changes; dependencies and which are unhealthy; related incidents; owner.
+## root-cause
+Correlate metrics/traces/logs with recent changes + dependency health; rank candidates; score confidence. Below min_confidence -> gather more or ask.
+## remediation
+Propose the safest reversible fix (often: roll back the recent change); show blast radius + rollback. Writes are gated.
+## verify-close
+Re-check health and replay the user journey; confirm, then close.</pre>
+<p><b>The playbook evolves — it doesn't have to be complete on day one.</b> It <b>wraps whatever capabilities the enterprise already has</b>, discovered through the registry (§3.3) rather than predefined — we don't need to know them all up front. It starts <b>assisted and evidence-based</b> (the AI proposes, a human acts, every step carries a citation), then earns its way up the <b>autonomy ladder (§1.3)</b>: more capabilities wired in → broader coverage → autonomous for the low-risk, proven actions. Because the playbook is <b>versioned (§3.5)</b>, all of this is just new versions — <b>the engine never changes</b>. This is the crawl → walk → run path from a vendor auto-heal we don't control to a governed engine we do.</p>
+<p style="margin:20px 0 4px;font-size:15px;color:var(--head);font-weight:600">Per-phase operations — what each phase asks, calls, and produces</p>
+<p>For a <b>general application</b>, each phase is a small set of <b>questions</b> answered with <b>capabilities</b>; what it produces is the per-phase model in §5.6. Context <b>accumulates and the suspected location narrows</b> as it goes — the engine <b>walks the topology</b> (§5.5), it doesn't run a fixed script.</p>
+<table>
+  <tr><th style="width:12%">Phase</th><th>Key questions</th><th style="width:24%">Tools (capabilities)</th><th>Steps → output</th></tr>
+  <tr><td><b>Assess</b></td><td>Which service(s)? How bad (impact · priority · severity)? What changed? Blast radius + which dependencies are unhealthy? Related / prior incidents?</td><td><code>servicenow.incident.read</code> · <code>cmdb.read</code> · <code>appd.flowmap.read</code> · <code>slo.read</code> · <code>changelog.read</code></td><td>read the incident + signal → identify <code>affected_services[]</code> → load the <b>topology</b> + check health across nodes → pull recent changes → link related incidents → derive priority → <b>AssessResult</b></td></tr>
+  <tr><td><b>Root cause</b></td><td>What's the probable cause? How confident? What's the evidence? What's ruled out?</td><td><code>appd.metrics.read</code> · <code>logs.search</code> · <code>traces.read</code> · <code>changelog.read</code></td><td>walk the topology from the symptom → correlate metrics / traces / logs with recent changes + unhealthy deps → rank candidates + score confidence → rule out alternatives → <b>RootCauseResult</b></td></tr>
+  <tr><td><b>Remediation</b></td><td>What's the safest reversible fix? Blast radius? Rollback? Approved?</td><td><code>k8s.rollback</code> · <code>restart</code> · <code>scale</code> · <code>runbook.run</code></td><td>propose the fix (often: roll back the change) → compute blast + rollback → <b>gate (approval)</b> → execute (idempotent) → capture evidence → on-failure retry / escalate → <b>RemediationResult</b></td></tr>
+  <tr><td><b>Verify &amp; close</b></td><td>Did it recover? Symptom cleared? SLO recovering? Safe to close?</td><td><code>telemetry.read</code> · <code>synthetic.replay</code></td><td>re-check health + replay the journey → confirm symptom cleared + SLO recovering → <b>operator confirms and closes</b> (human) → <b>VerifyResult</b></td></tr>
+</table>
+<p><b>How context builds.</b> Assess establishes the <b>topology + affected services</b>; Root cause <b>walks that topology</b>, narrowing <code>suspected_locus</code> with evidence; Remediation acts on the located cause; Verify confirms from the user's side. Each step's <b>tool call + evidence</b> (§5.5) accrues into the shared context — so a <b>backtrack</b> (§5.7) re-enters an earlier phase with <i>more</i> context, not less, and a multi-app incident is worked by walking <b>across apps and layers</b> until the locus is found.</p>
+
+<h3>3.2 The in-phase loop (identical every phase)</h3>
+<p><b>Propose → approve/refine → execute → report → approve.</b> During execute, each step: a permission gate (Allow / Allow-always-this-session / Deny — reads usually auto, writes ask); the run (often a sub-agent); a possible <b>mid-run pause</b> for your input (the session is stateful); and a capture of <b>result + citation + evidence</b> (screenshots/summaries included). If it <b>can't complete</b>, it <b>re-plans → you approve</b> → resumes. <b>Every plan — first, refined, or re-planned — passes through your approval before it runs.</b> All captured to the DB as JSON for handoff + audit.</p>
+<figure><img src="diagrams/in-phase-loop.png" alt="The in-phase execution loop"><figcaption>Inside a phase: propose → approve → execute (permission · run · mid-run input · capture) → report → approve — every plan and re-plan you approve.</figcaption></figure>
+<h3>3.3 Capability invocation — declare + call, per kind</h3>
+<p>The engine is <b>kind-blind</b>: it always calls <code>invoke(capability_id, input)</code>. The registry resolves the provider, the same governance boundary runs, then a per-kind <b>adapter</b> does the transport. Only two things differ per kind — how the adapter <b>discovers</b> capabilities (<code>declare()</code>) and how it <b>calls</b> them.</p>
+<table>
+  <tr><th>Kind</th><th>Discovery (<code>declare</code>)</th><th>Invocation (<code>call</code>)</th><th>Effect source</th><th>Trust</th></tr>
+  <tr><td><code>skill</code></td><td>code registration</td><td>in-process <b>function call</b></td><td>author declares (known)</td><td>trusted</td></tr>
+  <tr><td><code>mcp_local</code></td><td>spawn + <code>tools/list</code></td><td><code>tools/call</code> over <b>stdio</b></td><td>unknown (hints untrusted)</td><td>per-server</td></tr>
+  <tr><td><code>mcp_remote</code></td><td>connect URL + <code>tools/list</code></td><td><code>tools/call</code> over <b>HTTP/SSE</b></td><td>unknown</td><td>per-server</td></tr>
+  <tr><td><code>api</code></td><td>OpenAPI ops (or hand)</td><td><b>HTTP request</b> (verb+path+auth)</td><td>HTTP verb heuristic</td><td>per-service</td></tr>
+  <tr><td><code>a2a_agent</code></td><td>Agent Card <code>skills</code></td><td><code>message/send</code> <b>task (2-way)</b></td><td>unknown (classify)</td><td>per-agent</td></tr>
+</table>
+<ul>
+  <li><b>skill</b> — our own code, in-process; no network, effect known, trusted. Where trust- or latency-sensitive work goes.</li>
+  <li><b>mcp_local / mcp_remote</b> — the same MCP protocol (<code>initialize</code> → <code>tools/list</code> → <code>tools/call</code>); only the transport differs (a spawned subprocess over stdio vs a URL over HTTP/SSE). The host mediates every call.</li>
+  <li><b>api</b> — each OpenAPI operation becomes a capability; the HTTP verb seeds the effect (GET→read, POST/PUT/DELETE→write), still ratified by us.</li>
+  <li><b>a2a_agent</b> — discovered from its Agent Card; invoked as a two-way <b>task</b> that can stream and pause (see §4.2).</li>
+</ul>
+<h3>3.4 The governance decision</h3>
+<p><b>Governance at the boundary, not in the prompt.</b> For every call the host reads the capability's <b>effect</b> and <b>access</b>, applies the dial, and decides <b>allow / ask / deny</b> — reads usually flow through, writes meet the gate, everything is audited. How <code>access</code> resolves from the policy and the defaults is in §5.3; the call <i>sequence</i> is §4.1.</p>
+<h3>3.5 Playbook authoring, validation &amp; lifecycle</h3>
+<p>A playbook is <b>two halves in one file</b>: <b>YAML front-matter</b> — the machine contract the engine executes (phases, the capabilities each may use, gates, thresholds, output schemas) — and a <b>Markdown body</b> whose <code>## &lt;phase-id&gt;</code> sections are the <b>agent's guidance</b> for that phase: plain-language intent the model follows while pursuing the phase goal. Front-matter is <i>what is allowed and required</i>; the body is <i>how to think about it</i>. (Full schema in §5.4.)</p>
+<p><b>How a phase advances.</b> A phase is goal-driven, not a script: the engine works the goal with the phase's capabilities until it is met, the operator approves, and any <code>advance_when</code> / <code>min_confidence</code> condition holds — then it carries context to the next phase. If a step fails, the engine first <b>retries transient errors</b> (per the playbook's <code>retry</code> policy — up to <code>max</code>, with backoff); a permanent error, or exhausted retries, then hits <code>on_failure</code> (stop, or finish the independent steps then report) and the <code>error_handler</code> (escalate / hand to manual). A phase may fire a benign <code>on_complete</code> hook (e.g. <code>attach_session</code>); <b>closing the incident is a human action, not a hook</b> — in Verify &amp; close the operator confirms the fix held and closes it, so an incident is <b>never auto-closed</b>. Phases are <b>re-enterable</b>, so a later phase can backtrack to an earlier one — the full transition set is the state machine (§5.7).</p>
+<p><b>Lifecycle.</b> One <code>playbook.schema.json</code> validates every playbook <b>on author</b> (a draft saves with lint warnings), <b>on publish</b> (rejected if it names an unknown capability or a missing schema), and <b>on load</b>. Published = <b>immutable</b>; changes are new versions, <b>change-controlled</b> (reviewed before publish) with a <code>changelog</code> entry per version. <b>Each incident pins <code>playbook@version</code></b> <i>and</i> the capability manifest it ran against, so opening a past incident <b>replays the exact process and tools</b> → regulator-grade audit. A new playbook can be <b>AI-drafted from a reference</b> → review → publish.</p>
+<figure><img src="diagrams/playbook-lifecycle.png" alt="The playbook lifecycle"><figcaption>Authored → validated → reviewed → published immutable → active; each incident pins its version (and capability manifest) for faithful replay.</figcaption></figure>
+<p><b>The complete reference playbook</b> — the contract (front-matter) + the guidance (body), all four phases. §3.1 is the minimal form; this is the full one:</p>
+<pre>---
+id: incident-triage
+version: 1.0.0
+domain: incident
+status: active
+owner: iro-sre
+changelog:
+  - { version: 1.0.0, date: 2026-06-17, by: iro-sre, note: "First published process." }
+defaults:                          # inherited by every phase unless it overrides
+  on_failure: run-remaining
+  retry: { max: 3, backoff: exponential }   # transient errors only; permanent -> escalate
+unknown_access: ask                # this playbook's default gate for unknown-effect capabilities (deny|ask|allow)
+phases:
+  - id: assess
+    name: Assess
+    goal: Identify the affected service, how bad, what changed, and the context.
+    capabilities: [servicenow__incident.read, cmdb__read, appd__flowmap.read, slo__read, changelog__read]
+    output: AssessResult
+    on_complete: attach_session
+  - id: root-cause
+    name: Root cause
+    goal: Find the probable cause, with evidence and a confidence score.
+    capabilities: [appd__metrics.read, logs__search, traces__read, changelog__read]
+    output: RootCauseResult
+    min_confidence: 0.7
+    advance_when: confidence >= min_confidence
+  - id: remediation
+    name: Remediation
+    goal: Apply the safest reversible fix.
+    capabilities: [k8s__rollback, k8s__restart, k8s__scale, runbook__run]
+    output: RemediationResult
+    gate_writes: true              # every write here is gated
+    on_failure: fail-immediately   # override the default
+    error_handler: { action: escalate, to: on-call, via: pagerduty }
+  - id: verify-close
+    name: Verify &amp; close
+    goal: Confirm recovery from the user's side, then close.
+    capabilities: [telemetry__read, synthetic__replay]
+    output: VerifyResult
+schemas:                           # the output contracts, versioned with the playbook
+  AssessResult:      { type: object, required: [affected_services, impact, priority] }
+  RootCauseResult:   { type: object, required: [candidates, status] }
+  RemediationResult: { type: object, required: [action, approval, execution] }
+  VerifyResult:      { type: object, required: [verification_outcome, resolution] }
+---
+## assess
+Identify the affected service from the signal. Pull its CMDB record and AppD flow map.
+Set impact and urgency → priority (derived, overridable). Compute blast radius
+(services, users, customers). Read the SLO + burn rate. List changes in the last 24h and
+the dependencies that are unhealthy. Link related / similar / caused-by incidents.
+
+## root-cause
+Correlate metrics, traces, and logs against the recent changes and the unhealthy
+dependencies. Produce RANKED candidates — never one asserted cause — each with evidence
+and a confidence score. If the top candidate is below min_confidence, gather more
+evidence or ask the operator; do not advance on a guess.
+
+## remediation
+Propose the safest reversible fix — usually rolling back the suspect change. Show blast
+radius and the rollback plan. Every write is gated. If a step fails, stop and hand to the
+error_handler (escalate to the on-call).
+
+## verify-close
+Re-check health and replay the user journey (synthetic). Confirm the symptom is cleared
+and the SLO is recovering. Resolve, then close.</pre>
+
+<h3>3.6 Worked example — a driven capability (AppD browser)</h3>
+<p>End to end for the generic/driven case — and a validation of the model: <code>Provider</code> (status <code>registered → connected</code>) → discovered <code>DeclaredCapability</code> rows → <code>CapabilityPolicy</code> by default (read→allow, write→ask, overridable) → governed <code>invoke</code>.</p>
+<figure><img src="diagrams/driven-flow.png" alt="Driven capability — register, discover, grant, drive"><figcaption>Register the provider → discover + grant (once, then auto-syncing) → drive: trusted login (vault), then snapshot → act → capture, repeating until the goal — every step governed and audited.</figcaption></figure>
+<ul>
+  <li><b>Register</b> — one provider row (<code>appd-browser</code>: <code>command · target_url · auth_ref</code>); <code>auth_ref</code> is a <b>vault reference</b>, never the secret.</li>
+  <li><b>Discover</b> — on register the engine spawns the MCP and <code>tools/list</code> registers the capabilities; it re-syncs on <code>tools/list_changed</code> · periodically · on-demand.</li>
+  <li><b>Grant</b> — default policy by trust × effect (read→allow, write→ask); a human can change it later.</li>
+  <li><b>Drive</b> — a <b>trusted login</b> uses <code>auth_ref</code> (the AI never types creds), then the engine loops <b>snapshot (read) → act (write, asks in chat) → capture (read → Evidence)</b> until the goal; then close + audit.</li>
+</ul>
+<p>Concretely — the one provider you author, and the calls the engine makes:</p>
+<pre>// Provider — the only row you write
+{ "id":"appd-browser", "kind":"mcp_local",
+  "connection": { "command":["npx","@playwright/mcp@latest","--headless","--isolated"],
+                  "target_url":"https://appd.internal", "auth_ref":"vault:appd_svc" },
+  "trusted": true }
+
+// discovered + granted:  navigate·snapshot·screenshot → read·allow   |   type·click → write·ask
+
+// the engine drives (autonomous, gated per write):
+login(auth_ref)                                               # trusted · vault · AI never types creds
+invoke("appd-browser__browser_navigate", {url:"…/services"})         read  → allow
+invoke("appd-browser__browser_snapshot", {})                         read  → allow   # SEE the refs
+invoke("appd-browser__browser_type",     {ref, text:"payments-api"}) write → ASK
+invoke("appd-browser__browser_click",    {ref})                      write → ASK
+invoke("appd-browser__browser_take_screenshot", {})                  read  → allow → Evidence</pre>
+<p><b>Local vs remote MCP — same flow, one line of difference.</b> The driven flow above is <code>mcp_local</code> (the engine <i>spawns</i> the server). A hosted MCP is <code>mcp_remote</code> — <b>identical</b> protocol (<code>initialize → tools/list → tools/call</code>), capabilities, governance, and call path; only the provider's <code>connection</code> changes:</p>
+<pre>// mcp_local — spawn it on the box
+{ "id":"appd-browser", "kind":"mcp_local",
+  "connection": { "command":["npx","@playwright/mcp@latest","--headless"] } }
+
+// mcp_remote — connect to a hosted server (same tools, same calls)
+{ "id":"appd-mcp", "kind":"mcp_remote",
+  "connection": { "url":"https://mcp.internal/appd", "auth":{"type":"bearer","ref":"vault:appd_mcp"} } }
+// discovery + invoke unchanged: tools/list → capabilities; tools/call over HTTP/SSE instead of stdio</pre>
+<p><b>When to use which:</b> <code>mcp_local</code> for the simplest path (spawn on the engine box, no extra service); <code>mcp_remote</code> when the MCP is a <b>shared/hosted service</b> — scaled, patched, and owned independently, reachable by many engine replicas. The engine, the capabilities, and the gate are identical either way.</p>
+
+<h3>3.7 Worked example — predefined Playwright scripts in a Python module</h3>
+<p><b>What.</b> A reviewed Python module of Playwright scripts, <b>bundled in the engine</b> (e.g. <code>skills/replays.py</code>). Each function is a parameterized flow — <code>service_name</code> in, evidence out — that runs as <b>one governed call</b>.</p>
+<figure><img src="diagrams/predefined-flow.png" alt="Predefined capability — register, discover, grant, one governed call"><figcaption>Register the module → discover by introspection → grant (read→allow) → one invoke; the steps run inside the reviewed function. The loop lives in the function, not the engine.</figcaption></figure>
+<p><b>How it registers &amp; discovers.</b> You mark each function a capability; on load the engine <b>imports the module, scans for the marked functions, and introspects the typed signature into the <code>input_schema</code></b> — no hand-written schema, and adding one never touches the engine.</p>
+<pre># skills/replays.py — reviewed Playwright scripts, bundled in the engine
+@capability(effect="read")                        # marks it a capability + declares the effect
+async def appd_service(service_name: str, window: str = "1h") -> dict:
+    """Log into AppD, open the named service, capture the memory + error panels."""   # → description
+    async with browser_context(storage_state=vault.get("appd_svc")) as page:          # vault login
+        ...                                        # navigate · screenshot
+        return { "memory_mb": ..., "screenshots": [save_blob(png)] }
+
+@capability(effect="read")
+async def appd_dependencies(service_name: str) -> dict: ...</pre>
+<p><b>Data model — discovered from the module:</b></p>
+<pre>// Provider — one row, points at the module
+{ "id":"appd-replay", "kind":"skill", "connection": { "module":"skills.replays" }, "trusted": true }
+
+// DeclaredCapability — REGISTERED by introspection (one per @capability function)
+{ "id":"appd-replay__appd_service",
+  "description":"Log into AppD, open the named service, capture the memory + error panels.",
+  "input_schema": { "type":"object", "required":["service_name"],
+                    "properties": { "service_name":{"type":"string"}, "window":{"type":"string","default":"1h"} } },
+  "effect":"read" }                              // CapabilityPolicy default → allow
+// also discovered: appd-replay__appd_dependencies</pre>
+<p><b>Use.</b> The engine makes one governed call:</p>
+<pre>invoke("appd-replay__appd_service", { "service_name":"payments-api" })
+   → read → allow → the function runs the reviewed flow (login · navigate · capture)
+   → { memory_mb, screenshots } → Evidence + RootCauseResult + audit</pre>
+<p><b>Adding a script later</b> = add a decorated function to the module → it auto-registers on next load (a build, since it's bundled); the engine never changes. <b>Driven (§3.6) vs predefined (§3.7):</b> driven = many primitive calls, gated per write (exploratory); predefined = one call, the loop is inside the reviewed function, gated once (deterministic) — same registry, same <code>invoke</code> contract.</p>
+
+<h3>3.8 Registering a skill — the Agent Skills (SKILL.md) standard</h3>
+<p>We don't invent a skill format — we <b>adopt the Agent Skills open standard</b> (<code>agentskills.io</code>; Anthropic's Skills). A skill is a <b>folder</b> with a <code>SKILL.md</code> (YAML frontmatter + instructions) plus optional bundled scripts/resources. This is the standard packaging around the bare module of §3.7 — same scripts, now wrapped with discovery metadata, instructions, and a tool scope.</p>
+<figure><img src="diagrams/skill-register.png" alt="Registering a skill — the Agent Skills standard"><figcaption>Author a folder → drop it in a skills directory (auto-discovered, no code) → the engine parses SKILL.md into a provider + capabilities → grant + scope → model-invoked, with progressive disclosure.</figcaption></figure>
+<p><b>The <code>SKILL.md</code> spec (verified):</b> required <code>name</code> (≤64 chars, lowercase/digits/hyphens, not "anthropic"/"claude") and <code>description</code> (≤1024 chars, says <i>what it does + when to use it</i>); optional <code>allowed-tools</code> and <code>disable-model-invocation</code>.</p>
+<pre>incident-replays/                      # the skill folder (the unit you register)
+├── SKILL.md
+└── scripts/
+    └── appd_replay.py                  # the Playwright flow
+
+# SKILL.md
+---
+name: appd-replay                       # ≤64 · lowercase-hyphen
+description: Capture AppD evidence for a service — log in, open the named service,
+  screenshot the memory + error panels. Use when investigating a service in AppDynamics.
+allowed-tools: [playwright, vault.read] # the capabilities this skill may use
+---
+# AppD replay
+Steps the engine follows…              # the body — loaded only when the skill is triggered</pre>
+<p><b>How a user registers it:</b> drop the folder in a skills directory — <b>auto-discovered, no code change</b> (<code>~/.claude/skills</code>, <code>.claude/skills</code>, or a plugin). New skills appear via the same sync that discovers any provider.</p>
+<p><b>How the engine maps it (data model):</b></p>
+<table>
+  <tr><th><code>SKILL.md</code></th><th>Our model</th></tr>
+  <tr><td>the folder + <code>name</code></td><td><code>Provider</code> (<code>kind: skill</code>, <code>connection:{path}</code>) + namespace</td></tr>
+  <tr><td><code>description</code></td><td><code>DeclaredCapability.description</code> — preloaded for selection (Level 1)</td></tr>
+  <tr><td>bundled scripts</td><td>a <code>DeclaredCapability</code> per script (<code>input_schema</code> introspected) — Level 3</td></tr>
+  <tr><td>SKILL.md body</td><td>the skill's instructions — loaded on trigger (Level 2)</td></tr>
+  <tr><td><code>allowed-tools</code></td><td>the capabilities this skill may use → policy scope</td></tr>
+</table>
+<p><b>Progressive disclosure</b> (the standard's efficiency trick): L1 <code>name+description</code> always preloaded (~100 tok/skill) · L2 the body on trigger (&lt;5k tok) · L3 scripts run via the adapter on demand (output only). <b>Governance:</b> <code>allowed-tools</code> scopes what it may call; a skill bundles <b>executable code</b>, so it's <code>trusted</code> only after review (supply-chain) — its capabilities default to <code>ask</code> / <code>pending_review</code> until granted. <b>Invocation:</b> model-invoked — the engine selects the skill by its <code>description</code>, loads the body, and runs its scripts through the governed call path (§4.1).</p>
+
+<h3>3.9 Worked example — an API capability (OpenAPI → operations)</h3>
+<p><b>What others do, and what we do:</b> an <code>api</code> provider points at a REST service with an <b>OpenAPI</b> spec, and <b>each operation becomes a capability</b> — the same pattern every "tools-from-OpenAPI" generator uses. No per-endpoint code.</p>
+<figure><img src="diagrams/api-flow.png" alt="API capability — OpenAPI operations to governed calls"><figcaption>Register the provider → fetch the OpenAPI → one capability per operation (verb-seeded effect) → grant → one governed HTTP call.</figcaption></figure>
+<p><b>Register + discover.</b> One provider row; the engine fetches the OpenAPI and generates a capability per operation — <code>input_schema</code> from the operation's parameters + requestBody, <code>effect</code> seeded from the HTTP verb (GET/HEAD → read; POST/PUT/PATCH/DELETE → write), auth from <code>securitySchemes</code>.</p>
+<pre>// Provider
+{ "id":"appd-api", "kind":"api",
+  "connection": { "base_url":"https://appd.internal/api", "openapi":"/openapi.json",
+                  "auth": {"type":"bearer","ref":"vault:appd_api"} }, "trusted": true }
+
+// discovered from the spec — one per operation:
+{ "id":"appd-api__get_metrics",  "input_schema":{ …service,metric,window… }, "effect_hint":"read"  }   // GET  → read  → allow
+{ "id":"appd-api__restart_node", "input_schema":{ …node_id… },              "effect_hint":"write" }   // POST → write → ask
+
+// invoke:
+invoke("appd-api__restart_node", { "node_id":"n-42" })
+  → write → ASK → adapter builds  POST {base_url}/nodes/n-42/restart  + Authorization: Bearer …(vault)
+  → call → validate response → Evidence + audit</pre>
+<p><b>Data model:</b> <code>Provider(kind:api)</code> + a <code>DeclaredCapability</code> per operation (schema from the spec) + policy (verb-seeded default, human-overridable). The verb is a <i>hint</i> — we ratify the effect, exactly as for every other kind. No OpenAPI? Hand-declare the few capabilities; everything downstream is identical.</p>
+
+<h3>3.10 Worked example — an A2A agent capability (Agent Card → task)</h3>
+<p>Grounded in the <b>A2A protocol</b> (build to v0.3.0): the agent is reached by URL and publishes an <b>Agent Card</b> at <code>/.well-known/agent-card.json</code> whose <code>skills</code> are its callable actions; you invoke a <b>task</b> — two-way and streaming.</p>
+<figure><img src="diagrams/a2a-flow.png" alt="A2A agent capability — Agent Card to two-way task"><figcaption>Register (URL + governance_aware) → fetch the Agent Card → one capability per skill → grant → a two-way task that can pause two ways: input-required (ask for info) or approval (gate a write).</figcaption></figure>
+<p><b>Register + discover.</b> One provider row (URL + auth + <code>governance_aware</code>); the engine fetches the Agent Card and maps each <code>skill</code> → a capability. A2A declares <b>no effect</b>, so you classify it.</p>
+<pre>// Provider
+{ "id":"network-triage-agent", "kind":"a2a_agent",
+  "connection": { "url":"https://a2a.internal/net", "auth":{"type":"oauth2"} },
+  "governance_aware": true, "trusted": false }
+
+// discovered from the Agent Card skills (effect unknown → you ratify):
+{ "id":"network-triage-agent__diagnose", "effect_hint":"unknown" }   // → read  → allow
+{ "id":"network-triage-agent__failover", "effect_hint":"unknown" }   // → write → ask
+
+// invoke = a two-way task:
+invoke("network-triage-agent__diagnose", { "incident":"INC-2381" })
+  → message/send (task created) → agent works, streams updates
+  → may pause: input-required (asks the operator for INFO) | approval (gate a write)
+  → completed → artifacts → Evidence + audit</pre>
+<p><b>The two pauses</b> — both via <code>interrupt()</code> and one <code>HumanInteraction</code> (<code>type: input | approval</code>): <code>input-required</code> = the agent needs information (the operator answers, the task resumes); <b>approval</b> = a write meets the gate. A write the agent performs itself is gated by <b>plan-then-approve</b> when <code>governance_aware</code>, or kept read-only / least-privilege when opaque. <b>Data model:</b> <code>Provider(kind:a2a_agent, governance_aware)</code> + a <code>DeclaredCapability</code> per skill + policy.</p>
+
+<h3>3.11 The capability layer holds — all five kinds</h3>
+<p>Every kind registers, discovers, governs, and invokes through the <b>same data model and the same call path</b> (§4.1) — only the adapter differs, and <b>no kind needed a new field</b>.</p>
+<table>
+  <tr><th>Kind</th><th>Discover</th><th>Invoke</th><th>Effect source</th><th>Worked example</th></tr>
+  <tr><td><code>skill</code></td><td>module introspection / <code>SKILL.md</code></td><td>in-process call</td><td>author-declared</td><td>§3.7 · §3.8</td></tr>
+  <tr><td><code>mcp_local</code></td><td>spawn + <code>tools/list</code></td><td><code>tools/call</code> (stdio)</td><td>classify</td><td>§3.6</td></tr>
+  <tr><td><code>mcp_remote</code></td><td>connect URL + <code>tools/list</code></td><td><code>tools/call</code> (HTTP)</td><td>classify</td><td>§3.6 (same, URL connection)</td></tr>
+  <tr><td><code>api</code></td><td>OpenAPI operations</td><td>HTTP request</td><td>HTTP verb</td><td>§3.9</td></tr>
+  <tr><td><code>a2a_agent</code></td><td>Agent Card <code>skills</code></td><td><code>message/send</code> task</td><td>classify</td><td>§3.10</td></tr>
+</table>
+<p>One <code>Provider</code> + <code>DeclaredCapability</code> + <code>CapabilityPolicy</code> + the §4.1 call path covers all five — registration, discovery (with default-grant), governance, invocation, and teardown (§4.5). <b>The capability layer and its data model are validated and complete.</b></p>
+
+<h2><span class="n">4</span> Interactions</h2>
+<p>How the components talk — the runtime flows.</p>
+<h3>4.1 The one call path — and how it loops</h3>
+<p>Every capability call — any kind — takes the same governed path. This is <b>one</b> step:</p>
+<pre>invoke(cap_id, input):
+   cap     = resolve(cap_id)                  # → provider · kind · effect · access
+   validate(input, cap.input_schema)          # reject bad args before anything runs
+   gate    = govern(cap.effect, cap.access)   # allow · ask · deny
+               deny → blocked
+               ask  → interrupt() → operator approves / edits / denies (in the chat)
+                      (reads usually allow → pass straight through)
+   output  = adapter[cap.kind].call(cap, input)    # ← the only kind-specific step
+   validate(output, cap.output_schema)        # if declared
+   capture   output → Evidence ;  step → immutable audit
+   return output</pre>
+<figure><img src="diagrams/callpath.png" alt="The governance call path"><figcaption>Every call takes the same path; reads flow through, writes meet the gate, everything is audited.</figcaption></figure>
+<p>The boundary is identical for every kind; the transport is the only variable — swap an MCP tool for a skill and <b>nothing in the engine changes.</b></p>
+<p><b>It loops for a driven capability.</b> The self-driving AppD browser (§3.6) wraps that one call in a loop — observe → reason → act → repeat until the goal — with the <b>gate firing per call</b> (the gate itself is unchanged):</p>
+<pre>drive(goal):                                   # "get payments-api memory from AppD"
+   login(auth_ref)                             # trusted, once (vault)
+   while not goal_met and steps &lt; limit:
+       view   = invoke("appd-browser__browser_snapshot", {})       # OBSERVE   read  → allow
+       action = reason(goal, view)                                 # model picks next step + ref
+       invoke(action.cap, action.input)                            # ACT   navigate→allow · type/click→ASK
+       goal_met = check(goal, view)
+   invoke("appd-browser__browser_take_screenshot", {})             # capture   read → Evidence
+   close(); return RootCauseResult(evidence)</pre>
+<p>So the call path is the inner governed unit; the <b>loop is the driven mode</b> — reads flow through, writes pause for approval, every iteration audited. A <b>predefined</b> capability (§3.7) is the opposite: <b>one</b> <code>invoke</code>, with the loop inside the reviewed function — the engine doesn't loop at all.</p>
+<h3>4.2 Human-in-the-loop — one gate, plus A2A's mid-run ask</h3>
+<ul>
+  <li><b>The ask — every kind.</b> A capability with <code>access = ask</code> pauses <i>before</i> the call and <b>surfaces in the chat</b>, where an authorized user can <b>approve, pick an option, or refine</b> — not just yes/no — then it proceeds. <code>allow</code> flows straight through; the gate is host-side, the provider never decides it.</li>
+  <li><b>Mid-run input — A2A only.</b> <code>skill</code>, <code>mcp_*</code>, and <code>api</code> are request→response: one shot, nothing to ask back. Only an A2A agent runs a multi-step task, so only it can hit <code>input-required</code> and ask the operator a question mid-run.</li>
+</ul>
+<p>Both pauses flow through the one <code>HumanInteraction</code> record (<code>type: approval | input</code>) and the same <code>interrupt()</code>/resume machinery — so the engine and workbench handle them uniformly. The whole HITL story: <b>one gate for writes across all five kinds; one extra mid-run "ask" that only A2A can trigger.</b></p>
+<h3>4.3 Incident intake &amp; the run, end-to-end</h3>
+<p><b>From signal to run.</b> The front door is an ingestion endpoint: a <b>Signal</b> arrives from monitoring (a webhook from AppD / Splunk / Prometheus / PagerDuty), normalized to <code>{source, service, severity_hint, fingerprint, payload}</code>. The engine <b>dedups &amp; correlates</b> by <code>fingerprint</code> + service + time-window — a matching open incident <b>attaches</b> the signal (no duplicate); otherwise it <b>creates</b> one, sets an initial <b>severity</b> (rules) and <b>owner</b> (CMDB on-call), and <b>starts a Run</b> on the domain's <code>playbook@version</code> → Assess begins. This read-only intake is the <b>only</b> un-gated step; everything consequential downstream still passes the gate (§4.4).</p>
+<figure><img src="diagrams/ingestion.png" alt="From signal to run"><figcaption>The front door: a signal is normalized, deduped / correlated to one incident (related ones linked, not merged), then a governed run starts.</figcaption></figure>
+<p><b>One separate triage session per incident</b> (no merging). A <code>Session</code> is the run: it moves through the phases, and each phase produces a <code>PhaseResult</code> whose steps record every capability call, the evidence it produced, and any approval — so the trail reads <b>session → phases → steps → evidence → timeline</b>. Incidents <b>link</b> to others (related-active / similar-past-with-fixes / caused-by) for <b>leverage + learning</b>, never merged. The full entities are in §5.5; a worked row-by-row run is in §5.9.</p>
+<figure><img src="diagrams/intake.png" alt="Incident-only intake"><figcaption>Incident in, one separate triage session per incident; related / similar / caused-by are linked for learning, never merged.</figcaption></figure>
+<div class="rec"><b>Why this shape.</b> A prod-support team trusts the engine only when it can see the steps and citations — so the captured plan + cited evidence per phase is at once the work surface, the shift-handoff artifact, and the audit record.</div>
+<h3>4.4 Access &amp; approval</h3>
+<p>Access is layered on what the bank already runs, plus the one gate the platform adds — three layers, nothing duplicated:</p>
+<ul>
+  <li><b>1 · Domain access — an AD group.</b> Membership in a domain's AD group (incident-triage, provisioning, …) is what lets a user in. The platform <b>checks the group; it does not build its own RBAC</b> — it leverages enterprise IAM.</li>
+  <li><b>2 · Capability layer.</b> The registry of what can be done; each capability carries an access — <code>allow · ask · deny</code> (§5.3).</li>
+  <li><b>3 · The ask.</b> When a capability's access is <code>ask</code>, the engine pauses and surfaces it in the <b>chat</b>, where an authorized user can <b>approve, choose an option, or refine</b> — not just yes/no. The AI proposes but never approves its own action; every proposal, decision, and outcome is audited.</li>
+</ul>
+<p>The gate is the <b>governance layer</b> (what's permitted); the <i>interaction</i> — the asking, the options, the refining — lives in the <b>chat</b> (§3.2). Keep them distinct.</p>
+<figure><img src="diagrams/session-roles.png" alt="The access model — domain, capability, ask"><figcaption>Access in three layers: domain (AD group) → capability (allow / ask / deny) → the ask, answered in the chat — then audit.</figcaption></figure>
+
+<h3>4.5 Session &amp; resource lifecycle — clean, enforced teardown</h3>
+<p>Two things end, both deterministically — the <b>engine session</b> (the run) and the <b>tool resource leases</b> it held (the stateful ones: a Playwright browser, an open MCP connection). Cleanup is the <b>host's</b> job — a <code>finally</code>-style guarantee — never something the model has to remember.</p>
+<p><b>Scoped leases + enforced teardown.</b> A stateful tool is acquired as a <b>lease</b> bound to a scope (the phase, or a browser session inside the driven loop). The engine tracks open leases and tears them down when the scope exits — on success, error, cancel, <i>or</i> timeout:</p>
+<pre>lease = acquire(appd-browser)          # spawn MCP + browser context
+try:
+    drive(goal)                        # the loop
+finally:
+    lease.close()                      # ALWAYS — close tabs → context → browser → kill subprocess
+                                       # idempotent · audited</pre>
+<p>Browser teardown order: <b>pages (tabs) → context → browser → terminate the MCP subprocess</b> — <b>idempotent</b> (safe if already gone) and <b>audited</b>. The model never calls close itself; the <code>finally</code> runs even if it forgets, errors, or the operator rejects a step.</p>
+<table>
+  <tr><th>How the session ends</th><th>What the engine does</th></tr>
+  <tr><td>Normal — operator closes at verify-close</td><td>close <b>all</b> leases · finalize audit · checkpoint · <code>SessionStatus = completed</code></td></tr>
+  <tr><td>Canceled / failed</td><td>same teardown path · <code>status = canceled | failed</code></td></tr>
+  <tr><td>Paused (HITL) — short</td><td>hold the lease (browser stays open) · resume in place</td></tr>
+  <tr><td>Paused — long / abandoned</td><td>a <b>reaper</b> closes the lease past its <b>TTL</b> (scheduler, leader-elected) · re-acquire idempotently on resume (re-login from vault)</td></tr>
+</table>
+<p><b>Scoped leases + <code>finally</code> teardown + idempotent close + a TTL reaper</b> — tabs/browser/subprocess are always closed when the work or the session ends, abandoned sessions are reclaimed, and crashes are covered because the lease is tied to the session, not to the model. <b>No orphaned browsers.</b></p>
+
+<h3>4.6 The engine — durable execution &amp; recovery</h3>
+<p>The engine is the runtime that drives a playbook against an incident. It is built for <b>durable execution</b>: the run's state is persisted at <b>every step</b>, so a run survives pauses, crashes, and hours-long waits — and <b>never double-executes a write</b>. LangGraph is the framework (§7.3); the durability bar is Temporal/Conductor-grade.</p>
+<p><b>How a run executes.</b> Load <code>playbook@version</code> → build the phase graph → open a <b>Run</b> (a durable thread). At each step the engine writes a <b>checkpoint</b> — a snapshot of where it is, what's next, and what's pending. The <b>persisted state, not memory, is the source of truth</b>. An <b>append-only event log</b> records every transition — it is <i>both</i> the audit trail and the recovery log. A capability call (an <b>Action</b>) <b>runs once</b>; its result is recorded as Evidence, and on replay the recorded result is reused, never re-run.</p>
+<figure><img src="diagrams/engine-durable.png" alt="The durable-execution lifecycle"><figcaption>The durable-execution loop: every step checkpoints; a write or a question <b>parks</b> the run (holding nothing) until a human signal resumes it; a crash reloads the last checkpoint; writes are idempotent, so nothing runs twice.</figcaption></figure>
+<p><b>Pause &amp; resume (human-in-the-loop).</b> A write — or an agent's question — <b>interrupts</b> the run; the engine persists the waiting state and <b>releases held resources</b> (§4.5), so a parked run holds <b>nothing</b>. A human <b>signal</b> — an approval or an answer (the <code>HumanInteraction</code>) — resumes it from the checkpoint.</p>
+<p><b>Crash recovery.</b> If a worker dies mid-run, another reloads the last checkpoint and continues. Completed actions are not re-executed (their results are in the log); everything else is guarded by idempotency.</p>
+<p><b>Retry &amp; idempotency — bank-grade.</b> A failed action retries <b>from itself</b>, not from the top of the run. Every <b>write carries an idempotency key</b>, so a retry or a crash-replay executes it <b>exactly once</b> — no double restart, no double refund. This is the one place we go beyond stock LangGraph checkpoints, which alone do not guarantee exactly-once side effects.</p>
+<p><b>Backtrack &amp; time-travel.</b> Because every step is checkpointed, re-entering an earlier phase (§5.7) <b>restores from that phase's state</b> — time-travel, not a cold restart.</p>
+<p><b>Concurrency.</b> Each incident is an <b>independent run</b>, isolated from the rest; many run in parallel. Per-run leases + the TTL reaper (§4.5) bound resources.</p>
+<p>The use cases this has to cover, end to end:</p>
+<table>
+  <tr><th style="width:26%">Use case</th><th>What the engine does</th></tr>
+  <tr><td><b>Cold start</b></td><td>Incident opens → create a Run, load the playbook, run Assess.</td></tr>
+  <tr><td><b>Pause &amp; resume</b></td><td>Write gate → interrupt → durable park (no resources held) → approval signal → resume from checkpoint.</td></tr>
+  <tr><td><b>Crash recovery</b></td><td>Worker dies → another reloads the last checkpoint → continues; no work lost, no action repeated.</td></tr>
+  <tr><td><b>Action retry</b></td><td>Transient failure → retry the action (not the run); idempotency key → no duplicate side effect.</td></tr>
+  <tr><td><b>Partial multi-target</b></td><td>Some targets fail → <code>partial</code> → retry the failed items only (§5.7).</td></tr>
+  <tr><td><b>Backtrack</b></td><td>Verify fails → restore Root cause from its checkpoint and re-open it.</td></tr>
+  <tr><td><b>Long park</b></td><td>Run waits hours for a human → holds nothing → the reaper enforces TTL → resumes on the signal.</td></tr>
+  <tr><td><b>Concurrent incidents</b></td><td>N incidents → N isolated runs in parallel, each with its own thread + leases.</td></tr>
+  <tr><td><b>Idempotent write</b></td><td>The same remediation invoked twice (retry / replay) → executed once.</td></tr>
+</table>
+<p style="font-size:13px;color:var(--ink2)"><i>Grounded in:</i> Temporal (append-only <b>event history</b>, replay, activities run once, <b>signals</b> for external input); LangGraph (<b>thread</b> + <b>checkpoint / StateSnapshot</b>, interrupt/resume — our framework); Netflix Conductor (workflow = state-machine of tasks, central persisted state as source of truth, retry-from-task, exactly-once); idempotency / retry-safety patterns for distributed workflows. The one gap we close ourselves: stock checkpoints are <b>not</b> exactly-once → we add <b>idempotency keys</b> + the <b>event log</b> + the <b>reaper</b>.</p>
+
+<h2><span class="n">5</span> Data model</h2>
+<p>Three clusters — the governed <b>Registry</b>, the versioned <b>Playbook</b>, and the <b>Run</b> — across two storage planes.</p>
+<h3>5.1 Storage planes</h3>
+<p>The <b>control plane</b> lives in <b>Postgres</b>: config/registry, providers, capabilities, policies, playbooks, session + checkpoint, audit, decisions, and the plan &amp; execution record — everything you search, join, gate, and audit on. Inside Postgres, scalar/spine fields (ids, FKs, enums, status, timestamps) are <b>relational columns</b>, and variable documents are <b>JSONB</b> with their searchable fields <b>projected to indexed columns</b> — so you keep the full JSON <i>and</i> a fast relational view. The <b>data plane</b> lives in <b>MongoDB</b>: the rich, evolving documents — incident records, evidence, context snapshots, and the timeline feed (high write volume, flexible nested shape). The playbook keeps its <b>MD + front-matter</b> form in Postgres (<code>body_md</code> text + parsed columns + <code>phases</code> JSONB); large binaries (screenshots) go to an object store, referenced by id.</p>
+<figure><img src="diagrams/data-model.png" alt="The data model — entity-relationship diagram"><figcaption>The full data model: Registry → Playbook → Run. Declared capabilities are provider-owned and synced; policy is human-owned and sticky; each run pins its playbook version.</figcaption></figure>
+
+<h3>5.2 Enumerations</h3>
+<p>Each enum is a closed set (a Postgres <code>enum</code> type) — the only legal values, so governance and the UI stay unambiguous.</p>
+<table>
+  <tr><th>Enum</th><th>Possible values</th><th>What each means · why it exists</th></tr>
+  <tr><td><code>ProviderKind</code></td><td><code>skill · mcp_local · mcp_remote · a2a_agent · api</code></td><td>The <b>transport</b> — how we reach a provider; it selects the adapter. Deliberately not "what it does" (a browser is just an MCP or a skill).</td></tr>
+  <tr><td><code>ProviderStatus</code></td><td><code>registered · connected · disabled · error</code></td><td>Connection lifecycle. The engine only calls <code>connected</code> providers; <code>error</code>/<code>disabled</code> are skipped and surfaced.</td></tr>
+  <tr><td><code>Effect</code></td><td><code>read · write · unknown</code></td><td>Side-effect class — the one fact governance keys on. <code>unknown</code> exists because A2A never declares effect and MCP rarely does, so it's the honest default until ratified.</td></tr>
+  <tr><td><code>Access</code></td><td><code>allow · ask · deny</code></td><td>The gate the host enforces per call — <code>allow</code> runs, <code>ask</code> prompts an authorized user, <code>deny</code> blocks.</td></tr>
+  <tr><td><code>PolicyStatus</code></td><td><code>active · pending_review</code></td><td>Whether a human has ratified the policy; <code>pending_review</code> feeds the review queue (the default for new / untrusted).</td></tr>
+  <tr><td><code>HumanInteractionType</code></td><td><code>approval · input</code></td><td>A gate (authorize a write) vs a question (the agent needs info) — two different pauses, one record.</td></tr>
+  <tr><td><code>InteractionStatus</code></td><td><code>pending · resolved · expired</code></td><td>Lifecycle of a human pause; <code>expired</code> lets a stale ask time out safely.</td></tr>
+  <tr><td><code>Severity</code></td><td><code>critical · high · medium · low</code></td><td>Incident severity — drives triage priority and routing.</td></tr>
+  <tr><td><code>IncidentStatus</code></td><td><code>open · investigating · mitigating · resolved · closed</code></td><td>The incident's lifecycle, independent of any single engine run.</td></tr>
+  <tr><td><code>SessionStatus</code></td><td><code>running · waiting_input · waiting_approval · completed · failed · canceled</code></td><td>The engine run's state; the two <code>waiting_*</code> states are the HITL pauses (a paused run frees its replica).</td></tr>
+</table>
+
+<h3>5.3 The capability layer — Provider &amp; Capability</h3>
+<p>A capability is <b>two records</b>: the provider owns the <b>declared</b> half (synced from its manifest — MCP <code>tools/list</code>, the A2A Agent Card — never hand-edited), and a human owns the <b>policy</b> half (the grant, sticky across re-syncs). One <code>Provider</code> exposes many capabilities. This "declared vs granted" split is the standard pattern (VS&nbsp;Code contributions vs Workspace&nbsp;Trust; OAuth scopes requested vs granted).</p>
+
+<p><b>Provider</b> — an integration, connected once.</p>
+<table>
+  <tr><th>Field</th><th>Type / values</th><th>What it does</th><th>Why this field</th></tr>
+  <tr><td><code>id</code></td><td>string (PK)</td><td>stable key, e.g. <code>appd</code></td><td>namespaces its capabilities; referenced by <code>DeclaredCapability.provider</code></td></tr>
+  <tr><td><code>name</code></td><td>string</td><td>human label</td><td>UI display</td></tr>
+  <tr><td><code>kind</code></td><td><code>ProviderKind</code></td><td>the transport — how it's reached</td><td>selects the adapter; one provider = one transport</td></tr>
+  <tr><td><code>connection</code></td><td>jsonb (shape by kind)</td><td>address / launch config</td><td>each kind reaches its backend differently → jsonb, validated per kind</td></tr>
+  <tr><td><code>trusted</code></td><td>bool</td><td>is the source first-party / vetted?</td><td>drives auto-classification: trusted read→allow, write→ask; untrusted → all ask + review</td></tr>
+  <tr><td><code>governance_aware</code></td><td>bool <span style="color:#51606e">(a2a only)</span></td><td>does the agent self-gate its writes?</td><td>A2A doesn't gate internal writes; if false → least-privilege or read-only</td></tr>
+  <tr><td><code>status</code></td><td><code>ProviderStatus</code></td><td>connection lifecycle</td><td>engine skips non-connected; ops visibility</td></tr>
+  <tr><td><code>last_synced</code></td><td>timestamp</td><td>last capability discovery</td><td>drives re-sync + staleness</td></tr>
+</table>
+<pre>{ "id": "network-triage-agent", "name": "Network Triage Agent", "kind": "a2a_agent",
+  "connection": { "url": "https://a2a.internal/net", "auth": { "type": "oauth2" } },
+  "trusted": false, "governance_aware": true, "status": "connected",
+  "last_synced": "2026-06-17T09:00:00Z" }</pre>
+<p><b><code>connection</code> by kind</b> — validated against a per-kind schema:</p>
+<table>
+  <tr><th>kind</th><th>connection</th><th>example</th></tr>
+  <tr><td><code>skill</code></td><td><code>{ module }</code></td><td><code>{ "module": "skills.cmdb" }</code></td></tr>
+  <tr><td><code>mcp_local</code></td><td><code>{ command[], env?, timeout_ms? }</code></td><td><code>{ "command": ["npx","@playwright/mcp"], "timeout_ms": 30000 }</code></td></tr>
+  <tr><td><code>mcp_remote</code></td><td><code>{ url, auth? }</code></td><td><code>{ "url": "https://mcp.internal/appd", "auth": {"type":"bearer"} }</code></td></tr>
+  <tr><td><code>a2a_agent</code></td><td><code>{ url, auth? }</code></td><td><code>{ "url": "https://a2a.internal/net" }</code></td></tr>
+  <tr><td><code>api</code></td><td><code>{ base_url, openapi?, auth? }</code></td><td><code>{ "base_url": "https://wf.internal/svc", "openapi": "/openapi.json" }</code></td></tr>
+</table>
+
+<p><b>DeclaredCapability</b> — provider-owned, synced, never hand-edited.</p>
+<table>
+  <tr><th>Field</th><th>Type / values</th><th>What it does</th><th>Why this field</th></tr>
+  <tr><td><code>id</code></td><td>string (PK) — <code>provider__action</code>, lowercase <code>[a-z0-9_.-]</code>, <code>__</code> separator</td><td>e.g. <code>appd__metrics.read</code></td><td>namespaced so providers can't collide; this is what the engine calls</td></tr>
+  <tr><td><code>provider</code></td><td>string (FK → Provider.id)</td><td>which provider exposes it</td><td>resolve to the adapter; cascades on provider removal</td></tr>
+  <tr><td><code>description</code></td><td>string</td><td>model-facing: what it does + when</td><td>the LLM selects capabilities by this (a tool description)</td></tr>
+  <tr><td><code>input_schema</code></td><td>jsonb (JSON Schema)</td><td>the argument contract</td><td>validates input before the call; <i>is</i> the MCP <code>inputSchema</code></td></tr>
+  <tr><td><code>output_schema</code></td><td>jsonb? (JSON Schema)</td><td>the result contract (optional)</td><td>validates output when present; optional — not all providers declare it</td></tr>
+  <tr><td><code>effect_hint</code></td><td><code>read · write · unknown</code></td><td>the provider's <i>claim</i> of effect</td><td>a hint only — untrusted; the ratified effect lives in policy</td></tr>
+  <tr><td><code>last_synced</code></td><td>timestamp</td><td>last seen in the manifest</td><td>removal detection (gone → disable)</td></tr>
+</table>
+<pre>{ "id": "appd__metrics.read", "provider": "appd",
+  "description": "Read AppDynamics metrics for a service over a time window.",
+  "input_schema": { "type": "object", "required": ["service","metric"],
+    "properties": { "service": {"type":"string"}, "metric": {"type":"string"},
+                    "window": {"type":"string","default":"15m"} } },
+  "output_schema": null, "effect_hint": "read", "last_synced": "2026-06-17T09:00:00Z" }</pre>
+
+<p><b>CapabilityPolicy</b> — human-owned, sticky (0..1 per capability).</p>
+<table>
+  <tr><th>Field</th><th>Type / values</th><th>What it does</th><th>Why this field</th></tr>
+  <tr><td><code>capability_id</code></td><td>string (PK / FK)</td><td>1:1 with the declared capability</td><td>keyed to the capability so it survives every re-sync</td></tr>
+  <tr><td><code>effect</code></td><td><code>read · write · unknown</code></td><td>the <b>ratified</b> effect</td><td>what governance actually uses (not the untrusted hint)</td></tr>
+  <tr><td><code>access</code></td><td><code>allow · ask · deny</code></td><td>the gate decision</td><td>the heart of governance; host-enforced</td></tr>
+  <tr><td><code>status</code></td><td><code>active · pending_review</code></td><td>ratified or awaiting review</td><td><code>pending_review</code> → the review queue</td></tr>
+  <tr><td><code>reviewed_by · reviewed_at</code></td><td>string? · timestamp?</td><td>who granted it, when</td><td>the grant / audit record</td></tr>
+</table>
+<pre>{ "capability_id": "remediate__restart", "effect": "write", "access": "ask",
+  "status": "active", "reviewed_by": "sre-lead", "reviewed_at": "2026-06-10T12:00:00Z" }</pre>
+<p><b>Resolution at call time</b> — no policy row means the default applies, never hand-wired:</p>
+<pre>effect = policy.effect ?? declared.effect_hint ?? unknown
+access = policy.access                                       # 1· the capability's own policy wins
+      ?? (playbook.unknown_access  if effect == unknown)      # 2· else the playbook's unknown default
+      ?? DEFAULT[ provider.trusted ][ effect ]                # 3· else the global matrix
+
+DEFAULT          read     write          unknown
+  trusted    →   allow    ask            ask + review
+  untrusted  →   ask      ask + review   deny + review</pre>
+<p>So a new capability is usable the moment the provider declares it (worst case <code>ask</code> — gated but working), every <code>ask</code> is logged, and that allow/deny history can <i>suggest</i> the permanent policy. A write is never auto-promoted to <code>allow</code> — always a deliberate human act. If a capability disappears from the provider's manifest it is <b>disabled, not deleted</b>, and its policy is kept — if it returns, the human's <code>allow</code>/<code>ask</code>/<code>deny</code> choice reactivates (governance survives re-syncs).</p>
+
+<h3>5.4 The playbook — versioned process (MD + front-matter)</h3>
+<p>Authored as Markdown + YAML front-matter, stored in Postgres (<code>body_md</code> text + parsed columns + <code>phases</code>/<code>schemas</code> as JSONB). Published versions are immutable; each incident pins <code>playbook@version</code>, so a past incident replays with the exact process <i>and</i> output contracts it ran under.</p>
+<table>
+  <tr><th>Field <span style="font-weight:400">(playbook)</span></th><th>Type / values</th><th>What it does</th><th>Why this field</th></tr>
+  <tr><td><code>id + version</code></td><td>string + semver (PK)</td><td>identity, e.g. <code>incident-triage@1.0.0</code></td><td>version is pinned per incident for faithful replay</td></tr>
+  <tr><td><code>domain</code></td><td>string</td><td><code>incident</code> / <code>provisioning</code> / …</td><td>the platform is reusable across automations</td></tr>
+  <tr><td><code>status</code></td><td><code>draft · active · deprecated</code></td><td>lifecycle</td><td>only <code>active</code> runs; change-controlled</td></tr>
+  <tr><td><code>owner</code></td><td>string</td><td>owning team</td><td>accountability — who may answer asks is the domain's AD group, not the playbook</td></tr>
+  <tr><td><code>changelog</code></td><td>text</td><td>what changed between versions</td><td>change control / audit</td></tr>
+  <tr><td><code>phases</code></td><td>array (JSONB)</td><td>the ordered phases</td><td>the workflow the engine drives</td></tr>
+  <tr><td><code>schemas</code></td><td>map name → JSON Schema (JSONB)</td><td>the phase output contracts</td><td>declared with the playbook → validated and versioned together</td></tr>
+  <tr><td><code>defaults</code></td><td>object?</td><td>phase defaults (e.g. <code>gate_writes</code>, <code>on_failure</code>, <code>retry</code>) inherited unless a phase overrides</td><td>set the safe default once, not on every phase</td></tr>
+  <tr><td><code>unknown_access</code></td><td><code>deny · ask · allow</code>?</td><td>this playbook's default gate for <b>unknown-effect</b> capabilities</td><td>a per-workflow safety dial; a capability's own policy still overrides (§5.3)</td></tr>
+</table>
+<table>
+  <tr><th>Field <span style="font-weight:400">(phase)</span></th><th>Type / values</th><th>What it does</th><th>Why this field</th></tr>
+  <tr><td><code>id · name</code></td><td>string</td><td>phase id + display name</td><td>—</td></tr>
+  <tr><td><code>goal</code></td><td>string</td><td>the goal the phase works toward</td><td>goal-driven, not a rigid script</td></tr>
+  <tr><td><code>capabilities</code></td><td>string[] (→ DeclaredCapability.id)</td><td>what this phase may use</td><td>scopes the phase's tools (least privilege)</td></tr>
+  <tr><td><code>gate_writes</code></td><td>bool</td><td>force-gate every write here</td><td>extra safety on risky phases (remediation)</td></tr>
+  <tr><td><code>min_confidence</code></td><td>number? (0–1)</td><td>advance threshold (optional, any phase)</td><td>if unmet, the engine gathers more or asks — e.g. root-cause must reach 0.7 before remediation</td></tr>
+  <tr><td><code>output</code></td><td>string (→ a <code>schemas</code> key)</td><td>the typed result it must produce</td><td>validated against the declared schema</td></tr>
+  <tr><td><code>on_complete</code></td><td>string?</td><td>benign phase hook, e.g. <code>attach_session</code></td><td>lifecycle action at phase end — <i>closing is a human act, not a hook</i></td></tr>
+  <tr><td><code>on_failure</code></td><td><code>fail-immediately · run-remaining</code>?</td><td>policy if a step fails</td><td>stop the phase, or finish independent steps then report (§5.7)</td></tr>
+  <tr><td><code>retry</code></td><td><code>{ max: 1–10, backoff }</code>?</td><td>retry <b>transient</b> errors up to <code>max</code>; permanent errors don't retry</td><td>by error type — network/timeout/quota retry, bad-input/not-found escalate (§5.7)</td></tr>
+  <tr><td><code>error_handler</code></td><td>object?</td><td><code>{action: retry|escalate|manual · to: on-call|ad-group|ticket · via: pagerduty|slack|inbox}</code></td><td>approval ≠ success — what to do, and <b>whom to notify, how</b>, when an approved action can't run (§5.7)</td></tr>
+  <tr><td><code>advance_when</code></td><td>string?</td><td>explicit advance condition, e.g. <code>confidence &gt;= min_confidence</code></td><td>makes the goal-met test inspectable, not implicit</td></tr>
+</table>
+<p>Example — a phase with its declared output contract (the full minimal playbook is in §3.1):</p>
+<pre>phases:
+  - id: root-cause
+    name: Root cause
+    goal: Identify the cause with evidence and a confidence score.
+    capabilities: [appd__metrics.read, logs__search, changelog__read]
+    min_confidence: 0.7
+    output: RootCauseResult          # ← names a schema below
+
+schemas:                              # declared with the playbook, versioned with it
+  RootCauseResult:
+    type: object
+    required: [cause, confidence, evidence]
+    properties:
+      cause:      { type: string }
+      confidence: { type: number, minimum: 0, maximum: 1 }
+      evidence:   { type: array, items: { type: object } }</pre>
+<p><b>Validation — <code>playbook.schema.json</code> (on author · on publish · on load).</b> Structural: field types + required fields, <code>version</code> is semver, phase <code>id</code>s unique. Semantic (the part that matters): <b>every capability in a phase's <code>capabilities[]</code> must exist in the registry</b> (publish rejects unknown ones), <b>every <code>output</code> must name a key in <code>schemas</code></b>, and an <code>advance_when</code> expression may reference only fields of that phase's output schema. Invalid → publish is refused; a draft can still lint with warnings.</p>
+
+<h3>5.5 The run — incident, session, and the per-phase record</h3>
+<p><b>Run = Session</b> — one entity, two names: the engine calls it the <code>Run</code> (the durable thread, §5.8); the workbench calls a Run an operator is working a <b>session</b>.</p>
+<table>
+  <tr><th>Entity</th><th>Key fields <span style="font-weight:400">(Postgres: relational + <code>jsonb</code>; Mongo: document)</span></th><th>Plane / store</th></tr>
+  <tr><td><code>Session</code> <span style="color:#51606e">(the run / graph thread)</span></td><td><code>id · incident_id (FK) · playbook@version · current_phase · status · <b>checkpoint</b>(jsonb)</code></td><td>control · Postgres</td></tr>
+  <tr><td><code>PhaseResult</code></td><td><code>session_id (FK) · phase_id · output_type · <b>plan · steps[] · output · report</b>(jsonb)</code></td><td>control · Postgres</td></tr>
+  <tr><td><code>HumanInteraction</code></td><td><code>id · session_id (FK) · type (approval|input) · capability_id (FK) · decision · status · <b>action_payload · response · actor</b>(jsonb)</code></td><td>control · Postgres</td></tr>
+  <tr><td><code>Incident</code></td><td><code>id · title · severity · status · <b>affected_services[]</b> · priority · <b>parent_incident?</b> · <b>links[] {type, incident_id, source}</b> · <b>topology</b> · playbook@version · opened_at · closed_at</code></td><td>data · MongoDB</td></tr>
+  <tr><td><code>Evidence</code></td><td><code>id · session_id · phase · kind · source_capability · payload · ref · captured_at</code></td><td>data · MongoDB · blob → object store</td></tr>
+  <tr><td><code>TimelineEvent</code></td><td><code>id · session_id · at · type · actor · summary · ref</code></td><td>data · MongoDB</td></tr>
+  <tr><td><code>Feedback</code> <span style="color:#51606e">(operator verdict — <b>separate</b> from the run)</span></td><td><code>id · incident_id · run_id? · actor · kind (outcome|failure|correction) · verdict · note · at</code></td><td>data · MongoDB</td></tr>
+</table>
+<p><b>One incident can span many apps; many alerts can be one incident.</b> <code>affected_services[]</code> + <code>topology</code> (the cross-layer dependency graph) let an incident cover <b>several applications and their dependencies at once</b> — the engine <b>walks the topology</b> instead of assuming where the fault is, so the investigation moves across apps/layers until it's located (the BigPanda / Datadog correlation-over-topology pattern). <code>parent_incident</code> + typed <code>links[]</code> hold relationships — <b>parent/child</b> (a major incident is the parent; resolving it resolves the children), <b>related</b>, <b>caused-by</b> (→ a Problem), and <b>chained</b> (a prior incident from the same change) — each <b>marked by ServiceNow / the user, or detected by the AI</b> (<code>source</code>). <code>Feedback</code> is the operator's verdict on a run (resolved / not / wrong-cause), kept <b>separate</b> from the engine's record so it can feed the autonomy ladder without touching the audit.</p>
+<p>Each <code>PhaseResult.step</code> is <code>{capability_id, sub_agent, input, output, evidence[], citations[], interaction?, status}</code> — the <b>universal tool-call + evidence record</b> every phase produces: <i>how</i> a tool was called (capability + input), <i>what</i> it returned (output), and the <i>evidence</i> with citations. The same shape underlies every phase, so the console's right-panel step view (§6.2) reads it directly. <code>HumanInteraction</code> carries <b>both</b> human-in-the-loop kinds — an <b>approval</b> (gate a write) and an <b>input</b> (answer the agent's question); the approval rows, grouped by <code>capability_id</code>, are the allow/deny sensor that tunes policy. The typed <code>PhaseResult.output</code> per phase:</p>
+<table>
+  <tr><th>Per-phase output</th><th>Captures <span style="font-weight:400">(full models in §5.6)</span></th></tr>
+  <tr><td><code>AssessResult</code></td><td>affected service · impact · urgency · priority (derived) · severity · blast radius · SLO/budget · context graph (deps · resources · changes · related)</td></tr>
+  <tr><td><code>RootCauseResult</code></td><td>ranked candidates (cause · type · confidence) · evidence · suspect changes · alternatives ruled out</td></tr>
+  <tr><td><code>RemediationResult</code></td><td>action · blast radius · rollback · approval · execution · on-failure policy · error handler</td></tr>
+  <tr><td><code>VerifyResult</code></td><td>before/after · synthetic result · symptom cleared · SLO recovered · resolution + close code</td></tr>
+</table>
+<p>Each model is a <b>small typed core</b> (the fields every incident has, queryable in Postgres) plus a <b>JSONB extension</b> (source-specific richness, no schema change) — the same typed-core + open-extension shape as the capability layer (§5.3). The four are detailed in <b>§5.6</b>; the states they move through are <b>§5.7</b>.</p>
+
+<h3>5.6 Per-phase data models — typed core + JSONB extension</h3>
+<p>Each phase emits one typed output. The shape is always the same: a <b>small typed core</b> — the few fields <i>every</i> incident has, projected to Postgres columns so they're queryable and reportable — plus a <b>JSONB extension</b> for source-specific richness that needs no schema change (the same typed-core + open-extension shape as the capability layer, §5.3). Each model is grounded in how the incident-management and observability tools actually represent that step.</p>
+
+<p style="margin:18px 0 4px;font-size:15px;color:var(--head);font-weight:600">AssessResult — what broke, how bad, and the context</p>
+<table>
+  <tr><th style="width:42%">Typed core (relational)</th><th>JSONB extension</th></tr>
+  <tr>
+    <td><code>affected_services[]</code> {service · role (primary|dependent) · health} · <code>impact</code> · <code>urgency</code> · <code>priority</code> · <code>severity</code> · <code>signal</code> · <code>owner</code><br><span style="font-size:12.5px;color:var(--ink2)"><code>priority</code> derived from <code>impact × urgency</code> (read-only, overridable). <b><code>affected_services[]</code> is a list</b> — an incident can span apps, and the primary may not be known yet.</span></td>
+    <td><code>blast_radius</code> {services · users · customers · business_services · regulatory}<br><code>slo</code> {status · budget_remaining · burn_rate[1h · 6h · 3d]}<br><code>topology</code> {nodes (services + resources, each with health) · edges (depends-on) · <b>suspected_locus</b>} — the cross-layer graph the engine walks<br><code>recent_changes[]</code> · <code>related_incidents[]</code></td>
+  </tr>
+</table>
+<p style="font-size:13px;color:var(--ink2);margin:-2px 0 16px"><i>Grounded in:</i> ServiceNow <b>Impact × Urgency → Priority</b> matrix (priority derived + overridable); Atlassian/Opsgenie where <b>severity tracks impact</b>; Google SRE <b>burn-rate / MWMBR</b> as <i>one</i> input to severity, <b>not</b> the sole driver; ServiceNow CMDB + AppDynamics flow map + <b>BigPanda / Datadog</b> correlation-over-topology for the cross-layer <b>topology</b>.</p>
+
+<p style="margin:18px 0 4px;font-size:15px;color:var(--head);font-weight:600">RootCauseResult — ranked candidates, never one asserted cause</p>
+<table>
+  <tr><th style="width:42%">Typed core (relational)</th><th>JSONB extension</th></tr>
+  <tr>
+    <td><code>candidates[]</code> — each {<code>cause</code> · <code>type</code> · <code>confidence</code> · <code>critical_failure</code> · <code>method</code>}<br><code>evidence[]</code> · <code>impact_services[]</code> · <code>status</code> (<code>found</code> | <code>low-confidence</code> | <code>none</code>)</td>
+    <td><code>confidence_raw</code> — the vendor's native scale: score | % | ordinal | categorical<br><code>topology_path</code> · <code>correlated_events[]</code><br><code>suspect_changes[]</code> {change_id · score · time_frame}<br><code>alternatives_ruled_out[]</code></td>
+  </tr>
+</table>
+<p style="font-size:13px;color:var(--ink2);margin:-2px 0 16px"><i>Grounded in:</i> Datadog <b>Watchdog</b> (root cause · critical-failure · impacted-services); PagerDuty <b>Probable Origin</b> (ranked %); BigPanda <b>RCC</b> (additive evidence score); Dynatrace <b>Davis</b> (fault-tree). Confidence arrives on <b>incompatible scales</b> across tools → keep the native value in <code>confidence_raw</code> and a normalized <code>confidence</code> in core. <b>A symptom is not a cause</b> — candidates are ranked, the operator picks.</p>
+
+<p style="margin:18px 0 4px;font-size:15px;color:var(--head);font-weight:600">RemediationResult — the safest reversible fix, executed under the gate</p>
+<table>
+  <tr><th style="width:42%">Typed core (relational)</th><th>JSONB extension</th></tr>
+  <tr>
+    <td><code>action</code> {capability · input} · <code>blast_radius</code> · <code>rollback_plan</code><br><code>approval</code> {interaction_id · decision · actors[]}<br><code>execution</code> {status · evidence[]}<br><code>on_failure_policy</code> (<code>fail-immediately</code> | <code>run-remaining</code>) · <code>error_handler</code> {action · status}</td>
+    <td><code>per_item_results[]</code> — multi-step / multi-target fixes<br><code>retry</code> {count · backoff}<br><code>compensation</code> — saga-style undo for partial success</td>
+  </tr>
+</table>
+<p style="font-size:13px;color:var(--ink2);margin:-2px 0 16px"><i>Grounded in:</i> Rundeck / PagerDuty Process Automation (gated jobs + rollback); StackStorm <b>Orquesta</b> (<code>on-failure</code> / error-handler / per-task status); the <b>saga / compensation</b> pattern for undoing a partially-applied fix. Every write passes the <b>prod approval gate</b> (§4.4) — <code>approval</code> records who approved what, when.</p>
+
+<p style="margin:18px 0 4px;font-size:15px;color:var(--head);font-weight:600">VerifyResult — confirm recovery, then close</p>
+<table>
+  <tr><th style="width:42%">Typed core (relational)</th><th>JSONB extension</th></tr>
+  <tr>
+    <td><code>verification_outcome</code> · <code>recovery_confidence</code> · <code>resolution</code> · <code>close_code</code></td>
+    <td><code>before</code> / <code>after</code> snapshots · <code>synthetic_result</code> · <code>symptom_cleared</code> · <code>slo_recovered</code> · <code>slo_restored_pct</code> · <code>watch_window</code> · <code>replay_pass_criteria</code></td>
+  </tr>
+</table>
+<p style="font-size:13px;color:var(--ink2);margin:-2px 0 16px"><i>Grounded in:</i> this phase is the <b>least-grounded</b> — no single primary source models "verify &amp; close" as a structured step. So it is <b>designed</b>, deliberately thin, and marked an <b>explicit extension point</b>: confirm via health + synthetic replay + SLO recovery, then a close code. We expect to enrich it as real incidents tell us what "verified" must prove.</p>
+
+<h3>5.7 The incident &amp; run state machine</h3>
+<p>Two state machines run together: the <b>incident lifecycle</b> (the human-tracked status) and the <b>run/phase states</b> (what the engine is actually doing). The phase order in §3.1 is the happy path; this is what governs the real transitions — pauses, failures, retries, and backtracking.</p>
+<figure><img src="diagrams/state-machine.png" alt="The run/phase state machine"><figcaption>The run/phase state machine: <code>active</code> is the hub — it pauses to wait on a human or a resource, completes or fails, and a <code>done</code> phase can backtrack to an earlier one.</figcaption></figure>
+<table>
+  <tr><th style="width:20%">Layer</th><th>States</th><th style="width:28%">Grounding</th></tr>
+  <tr><td><b>Incident lifecycle</b><br><span style="font-size:12.5px;color:var(--ink2)">human-facing status</span></td><td><code>New → In Progress → (On Hold) → Resolved → Closed</code><br><span style="font-size:12.5px;color:var(--ink2)">On Hold carries a reason: awaiting-change / awaiting-vendor / awaiting-caller</span></td><td>ITIL incident states <span style="color:var(--ink2)">(exact names unverified — a starting vocabulary)</span></td></tr>
+  <tr><td><b>Run / phase</b><br><span style="font-size:12.5px;color:var(--ink2)">engine status</span></td><td><code>pending → active →</code> { <code>waiting_input</code> | <code>waiting_approval</code> | <code>blocked</code> | <code>partial</code> } <code>→ done</code> | <code>failed</code> | <code>canceled</code></td><td>StackStorm Orquesta / Rundeck execution states</td></tr>
+</table>
+<p><b>The two layers map, they don't compete.</b> The incident state is the human status; the run/phase state is what the engine is doing. <code>New</code> = just ingested (§4.3) · <code>In Progress</code> = a run is active (Assess → Root cause → Remediation) · <code>On Hold</code> = the run is <code>waiting_approval</code> / <code>waiting_input</code> / <code>blocked</code> (carrying the reason) · <code>Resolved</code> = Verify passed · <code>Closed</code> = the operator confirmed resolution and closed it (Verify &amp; close) — never automatic. One incident state can span several phases.</p>
+<p>The transitions — and the scenarios to cover end-to-end:</p>
+<table>
+  <tr><th style="width:24%">Scenario</th><th>What happens</th></tr>
+  <tr><td><b>Normal advance</b></td><td><code>active → done</code> when the goal is met <b>and the operator approves</b>; the next phase goes <code>pending → active</code>, prior context carried forward.</td></tr>
+  <tr><td><b>Approval gate</b></td><td>A write puts the phase in <code>waiting_approval</code>; approve → <code>active</code> proceeds, deny → <code>canceled</code> (or re-plan). Recorded in <code>approval{actors[]}</code>.</td></tr>
+  <tr><td><b>Mid-run input</b></td><td>An agent needs information → <code>waiting_input</code>; the operator answers → back to <code>active</code> (A2A two-way tasks, §3.10).</td></tr>
+  <tr><td><b>Blocked after approval</b></td><td>Approved, but the action can't run — resource unavailable, agent can't act, quota, timeout → <code>blocked</code>. The <code>error_handler</code> fires → <b>retry</b> / <b>escalate</b> / <b>hand to manual</b>. <i>Approval ≠ success — this is the gating gap you flagged.</i></td></tr>
+  <tr><td><b>Partial success</b></td><td>A multi-target fix half-applies → <code>partial</code>; an action with an array input (e.g. <code>nodes[]</code>) splits per item, so the engine retries <b>only the failed items</b> (<code>per_item_results[]</code>), or compensates/undoes the applied ones (saga).</td></tr>
+  <tr><td><b>Sub-agent fails</b></td><td>An A2A sub-agent's task <i>is</i> an Action like any other — if it errors or times out it goes <code>failed</code> / <code>blocked</code> and the phase's <code>on_failure</code> + <code>error_handler</code> apply. No special path.</td></tr>
+  <tr><td><b>On-failure policy</b></td><td>Per the playbook: <code>fail-immediately</code> (stop the phase) or <code>run-remaining</code> (finish independent steps, then report). Grounded in StackStorm Orquesta.</td></tr>
+  <tr><td><b>Mitigate before RCA</b></td><td>Remediation runs <b>before</b> Root cause finishes — mitigate now, diagnose after. Phases are re-enterable, so this is a legal transition, not an exception.</td></tr>
+  <tr><td><b>Backtrack</b></td><td>A <code>done</code> phase re-opens an earlier one: Verify fails → reopen Root cause; Remediation shows the cause was wrong → back to Root cause. The earlier phase goes <code>done → active</code> again.</td></tr>
+</table>
+<p>Every transition is recorded as a <b>RunEvent</b> (§5.8) — the audit trail <i>is</i> the state-machine history — and projected to the human-facing <b>TimelineEvent</b> (§5.5). Checkpoints make every paused state durable and resumable.</p>
+
+<h3>5.8 The engine runtime model — run, action, event, checkpoint</h3>
+<p>What the engine needs to <b>run</b> a playbook and to <b>recover</b>: the durable run, the per-phase execution, the action (a governed capability call), the append-only event log, and the checkpoint. This extends §5.5 with the execution-level entities. Control plane in Postgres; large payloads / evidence in Mongo + object store (§5.1).</p>
+<figure><img src="diagrams/engine-runtime.png" alt="The engine runtime model"><figcaption>The engine runtime model: a <b>Playbook</b> (program) runs as a <b>Run</b>, through <b>PhaseRuns</b>, doing <b>Actions</b> — each one checkpointed, logged, and idempotent.</figcaption></figure>
+<table>
+  <tr><th>Entity</th><th>Key fields</th><th style="width:22%">Grounded in</th></tr>
+  <tr><td><code>Run</code> <span style="color:var(--ink2)">(= Session, §5.5)</span></td><td><code>id · incident_id (FK) · playbook@version · current_phase · status · checkpoint_id (FK) · leases[] · started_at · updated_at</code></td><td>LangGraph <b>thread</b></td></tr>
+  <tr><td><code>PhaseRun</code> <span style="color:var(--ink2)">(= PhaseResult)</span></td><td><code>id · run_id (FK) · phase_id · status · plan · output</code> (typed, §5.6) · <code>report</code></td><td>phase = sub-graph</td></tr>
+  <tr><td><code>Action</code> <span style="color:var(--ink2)">(the unit of work)</span></td><td><code>id · run_id (FK) · phase_id · capability_id (FK) · input · output · status</code> (pending|running|done|failed|blocked) · <code>attempts · idempotency_key · interaction_id (FK?) · evidence_refs[] · started_at · ended_at</code></td><td>Temporal <b>activity</b> / Conductor <b>task</b></td></tr>
+  <tr><td><code>RunEvent</code> <span style="color:var(--ink2)">(append-only log)</span></td><td><code>id · run_id (FK) · seq · at · type · actor · payload · ref</code></td><td>Temporal <b>event history</b></td></tr>
+  <tr><td><code>Checkpoint</code> <span style="color:var(--ink2)">(durable snapshot)</span></td><td><code>id · run_id (FK) · phase_id · seq · state {values · next · tasks} · created_at · parent_id</code></td><td>LangGraph <b>StateSnapshot</b></td></tr>
+  <tr><td><code>HumanInteraction</code> <span style="color:var(--ink2)">(the signal, §5.5)</span></td><td><code>type (approval|input) · capability_id (FK) · decision · actor</code></td><td>Temporal <b>signal</b></td></tr>
+</table>
+<p><code>RunEvent</code> is the <b>control-plane</b> append-only log in Postgres — the engine's source of truth and recovery log. <code>TimelineEvent</code> (Mongo data-plane, §5.5) is the <b>human-facing projection</b> of it that the UI timeline and audit read: one is the machine record, the other the readable story.</p>
+<p><b>How playbook, session, and action relate</b> — the spine:</p>
+<div class="map"><b>Playbook</b> (the versioned program, §5.4) → <b>Run</b> (one execution against one incident) → <b>PhaseRun</b> (the run inside a phase) → <b>Action</b> (one governed capability call — gated, retried, idempotent, evidence-producing). A <b>Checkpoint</b> freezes the Run between steps (resume · recover · backtrack); a <b>RunEvent</b> records every transition (audit = recovery log).</div>
+<p>The <code>Action</code> is the single chokepoint where <b>everything the design promises converges</b>: it names a <code>capability_id</code> (the registry resolves the provider + kind, §5.3), it passes the <b>governance gate</b> (§4.4) — which may open a <code>HumanInteraction</code> — it carries an <b>idempotency key</b> (writes are exactly-once, §4.6), it records <b>attempts</b> (retries are bounded), and it emits <b>Evidence</b> + a <b>RunEvent</b> (the audit is complete). Read one Action row and you can reconstruct <i>what</i> the engine did, <i>why</i> it was allowed, and <i>how</i> to undo it. <b>Audit scope</b>: every <code>Action</code> (capability · input · output · approval · evidence) and every <code>RunEvent</code> are captured, plus the operator chat (§6.2). The model's intermediate reasoning is <b>summarized in the chat narration</b>, not stored as a verbatim token trace — the audit answers <i>what was done, why it was allowed, and how to undo it</i>, which is the bank-grade bar.</p>
+
+<h3>5.9 A worked run-capture — one incident, the actual rows</h3>
+<p>To prove the model end-to-end, here is <b>INC-4821 / payments-api</b> (the incident from the §6.2 console) as the <b>actual rows the engine writes</b>. Intake (§4.3) created the incident and opened a Run; the Run drove the four phases; each wrote a <code>PhaseRun</code>, its <code>Action</code>s, their <code>Evidence</code>, a <code>Checkpoint</code>, and <code>RunEvent</code>s.</p>
+<table>
+  <tr><th style="width:22%">Phase</th><th>Rows written</th></tr>
+  <tr><td><b>Assess</b></td><td><code>PhaseRun(assess, done)</code> · Actions <code>servicenow__incident.read</code> · <code>appd__flowmap.read</code> · <code>changelog__read</code> · 3 Evidence · <code>AssessResult</code> · ckpt #1</td></tr>
+  <tr><td><b>Root cause</b></td><td><code>PhaseRun(root-cause, done)</code> · Actions <code>appd__metrics.read</code> · <code>logs__search</code> · 2 Evidence · <code>RootCauseResult</code> (conf 0.86) · ckpt #2</td></tr>
+  <tr><td><b>Remediation</b></td><td><code>PhaseRun(remediation, waiting_approval → done)</code> · Action <code>k8s__rollback</code> + <code>HumanInteraction(approval)</code> · 1 Evidence · ckpt #3</td></tr>
+  <tr><td><b>Verify &amp; close</b></td><td><code>PhaseRun(verify-close, done)</code> · Action <code>synthetic__replay</code> · 1 Evidence · <code>VerifyResult</code> · incident → <code>Closed</code></td></tr>
+</table>
+<p>The <b>Remediation</b> phase, row-by-row — the gate, the approval, the idempotent write, and the log:</p>
+<pre>Run              { id: run_8f2, incident_id: "INC-4821", playbook: "incident-triage@1.0.0",
+                   current_phase: "remediation", status: "done", checkpoint_id: ck_3 }
+
+PhaseRun         { id: pr_3, run_id: run_8f2, phase_id: "remediation", status: "done" }
+
+Action           { id: act_7, run_id: run_8f2, phase_id: "remediation",
+                   capability_id: "k8s__rollback",
+                   input: { service: "payments-api", to_revision: "v811" },
+                   idempotency_key: "run_8f2:remediation:k8s__rollback:payments-api:v811",
+                   status: "done",            # pending → waiting_approval → running → done
+                   attempts: 1, interaction_id: hi_2,
+                   evidence_refs: [ev_6], started_at: "…14:07Z", ended_at: "…14:09Z" }
+
+HumanInteraction { id: hi_2, run_id: run_8f2, type: "approval", capability_id: "k8s__rollback",
+                   action_payload: { service: "payments-api", to_revision: "v811",
+                                     blast_radius: "1 service", rollback_plan: "redeploy v812" },
+                   decision: "approved", actor: "jdoe@bank", at: "…14:06Z" }
+
+Evidence         { id: ev_6, kind: "command_result", source_capability: "k8s__rollback",
+                   ref: "s3://evidence/run_8f2/ev_6.json", captured_at: "…14:09Z" }
+
+RunEvent log     #11 action.proposed     act_7 (k8s__rollback)     actor: engine
+                 #12 approval.requested  hi_2                      actor: engine
+                 #13 approval.granted    hi_2 → "approved"         actor: jdoe@bank
+                 #14 action.started      act_7                     actor: engine
+                 #15 action.done         act_7 → evidence ev_6     actor: engine
+                 #16 phase.done          remediation               actor: engine
+
+Checkpoint       { id: ck_3, run_id: run_8f2, phase_id: "remediation", seq: 3,
+                   state: { values: { root_cause: "deploy v812", fix: "rollback → v811" },
+                            next: ["verify-close"], tasks: [] },
+                   parent_id: ck_2 }</pre>
+<div class="rec"><b>What this proves.</b> Read the <code>RunEvent</code> log top-to-bottom and you reconstruct the incident: proposed → who approved → executed → evidence. The <code>idempotency_key</code> means a retry or a crash-replay of the rollback runs <b>once</b> (§4.6). The <code>Checkpoint</code> is where a resume or a backtrack restarts. This is the §5.5–§5.8 model, instantiated.</div>
+
+<h2><span class="n">6</span> The operator UI</h2>
+<p>The UI is the human surface of everything in §1–§5 — our own console, not Amelia's. One web <b>workbench</b>, role-gated by AD group (§4.4). Its defining property: it is <b>read models projected over the data model (§5)</b> — it stores no state of its own. The approval card <i>is</i> the <code>HumanInteraction</code> (§5.5); the timeline <i>is</i> the <code>RunEvent</code> log (§5.8); the incident context <i>is</i> the <code>AssessResult</code> (§5.6); the registry screen <i>is</i> the declared-vs-granted pair (§5.3). The UI therefore <b>cannot drift from the engine</b> — every screen is a view of something the design already defines, and every action it offers goes back <i>through</i> the engine + the governance gate, never around them.</p>
+
+<h3>6.1 The workbench — one app, three sections</h3>
+<p>There is <b>one UI</b>: the workbench — our integrated production environment, in the <b>Claude-Desktop three-pane shape</b>. A <b>left</b> session / incident sidebar, a <b>center</b> conversation (the chat — where the approval gate appears), and a <b>right</b> panel for the plan, phases, and information (§6.2). It is where all the work happens, and it <b>evolves with the operator</b> as autonomy is earned (§1.3). The functions below are <b>views within this one app</b> — a panel or a tab — never separate applications.</p>
+<figure><img src="diagrams/ui-screens.png" alt="The workbench and its views"><figcaption>One workbench, its views: the queue feeds the console (the three-pane incident workspace); everything it does lands in the audit, the approvals inbox, and the dashboards — all in one app, governed by AD group.</figcaption></figure>
+<table>
+  <tr><th style="width:23%">View (in the one app)</th><th>What it's for</th><th style="width:24%">Surfaces (component)</th></tr>
+  <tr><td><b>1 · Incident queue</b></td><td>The triage inbox — every active incident: priority, severity, service, phase, autonomy mode, owner, age, what's waiting on a human. Filter, sort, pick one.</td><td>Incident + Run (§5.5)</td></tr>
+  <tr><td><b>2 · Triage console</b> <span style="color:var(--ink2)">(war room)</span></td><td>Drive one incident: the live run, the agent's investigation, evidence, the approval surface, phase progress. <b>§6.2.</b></td><td>the engine + the run (§4.6, §5.8)</td></tr>
+  <tr><td><b>3 · Approvals inbox</b></td><td>Everything waiting on <i>me</i>, across all incidents — approve a write, answer a question — with the full plan to review first.</td><td>HumanInteraction (§5.5)</td></tr>
+  <tr><td><b>4 · Audit &amp; timeline</b></td><td>The complete, append-only history of an incident: who did what, when, and why it was allowed. Replay / export for compliance.</td><td>RunEvent log (§5.8)</td></tr>
+  <tr><td><b>5 · Capability &amp; governance</b></td><td>The registry: declared vs granted; set <code>allow / ask / deny</code> per capability by AD group; see the ask-history sensor that tunes policy.</td><td>capability layer (§5.3, §4.4)</td></tr>
+  <tr><td><b>6 · Playbook studio</b></td><td>Author, version, and review-before-publish a playbook — phases, capabilities, gates, confidence thresholds.</td><td>playbook (§5.4, §3.5)</td></tr>
+  <tr><td><b>7 · Dashboards</b></td><td>Fleet view: autonomy-ladder progress (assisted → autonomous), MTTR, approval rates, capability usage, backtrack frequency.</td><td>aggregates over runs</td></tr>
+</table>
+
+<h3>6.2 The triage console &amp; the approval surface</h3>
+<p>The one screen that matters most — in fact <b>the only UI</b>. In the <b>Claude-Desktop three-pane shape</b> (a session sidebar · a central conversation · a side panel), it is where a human <b>watches the engine think and decides at the gates</b>, and it <b>evolves with the operator</b>: as a capability earns autonomy (§1.3), the same console shifts that step from "approve each" toward "supervise" — the layout stays, the governance dial moves.</p>
+<figure><img src="diagrams/ui-console.png" alt="The triage console mockup"><figcaption>The triage console: the <b>incident</b> and its <b>related incidents</b> on the left; the <b>entire incident's chat</b> — agent steps, evidence, suggestions, and the inline approval gate, with the operator replying — in the center; and the <b>phases → steps → each step's output</b> on the right. Everything in the chat is logged; the gate surfaces <b>in the conversation</b>.</figcaption></figure>
+<ul>
+  <li><b>The incident (left)</b> — the selected incident's live card (service, severity, priority, blast radius, SLO burn, unhealthy dependency, recent change) <b>and its relationships</b>: parent (major incident), related, and chained-to-prior incidents (§5.5).</li>
+  <li><b>The entire-incident chat (center)</b> — the <b>whole incident's conversation, not one phase</b>: dividers mark each phase (Assess · Root cause · …); the agent's <b>steps</b> + <b>clickable evidence</b>, its <b>suggestions</b>, and the <b>operator's replies</b> all flow here; a <b>composer</b> lets the operator reply or <b>consult another human</b> (@dba). Everything is <b>logged</b>.</li>
+  <li><b>The approval, inline</b> — a write gate posts a card in the chat: the proposed Action (capability · input · <b>blast radius · rollback</b> · the root cause it follows) with <b>Approve · Refine · Deny</b> — reviewed before authorizing, never a bare yes/no.</li>
+  <li><b>Phases → steps → output (right)</b> — each phase expands to its <b>steps</b> (✓ / ⧗ status), and <b>every step shows its output object</b> (AssessResult, CHG-77, RootCauseResult …). Every step is a <b>tool call + evidence, logged</b> — the universal record (§5.8).</li>
+</ul>
+<p style="font-size:13px;color:var(--ink2)"><i>Grounded in:</i> Microsoft Security Copilot guided responses (recommended actions + click-through evidence) and Azure observability-agent chat investigation; human-in-the-loop <b>pre-execution approval</b> + <b>review-the-plan</b> multi-tier oversight (operators authorize the plan, the engine executes with bounded autonomy); incident.io war-room (real-time, high-contrast for shared screens).</p>
+<p><b>The same console handles every scenario</b> — approve / refine / deny, a blocked action's error-handler, consulting another human, a backtrack, a multi-app topology walk, related-incident linking, declaring an outcome — they are <b>states of this one workbench</b>, surfaced in the same three sections, not separate pages.</p>
+
+<h3>6.3 The UI data model — read models over §5</h3>
+<p>Every screen is a <b>projection</b> (CQRS-style read model) of the entities in §5 — no new persistent state. The UI <b>acts</b> only by resolving things the engine owns: an approval/answer <b>resolves a <code>HumanInteraction</code></b>; a backtrack or cancel <b>emits a <code>RunEvent</code></b> the engine consumes. Writes always travel through the engine and the gate.</p>
+<table>
+  <tr><th>View model</th><th>Projected from</th><th style="width:26%">Screen</th></tr>
+  <tr><td><code>IncidentListItem</code></td><td>Incident + Run + count(pending HumanInteraction)</td><td>queue, dashboards</td></tr>
+  <tr><td><code>ConsoleView</code></td><td>Incident + Run + current PhaseRun + RunEvents + AssessResult + pending HumanInteraction</td><td>triage console</td></tr>
+  <tr><td><code>TimelineItem</code></td><td>RunEvent (at · type · actor · summary · evidence_ref · action_ref)</td><td>console, audit</td></tr>
+  <tr><td><code>ApprovalCard</code></td><td>HumanInteraction + its Action (capability · input · blast_radius · rollback)</td><td>console, approvals inbox</td></tr>
+  <tr><td><code>EvidenceItem</code></td><td>Evidence (kind · source_capability · payload/ref → citation)</td><td>console, audit</td></tr>
+  <tr><td><code>RegistryRow</code></td><td>DeclaredCapability + CapabilityPolicy (effect · declared · granted · ask-history)</td><td>capability &amp; governance</td></tr>
+  <tr><td><code>DashboardMetric</code></td><td>aggregates over Run / Action / HumanInteraction</td><td>dashboards</td></tr>
+</table>
+
+<h3>6.4 UI use cases — validated end to end</h3>
+<table>
+  <tr><th style="width:30%">The operator…</th><th>…and the UI</th></tr>
+  <tr><td><b>Triages the queue</b></td><td>Opens the queue, sorts by priority, picks a P1 → the triage console.</td></tr>
+  <tr><td><b>Watches the assessment</b></td><td>Sees Assess populate the context panel, then Root cause propose <b>ranked candidates</b> with evidence (§5.6) — opens a citation to verify.</td></tr>
+  <tr><td><b>Approves a remediation</b></td><td>A write gate fires → reviews the plan + blast radius + rollback → <b>Approve</b> (or <b>Refine</b> the input, or <b>Deny</b>). The decision is recorded on the <code>HumanInteraction</code>.</td></tr>
+  <tr><td><b>Answers the agent</b></td><td>An A2A input-required pauses the run → answers inline → the run resumes (§4.6).</td></tr>
+  <tr><td><b>Handles a block</b></td><td>A <b>blocked-after-approval</b> (§5.7) shows the error-handler options — retry / escalate / hand to manual.</td></tr>
+  <tr><td><b>Backtracks</b></td><td>Verify fails → triggers a jump back to Root cause; the phase rail shows the re-entry.</td></tr>
+  <tr><td><b>Clears the approvals inbox</b></td><td>Reviews everything waiting across incidents in one place, each with its plan.</td></tr>
+  <tr><td><b>Tunes a policy</b></td><td>In governance, sees a capability's ask-history, then promotes it <code>ask → allow</code> for an AD group (§4.4).</td></tr>
+  <tr><td><b>Publishes a playbook</b></td><td>In the studio, edits a version, sends it for review, publishes — the engine picks up <code>playbook@version</code> on the next run (§3.5).</td></tr>
+  <tr><td><b>Reviews the fleet</b></td><td>On the dashboard, tracks how much of the work has climbed the autonomy ladder (§1.3) — the crawl → walk → run story, measured.</td></tr>
+</table>
+<div class="rec"><b>Coverage check.</b> The seven screens together surface <b>every</b> component: the capability layer (governance screen), the playbook (studio), the engine + run (console), the state machine (phase rail + block/backtrack handling), the data model (every view is a projection of it), and governance (the gate + ask-history). Nothing in §1–§5 is left without a human surface, and nothing in the UI exists without a model behind it.</div>
+
+<h2><span class="n">7</span> Build, operate &amp; open items</h2>
+<h3>7.1 Engine topology &amp; scale</h3>
+<p><b>v1 = a modular monolith</b>, scaled by running N stateless replicas behind a load balancer. No microservice split, no Kafka/Redis in v1; modular seams allow later extraction without a rewrite. Backing stores: <b>Postgres</b> (control plane — checkpointer, work queue, registry, audit) + <b>MongoDB</b> (data plane — incidents, evidence, timeline). A thin repository layer hides the split.</p>
+<figure><img src="diagrams/engine-topology.png" alt="Engine modular monolith topology"><figcaption>One modular server, scaled by replicas; Postgres + MongoDB behind it.</figcaption></figure>
+<figure><img src="diagrams/engine-scale.png" alt="Horizontal scale mechanics"><figcaption>Stateless replicas · externalized state · pause-and-release HITL · single-flight idempotent.</figcaption></figure>
+<figure><img src="diagrams/engine-data.png" alt="Postgres and Mongo data split"><figcaption>Postgres = the control plane; Mongo = the data plane; a repository layer hides the split.</figcaption></figure>
+<h3>7.2 Deployment</h3>
+<p>Kubernetes — one image, one Deployment + HPA, two managed DBs, object store (evidence), OTel → SIEM/Langfuse. The scheduler/timers module uses leader-election so timers fire once across replicas.</p>
+<h3>7.3 Framework &amp; lock-in posture</h3>
+<p><b>LangGraph</b> (MIT, open-source) for orchestration — most mature for stateful, checkpointed, human-gated pipelines. Use the OSS library + Postgres checkpointer + Langfuse; <b>never adopt the proprietary LangSmith</b> → zero license lock-in. Credible alternatives if the org pivots: <b>Pydantic AI</b> (lowest lock-in) and <b>Microsoft Agent Framework</b> (enterprise/Azure). Custom UI uses <b>AG-UI over SSE</b>. Principle: <b>own the domain, rent the orchestrator</b> — keep phases, incident model, capabilities, and governance framework-agnostic so the choice stays reversible.</p>
+<h3>7.4 Open items / next steps</h3>
+<ul>
+  <li>Confirm: Slack/Teams bridge · the AD groups that gate each domain · the stack (queue tech, managed Postgres/Mongo, K8s distro).</li>
+  <li><b>Bank-grade hardening</b> (its own pass — gates production writes) — secrets &amp; encryption, immutable audit, failure-mode + DR (RTO/RPO), input / injection validation, the test strategy (dry-run / shadow).</li>
+  <li><b>From the design audit</b> — flesh the <b>feedback → autonomy</b> promotion thresholds (org policy, §1.3); a <b>consult-a-human</b> TTL + escalation + ACL; specify the <b>synthetic.replay</b> capability + per-stack tool mappings (AppD → Datadog / Dynatrace, Splunk → ELK …); the <b>relationship-detection</b> mechanism (a correlation step in Assess); and standardize the <code>capability_id</code> notation across all examples (<code>provider__action</code>).</li>
+  <li><b>Later passes</b> — multi-domain governance (one engine, many playbooks) · data portability / schema export.</li>
+  <li>Build: scaffold the engine + the UI (§6) to this design. Resync the Word doc / <code>build.js</code> (HTML is the source of truth).</li>
+</ul>
+
+<h3>7.5 Revision history</h3>
+<p>The data model and design are versioned; each substantive change bumps the version and adds a row.</p>
+<table>
+  <tr><th>Version</th><th>Date</th><th>Summary</th></tr>
+  <tr><td>v0.1</td><td>2026-06-15</td><td>Initial platform design — vision, phases, workbench, playbook, capability layer, engine, first data model.</td></tr>
+  <tr><td>v0.2</td><td>2026-06-16</td><td>Capability data model finalized — declared vs granted; <code>effect</code>/<code>access</code>; the default matrix; the ER diagram.</td></tr>
+  <tr><td>v0.3</td><td>2026-06-17</td><td>Storage = Postgres (control plane) + MongoDB (data plane); access model simplified to AD-group + <code>allow/ask/deny</code> (dual approval dropped); doc restructured to Goal → Components → Actions → Interactions → Data model → Build.</td></tr>
+  <tr><td>v0.4</td><td>2026-06-17</td><td>Capability-layer use cases — all five kinds worked end-to-end (§3.6–3.11); session &amp; resource lifecycle (§4.5); data model validated complete; document versioned.</td></tr>
+  <tr><td>v0.5</td><td>2026-06-17</td><td>Playbook redesigned to four re-enterable phases (Assess · Root cause · Remediation · Verify, §3.1); per-phase data models added (typed core + JSONB, §5.6); incident &amp; run state machine added (§5.7 — blocked-after-approval, partial/retry, mitigate-before-RCA, backtrack). Each phase model grounded in the incident-mgmt / observability tools; playbook evolves with the enterprise's capabilities (assisted → autonomous).</td></tr>
+  <tr><td>v0.6</td><td>2026-06-17</td><td>Engine designed — <b>durable execution &amp; recovery</b> (§4.6: checkpoints, append-only event log, pause/resume, crash recovery, retry, idempotency / exactly-once, backtrack, concurrency) with end-to-end use cases; the <b>engine runtime data model</b> (§5.8: Run · PhaseRun · Action · RunEvent · Checkpoint) capturing playbook → run → action. Grounded in Temporal / LangGraph / Netflix Conductor.</td></tr>
+  <tr><td>v0.7</td><td>2026-06-17</td><td>Operator <b>UI designed</b> (§6) — one workbench, seven screens; the triage console + the inline approval surface (the gate in the conversation); the UI data model as <b>read-models projected over §5</b>; UI use cases validated end-to-end. Doc restructured (UI = §6, Build/operate = §7). Grounded in MS Security Copilot / incident.io / human-in-the-loop approval patterns.</td></tr>
+  <tr><td>v0.8</td><td>2026-06-17</td><td>Core design completed — <b>playbook deep-dive</b> (full front-matter schema + validation rules §5.4; authoring/lifecycle + a complete reference playbook §3.5); a worked <b>run-capture</b> showing the actual rows one incident writes (§5.9); <b>alert→incident ingestion</b> (§4.3). Consistency fixes: <code>min_confidence</code> scope, <code>on_complete</code>, phase↔ITIL mapping (§5.7), RunEvent vs TimelineEvent (§5.8), <code>capability_id</code> syntax (§5.3). Bank-grade hardening deferred (§7.4).</td></tr>
+  <tr><td>v0.9</td><td>2026-06-17</td><td>Re-anchored as the <b>High-Level Design (HLD)</b>; clarified the incident-triggered, chat-driven, MIM-aligned framing (§1.1); added the <b>delegation-narrows-never-widens</b> principle — specialist agents / Amelia / BladeLogic / new APIs are governed A2A/API capabilities (§1.4). Developer detail moves to the companion <b>Low-Level Design (LLD)</b>.</td></tr>
+  <tr><td><b>v1.0</b></td><td>2026-06-17</td><td>KISS audit (both docs, simple-but-powerful): tied sub-agent failure to <code>on_failure</code> / <code>error_handler</code> (§5.7), unified <b>Run = Session</b> (§5.5), made governance <b>policy sticky</b> across provider re-syncs (§5.3), pinned <code>on_complete</code> timing + draft-lint semantics (§3.5), clarified multi-target retry split (§5.7). Companion LLD taken to a buildable <b>v0.2</b> — core types + the <code>govern()</code> decision rule, the repository split, the A2A write-callback.</td></tr>
+  <tr><td>v1.1</td><td>2026-06-17</td><td>Operator <b>console redesigned</b> to the three-region layout (incident · current-phase chat with approvals + suggestions · plan + audit), Claude-desktop style (§6.2). Playbook: <b>closing is now a human action</b>, not an auto <code>on_complete</code> hook; added a <b>retry</b> policy (transient errors, max 1–10 + backoff; permanent → escalate, §3.5/§5.4) and a playbook-level <b>unknown_access</b> default for unknown-effect capabilities (§5.3/§5.4). LLD → <b>v0.3</b>.</td></tr>
+  <tr><td>v1.2</td><td>2026-06-17</td><td>Review round (all HTML): console center is now the <b>entire-incident chat</b>, right is <b>phases → steps → outputs</b> (§6.2); data model reworked for <b>multi-app / cross-layer</b> (<code>affected_services[]</code> + <code>topology</code>), <b>incident relationships</b> (parent/child/related/chained × user/servicenow/ai), the universal <b>tool-call + evidence</b> spine, and a separate <b>feedback</b> model (§5.5/§5.6); <b>per-phase operations</b> (questions · tools · steps, §3.1); a <b>full-scenario UX board</b> (§6.2). New companions: the <b>Management Brief</b> + the <b>Delivery Plan</b>. LLD → <b>v0.4</b>.</td></tr>
+  <tr><td><b>v1.3</b></td><td>2026-06-18</td><td>Build-out + full audit: a <b>proper system component diagram</b> (boxes-in-boxes + connectors, in the brief); a <b>detailed triage runbook</b> (per-phase questions · tools · data, growing record) + a standalone <b>incident-triage.playbook.md</b>; the delivery plan reworked <b>by sprint</b> (Gantt + Amelia ramp-down). Audit fixes: <code>error_handler</code> escalation routing (§5.4), earned-autonomy <b>promotion rules</b> (§1.3), <b>audit scope</b> clarified (§5.8), VerifyResult enriched (§5.6); remaining items tracked in §7.4.</td></tr>
+</table>
+
+<footer>Companions: the <b>Low-Level Design (LLD)</b> · the <b>Management Brief</b> (<code>…-Presentation.html</code>) · the <b>Delivery Plan</b> (<code>…-Delivery-Plan.html</code>) · the capability-layer spec <b>…-Capability-Layer.docx</b> · diagram index <b>diagrams/index.html</b>. All under <code>in-role/ideas/</code> (mirrored to <code>design/</code>), in git.</footer>
+
+</div>
+</body>
+</html>

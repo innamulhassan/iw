@@ -33,8 +33,6 @@
   .note{background:#fbf7ee;border-left:5px solid var(--warn);border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13.5px}
   footer{margin-top:28px;border-top:1px solid var(--line);padding-top:13px;font-size:12.5px;color:var(--ink2)}
 </style></head><body><div class="wrap">
-<div style="font:700 12px/1 -apple-system,Segoe UI,Arial;margin-bottom:12px"><a href="index.html" style="color:#1F4E79;text-decoration:none">← Design-set index</a></div>
-
 
 <header>
   <h1>Incident Triage AIOps — Delivery Plan</h1>
@@ -70,11 +68,11 @@
   <tr><th style="width:9%">Sprint</th><th style="width:14%">Milestone</th><th>What ships</th></tr>
   <tr><td><b>S1</b></td><td>M0</td><td>Repo + skeleton: engine graph, capability registry interface, Postgres/Mongo schema, one read-only adapter (AppD), <b>shadow-mode</b> harness.</td></tr>
   <tr><td><b>S2</b></td><td>M0</td><td>In-phase loop + checkpointer + <code>govern()</code> + append-only audit + the console shell. <span class="s">Exit:</span> an assisted run end-to-end on a read-only capability in shadow.</td></tr>
-  <tr><td><b>S3</b></td><td>M1 · assisted</td><td><b>Assess</b> phase live — incident-source + topology + telemetry + change-history + similar-incidents adapters; AssessResult. Amelia begins running alongside on the same incidents (for comparison).</td></tr>
+  <tr><td><b>S3</b></td><td>M1 · assisted</td><td><b>Assess</b> phase live — ServiceNow + CMDB + flow-map + SLO + changelog adapters; AssessResult. Amelia begins running alongside on the same incidents (for comparison).</td></tr>
   <tr><td><b>S4</b></td><td>M1 · assisted</td><td><b>Root cause</b> phase — metrics/logs/traces adapters; ranked candidates + confidence; the console chat + clickable evidence.</td></tr>
   <tr><td><b>S5</b></td><td>M1 · assisted</td><td>Full console (3 panes) + HITL approval surface + timeline/audit views. <span class="s">Exit:</span> triages real incidents read-only on a pilot slice; operators trust it.</td></tr>
-  <tr><td><b>S6</b></td><td>M2 · augmented</td><td><b>Remediation</b> — the first gated <b>write</b> (a mitigate / reverse action) + idempotency + the approval card + the rollback plan. (Hardening baseline must be green.)</td></tr>
-  <tr><td><b>S7</b></td><td>M2 · augmented</td><td>more techniques (failover · reroute · restart · scale) + escalation; <code>error_handler</code> (retry / escalate / manual) + on-failure + partial / blocked handling.</td></tr>
+  <tr><td><b>S6</b></td><td>M2 · augmented</td><td><b>Remediation</b> — <code>k8s.rollback</code> (gated) + idempotency + the approval card + rollback plan. (Hardening baseline must be green.)</td></tr>
+  <tr><td><b>S7</b></td><td>M2 · augmented</td><td>restart / scale + <code>runbook.run</code>; <code>error_handler</code> (retry / escalate / manual) + on-failure + partial/blocked handling.</td></tr>
   <tr><td><b>S8</b></td><td>M2 · augmented</td><td><b>Verify &amp; close</b> + synthetic replay; the operator-close flow. <span class="s">Exit:</span> gated fixes execute safely with rollback, exactly-once.</td></tr>
   <tr><td><b>S9</b></td><td>M3 · augmented</td><td>Multi-app / cross-layer <b>topology</b> + incident <b>relationships</b> (parent/child/related/chained) + alert→incident ingestion / correlation.</td></tr>
   <tr><td><b>S10</b></td><td>M3 · augmented</td><td>A2A <b>specialist agents</b> (DB, network) + remote MCP; <b>Amelia registered as an A2A capability</b>, its actions gated; sub-agent governance.</td></tr>
@@ -84,10 +82,10 @@
   <tr><td><b>S14</b></td><td>M4 · autonomous</td><td>Broaden autonomy on proven actions; complete the Amelia ramp-down for covered domains. <span class="s">Exit:</span> a measured share of low-risk actions run autonomously with zero regressions, all reversible.</td></tr>
 </table>
 
-<div class="note"><b>Parallel track — bank-grade hardening (gates production writes).</b> Secrets / KMS, encryption at-rest + in-transit, audit immutability, failure / DR (RTO / RPO targets), and the test strategy (dry-run / shadow) are <b>designed in S1–S2 and in place before M2 (S6)</b> — no write capability reaches production without them. (Scoped in the Design doc hardening track.)</div>
+<div class="note"><b>Parallel track — bank-grade hardening (gates production writes).</b> Secrets / KMS, encryption at-rest + in-transit, audit immutability, failure / DR (RTO / RPO targets), and the test strategy (dry-run / shadow) are <b>designed in S1–S2 and in place before M2 (S6)</b> — no write capability reaches production without them. (Scoped in HLD §7.4.)</div>
 
 <div class="lead"><b>Why phased.</b> Value lands at M1 (faster diagnosis) before any write risk. Each milestone is gated, audited, reversible. Autonomy (M4) is earned narrowly only after M1–M3 prove the engine. <b>Amelia is never cut over big-bang</b> — it runs alongside, is wrapped as a governed capability, and is dialled down only as in-house actions prove themselves on each slice.</div>
 
-<footer>Companion to the Design doc + the System Brief + the Triage Runbook. Milestones / sprints are relative; calendar dates set with scope + staffing.</footer>
+<footer>Companion to the HLD + LLD + the System Brief + the Triage Runbook. Milestones / sprints are relative; calendar dates set with scope + staffing.</footer>
 
 </div></body></html>

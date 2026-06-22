@@ -601,7 +601,8 @@ output_schemas: { ValidationResult: {...}, AllocationResult: {...}, VerifyResult
   <span class="k">"description"</span>: "Health of an app / tier / node",
   <span class="k">"input_schema"</span>: { <span class="c">/* JSON Schema */</span> },
   <span class="k">"output_schema"</span>:{ <span class="c">/* JSON Schema */</span> },
-  <span class="k">"effect_hint"</span>: "read"          <span class="c">// read | write | unknown</span>
+  <span class="k">"effect_hint"</span>: "read",         <span class="c">// read | write | unknown</span>
+  <span class="k">"intents"</span>:     ["telemetry","metrics"]   <span class="c">// which playbook `needs` it satisfies — the resolver matches on this (03-design C2/C4)</span>
 }</pre>
     </div>
   </div>
@@ -616,7 +617,7 @@ output_schemas: { ValidationResult: {...}, AllocationResult: {...}, VerifyResult
   <table>
     <tr><th style="width:22%">Table</th><th>Fields</th></tr>
     <tr><td class="f">Provider</td><td><code>id</code> · <code>name</code> · <code>kind</code> (skill \| mcp_local \| mcp_remote \| a2a_agent \| api) · <code>connection</code> (jsonb) · <code>trusted</code> · <code>status</code> · <code>last_synced</code>. Where capabilities are discovered + synced from.</td></tr>
-    <tr><td class="f">DeclaredCapability</td><td><code>id</code> (<code>provider__action</code>) · <code>provider</code> · <code>description</code> · <code>input_schema</code> · <code>output_schema</code> · <code>effect_hint</code> (read \| write \| unknown). The synced contract of one action.</td></tr>
+    <tr><td class="f">DeclaredCapability</td><td><code>id</code> (<code>provider__action</code>) · <code>provider</code> · <code>description</code> · <code>input_schema</code> · <code>output_schema</code> · <code>effect_hint</code> (read \| write \| unknown) · <code>intents[]</code> (which playbook <code>needs</code> it satisfies). The synced contract of one action.</td></tr>
     <tr><td class="f">CapabilityPolicy</td><td><code>capability_id</code> · <code>effect</code> · <code>access</code> (allow \| ask \| deny) · <code>status</code> (active \| pending_review) · <code>reviewed_by</code> · <code>reviewed_at</code>. The sticky, human-owned decision; a new capability starts <code>pending_review</code> + <code>deny</code> until a human rules.</td></tr>
   </table>
   <p class="why"><b>The link back to §1:</b> phase <code>needs:[metrics]</code> → registry finds DeclaredCapabilities tagged <i>metrics</i> with a matching <code>effect</code> → <code>CapabilityPolicy</code> gates each → the chosen call is logged as a <code>Step{kind:tool_call, capability}</code> (§4.2). The playbook never names <code>appd</code> or <code>bladelogic</code> — only the registry does.</p>
@@ -634,6 +635,7 @@ output_schemas: { ValidationResult: {...}, AllocationResult: {...}, VerifyResult
     <tr><td><span class="plane run">run</span></td><td class="f">LangGraph checkpointer <span style="font-weight:400;color:var(--ink2)">(on Postgres)</span></td><td>the <b>live checkpoint</b> + the <b>conversation</b> — the in-flight run state</td><td>The engine's <b>mechanism</b>, not a schema we model. Materializes into the Mongo doc on close.</td></tr>
   </table>
   <div class="note warn"><b>What we purge, and what we trust.</b> We do <b>not</b> hand-model a bespoke run-state schema (no Session/Run/PhaseRun/Action/RunEvent/Checkpoint tables) — <b>LangGraph's checkpointer owns the live run state</b>, and the durable journey is already captured by the Phase Record (§4), written into the subject document on close. We keep exactly what we trust: the <b>subject document</b> (data) and the <b>playbook + registry</b> (config). The planes link by the subject — <code>playbook@version</code> on the subject doc, and the <code>{domain, id}</code> SubjectRef from the run.</div>
+  <div class="note"><b>The live session is runtime, not a schema.</b> The <b>conversation</b> (the live chat) and the in-flight run are a runtime layer, not durable shapes — designed in the <b>Design doc · B8</b>: <i>free chat → shared session</i>; a <b>per-session lock</b> serializes the one run across stateless servers; a <b>per-session channel</b> syncs the chat across users. The data model holds only the durable record (graph + phase records + outputs); the chat history is persisted with the run and archived to the subject document on close.</div>
   <p class="why"><b>Why split this way:</b> the subject is read <i>hot</i> and <i>whole</i> during the investigation → denormalized Mongo (one read). Config is <i>shared, versioned, governed</i> → normalized Postgres (one source of truth). Run state is <i>transient and recovery-critical</i> → LangGraph already solves it; re-modelling it would be duplication to keep in sync.</p>
 </section>
 

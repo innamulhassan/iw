@@ -63,6 +63,8 @@
   <a href="#b5">B5 · The gate, checkpoint, resume</a>
   <a href="#b6">B6 · Phase transitions — conditional edges</a>
   <a href="#b7">B7 · A full run trace (INC-4821)</a>
+  <a href="#b8">B8 · The live session — multi-user, stateless</a>
+  <a href="#b9">B9 · The investigation graph — runtime &amp; tools</a>
   <div class="pt">C · Capability layer &amp; governance</div>
   <a href="#c1">C1 · Connection priority</a>
   <a href="#c2">C2 · The registry</a>
@@ -234,6 +236,127 @@ g.add_conditional_edges("verify",
   <div class="t"><b>remediation</b> (write, gated): model proposes <code>failover db:payments-ora → standby</code> with expected_effect/blast/rollback/temporary. <code>govern()</code> → write → <b>ask</b> → <code>interrupt_before</code> <b>pauses</b> (<code>status=waiting_approval</code>). Operator <b>approves</b> → resume → invoke (idempotency-guarded) → <b>RemediationResult</b> (applied; I/O 28ms→4ms) + a <code>followups</code> escalation to replace the disk.</div>
   <div class="t"><b>verify</b> (read-only loop): <code>telemetry</code> + <code>synthetic-replay</code> → p99 4.2s→260ms; <code>recovered(s)=true</code> → edge to END. → <b>VerifyResult</b> (resolution = failover + disk replacement; temporary action scheduled to revert). <b>Human closes.</b> Final state written through to the Mongo incident document (D6).</div>
 </div>
+
+<h2 id="b8"><span class="n">B8</span> The live session — shared, multi-user, on stateless servers</h2>
+<div class="lead key"><b>Two layers, not one.</b> The <b>record</b> (graph + phase records + outputs) is the durable <i>audit + display</i> — the Mongo read-model (Part D). The <b>live chat session</b> (the conversation + the in-flight run) is a <i>runtime</i> the data model deliberately left to "LangGraph owns it" (D4). This section designs that runtime. The rule that keeps it simple: <b>state lives in the stores; the session is a thin layer = a lock + a polled event log.</b></div>
+
+<h3>B8.1 · Lifecycle — free chat → shared session</h3>
+<div class="flow"><span class="b">free chat</span><span class="ar">identity + subject →</span><span class="b">related-incident check</span><span class="ar">→</span><span class="b">create or join</span><span class="ar">→</span><span class="b">shared session</span></div>
+<table>
+  <tr><th style="width:24%">State</th><th>What it is · cost</th></tr>
+  <tr><td class="f">Free chat</td><td>per-user, "new chat" — exploratory; <b>no run, no graph, no playbook</b>; a TTL'd scratch. Near-zero cost; may never promote.</td></tr>
+  <tr><td class="f">Promotion</td><td>once identity + subject <code>{domain, id}</code> are known → the related-incident check (above) → the operator <b>creates</b> a new session or <b>joins</b> an existing one for that subject. Human-confirmed.</td></tr>
+  <tr><td class="f">Shared session</td><td>keyed by the subject = <b>one thread = one run</b> (B2); several operators/devices live in it at once; closes with the incident.</td></tr>
+</table>
+
+<h3>B8.2 · Problem 1 — the live run on stateless, load-balanced servers</h3>
+<p>One incident = one run, but requests land on any server and operators share it. The crux: a step that is <b>in-flight</b> (the agent mid-thought, streaming, calling a tool) lives in one server's memory — it isn't checkpointed yet.</p>
+<table>
+  <tr><th style="width:26%">Mechanism</th><th>How</th></tr>
+  <tr><td class="f">Serialize the run</td><td>advancing a session takes a <b>per-session lock</b> (a Postgres advisory lock on the subject id). The holder is the transient <b>run-owner</b> and drives the agent loop — one step at a time. No second run can start for the incident.</td></tr>
+  <tr><td class="f">Input during an in-flight step</td><td>a 2nd operator's message is <b>queued</b> (a per-session input queue), drained after the current step or at the next gate — merged into the one run, never spawning a second.</td></tr>
+  <tr><td class="f">Reads &amp; chat go anywhere</td><td>only <b>advances</b> need the lock; <b>reads</b> (render graph/phases) hit the Mongo read-model and <b>chat</b> is polled from the event log (B8.3) — both from any server. No sticky load-balancing.</td></tr>
+  <tr><td class="f">Crash mid-step</td><td>the lock lease expires → another server <b>resumes from the last checkpoint</b>; the lost step re-runs (reads idempotent, writes idempotency-keyed). No work lost, no double-write.</td></tr>
+</table>
+<p><b>In-memory = only the active step</b>, on the owner, transiently. The durable truth is the LangGraph checkpoint + the read-model — so any server takes over between steps.</p>
+
+<h3>B8.3 · Problem 2 — syncing the chat across users</h3>
+<p>Several operators, possibly on different servers, must see the same conversation, the agent's live stream, and the gate — in real time.</p>
+<table>
+  <tr><th style="width:26%">Mechanism</th><th>How</th></tr>
+  <tr><td class="f">One event log per session</td><td>an <b>append-only log keyed by the subject</b>. Every event — a user message, an agent message, a gate prompt, a gate decision, a phase/graph delta — is <b>appended with a per-session sequence number</b>.</td></tr>
+  <tr><td class="f">Append, don't push</td><td>the agent <b>appends</b> its output to the log; any connected client (on any server) sees it on its <b>next poll</b> — not just the operator who triggered the step.</td></tr>
+  <tr><td class="f">Clients = snapshot + polled deltas</td><td>a client <b>renders the heavy state from the read-model</b> (the graph/phases snapshot) and <b>applies the deltas it polls</b> from the log. The log carries the conversation + change events; the read-model carries the structured truth.</td></tr>
+  <tr><td class="f">Join mid-flight / reconnect</td><td>fetch the <b>snapshot</b> (read-model + recent chat) and <b>poll from the last seq</b> → no lost or duplicated messages.</td></tr>
+</table>
+<p>Backend: an <b>append-only event log</b> in the read-model store (Mongo, or Postgres); clients <b>poll <code>since(seq)</code></b> for correctness, and may upgrade to <b>SSE</b> (<code>/stream</code>, <code>Last-Event-ID</code>; B8.5) for live delivery over the same <code>seq</code> interface. <b>No push bus</b> — no Redis, no WebSocket fan-out: every server answers a poll/stream statelessly from the shared store, so there is <b>no cross-server fan-out</b>. (A WebSocket + a bus like Redis / Postgres <code>LISTEN/NOTIFY</code> remains a later option behind the same <code>seq</code> interface; correctness never depends on it.)</p>
+<p><b>One ordered stream.</b> Chat, graph deltas, and phase deltas all ride the <i>same</i> log under one sequence; the read-model snapshot is consistent to a <code>seq</code>, so a client renders the snapshot and applies only the deltas after it — no cross-path races between "the graph changed" and "the agent said…". <b>Scaling:</b> serialize <i>within</i> a session (one run-owner), run <i>across</i> sessions in parallel (different owners) — the system scales by incident count, not by serializing everything.</p>
+
+<h3>B8.4 · Edge cases</h3>
+<table>
+  <tr><th style="width:30%">Case</th><th>Handling</th></tr>
+  <tr><td class="f">Gate while in-flight</td><td>the write gate pauses the run (no active step) → the run-owner lock releases → <b>any</b> operator can answer (answered-once, idempotent on the decision) → resume re-acquires the lock.</td></tr>
+  <tr><td class="f">Two operators approve at once</td><td>answered-once + optimistic checkpoint version — first wins, the rest see it resolved.</td></tr>
+  <tr><td class="f">Operator joins mid-investigation</td><td>snapshot (read-model + recent chat) + start polling from that seq → current state + live.</td></tr>
+  <tr><td class="f">Network drop / reconnect</td><td>snapshot + resume-from-seq; client message ids dedupe a resend.</td></tr>
+  <tr><td class="f">Backtrack (Verify → Root cause)</td><td>same session/thread, a new <b>attempt</b> (B6); chat + graph continue — the session does not restart.</td></tr>
+  <tr><td class="f">Long session / compaction</td><td>the agent's context = the <b>current phase + prior phase OUTPUTS + on-demand graph slices</b> (B3/B4), not the raw history. The chat <i>pane</i> shows full history from the store; the agent <i>context</i> stays bounded.</td></tr>
+  <tr><td class="f">Free chat never promoted</td><td>TTL-expires; no durable cost.</td></tr>
+  <tr><td class="f">Any domain</td><td>identical machinery — the session is keyed by <code>{domain, id}</code>, so provisioning/capacity sessions work the same.</td></tr>
+  <tr><td class="f">Create-or-join race</td><td>two operators promote to the same subject at once → session creation is <b>idempotent on the subject id</b> (a unique key): the first creates the thread, the rest attach. Never two threads for one incident.</td></tr>
+  <tr><td class="f">Promotion carries context</td><td>the free chat's prior messages <b>seed</b> the session's conversation — promotion is not a reset.</td></tr>
+  <tr><td class="f">Headless / idle session</td><td>the run can advance (an autonomous step) or sit at a gate with <b>no client connected</b>; events persist → a late joiner replays them; a gate that sits too long escalates (<code>error_handler</code>).</td></tr>
+  <tr><td class="f">Slow vs crashed owner</td><td>the lock is a <b>lease with a heartbeat</b> — a slow tool keeps the lease; a dead owner lets it expire → another server resumes (B8.2). Distinguishing the two is why the lease heartbeats.</td></tr>
+  <tr><td class="f">Authorization mid-session</td><td>incident membership is <b>re-checked per event</b>, not only at join — a revoke drops the operator on the next event.</td></tr>
+  <tr><td class="f">A missed / failed poll</td><td>polling is <b>liveness-only</b> — a dropped request just retries on the next tick; the run still advances (the lock + checkpointer don't depend on it). Correctness lives in the stores, never the transport.</td></tr>
+</table>
+<div class="lead"><b>The whole session, in one line:</b> a <b>lock</b> serializes the one run, a <b>polled event log</b> syncs the many clients, and the durable stores hold the truth — so any server serves any request, and the chat is shared and live without push infra, a fourth store, or sticky routing.</div>
+
+<h3>B8.5 · Roles, the pen, and the chat UI (MVP)</h3>
+<p><b>The pen.</b> One member holds <b>the pen</b> (the single human writer) at a time — only the pen-holder may send a message or approve a gate; everyone else is a read-only <b>viewer</b>. (The pen is the <i>human</i> write-token — who may act; it sits above the <b>run-owner lock</b> of B8.2, which serialises the engine's one run — different mechanisms, same "one at a time" spirit.) The pen is handed over (<code>take-pen</code> / <code>release-pen</code>, one holder at a time; the creator starts with it). The agent runs <b>one unit of work to completion, then takes the next message</b> — strictly sequential. Approval is <b>single</b> — the pen-holder's OK is enough; <b>no dual approval</b> (a maker-checker rule is future). Roles are enforced <b>in the UI and re-checked at the server</b>.</p>
+<p><b>The chat UI.</b> The chat is a heterogeneous stream of typed events ordered by <code>seq</code>; each renders via a <b>widget registry</b> (<code>kind → component</code>: text · agent step / tool-call · table · image · graph · <b>sandboxed-iframe HTML</b> for untrusted/agent-generated UI). A new widget type = one renderer, no core change; untrusted HTML is isolated in a sandboxed iframe (the safety seam — aligns with the open <b>MCP-Apps</b> pattern). Transport: <b>SSE</b> (<code>GET /stream</code>, resume via <code>Last-Event-ID</code>) for the live app, polling as the simple fallback — both over the one event log, so a widget is just a richer event payload, independent of the transport.</p>
+
+<h2 id="b9"><span class="n">B9</span> The investigation graph — runtime, tools &amp; library</h2>
+<div class="lead key"><b>The engine owns the graph; the LLM acts on it through tools.</b> The graph is <i>state</i> — it lives as an in-memory working model (the engine's), persisted to the stores, <b>never</b> as text the LLM holds. The model <b>reasons over a rendered slice</b> and <b>builds via governed tools</b>. (Chosen over LLM-held text — fragile, no audit, can't be shared — and over a shared graph DB — heavy, concurrent-write contention; a per-incident graph, reused across incidents via the learning loop, gives determinism + audit + bounded context.)</div>
+
+<h3>B9.1 · Representation &amp; library</h3>
+<p>A per-incident, in-process graph: <b>nodes by id</b> (facts embedded), <b>typed edges</b> (out + in adjacency), per Part D. It is small (the working slice, not the estate) — so an in-memory structure is enough; <b>no graph DB</b>.</p>
+<table>
+  <tr><th style="width:22%">Choice</th><th>Stance</th></tr>
+  <tr><td class="f">Library</td><td><b><code>networkx</code></b> (Python, in-process) — mature, cycle-safe traversal (<code>descendants</code>, <code>shortest_path</code>, <code>subgraph</code>). A custom typed adjacency structure is the fallback only if footprint/perf demands; per-incident the graph is small, so networkx is the KISS default.</td></tr>
+  <tr><td class="f">Where it lives</td><td>the <b>hot working copy on the run-owner</b> (B8.2) — loaded from the durable graph when a step starts, mutated, checkpointed. Not a persistent in-memory server.</td></tr>
+  <tr><td class="f">Durable form</td><td>the <b>Mongo incident document</b> (the graph as JSON, D6) + the LangGraph checkpoint. The in-memory copy is transient.</td></tr>
+</table>
+
+<h3>B9.2 · The tool surface — how the LLM acts on the graph</h3>
+<p>The LLM never receives the raw graph; it gets a small, <b>governed</b> tool surface (capabilities, gated like any other, Part C). Mostly <b>read</b> (traverse/expand) + one <b>write</b> (annotate a finding, with provenance). Bulk graph-building is automatic — the engine <b>folds</b> each tool result (B9.4); the LLM only queries + records explicit findings.</p>
+<table>
+  <tr><th style="width:34%">Tool</th><th>Effect · what it does</th></tr>
+  <tr><td class="f">graph.get(id)</td><td>read · a node + its facts.</td></tr>
+  <tr><td class="f">graph.neighbours(id, edge?, dir?)</td><td>read · adjacent nodes — <b>expand the frontier</b>.</td></tr>
+  <tr><td class="f">graph.walk(from, edges[], dir, until?)</td><td>read · traverse a path (e.g. <code>depends_on</code>/<code>hosted_on</code> downward to the cause).</td></tr>
+  <tr><td class="f">graph.find(predicate)</td><td>read · nodes matching — unhealthy, impacted, by layer/type.</td></tr>
+  <tr><td class="f">graph.blast_radius(id)</td><td>read · the impacted set (walk <code>affects</code>/<code>depends_on</code>).</td></tr>
+  <tr><td class="f">graph.path(from, to)</td><td>read · the shortest causal path.</td></tr>
+  <tr><td class="f">graph.annotate(target, key, value, evidence_ref)</td><td><b>write</b> · the agent records a finding (a fact/label/edge — e.g. mark <code>suspect</code>) — validated + provenance-stamped (which step). This is "build as it goes," governed.</td></tr>
+</table>
+<p>Read tools resolve <code>effect: read-only</code> (allowed); <code>annotate</code> is a write but <b>low-risk</b> — it changes the agent's own working graph, not the world — so it is <b>audited, not gated</b> like a remediation.</p>
+
+<h3>B9.3 · Rendering — the slice the LLM sees</h3>
+<p>Each turn a deterministic <b>render-slice</b> projects the graph into the context — bounded regardless of size:</p>
+<ul>
+  <li><b>In full:</b> the subject node, the current cause path, flagged nodes (<code>suspect</code>/impacted) + their facts, and the <b>1-hop frontier</b> (adjacent un-expanded nodes, as stubs the agent can expand).</li>
+  <li><b>Collapsed:</b> healthy / ruled-out / resolved → a <b>count + one-line summary</b> ("135 healthy · collapsed").</li>
+</ul>
+<p>So even a 147-node incident renders ~10–30 nodes; the graph carries the memory, the slice shows only what's live. <b>This is the compaction</b> (B3) — the agent sees the distilled world + prior phase outputs, never the raw history.</p>
+
+<h3>B9.4 · Lifecycle, the fold-adapter &amp; persistence</h3>
+<table>
+  <tr><th style="width:20%">Step</th><th>What happens</th></tr>
+  <tr><td class="f">Load</td><td>rebuild the in-memory graph from the Mongo doc + checkpoint when a step starts (cheap — small).</td></tr>
+  <tr><td class="f">Fold (the adapter)</td><td>each capability result is mapped into nodes/facts/edges by a <b>per-capability fold-adapter</b> (topology → nodes + <code>depends_on</code>; metrics → facts on a node; an alert source → an <code>alert</code> node + <code>observed_on</code>). The adapter is the <b>only</b> place a source's shape meets the graph schema (Part D) — a new source = a new fold-adapter, no engine change.</td></tr>
+  <tr><td class="f">Mutate</td><td>folds + the agent's <code>annotate</code> apply to the in-memory graph, validated against the Part D node/edge types.</td></tr>
+  <tr><td class="f">Checkpoint</td><td>after the step, the graph delta is checkpointed (LangGraph) + materialized to the Mongo doc — the read-model the UI + reads use.</td></tr>
+</table>
+
+<h3>B9.5 · Concurrency &amp; reuse</h3>
+<p><b>Concurrency:</b> single writer per session (the run-owner lock, B8.2) → no concurrent mutation → no merge conflict. Reads (the UI Graph pane) hit the Mongo read-model from any server. <b>Reuse across incidents:</b> the graph is per-incident; cross-incident knowledge comes via <b>related/similar</b> (the learning loop — the <code>suggestions</code> field), <i>not</i> a shared graph. A persistent estate graph, if ever added, is a <b>read-mostly source</b> the engine pulls topology from — never the mutable investigation surface.</p>
+
+<h3>B9.6 · Edge cases</h3>
+<table>
+  <tr><th style="width:28%">Case</th><th>Handling</th></tr>
+  <tr><td class="f">Unknown node id</td><td>a tool references an id not in the graph → return "unknown"; the agent adds it (fold/annotate) or picks another path. Never silently invent.</td></tr>
+  <tr><td class="f">Conflicting facts</td><td>two sources disagree on a node's health → <b>keep both</b> (source + confidence + observed_at); the disagreement stays visible; reconcile by confidence/recency. The graph never silently overwrites.</td></tr>
+  <tr><td class="f">Graph grows large</td><td>the render-slice collapses aggressively (path + frontier only); the agent expands on demand; in-memory stays small (per-incident).</td></tr>
+  <tr><td class="f">Expand too wide</td><td><code>neighbours</code>/<code>walk</code> cap depth + breadth → "N more, collapsed"; the agent narrows.</td></tr>
+  <tr><td class="f">Cycles (depends_on loops)</td><td>traversal is cycle-safe (visited set; networkx handles it).</td></tr>
+  <tr><td class="f">Orphan node (an alert not yet linked)</td><td>allowed; the agent links it (annotate) once it learns the relation.</td></tr>
+  <tr><td class="f">Idempotent fold (crash re-run)</td><td>folding is idempotent — keyed by (node id, fact key, source, observed_at) — so a replayed step never duplicates.</td></tr>
+  <tr><td class="f">Annotate hallucination</td><td><code>annotate</code> is validated vs the Part D type system and <b>requires an <code>evidence_ref</code></b> — a finding with no evidence is rejected; bad annotations are auditable + reversible.</td></tr>
+</table>
+
+<h3>B9.7 · Tech stack</h3>
+<div class="flow"><span class="b">networkx (in-memory)</span><span class="ar">·</span><span class="b">MongoDB (durable JSON · read-model)</span><span class="ar">·</span><span class="b">LangGraph checkpoint</span><span class="ar">·</span><span class="b">graph tools = governed capabilities</span><span class="ar">·</span><span class="b">render-slice + fold-adapters (engine)</span></div>
 
 <!-- ============================ PART C ============================ -->
 <div class="part">C · Capability layer &amp; governance</div>
@@ -471,6 +594,7 @@ access = policy(cap).access ?? (playbook.unknown_access if effect=="unknown"
 
 <!-- ============================ PART E ============================ -->
 <div class="part">E · Physical / LLD</div>
+<div class="lead"><b>Tech stack.</b> Backend <b>Python</b> · frontend <b>React</b> (single-page) · the engine on <b>LangGraph</b> · the in-memory graph on <b>networkx</b> (B9) · the data plane <b>MongoDB</b> · the config + run-state plane <b>PostgreSQL</b> (LangGraph <code>PostgresSaver</code>) · live multi-user sync over an append-only event log — <b>polling</b> for correctness, <b>SSE</b> optional for liveness; <b>no Redis / WebSocket push bus</b> (B8) · capabilities reach sources over <b>MCP · dynamic-MCP · A2A</b> (Part C).</div>
 
 <h2 id="e1"><span class="n">E1</span> PostgreSQL — config plane (normalized)</h2>
 <pre class="json"><span class="k">CREATE TABLE</span> playbook (              <span class="c">-- PK (id, version): every edit is a new immutable row</span>
@@ -525,7 +649,7 @@ db.incidents.createIndex({ fingerprint:1 })   <span class="c">// + a vector inde
 <div class="part">F · Operations</div>
 
 <h2 id="f1"><span class="n">F1</span> The console</h2>
-<p>The only operator UI, in the Claude-Desktop three-pane shape: <b>Incidents</b> (left) · <b>Triage</b> — the whole incident's chat with the <b>approval gate inline</b> (center) · <b>Phases &amp; Steps</b> with a <b>Graph</b> tab (right). It evolves as autonomy is earned (the autonomy badge).</p>
+<p>The only operator UI — a <b>React</b> single-page app, in the Claude-Desktop three-pane shape: <b>Incidents</b> (left) · <b>Triage</b> — the whole incident's chat with the <b>approval gate inline</b> (center) · <b>Phases &amp; Steps</b> with a <b>Graph</b> tab (right). It evolves as autonomy is earned (the autonomy badge).</p>
 <figure><img src="diagrams/ui-console.png" alt="The triage console — Phases & Steps"></figure>
 <p style="font-size:12px;color:var(--ink2);margin:6px 0 0">Right pane on <b>Phases &amp; Steps</b> — the four phases, each step, and its typed output (worked run: INC-4821).</p>
 <figure style="margin-top:11px"><img src="diagrams/ui-console-graph.png" alt="The triage console — the Graph tab"></figure>

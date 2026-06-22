@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage — High-Level Design (HLD)</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;--mono:'SF Mono',Consolas,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:34px 26px 70px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:16px;margin-bottom:10px}
+  h1{font-size:26px;margin:0 0 5px;color:var(--accent)}
+  .sub{font-size:15px;color:var(--ink2);margin:0}.meta{font-size:12.5px;color:var(--ink2);font-style:italic;margin-top:9px}
+  h2{font-size:20px;color:var(--accent);margin:30px 0 6px;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-size:12.5px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:2px 9px}
+  h3{font-size:14px;color:var(--head);margin:16px 0 4px}
+  p{margin:0 0 11px}b{color:var(--head)}
+  ul,ol{margin:6px 0 12px;padding-left:22px}li{margin:4px 0}
+  figure{margin:10px 0}figure img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0 12px;table-layout:fixed}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{background:#eef4fb;color:var(--accent);font-weight:600}
+  td.f{font-family:var(--mono);font-weight:700;color:var(--head)}
+  code{font-family:var(--mono);font-size:.9em;background:#eef1f5;border-radius:4px;padding:1px 5px}
+  .lead{background:#eef4fb;border-left:5px solid var(--accent);border-radius:8px;padding:12px 16px;margin:13px 0;font-size:13.5px}
+  .lead.dn{background:#eef7f1;border-left-color:var(--ok)}
+  .flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:9px 0;font-size:12.5px}
+  .flow .b{background:#eef4fb;border:1px solid #cfe0f0;border-radius:8px;padding:5px 11px;font-weight:700;color:var(--accent)}
+  .flow .ar{color:#9AA5B1;font-weight:700}
+  footer{margin-top:30px;border-top:1px solid var(--line);padding-top:13px;font-size:12.5px;color:var(--ink2)}
+  @media(max-width:700px){table{table-layout:auto}}
+</style></head><body><div class="wrap">
+
+<header>
+  <h1>Incident Triage — High-Level Design (HLD)</h1>
+  <p class="sub">The architecture: the components, how they fit, and the cross-cutting design. A governed, in-house, <b>domain-neutral</b> investigation engine; incident triage is the first domain.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · v1.0 · companion to the Spec (scope), the LLD (implementation), the Data-Model doc (schemas), and the Runbook (operations)</p>
+</header>
+
+<div class="lead">This HLD sits between two companions: the <b>Spec</b> (what we're building + scope, one page) above it, and the <b>LLD</b> (exact schemas, internals, contracts) below it. Field-level schemas live in the <b>Data-Model</b> doc; this document is the <i>architecture</i> — components, interactions, and the cross-cutting concerns (governance, audit, hardening, autonomy).</div>
+
+<!-- 1 -->
+<h2><span class="n">1</span> Context &amp; goals</h2>
+<p>Production incident support today leans on a vendor engine (Amelia) and manual triage. The goal is a <b>governed, in-house engine</b> that diagnoses and (under approval) remediates incidents, with a regulator-grade audit trail and reversible, <i>earned</i> autonomy. Design goals:</p>
+<ul>
+  <li><b>No vendor lock-in</b> — the engine calls abstract capabilities, never tools directly; a source can change without touching the engine.</li>
+  <li><b>No domain lock-in</b> — everything domain-specific lives in a versioned <b>playbook</b>; the engine, shapes, registry, governance, storage and console are universal.</li>
+  <li><b>Governed at the boundary</b> — every capability call passes an <code>allow / ask / deny</code> gate; every write is approved by a human; closing is a human act.</li>
+  <li><b>Durable + reversible</b> — checkpointed, exactly-once, resumable; every write carries a rollback.</li>
+  <li><b>Gradual</b> — Amelia runs alongside and is dialled down only as in-house actions prove themselves.</li>
+</ul>
+
+<!-- 2 -->
+<h2><span class="n">2</span> Architecture overview</h2>
+<p>One <b>engine</b> drives the work and calls abstract capabilities; one <b>governed capability layer</b> sits over every source; the <b>operator</b> works in one console. Two data planes (Mongo / Postgres) plus the LangGraph run state.</p>
+<figure><img src="diagrams/system-arch.png" alt="System architecture — components, sub-components, and how external sources connect"></figure>
+<table>
+  <tr><th style="width:24%">Component</th><th>Responsibility</th></tr>
+  <tr><td class="f">Engine (orchestrator)</td><td>runs the playbook through its phases; per phase drives the model's agent loop; enforces phase <code>effect</code>; checkpoints; re-enters.</td></tr>
+  <tr><td class="f">Capability layer</td><td>resolves a playbook <code>need</code> (intent) → a concrete capability; binds each source by kind (MCP / dynamic-MCP / A2A); runs <code>govern()</code>.</td></tr>
+  <tr><td class="f">Capability registry</td><td>Provider · DeclaredCapability · CapabilityPolicy — synced declarations + the human-owned access policy.</td></tr>
+  <tr><td class="f">Graph builder</td><td>builds / updates the per-incident investigation graph (nodes · facts · edges); clustering; the cause walk.</td></tr>
+  <tr><td class="f">Stores</td><td><b>MongoDB</b> (incident documents, denormalized) · <b>PostgreSQL</b> (playbook + registry, normalized) · <b>LangGraph</b> checkpointer (run state).</td></tr>
+  <tr><td class="f">Console</td><td>the single operator UI — three panes + the inline approval gate + the graph view.</td></tr>
+  <tr><td class="f">Connectors</td><td>native MCP · dynamic-MCP (register OpenAPI) · A2A specialist agents (App / DB / Network; Amelia / BladeLogic wrapped).</td></tr>
+</table>
+
+<!-- 3 -->
+<h2><span class="n">3</span> The three levels — domain-neutral</h2>
+<table>
+  <tr><th style="width:18%">Level</th><th style="width:46%">What it is</th><th>Domain-specific?</th></tr>
+  <tr><td class="f">Engine</td><td>the shapes (Node·Edge·Fact·PhaseRecord·Step), the run loop, <code>govern()</code>, gates, retries, clustering, the registry, feedback, storage, the console</td><td><b>No</b> — universal</td></tr>
+  <tr><td class="f">Playbook</td><td>the type system (<code>graph_schema</code>), the phases (+ <code>needs</code>/<code>effect</code>), the output contracts</td><td><b>Yes</b> — one file per domain</td></tr>
+  <tr><td class="f">Runtime</td><td>the concrete nodes/edges/records of one investigation</td><td>instances</td></tr>
+</table>
+<div class="lead dn"><b>Consequence.</b> incident-triage is one playbook; provisioning or capacity is another — same engine, same shapes, same governance and console. The subject is identified domain-neutrally as <b><code>{domain, id}</code></b> (a <code>SubjectRef</code>), never a hardcoded <code>incident_id</code>.</div>
+
+<!-- 4 -->
+<h2><span class="n">4</span> The engine &amp; run loop</h2>
+<div class="flow"><span class="b">Assess</span><span class="ar">→</span><span class="b">Root cause</span><span class="ar">→</span><span class="b">Remediation</span><span class="ar">→</span><span class="b">Verify &amp; close</span><span class="ar">↺</span><span style="font-size:11.5px;color:var(--warn);font-weight:700">re-enterable</span></div>
+<p>The engine loads the playbook (pinning <code>playbook@version</code>) and seeds the graph from the incident source. It then drives each phase:</p>
+<ol>
+  <li><b>Plan</b> — the model proposes how to satisfy the phase goal, bounded by the phase's <code>needs</code> + <code>effect</code>.</li>
+  <li><b>Loop</b> — resolve a <code>need</code> → a governed capability, call it, fold the result into the <b>graph</b>, log a <b>Step</b>; repeat until the typed <b>output</b> is sufficient. Steps are emergent, not scripted.</li>
+  <li><b>Gate</b> — a <code>write</code> pauses for human <code>approve / refine / deny</code>; read-only phases cannot write (enforced by <code>effect</code>).</li>
+  <li><b>Checkpoint</b> — state is persisted (LangGraph) after each step; the run is resumable across pauses and crashes; writes are exactly-once (idempotency key).</li>
+  <li><b>Re-enter</b> — Verify can backtrack to Root cause with new evidence; a phase re-runs as a new <i>attempt</i>.</li>
+</ol>
+<p>A human closes; the engine never auto-closes. The <b>Step journey</b> is the audit trail; the <b>typed output</b> is the contract the next phase, the UI, the audit and the learning loop read.</p>
+
+<!-- 5 -->
+<h2><span class="n">5</span> The capability layer &amp; governance</h2>
+<p>The playbook names <b>intents</b>; the layer turns an intent into a real, allowed call. Onboarding priority per source:</p>
+<div class="flow"><span class="b">native MCP</span><span class="ar">else →</span><span class="b">register API as dynamic MCP</span><span class="ar">else →</span><span class="b">A2A specialist agent</span></div>
+<table>
+  <tr><th style="width:30%">Registry entity</th><th>Role</th></tr>
+  <tr><td class="f">Provider</td><td>a source (kind: skill · mcp_local · mcp_remote · a2a_agent · api); connection + trust + status; synced.</td></tr>
+  <tr><td class="f">DeclaredCapability</td><td>one action a provider offers (<code>provider__action</code>); input/output schema; <code>effect_hint</code>.</td></tr>
+  <tr><td class="f">CapabilityPolicy</td><td><b>human-owned</b>: <code>effect</code> × <code>access</code> (allow / ask / deny); a new capability lands <code>pending_review · deny</code>.</td></tr>
+</table>
+<p><b><code>govern()</code></b> resolves at call time: <code>effect = policy.effect ?? declared.effect_hint ?? unknown</code>; <code>access = policy.access ?? (effect==unknown ? playbook.unknown_access : DEFAULT[trust][effect])</code>. A playbook <code>need</code> resolves to DeclaredCapabilities by intent + effect; policy gates each; the call is logged as a <code>Step</code>. The playbook never names a tool — only the registry does.</p>
+<p><b>Autonomy ladder.</b> Feedback (separate from the run) promotes/demotes a capability's access per <i>phase × node-type × severity</i>: proven low-risk reads/actions can move <code>ask → allow</code>; a declared failure moves it back. Autonomy is earned narrowly and is always reversible.</p>
+
+<!-- 6 -->
+<h2><span class="n">6</span> The data model (high level)</h2>
+<p>Each run builds <b>one investigation graph</b> — typed <b>Node</b>s (systems, the incident, changes, alerts), <b>Edge</b>s (<code>depends_on</code>, <code>hosted_on</code>, <code>suspected_cause</code>…) and <b>Fact</b>s (health, latency, <code>impact_state</code>, each with an <code>evidence_ref</code>). One <b>subject</b> node; other incidents are referenced and actively used. Each phase records a <b>PhaseRecord</b> (plan · ordered <b>Step</b>s · a typed output) and writes its output into the graph.</p>
+<table>
+  <tr><th style="width:22%">Plane</th><th>Holds · shape</th></tr>
+  <tr><td class="f">MongoDB (data)</td><td>the incident document — graph + phase outputs + feedback; denormalized, one per subject; one read.</td></tr>
+  <tr><td class="f">PostgreSQL (config)</td><td>the playbook (md + version + fields) + the capability registry; normalized, versioned, governed.</td></tr>
+  <tr><td class="f">LangGraph (run)</td><td>the live checkpoint + conversation; the engine's mechanism, materialized into the incident document on close.</td></tr>
+</table>
+<p>Every field — Node, Edge, Fact, PhaseRecord, Step, the four outputs, the registry, feedback — is defined in full in the <b>Data-Model</b> doc.</p>
+
+<!-- 7 -->
+<h2><span class="n">7</span> The operator console</h2>
+<p>One workbench, three panes: <b>Incidents</b> (left) · <b>Triage</b> — the whole incident's chat with the <b>approval gate inline</b> (center) · <b>Phases &amp; Steps</b> with a <b>Graph</b> tab — the phases + typed outputs, or the investigation graph with the cause path highlighted (right). It evolves as autonomy is earned (an autonomy badge). Worked example: <code>INC-4821</code> — a failed disk → RAID rebuild → DB I/O → checkout latency. See the Presentation for the rendered console.</p>
+
+<!-- 8 -->
+<h2><span class="n">8</span> Cross-cutting concerns</h2>
+<table>
+  <tr><th style="width:22%">Concern</th><th>Design</th></tr>
+  <tr><td class="f">Audit</td><td>the Step journey is append-only and is the audit trail; every tool-call carries an evidence deep-link; approvals record actor + decision + time.</td></tr>
+  <tr><td class="f">Security / hardening</td><td>secrets / KMS, encryption at-rest + in-transit, least-privilege capability scopes, audit immutability — in place before any write ships (gates M2).</td></tr>
+  <tr><td class="f">Exactly-once</td><td>every write carries an idempotency key; a replay after a crash does not double-apply.</td></tr>
+  <tr><td class="f">DR / resilience</td><td>checkpointed run state (resumable); RTO/RPO targets; the engine survives source outages (a <code>need</code> with no healthy capability degrades gracefully + asks).</td></tr>
+  <tr><td class="f">Feedback / learning</td><td>operator verdicts (outcome / failure / correction), separate from the run, feed the autonomy ladder and the similar-incident suggestions.</td></tr>
+  <tr><td class="f">Observability</td><td>the engine emits its own metrics (phase latency, gate decisions, autonomy mix) for the autonomy dashboard.</td></tr>
+</table>
+
+<!-- 9 -->
+<h2><span class="n">9</span> Delivery (summary)</h2>
+<div class="flow">
+  <span class="b">M0 Foundation</span><span class="ar">→</span><span class="b">M1 Assisted</span><span class="ar">→</span><span class="b">M2 Remediation</span><span class="ar">→</span><span class="b">M3 Coverage</span><span class="ar">→</span><span class="b">M4 Autonomy</span>
+</div>
+<p>Five milestones over ~14 two-week sprints; each gated, audited, reversible; a parallel hardening track gates production writes (M2); Amelia runs alongside and ramps down per proven slice. The by-sprint plan + timeline is the <b>Delivery Plan</b>.</p>
+
+<!-- 10 -->
+<h2><span class="n">10</span> Non-functional requirements</h2>
+<table>
+  <tr><th style="width:22%">NFR</th><th>Target</th></tr>
+  <tr><td class="f">Auditability</td><td>every action + decision reconstructable from the Step journey; immutable, regulator-grade.</td></tr>
+  <tr><td class="f">Safety</td><td>no un-gated write; every write reversible; read-only phases provably cannot write.</td></tr>
+  <tr><td class="f">Latency</td><td>assisted triage (read-only) returns a first assessment in minutes; the gate is the only human wait.</td></tr>
+  <tr><td class="f">Availability / scale</td><td>concurrent incidents; degrade gracefully when a source is down; horizontal on the engine.</td></tr>
+  <tr><td class="f">Extensibility</td><td>a new source needs only a registry entry; a new domain needs only a new playbook — no engine change.</td></tr>
+</table>
+
+<footer>Architecture layer of the design set: <b>Spec</b> (scope) → <b>HLD</b> (this) → <b>LLD</b> (implementation) → <b>Data-Model</b> (schemas) → <b>Runbook</b> (operations) → <b>Delivery Plan</b>. Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in.</footer>
+
+</div></body></html>

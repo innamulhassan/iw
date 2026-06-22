@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage — Runbook (per phase: questions · tools · data)</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;--code:#f2f4f7;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:34px 26px 70px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:16px;margin-bottom:10px}
+  h1{font-size:26px;margin:0 0 5px;color:var(--accent)}
+  .sub{font-size:15px;color:var(--ink2);margin:0}.meta{font-size:12.5px;color:var(--ink2);font-style:italic;margin-top:9px}
+  h2{font-size:21px;color:var(--accent);margin:34px 0 6px;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-size:13px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:2px 9px}
+  h3{font-size:14px;color:var(--head);margin:16px 0 4px;text-transform:uppercase;letter-spacing:.03em}
+  p{margin:0 0 11px}b{color:var(--head)}
+  ul,ol{margin:6px 0 12px;padding-left:22px}li{margin:4px 0}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 12px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:#eef4fb;color:var(--accent);font-weight:600}
+  code{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:.9em;background:#eef1f5;border-radius:4px;padding:1px 5px}
+  pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;font-size:12px;line-height:1.5;font-family:"SF Mono",Consolas,Menlo,monospace}
+  .lead{background:#eef4fb;border-left:5px solid var(--accent);border-radius:8px;padding:13px 17px;margin:14px 0}
+  .data{background:#f1f7f1;border-left:5px solid var(--ok);border-radius:8px;padding:8px 14px;margin:8px 0}
+  .data .l{font-size:11px;font-weight:700;color:var(--ok);text-transform:uppercase;letter-spacing:.04em}
+  .gate{color:var(--warn);font-weight:700}
+  .map{background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:10px 16px;margin:12px 0;font-size:13.5px}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--ink2)}
+</style></head><body><div class="wrap">
+
+<header>
+  <h1>Incident Triage — Runbook</h1>
+  <p class="sub">What each phase asks, which tools it calls and what they collect, the steps, and how the incident record builds up — phase by phase.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · the operational detail behind the HLD playbook (§3) + per-phase models (§5.6) · worked on INC-4821 / payments-api</p>
+</header>
+
+<div class="lead"><b>How to read this.</b> Each phase below has four parts: the <b>questions</b> it must answer · the <b>tools</b> it calls and <b>what each collects</b> (with the access it needs) · the <b>steps</b> · and the <b>data it adds</b> to the incident record (shown growing, on the running example). Every step is a governed capability call that records <b>what it did + the evidence</b> (§5.5). Reads flow through; the one <span class="gate">write</span> (remediation) stops at the approval gate.</div>
+
+<div class="map"><b>The record grows as the run proceeds:</b> <code>AssessResult</code> → <code>+ RootCauseResult</code> → <code>+ RemediationResult</code> → <code>+ VerifyResult</code>. Each phase reads what's there and adds its own typed output; a backtrack re-enters a phase with <i>more</i> context.</div>
+
+<h2><span class="n">1</span> Assess — what broke, how bad, the context</h2>
+<h3>Questions</h3>
+<ul>
+  <li>Which <b>service(s)</b> are affected — and is it one app or several (with dependencies)?</li>
+  <li>How bad — <b>impact × urgency → priority</b>, and <b>severity</b>?</li>
+  <li>What <b>changed</b> recently (deploys / config)?</li>
+  <li>What's the <b>blast radius</b>, and which <b>dependencies are unhealthy</b>?</li>
+  <li>Are there <b>related or prior</b> incidents (same service / same change / an open major)?</li>
+</ul>
+<h3>Tools — and what each collects</h3>
+<table>
+  <tr><th>Capability</th><th>What it collects</th><th>Access</th></tr>
+  <tr><td><code>servicenow.incident.read</code></td><td>the incident record — title, severity hint, reporter, affected CI, description</td><td>read · allow</td></tr>
+  <tr><td><code>cmdb.read</code></td><td>the service's CIs + dependency relationships (the topology), owner / on-call</td><td>read · allow</td></tr>
+  <tr><td><code>appd.flowmap.read</code></td><td>the live flow map — service → dependencies, with health + golden signals per node</td><td>read · allow</td></tr>
+  <tr><td><code>slo.read</code></td><td>SLO status + error-budget burn rate (1h / 6h / 3d)</td><td>read · allow</td></tr>
+  <tr><td><code>changelog.read</code></td><td>recent deploys / changes (CHG records, deploy events) on the service + its deps</td><td>read · allow</td></tr>
+  <tr><td><code>incidents.search</code></td><td>related / prior incidents — same service, same change, any open major</td><td>read · allow</td></tr>
+</table>
+<h3>Steps</h3>
+<ol>
+  <li>Read the incident + the triggering <b>signal</b>.</li>
+  <li>Resolve <code>affected_services[]</code> from the alert / CI (primary + dependents).</li>
+  <li>Load the <b>topology</b> (CMDB + flow map) and check <b>health across nodes</b>.</li>
+  <li>Compute <b>blast radius</b> + pull <b>SLO burn</b>.</li>
+  <li>Pull <b>recent changes</b> on the service and any unhealthy dependency.</li>
+  <li>Search <b>related / prior</b> incidents and link them.</li>
+  <li>Derive <b>priority</b> (impact × urgency) and set an initial <code>suspected_locus</code>.</li>
+</ol>
+<div class="data"><div class="l">Data after Assess — AssessResult</div>
+<pre>{ affected_services:[{service:"payments-api", role:"primary",   health:"degraded"},
+                     {service:"cart-svc",     role:"dependent", health:"degraded"}],
+  impact:"high", urgency:"high", priority:"P1", severity:"Sev1",
+  signal:"error-rate 4.2% (AppD)", owner:"payments-oncall",
+  blast_radius:{services:1, users:~1200},
+  slo:{status:"breaching", burn_rate:{ "1h":14, "6h":5 }},
+  topology:{ nodes:[{"payments-api":"degraded"},{"payments-db":"degraded"},
+                    {"cart-svc":"degraded"},{"auth":"ok"}],
+             edges:["payments-api→payments-db","payments-api→auth","cart-svc→payments-api"],
+             suspected_locus:"payments-api" },
+  recent_changes:[{change_id:"CHG-77", what:"deploy v812", at:"-12m"}],
+  related_incidents:[{type:"related", id:"INC-4820", service:"cart-svc"}] }</pre></div>
+
+<h2><span class="n">2</span> Root cause — the probable cause, with evidence</h2>
+<h3>Questions</h3>
+<ul>
+  <li>What is the <b>probable cause</b> — and what are the ranked alternatives?</li>
+  <li>How <b>confident</b> are we, and what's the <b>evidence</b>?</li>
+  <li>Does it correlate with a <b>recent change</b> or an <b>unhealthy dependency</b>?</li>
+  <li>What can we <b>rule out</b>?</li>
+</ul>
+<h3>Tools — and what each collects</h3>
+<table>
+  <tr><th>Capability</th><th>What it collects</th><th>Access</th></tr>
+  <tr><td><code>appd.metrics.read</code></td><td>golden-signal time series for the suspect nodes (latency, errors, saturation) around onset</td><td>read · allow</td></tr>
+  <tr><td><code>logs.search</code></td><td>error log lines / stack traces for the window, grouped by signature</td><td>read · allow</td></tr>
+  <tr><td><code>traces.read</code></td><td>distributed traces showing where latency / errors originate across the topology</td><td>read · allow</td></tr>
+  <tr><td><code>changelog.read</code></td><td>the diff / details of the suspect change (CHG-77 → deploy v812)</td><td>read · allow</td></tr>
+</table>
+<h3>Steps</h3>
+<ol>
+  <li>Walk the topology from the symptom toward <code>suspected_locus</code>.</li>
+  <li>Correlate metrics / traces / logs with the recent change + unhealthy deps.</li>
+  <li>Form <b>ranked candidates</b>; score <b>confidence</b> (keep the tool's native scale in <code>confidence_raw</code>).</li>
+  <li><b>Rule out</b> alternatives and record why.</li>
+  <li>If top confidence &lt; <code>min_confidence</code> → gather more, or ask the operator.</li>
+</ol>
+<div class="data"><div class="l">Data added — RootCauseResult</div>
+<pre>{ candidates:[
+    {cause:"deploy v812 — connection-pool exhaustion", type:"change",
+     confidence:0.86, confidence_raw:"0.86 (Watchdog)", critical_failure:true,
+     method:"change-correlation + trace fault path"},
+    {cause:"payments-db slow queries", type:"infra", confidence:0.31},
+    {cause:"auth latency", type:"dependency", confidence:0.08} ],
+  status:"found",
+  evidence:[{kind:"change", ref:"CHG-77"},{kind:"logs", ref:"sig:pool-timeout x2.4k"},
+            {kind:"trace", ref:"trace:payments-api→payments-db p99 9s"}],
+  suspect_changes:[{change_id:"CHG-77", score:0.86, time_frame:"-12m"}],
+  alternatives_ruled_out:["payments-db (no query-plan change)","auth (latency normal)"] }</pre></div>
+
+<h2><span class="n">3</span> Remediation — the safest reversible fix, gated</h2>
+<h3>Questions</h3>
+<ul>
+  <li>What's the <b>safest reversible</b> fix (often: roll back the change)?</li>
+  <li>What's the <b>blast radius</b> and the <b>rollback plan</b>?</li>
+  <li>Is it <b>approved</b> — and did it actually run?</li>
+</ul>
+<h3>Tools — and what each collects / does</h3>
+<table>
+  <tr><th>Capability</th><th>What it does / collects</th><th>Access</th></tr>
+  <tr><td><code>k8s.rollback</code></td><td><b>writes</b>: roll the deployment back to the last healthy release (v811); returns the rollout status</td><td><span class="gate">write · ask (gated)</span></td></tr>
+  <tr><td><code>k8s.restart</code> · <code>k8s.scale</code></td><td><b>writes</b>: restart / scale as alternatives; gated the same way</td><td><span class="gate">write · ask</span></td></tr>
+  <tr><td><code>runbook.run</code></td><td><b>writes</b>: a reviewed runbook step; one governed call</td><td><span class="gate">write · ask</span></td></tr>
+  <tr><td><code>telemetry.read</code></td><td>reads health right after the action to confirm it took</td><td>read · allow</td></tr>
+</table>
+<h3>Steps</h3>
+<ol>
+  <li>Propose the fix from the root cause (here: <code>k8s.rollback payments-api → v811</code>); compute <b>blast radius</b> + <b>rollback plan</b>.</li>
+  <li><span class="gate">Approval gate</span> — the operator reviews the plan and <b>approves / refines / denies</b> (recorded on the <code>HumanInteraction</code>).</li>
+  <li>Execute with an <b>idempotency key</b> (exactly-once); capture evidence.</li>
+  <li><b>On failure</b> — retry transient errors per the playbook <code>retry</code> policy; permanent / blocked → <code>error_handler</code> (escalate / manual).</li>
+</ol>
+<div class="data"><div class="l">Data added — RemediationResult</div>
+<pre>{ action:{capability:"k8s.rollback", input:{service:"payments-api", to:"v811"}},
+  blast_radius:"1 service", rollback_plan:"redeploy v812",
+  approval:{interaction_id:"hi_91", decision:"approved", actors:["payments-oncall"]},
+  execution:{status:"done", idempotency_key:"act_5f3", evidence:[{kind:"rollout", ref:"rs/payments-api-811"}]},
+  on_failure_policy:"run-remaining", error_handler:null }</pre></div>
+
+<h2><span class="n">4</span> Verify &amp; close — confirm recovery, then close</h2>
+<h3>Questions</h3>
+<ul>
+  <li>Did it <b>recover</b> — is the <b>symptom cleared</b> and the <b>SLO recovering</b>?</li>
+  <li>Does the <b>user journey</b> work (synthetic replay)?</li>
+  <li>Safe to <b>close</b>? (a human decision)</li>
+</ul>
+<h3>Tools — and what each collects</h3>
+<table>
+  <tr><th>Capability</th><th>What it collects</th><th>Access</th></tr>
+  <tr><td><code>telemetry.read</code></td><td>before / after health — error rate, latency, SLO burn trend</td><td>read · allow</td></tr>
+  <tr><td><code>synthetic.replay</code></td><td>runs the key user journey and returns pass / fail + evidence</td><td>read · allow</td></tr>
+</table>
+<h3>Steps</h3>
+<ol>
+  <li>Re-check health + <b>replay the journey</b>.</li>
+  <li>Confirm <b>symptom cleared</b> + <b>SLO recovering</b>; capture before/after.</li>
+  <li>If it didn't hold → <b>backtrack</b> to Root cause (with the new evidence).</li>
+  <li>The <b>operator confirms and closes</b> — closing is a human act, never automatic.</li>
+</ol>
+<div class="data"><div class="l">Data added — VerifyResult</div>
+<pre>{ verification_outcome:"recovered",
+  before:{error_rate:"4.2%", p99:"9s"}, after:{error_rate:"0.1%", p99:"240ms"},
+  synthetic_result:"pass", symptom_cleared:true, slo_recovered:"recovering",
+  resolution:"rolled back deploy v812", close_code:"resolved-by-rollback" }</pre></div>
+
+<h2><span class="n">5</span> Capabilities the triage needs</h2>
+<p>Everything above, in one place — what must be available, for what, and the access it defaults to.</p>
+<table>
+  <tr><th>Capability</th><th>Kind</th><th>Effect · access</th><th>Used in</th></tr>
+  <tr><td><code>servicenow.incident.read</code> · <code>incidents.search</code></td><td>api</td><td>read · allow</td><td>Assess</td></tr>
+  <tr><td><code>cmdb.read</code> · <code>appd.flowmap.read</code> · <code>appd.metrics.read</code></td><td>api</td><td>read · allow</td><td>Assess · Root cause</td></tr>
+  <tr><td><code>logs.search</code> · <code>traces.read</code></td><td>api / mcp</td><td>read · allow</td><td>Root cause</td></tr>
+  <tr><td><code>slo.read</code> · <code>changelog.read</code> · <code>telemetry.read</code></td><td>api</td><td>read · allow</td><td>Assess · Verify</td></tr>
+  <tr><td><code>k8s.rollback</code> · <code>k8s.restart</code> · <code>k8s.scale</code></td><td>api</td><td><span class="gate">write · ask (gated)</span></td><td>Remediation</td></tr>
+  <tr><td><code>runbook.run</code></td><td>mcp</td><td><span class="gate">write · ask</span></td><td>Remediation</td></tr>
+  <tr><td><code>synthetic.replay</code></td><td>skill</td><td>read · allow</td><td>Verify</td></tr>
+  <tr><td><code>db.diagnose</code> · <code>network.diagnose</code> <span style="color:var(--ink2)">(specialist agents)</span></td><td>a2a</td><td>read · allow (scoped)</td><td>Root cause (multi-app)</td></tr>
+</table>
+
+<h2><span class="n">6</span> The playbook that drives this</h2>
+<p>The process above is a <b>versioned playbook</b> (Markdown + YAML front-matter) — change it without changing the engine. A realistic form:</p>
+<pre>---
+id: incident-triage
+version: 1.2.0
+domain: app-incident
+status: active
+owner: iro-sre
+defaults:
+  on_failure: run-remaining
+  retry: { max: 3, backoff: exponential }   # transient errors only
+unknown_access: ask                          # default gate for unknown-effect capabilities
+phases:
+  - id: assess
+    name: Assess
+    goal: Identify the affected service(s), how bad, what changed, and the context.
+    capabilities: [servicenow.incident.read, cmdb.read, appd.flowmap.read,
+                   slo.read, changelog.read, incidents.search]
+    output: AssessResult
+  - id: root-cause
+    name: Root cause
+    goal: Find the probable cause, with evidence and a confidence score.
+    capabilities: [appd.metrics.read, logs.search, traces.read, changelog.read]
+    output: RootCauseResult
+    min_confidence: 0.7
+  - id: remediation
+    name: Remediation
+    goal: Apply the safest reversible fix.
+    capabilities: [k8s.rollback, k8s.restart, k8s.scale, runbook.run, telemetry.read]
+    output: RemediationResult
+    gate_writes: true
+  - id: verify-close
+    name: Verify &amp; close
+    goal: Confirm recovery from the user's side; the operator closes.
+    capabilities: [telemetry.read, synthetic.replay]
+    output: VerifyResult
+schemas:
+  AssessResult:      { type: object, required: [affected_services, impact, priority] }
+  RootCauseResult:   { type: object, required: [candidates, status] }
+  RemediationResult: { type: object, required: [action, approval, execution] }
+  VerifyResult:      { type: object, required: [verification_outcome, resolution] }
+---
+## assess
+Affected service(s); severity/impact + blast radius; recent changes; dependencies and which
+are unhealthy; related/prior incidents; owner. Build the topology and set a suspected locus.
+## root-cause
+Correlate metrics/traces/logs with recent changes + dependency health; rank candidates; score
+confidence. Below min_confidence, gather more or ask.
+## remediation
+Propose the safest reversible fix (often: roll back the change); show blast radius + rollback.
+Writes are gated; retry transient failures, escalate permanent ones.
+## verify-close
+Re-check health and replay the user journey; confirm recovery. The operator confirms and closes.</pre>
+
+<footer>The operational detail behind the HLD (§3 phases · §5.6 per-phase models · §5.5 the universal tool-call + evidence record) and the LLD (§4 flows). Worked on INC-4821 / payments-api; the same shape covers any application.</footer>
+
+</div></body></html>

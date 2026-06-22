@@ -1,0 +1,210 @@
+"""P2 · graph runtime (B9) — unit tests.
+
+The INC-4821 causal chain (biz → svc → app → db → storage) drives the tool-surface tests; the B9.6
+guards (unknown-id, conflicting facts, idempotent fold, annotate-needs-evidence, cycles, expand
+cap) each get a focused test; the render-slice is checked bounded on a 147-node graph.
+"""
+from __future__ import annotations
+
+import pytest
+
+from engine.domain import Edge, Node
+from engine.graph_runtime import (
+    UNKNOWN,
+    IncidentGraph,
+    MetricsFold,
+    TopologyFold,
+    default_registry,
+    render_slice,
+)
+
+CHAIN = ["biz:checkout-journey", "svc:checkout", "app:payments-api", "db:payments-ora", "stor:pay-vol"]
+
+
+def base_graph() -> IncidentGraph:
+    """The INC-4821 dependency chain, built via the topology fold-adapter."""
+    g = IncidentGraph()
+    nodes = [
+        {"id": "biz:checkout-journey", "kind": "system", "type": "journey", "layer": "business"},
+        {"id": "svc:checkout", "kind": "system", "type": "app", "layer": "app"},
+        {"id": "app:payments-api", "kind": "system", "type": "app", "layer": "app",
+         "labels": ["suspect"],
+         "facts": [{"key": "health", "value": "degraded", "source": "appd",
+                    "observed_at": "14:02", "impact_state": "degraded"}]},
+        {"id": "db:payments-ora", "kind": "system", "type": "database", "layer": "database",
+         "facts": [{"key": "io_wait_ms", "value": 28, "source": "oem", "observed_at": "14:03"}]},
+        {"id": "stor:pay-vol", "kind": "system", "type": "storage", "layer": "storage",
+         "labels": ["suspect"],
+         "facts": [{"key": "latency_ms", "value": 22.4, "source": "netapp",
+                    "observed_at": "14:05", "impact_state": "degraded"}]},
+    ]
+    edges = [{"type": "depends_on", "from": a, "to": b} for a, b in zip(CHAIN, CHAIN[1:])]
+    TopologyFold().fold({"nodes": nodes, "edges": edges}, g)
+    return g
+
+
+# ── tool surface (B9.2) ─────────────────────────────────────────────────
+def test_get_returns_node_with_facts():
+    g = base_graph()
+    n = g.get("app:payments-api")
+    assert n["id"] == "app:payments-api"
+    assert n["facts"][0]["source"] == "appd"
+
+
+def test_get_unknown_never_invents():
+    g = base_graph()
+    assert g.get("does:not-exist") == {"id": "does:not-exist", "status": UNKNOWN}
+    assert "does:not-exist" not in g.node_ids()   # querying must not create it
+
+
+def test_neighbours_directional_and_filtered():
+    g = base_graph()
+    out = g.neighbours("app:payments-api", edge="depends_on", dir="out")
+    assert [s["id"] for s in out["neighbours"]] == ["db:payments-ora"]
+    inn = g.neighbours("app:payments-api", dir="in")
+    assert [s["id"] for s in inn["neighbours"]] == ["svc:checkout"]
+
+
+def test_walk_follows_chain():
+    g = base_graph()
+    w = g.walk("biz:checkout-journey", ["depends_on"], dir="out")
+    assert w["path"] == CHAIN
+
+
+def test_walk_until_predicate_stops():
+    g = base_graph()
+    w = g.walk("biz:checkout-journey", ["depends_on"], dir="out", until={"layer": "database"})
+    assert w["path"][-1] == "db:payments-ora"
+
+
+def test_find_by_label_and_unhealthy():
+    g = base_graph()
+    suspects = {s["id"] for s in g.find({"label": "suspect"})["matches"]}
+    assert suspects == {"app:payments-api", "stor:pay-vol"}
+    unhealthy = {s["id"] for s in g.find({"unhealthy": True})["matches"]}
+    assert unhealthy == {"app:payments-api", "stor:pay-vol"}
+
+
+def test_blast_radius_walks_dependents():
+    g = base_graph()
+    br = g.blast_radius("stor:pay-vol")
+    # everything that (transitively) depends_on storage is impacted
+    assert set(br["impacted"]) == {"biz:checkout-journey", "svc:checkout",
+                                   "app:payments-api", "db:payments-ora"}
+
+
+def test_path_shortest_causal():
+    g = base_graph()
+    assert g.path("app:payments-api", "stor:pay-vol")["path"] == \
+        ["app:payments-api", "db:payments-ora", "stor:pay-vol"]
+
+
+def test_path_unknown_endpoint():
+    g = base_graph()
+    assert g.path("app:payments-api", "nope")["status"] == UNKNOWN
+
+
+# ── annotate (B9.2 / B9.6) ──────────────────────────────────────────────
+def test_annotate_label_applies_with_evidence():
+    g = base_graph()
+    g.annotate("db:payments-ora", "label", "suspect", evidence_ref="oem://payments-ora/awr")
+    assert "suspect" in g.raw_node("db:payments-ora").labels
+
+
+def test_annotate_fact_applies_with_evidence():
+    g = base_graph()
+    g.annotate("db:payments-ora", "root_hint", "io-bound", evidence_ref="otel://trace/9af3", by_step="s4")
+    facts = {f.key: f for f in g.raw_node("db:payments-ora").facts}
+    assert facts["root_hint"].source == "agent"
+    assert facts["root_hint"].evidence_ref == "otel://trace/9af3"
+
+
+def test_annotate_without_evidence_is_rejected():
+    g = base_graph()
+    with pytest.raises(ValueError):
+        g.annotate("db:payments-ora", "label", "suspect", evidence_ref="")
+
+
+def test_annotate_unknown_target_rejected():
+    g = base_graph()
+    with pytest.raises(KeyError):
+        g.annotate("ghost:node", "label", "suspect", evidence_ref="x://y")
+
+
+# ── fold guards (B9.6) ──────────────────────────────────────────────────
+def test_fold_is_idempotent_on_replay():
+    g = base_graph()
+    result = {"target": "db:payments-ora",
+              "facts": [{"key": "io_wait_ms", "value": 28, "source": "oem", "observed_at": "14:03"}]}
+    before = len(g.raw_node("db:payments-ora").facts)
+    MetricsFold().fold(result, g)
+    MetricsFold().fold(result, g)   # replay — must not duplicate
+    assert len(g.raw_node("db:payments-ora").facts) == before  # same (node,key,source,observed_at)
+
+
+def test_conflicting_facts_are_both_kept():
+    g = base_graph()
+    # a second source disagrees on health — keep both, never overwrite
+    MetricsFold().fold(
+        {"target": "app:payments-api",
+         "facts": [{"key": "health", "value": "ok", "source": "synthetic", "observed_at": "14:02"}]},
+        g,
+    )
+    healths = [f for f in g.raw_node("app:payments-api").facts if f.key == "health"]
+    assert {f.source for f in healths} == {"appd", "synthetic"}
+    assert {f.value for f in healths} == {"degraded", "ok"}
+
+
+def test_fold_requires_existing_node_for_facts():
+    g = base_graph()
+    with pytest.raises(KeyError):
+        MetricsFold().fold({"target": "ghost", "facts": [{"key": "x", "value": 1, "source": "s"}]}, g)
+
+
+def test_default_registry_dispatch():
+    g = base_graph()
+    reg = default_registry()
+    touched = reg.fold("metrics",
+                       {"target": "stor:pay-vol",
+                        "facts": [{"key": "disk", "value": "reconstructing", "source": "netapp",
+                                   "observed_at": "14:05"}]}, g)
+    assert touched == ["stor:pay-vol"]
+    with pytest.raises(KeyError):
+        reg.fold("no-such-source", {}, g)
+
+
+# ── cycle safety (B9.6) ─────────────────────────────────────────────────
+def test_walk_is_cycle_safe():
+    g = base_graph()
+    g.add_edge(Edge.model_validate({"type": "depends_on", "from": "stor:pay-vol",
+                                    "to": "biz:checkout-journey"}))  # close the loop
+    w = g.walk("biz:checkout-journey", ["depends_on"], dir="out")
+    assert len(w["path"]) == len(set(w["path"]))   # terminates, no node twice
+
+
+# ── expand-too-wide cap (B9.6) ──────────────────────────────────────────
+def test_neighbours_caps_breadth():
+    g = base_graph()
+    for i in range(20):
+        g.upsert_node(Node.model_validate({"id": f"leaf:{i}", "kind": "system", "type": "app"}))
+        g.add_edge(Edge.model_validate({"type": "depends_on", "from": "stor:pay-vol", "to": f"leaf:{i}"}))
+    out = g.neighbours("stor:pay-vol", edge="depends_on", cap=12)
+    assert len(out["neighbours"]) == 12
+    assert out["more"] == 8
+
+
+# ── render-slice bounded on a large graph (B9.3, AC6) ───────────────────
+def test_render_slice_is_bounded_on_147_nodes():
+    g = base_graph()
+    # inflate to 147 nodes with healthy, unflagged, unconnected leaves
+    for i in range(142):
+        g.upsert_node(Node.model_validate({"id": f"host:{i}", "kind": "system", "type": "compute",
+                                           "layer": "compute"}))
+    assert len(g) == 147
+    sl = render_slice(g, "biz:checkout-journey", cause_path=CHAIN)
+    assert sl["total"] == 147
+    assert sl["rendered"] <= 30           # bounded regardless of size
+    assert sl["collapsed"]["count"] >= 117
+    # the live nodes (subject + cause path + suspects) are in full
+    full_ids = {n["id"] for n in sl["full"]}
+    assert {"biz:checkout-journey", "stor:pay-vol", "app:payments-api"} <= full_ids

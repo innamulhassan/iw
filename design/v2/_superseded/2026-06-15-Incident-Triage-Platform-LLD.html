@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage — Low-Level Design (LLD)</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;--mono:'SF Mono',Consolas,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:34px 26px 70px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:16px;margin-bottom:10px}
+  h1{font-size:26px;margin:0 0 5px;color:var(--accent)}
+  .sub{font-size:15px;color:var(--ink2);margin:0}.meta{font-size:12.5px;color:var(--ink2);font-style:italic;margin-top:9px}
+  h2{font-size:20px;color:var(--accent);margin:30px 0 6px;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-size:12.5px;font-weight:700;color:#fff;background:var(--accent);border-radius:6px;padding:2px 9px}
+  h3{font-size:13.5px;color:var(--head);margin:15px 0 3px}
+  p{margin:0 0 10px}b{color:var(--head)}
+  ul,ol{margin:6px 0 11px;padding-left:22px}li{margin:3px 0}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0 12px;table-layout:fixed}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{background:#eef4fb;color:var(--accent);font-weight:600}
+  td.f{font-family:var(--mono);font-weight:700;color:var(--head)}
+  code{font-family:var(--mono);font-size:.9em;background:#eef1f5;border-radius:4px;padding:1px 5px}
+  pre{background:#f6f8fa;border:1px solid var(--line);border-radius:9px;padding:12px 14px;overflow:auto;font-size:11px;line-height:1.5;font-family:var(--mono);color:#1f2937;margin:7px 0;white-space:pre}
+  pre.sql{background:#0f2233;color:#d6e2ee;border-color:#0b1a27}
+  pre.sql .c,pre .c{color:#6f8aa3}
+  pre.sql .k{color:#9ad0ff}
+  .lead{background:#eef4fb;border-left:5px solid var(--accent);border-radius:8px;padding:12px 16px;margin:13px 0;font-size:13.5px}
+  footer{margin-top:30px;border-top:1px solid var(--line);padding-top:13px;font-size:12.5px;color:var(--ink2)}
+  @media(max-width:700px){table{table-layout:auto}}
+</style></head><body><div class="wrap">
+
+<header>
+  <h1>Incident Triage — Low-Level Design (LLD)</h1>
+  <p class="sub">The implementation: concrete schemas, the LangGraph run loop, <code>govern()</code>, intent resolution, the phase executor, the gate, and the engine API.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · v1.0 · the engineering detail behind the HLD · field-level schemas in the Data-Model doc</p>
+</header>
+
+<div class="lead">This is the build-level design. Shapes and fields are defined in the <b>Data-Model</b> doc; here we fix the <i>physical</i> design — collections, tables, the state machine, the resolution functions, and the contracts a developer implements against. Stack: <b>LangGraph</b> (run loop + checkpointer) · <b>MongoDB</b> (data plane) · <b>PostgreSQL</b> (config plane + checkpoint).</div>
+
+<!-- 1 -->
+<h2><span class="n">1</span> Stores — physical schema</h2>
+<h3>PostgreSQL — config plane (normalized)</h3>
+<pre class="sql"><span class="k">CREATE TABLE</span> playbook (              <span class="c">-- the versioned process (body_md + machine front-matter)</span>
+  id            text, version text,    <span class="c">-- PK = (id, version): every edit is a new immutable row</span>
+  domain        text NOT NULL,         <span class="c">-- one engine, many playbooks</span>
+  status        text NOT NULL,         <span class="c">-- draft | active | deprecated</span>
+  owner         text,  body_md text,
+  phases        jsonb, schemas jsonb, defaults jsonb,   <span class="c">-- the front-matter the engine executes</span>
+  unknown_access text, changelog text,
+  PRIMARY KEY (id, version) );
+
+<span class="k">CREATE TABLE</span> provider (
+  id text PRIMARY KEY, name text, kind text,            <span class="c">-- skill|mcp_local|mcp_remote|a2a_agent|api</span>
+  connection jsonb, trusted bool, status text, last_synced timestamptz );
+
+<span class="k">CREATE TABLE</span> declared_capability (
+  id text PRIMARY KEY,                                  <span class="c">-- provider__action</span>
+  provider text REFERENCES provider(id),
+  description text, input_schema jsonb, output_schema jsonb,
+  effect_hint text, intents text[], last_synced timestamptz );  <span class="c">-- intents[] = which needs it satisfies</span>
+
+<span class="k">CREATE TABLE</span> capability_policy (                    <span class="c">-- human-owned, sticky</span>
+  capability_id text PRIMARY KEY REFERENCES declared_capability(id),
+  effect text, access text,                             <span class="c">-- allow | ask | deny</span>
+  status text, reviewed_by text, reviewed_at timestamptz );</pre>
+<p>The <b>LangGraph checkpointer</b> uses its own Postgres tables (<code>PostgresSaver</code>); we do not hand-model them. <code>thread_id</code> = the run id.</p>
+
+<h3>MongoDB — data plane (denormalized)</h3>
+<pre><span class="c">// db.incidents — one document per subject (shape = Data-Model §“Incident document”)</span>
+{ _id, domain, incident_type, symptom, priority, state, owner_team, playbook,   <span class="c">// playbook = "incident-triage@1.0.0"</span>
+  opened_at, closed_at, impact_assessment,
+  graph: { nodes:[…], edges:[…] },          <span class="c">// Node/Fact/Edge per Data-Model §3</span>
+  phases:[ { phase, output } ] }            <span class="c">// the typed phase outputs per Data-Model §4.4</span>
+<span class="c">// db.feedback — operator verdicts, separate from the run (Data-Model §Feedback)</span>
+{ _id, subject:{domain,id}, run_id?, actor, kind, verdict, note, at }
+
+<span class="c">// indexes</span>
+db.incidents.createIndex({ incident_type:1, state:1 })
+db.incidents.createIndex({ "graph.nodes.id":1 }); db.incidents.createIndex({ "graph.edges.type":1 })
+db.incidents.createIndex({ fingerprint:1 })           <span class="c">// + a vector index for similar-incident search</span></pre>
+
+<!-- 2 -->
+<h2><span class="n">2</span> The run loop — LangGraph state machine</h2>
+<p>One graph; the run is a <code>thread_id</code>; state is checkpointed after every step. The durable incident document is written through to Mongo on phase completion + close.</p>
+<pre><span class="c"># the run State (reducers omitted)</span>
+class RunState(TypedDict):
+    subject:        SubjectRef            <span class="c"># {domain, id, kind} — NOT incident_id</span>
+    playbook_ref:   str                   <span class="c"># "incident-triage@1.0.0" (pinned)</span>
+    graph:          InvestigationGraph    <span class="c"># nodes / edges / facts — shared across phases</span>
+    phase_records:  list[PhaseRecord]
+    messages:       list[Msg]             <span class="c"># the conversation</span>
+    current_phase:  str
+    status:         str                   <span class="c"># running | waiting_approval | waiting_input | done | failed</span>
+
+<span class="c"># nodes + edges</span>
+graph = StateGraph(RunState)
+graph.add_node("assess",      run_phase("assess"))
+graph.add_node("root_cause",  run_phase("root-cause"))
+graph.add_node("remediation", run_phase("remediation"))   <span class="c"># interrupts before each write (the gate)</span>
+graph.add_node("verify",      run_phase("verify-close"))
+graph.add_edge("assess", "root_cause")
+graph.add_conditional_edges("root_cause", lambda s: "root_cause"     <span class="c"># loop if &lt; min_confidence</span>
+        if top_conf(s) &lt; min_conf(s) else "remediation")
+graph.add_conditional_edges("verify", lambda s: "root_cause"         <span class="c"># backtrack if recovery didn't hold</span>
+        if not recovered(s) else END)
+app = graph.compile(checkpointer=PostgresSaver(...), interrupt_before=["__write__"])</pre>
+
+<!-- 3 -->
+<h2><span class="n">3</span> The phase executor — the per-phase agent loop</h2>
+<pre>def run_phase(phase_id):
+  def _run(state):
+    rec = PhaseRecord(id=f"{state.subject.id}:{phase_id}:{attempt}", phase=phase_id, plan=plan(state))
+    while not output_sufficient(rec.output, schema_of(phase_id)):
+        need   = model.next_need(state, rec)                 <span class="c"># intent the model wants next</span>
+        caps   = resolve_intent(need, effect_of(phase_id))   <span class="c"># §4 — registry lookup, policy-gated</span>
+        result = call(caps, args, state)                     <span class="c"># §5 — govern() runs inside; writes interrupt</span>
+        fold_into_graph(state.graph, result)                 <span class="c"># nodes / facts / edges + side-effects</span>
+        rec.steps.append(Step(kind="tool_call", capability=caps.id,
+                              input=args, result=result,
+                              touched=result.node_ids, evidence=result.evidence))
+        rec.output = model.update_output(rec)                <span class="c"># build the typed output incrementally</span>
+    validate(rec.output, schema_of(phase_id))                <span class="c"># §6</span>
+    state.phase_records.append(rec); write_through_to_mongo(state)
+    return state
+  return _run</pre>
+<p>Read-only phases pass <code>effect="read-only"</code> to <code>resolve_intent</code>, so no write capability can be selected — the <code>effect</code> boundary is enforced at resolution, not just at the gate.</p>
+
+<!-- 4 -->
+<h2><span class="n">4</span> Intent resolution &amp; <code>govern()</code></h2>
+<pre>def resolve_intent(need, phase_effect):
+    caps = [c for c in declared_capabilities
+            if need in c.intents                       <span class="c"># matches the intent</span>
+            and compatible(c.effect_hint, phase_effect)]  <span class="c"># read-only phase ⇒ no write caps</span>
+    return rank(caps)                                  <span class="c"># by trust, freshness, fit
+
+def govern(cap, playbook):                             # resolved at call time, every time</span>
+    effect = policy(cap).effect or cap.effect_hint or "unknown"
+    access = policy(cap).access or (playbook.unknown_access if effect=="unknown"
+                                    else DEFAULT[trust(cap)][effect])
+    return Decision(effect, access)                    <span class="c"># allow → invoke · ask → gate · deny → refuse</span></pre>
+<table>
+  <tr><th style="width:20%">access</th><th>behaviour</th></tr>
+  <tr><td class="f">allow</td><td>invoke directly, then audit.</td></tr>
+  <tr><td class="f">ask</td><td>pause (interrupt) → operator <code>approve / refine / deny</code> → on approve, invoke; record the decision.</td></tr>
+  <tr><td class="f">deny</td><td>refuse; the model must find another path or escalate.</td></tr>
+</table>
+
+<!-- 5 -->
+<h2><span class="n">5</span> Writes — gate, idempotency, rollback</h2>
+<p>A write capability (<code>effect=write</code>) always resolves <code>access=ask</code> in remediation (<code>gate_writes:true</code>). The LangGraph <code>interrupt_before</code> pauses; the API surfaces the proposed action; the operator decides; the run resumes.</p>
+<pre>action = { action_id, kind, technique, target, expected_effect, blast_radius,
+           rollback, temporary, revert_when, idempotency_key, gated:true }
+<span class="c"># on resume(approve):</span>
+if seen(action.idempotency_key): return cached_result   <span class="c"># exactly-once</span>
+result = provider.invoke(action)                         <span class="c"># A2A / MCP / dynamic-MCP</span>
+record Step(kind="decision", decision="approve", actor=…); record action.result
+on permanent failure → error_handler (escalate); transient → retry per defaults.retry</pre>
+
+<!-- 6 -->
+<h2><span class="n">6</span> Output validation</h2>
+<p>Each phase output is validated against the playbook's <code>output_schemas[phase.output]</code> (JSON Schema, stored in <code>playbook.schemas</code>) on produce — required fields present, types correct. A failed validation keeps the phase open (the loop continues) rather than emitting a malformed contract.</p>
+
+<!-- 7 -->
+<h2><span class="n">7</span> Capability registry sync</h2>
+<ol>
+  <li>For each <code>provider</code>, pull its manifest → upsert <code>declared_capability</code> rows (<code>last_synced</code> stamped); tag each with the <code>intents[]</code> it satisfies.</li>
+  <li>A newly-seen capability gets a <code>capability_policy</code> row at <code>status=pending_review, access=deny</code> — it cannot be used until a human reviews.</li>
+  <li>A reviewer sets <code>effect</code> + <code>access</code> (allow/ask/deny) → <code>status=active</code>. Policy is sticky across syncs (declarations refresh; the grant does not).</li>
+</ol>
+
+<!-- 8 -->
+<h2><span class="n">8</span> Engine API (surface)</h2>
+<table>
+  <tr><th style="width:34%">Endpoint</th><th>Purpose</th></tr>
+  <tr><td class="f">POST /runs</td><td>start a run: { subject:{domain,id}, playbook } → seeds the graph, begins Assess; returns run_id.</td></tr>
+  <tr><td class="f">GET /runs/{id}</td><td>current state: current_phase, status, the pending gate (if any), the latest phase output.</td></tr>
+  <tr><td class="f">POST /runs/{id}/resume</td><td>answer a gate / input: { decision: approve|refine|deny, actor, note? } → resumes the checkpointed run.</td></tr>
+  <tr><td class="f">GET /incidents/{id}</td><td>the denormalized incident document (graph + phase outputs) from Mongo.</td></tr>
+  <tr><td class="f">POST /feedback</td><td>{ subject, run_id?, actor, kind, verdict } → the feedback store (feeds the autonomy ladder).</td></tr>
+  <tr><td class="f">POST /playbooks · /providers · /policies</td><td>config-plane admin (author/validate/publish a playbook; register a provider; set a policy).</td></tr>
+</table>
+
+<!-- 9 -->
+<h2><span class="n">9</span> Error handling, retries, backtrack</h2>
+<ul>
+  <li><b>Transient</b> capability failure → retry per <code>defaults.retry</code> (max + backoff); <b>permanent / blocked</b> → <code>error_handler</code> (escalate to on-call).</li>
+  <li><b>on_failure: run-remaining</b> — independent steps in a phase finish before the phase reports.</li>
+  <li><b>Backtrack</b> — Verify failing recovery routes back to Root cause (a new attempt); the graph + prior records are retained as context.</li>
+  <li><b>Crash recovery</b> — the run resumes from the last checkpoint; in-flight writes are guarded by the idempotency key.</li>
+</ul>
+
+<footer>Implementation layer of the design set: Spec → HLD → <b>LLD</b> (this) → Data-Model (schemas) → Runbook (operations) → Delivery Plan. Stack: LangGraph · MongoDB · PostgreSQL. Every field referenced here is defined in full in the Data-Model doc.</footer>
+
+</div></body></html>

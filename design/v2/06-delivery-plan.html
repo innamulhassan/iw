@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident Triage AIOps — Delivery Plan</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 22px 64px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:16px;margin-bottom:10px}
+  h1{font-size:27px;margin:0 0 6px;color:var(--accent)}
+  .sub{font-size:15px;color:var(--ink2);margin:0}.meta{font-size:12.5px;color:var(--ink2);font-style:italic;margin-top:9px}
+  h2{font-size:20px;color:var(--accent);margin:30px 0 8px}
+  p{margin:0 0 11px}b{color:var(--head)}
+  .rail{display:flex;gap:0;margin:12px 0 16px}
+  .step{flex:1;border:1px solid var(--line);border-right:none;background:#fcfdfe;padding:10px 11px}
+  .step:last-child{border-right:1px solid var(--line);border-radius:0 9px 9px 0}.step:first-child{border-radius:9px 0 0 9px}
+  .step .m{font-size:11px;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:1px 8px}
+  .step .t{font-size:13px;font-weight:700;color:var(--head);margin:6px 0 3px}.step .d{font-size:11px;color:var(--ink2)}
+  .step .g{font-size:10.5px;font-weight:700;margin-top:5px}.as{color:var(--ok)}.au{color:var(--accent)}.an{color:var(--warn)}
+  /* gantt */
+  .gantt{display:grid;grid-template-columns:120px repeat(14,1fr);gap:3px;align-items:center;margin:10px 0 6px;font-size:11px}
+  .gh{font-size:9.5px;color:var(--ink2);text-align:center;font-weight:600}
+  .glab{font-weight:700;color:var(--head);font-size:11.5px;text-align:right;padding-right:8px}
+  .bar{height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;white-space:nowrap}
+  .b0{background:#8A93A0}.b1{background:#2E7D32}.b2{background:#1F4E79}.b3{background:#2E5C8A}.b4{background:#C8860D}.bh{background:#B45309}.ba{background:#9AA5B1}
+  .gnote{font-size:10.5px;color:var(--ink2);margin:2px 0 0}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 14px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:#eef4fb;color:var(--accent);font-weight:600}
+  td .s{color:var(--accent);font-weight:700}
+  code{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:.9em;background:#eef1f5;border-radius:4px;padding:1px 5px}
+  .lead{background:#eef4fb;border-left:5px solid var(--accent);border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13.5px}
+  .note{background:#fbf7ee;border-left:5px solid var(--warn);border-radius:8px;padding:12px 16px;margin:14px 0;font-size:13.5px}
+  footer{margin-top:28px;border-top:1px solid var(--line);padding-top:13px;font-size:12.5px;color:var(--ink2)}
+</style></head><body><div class="wrap">
+<div style="font:700 12px/1 -apple-system,Segoe UI,Arial;margin-bottom:12px"><a href="index.html" style="color:#1F4E79;text-decoration:none">← Design-set index</a></div>
+
+
+<header>
+  <h1>Incident Triage AIOps — Delivery Plan</h1>
+  <p class="sub">Five milestones, fourteen ~2-week sprints — value lands early, autonomy is earned, the incumbent is retired gradually, nothing is big-bang.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · June 2026 · sprints are relative (S1…S14); calendar dates set once scope + staffing are confirmed.</p>
+</header>
+
+<h2>Milestones</h2>
+<div class="rail">
+  <div class="step"><span class="m">M0</span><div class="t">Foundation</div><div class="d">engine · capability layer · governance · stores · console shell</div><div class="g">platform</div></div>
+  <div class="step"><span class="m">M1</span><div class="t">Assisted triage</div><div class="d">Assess + Root cause, read-only; the console</div><div class="g as">assisted</div></div>
+  <div class="step"><span class="m">M2</span><div class="t">Governed remediation</div><div class="d">gated writes; Verify &amp; close; rollback</div><div class="g au">augmented</div></div>
+  <div class="step"><span class="m">M3</span><div class="t">Coverage</div><div class="d">multi-app topology · relationships · agents · more playbooks</div><div class="g au">augmented</div></div>
+  <div class="step"><span class="m">M4</span><div class="t">Earned autonomy</div><div class="d">low-risk proven actions autonomous; dashboard</div><div class="g an">autonomous</div></div>
+</div>
+
+<h2>Timeline — by sprint</h2>
+<div class="gantt">
+  <div></div>
+  <div class="gh">S1</div><div class="gh">S2</div><div class="gh">S3</div><div class="gh">S4</div><div class="gh">S5</div><div class="gh">S6</div><div class="gh">S7</div><div class="gh">S8</div><div class="gh">S9</div><div class="gh">S10</div><div class="gh">S11</div><div class="gh">S12</div><div class="gh">S13</div><div class="gh">S14</div>
+  <div class="glab">M0 Foundation</div><div class="bar b0" style="grid-column:2/4">Foundation</div>
+  <div class="glab">M1 Assisted</div><div class="bar b1" style="grid-column:4/7">Assisted triage</div>
+  <div class="glab">M2 Remediation</div><div class="bar b2" style="grid-column:7/10">Governed remediation</div>
+  <div class="glab">M3 Coverage</div><div class="bar b3" style="grid-column:10/13">Coverage</div>
+  <div class="glab">M4 Autonomy</div><div class="bar b4" style="grid-column:13/16">Earned autonomy</div>
+  <div class="glab">Hardening</div><div class="bar bh" style="grid-column:2/10">bank-grade hardening (gates M2 writes)</div>
+  <div class="glab">Amelia</div><div class="bar ba" style="grid-column:4/16">run alongside → register as A2A + gate → ramp down</div>
+</div>
+<p class="gnote">Two parallel tracks: <b>hardening</b> (secrets · encryption · audit immutability · DR · tests) must be in place before any write ships (M2); <b>Amelia</b> runs alongside, is wrapped as a governed A2A capability, and is dialled down per proven slice.</p>
+
+<h2>What ships each sprint</h2>
+<table>
+  <tr><th style="width:9%">Sprint</th><th style="width:14%">Milestone</th><th>What ships</th></tr>
+  <tr><td><b>S1</b></td><td>M0</td><td>Repo + skeleton: engine graph, capability registry interface, Postgres/Mongo schema, one read-only adapter (AppD), <b>shadow-mode</b> harness.</td></tr>
+  <tr><td><b>S2</b></td><td>M0</td><td>In-phase loop + checkpointer + <code>govern()</code> + append-only audit + the console shell. <span class="s">Exit:</span> an assisted run end-to-end on a read-only capability in shadow.</td></tr>
+  <tr><td><b>S3</b></td><td>M1 · assisted</td><td><b>Assess</b> phase live — incident-source + topology + telemetry + change-history + similar-incidents adapters; AssessResult. Amelia begins running alongside on the same incidents (for comparison).</td></tr>
+  <tr><td><b>S4</b></td><td>M1 · assisted</td><td><b>Root cause</b> phase — metrics/logs/traces adapters; ranked candidates + confidence; the console chat + clickable evidence.</td></tr>
+  <tr><td><b>S5</b></td><td>M1 · assisted</td><td>Full console (3 panes) + HITL approval surface + timeline/audit views. <span class="s">Exit:</span> triages real incidents read-only on a pilot slice; operators trust it.</td></tr>
+  <tr><td><b>S6</b></td><td>M2 · augmented</td><td><b>Remediation</b> — the first gated <b>write</b> (a mitigate / reverse action) + idempotency + the approval card + the rollback plan. (Hardening baseline must be green.)</td></tr>
+  <tr><td><b>S7</b></td><td>M2 · augmented</td><td>more techniques (failover · reroute · restart · scale) + escalation; <code>error_handler</code> (retry / escalate / manual) + on-failure + partial / blocked handling.</td></tr>
+  <tr><td><b>S8</b></td><td>M2 · augmented</td><td><b>Verify &amp; close</b> + synthetic replay; the operator-close flow. <span class="s">Exit:</span> gated fixes execute safely with rollback, exactly-once.</td></tr>
+  <tr><td><b>S9</b></td><td>M3 · augmented</td><td>Multi-app / cross-layer <b>topology</b> + incident <b>relationships</b> (parent/child/related/chained) + alert→incident ingestion / correlation.</td></tr>
+  <tr><td><b>S10</b></td><td>M3 · augmented</td><td>A2A <b>specialist agents</b> (DB, network) + remote MCP; <b>Amelia registered as an A2A capability</b>, its actions gated; sub-agent governance.</td></tr>
+  <tr><td><b>S11</b></td><td>M3 · augmented</td><td>More capabilities + domains; <b>playbook studio</b> (author · validate · publish); registry/governance admin. <span class="s">Exit:</span> handles a multi-app incident; N playbooks live.</td></tr>
+  <tr><td><b>S12</b></td><td>M4 · autonomous</td><td>Autonomy dial for the first proven low-risk action (per phase × node-type × severity); the <b>feedback → policy</b> loop (promote/demote).</td></tr>
+  <tr><td><b>S13</b></td><td>M4 · autonomous</td><td>The autonomy dashboard + metrics; expand autonomous actions; ramp <b>Amelia down</b> on the proven slices.</td></tr>
+  <tr><td><b>S14</b></td><td>M4 · autonomous</td><td>Broaden autonomy on proven actions; complete the Amelia ramp-down for covered domains. <span class="s">Exit:</span> a measured share of low-risk actions run autonomously with zero regressions, all reversible.</td></tr>
+</table>
+
+<div class="note"><b>Parallel track — bank-grade hardening (gates production writes).</b> Secrets / KMS, encryption at-rest + in-transit, audit immutability, failure / DR (RTO / RPO targets), and the test strategy (dry-run / shadow) are <b>designed in S1–S2 and in place before M2 (S6)</b> — no write capability reaches production without them. (Scoped in the Design doc hardening track.)</div>
+
+<div class="lead"><b>Why phased.</b> Value lands at M1 (faster diagnosis) before any write risk. Each milestone is gated, audited, reversible. Autonomy (M4) is earned narrowly only after M1–M3 prove the engine. <b>Amelia is never cut over big-bang</b> — it runs alongside, is wrapped as a governed capability, and is dialled down only as in-house actions prove themselves on each slice.</div>
+
+<footer>Companion to the Design doc + the System Brief + the Triage Runbook. Milestones / sprints are relative; calendar dates set with scope + staffing.</footer>
+
+</div></body></html>
