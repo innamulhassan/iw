@@ -208,3 +208,97 @@ def test_render_slice_is_bounded_on_147_nodes():
     # the live nodes (subject + cause path + suspects) are in full
     full_ids = {n["id"] for n in sl["full"]}
     assert {"biz:checkout-journey", "stor:pay-vol", "app:payments-api"} <= full_ids
+
+
+# ── audit fixes: predicate correctness, BFS walk, blast-radius coverage, annotate idempotency ──
+def test_find_rejects_unknown_predicate_key():
+    g = base_graph()
+    assert g.find({"bogus": True})["count"] == 0      # unknown key matches NOTHING (not match-all)
+    assert g.find({})["count"] == len(g)              # empty predicate still matches all
+
+
+def test_find_impacted_and_id_predicates():
+    g = base_graph()
+    impacted = {m["id"] for m in g.find({"impacted": True})["matches"]}
+    assert impacted == {"app:payments-api", "stor:pay-vol"}     # the two degraded nodes
+    one = g.find({"id": "db:payments-ora"})
+    assert one["count"] == 1 and one["matches"][0]["id"] == "db:payments-ora"
+
+
+def _node(nid: str) -> Node:
+    return Node.model_validate({"id": nid, "kind": "system", "type": "app", "layer": "app"})
+
+
+def _edge(a: str, b: str, t: str = "depends_on") -> Edge:
+    return Edge.model_validate({"type": t, "from": a, "to": b})
+
+
+def test_walk_until_bfs_finds_target_on_branching_topology():
+    g = IncidentGraph()
+    for nid in ["a", "dead", "c", "target"]:
+        g.upsert_node(_node(nid))
+    for a, b in [("a", "dead"), ("a", "c"), ("c", "target")]:   # a→dead AND a→c→target
+        g.add_edge(_edge(a, b))
+    w = g.walk("a", ["depends_on"], until={"id": "target"})     # greedy walk would dead-end on `dead`
+    assert w["reached"] is True
+    assert w["path"][-1] == "target"
+
+
+def test_walk_until_reports_unreached_not_silent():
+    g = base_graph()
+    w = g.walk("biz:checkout-journey", ["depends_on"], until={"id": "nope"})
+    assert w["reached"] is False
+
+
+def test_blast_radius_includes_hosted_on_chain():
+    g = IncidentGraph()
+    for nid in ["app:x", "db:y", "stor:z"]:
+        g.upsert_node(_node(nid))
+    g.add_edge(_edge("app:x", "db:y", "depends_on"))
+    g.add_edge(_edge("db:y", "stor:z", "hosted_on"))
+    br = g.blast_radius("stor:z")
+    assert "db:y" in br["impacted"]            # hosted_on shares depends_on's impact direction
+    assert "app:x" in br["impacted"]           # transitive up the chain
+
+
+def test_annotate_keeps_corrected_finding_with_new_evidence():
+    g = base_graph()
+    t = "db:payments-ora"
+    g.annotate(t, "root_hint", "io_wait", evidence_ref="otel://1")
+    g.annotate(t, "root_hint", "disk_latency", evidence_ref="otel://2")   # corrected — new evidence
+    facts = [f for f in g.raw_node(t).facts if f.key == "root_hint"]
+    assert len(facts) == 2                     # both kept (B9.6 never silently overwrites)
+
+
+def test_annotate_exact_replay_is_idempotent():
+    g = base_graph()
+    t = "db:payments-ora"
+    g.annotate(t, "root_hint", "io_wait", evidence_ref="otel://1")
+    g.annotate(t, "root_hint", "io_wait", evidence_ref="otel://1")        # exact replay
+    facts = [f for f in g.raw_node(t).facts if f.key == "root_hint"]
+    assert len(facts) == 1
+
+
+# ── audit fixes: globally-bounded render frontier, recency-aware health ──
+def test_render_slice_frontier_is_globally_bounded():
+    g = IncidentGraph()
+    for h in range(3):                                     # 3 suspect hubs, 10 distinct leaves each
+        g.upsert_node(Node.model_validate({"id": f"hub{h}", "kind": "system", "type": "app",
+                                           "layer": "app", "labels": ["suspect"]}))
+        for i in range(10):
+            leaf = f"leaf{h}-{i}"
+            g.upsert_node(_node(leaf))
+            g.add_edge(_edge(f"hub{h}", leaf))
+    sl = render_slice(g, "hub0", frontier_cap=20, expand_cap=12)
+    assert len(sl["frontier"]) == 20                       # 30 distinct neighbours capped to 20
+    # invariant holds: full + rendered-frontier + collapsed == total (overflow folds into collapsed)
+    assert len(sl["full"]) + len(sl["frontier"]) + sl["collapsed"]["count"] == sl["total"]
+
+
+def test_health_verdict_is_recency_aware():
+    g = IncidentGraph()
+    g.upsert_node(Node.model_validate({"id": "n", "kind": "system", "type": "app", "layer": "app",
+        "facts": [
+            {"key": "health", "value": "degraded", "source": "appd", "observed_at": "14:00", "impact_state": "degraded"},
+            {"key": "health", "value": "ok", "source": "appd", "observed_at": "14:10", "impact_state": "ok"}]}))
+    assert g.find({"impacted": True})["count"] == 0        # latest (14:10) is ok — stale degraded loses

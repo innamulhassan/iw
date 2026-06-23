@@ -169,3 +169,43 @@ def test_autonomy_does_not_promote_pending_review():
                                              intents=["z"]))
     assert promote(r, "new__cap") is False                    # unreviewed stays denied
     assert r.policy("new__cap").access is Access.deny
+
+
+# ── audit fixes: resolver filters on the authoritative (policy) effect; deny unknown_access ──
+def test_resolver_uses_policy_effect_not_just_hint():
+    # a hint of `read` corrected by policy to `write` must NOT pass the read-only filter (AC1) —
+    # otherwise a policy-overridden write would be selectable and then invoked in a read phase.
+    r = CapabilityRegistry()
+    r.add_provider(Provider(id="p", kind=ProviderKind.api, trusted=True))
+    r.register_capability(
+        DeclaredCapability(id="p__sneaky", provider="p", effect_hint=Effect.read, intents=["sneaky"]),
+        policy=CapabilityPolicy(capability_id="p__sneaky", effect=Effect.write,
+                                access=Access.allow, status=PolicyStatus.active),
+    )
+    assert resolve_intent("sneaky", PhaseEffect.read_only, r) == []                 # gated at resolve
+    assert [c.id for c in resolve_intent("sneaky", PhaseEffect.write, r)] == ["p__sneaky"]
+
+
+def test_govern_unknown_effect_deny_playbook_refuses():
+    r = build_registry()
+    d = govern("weird__thing", r, unknown_access=Access.deny)          # a `deny` playbook
+    assert d.effect is Effect.unknown and d.access is Access.deny
+
+
+# ── audit fixes: exactly-once writes (FR5), adapter-kind binding (C1) ────
+def test_invoke_is_exactly_once_per_idempotency_key():
+    layer = build_layer()
+    out1 = layer.invoke("bladelogic__restart", {"svc": "x", "idempotency_key": "k1"}, approved=True)
+    # rebind the adapter to a DIFFERENT answer; the same key must still return the first (cached) result
+    layer.adapters.bind("bladelogic", MockAdapter(ProviderKind.a2a_agent,
+                                                  {"bladelogic__restart": {"result": "DIFFERENT"}}))
+    out2 = layer.invoke("bladelogic__restart", {"svc": "x", "idempotency_key": "k1"}, approved=True)
+    assert out1 == out2 == {"result": "ok"}              # write dispatched at most once
+
+
+def test_adapter_kind_must_match_provider_kind():
+    r = build_registry()
+    a = AdapterRegistry()
+    a.bind("appd", MockAdapter(ProviderKind.api))        # appd is mcp_remote — MISMATCH
+    with pytest.raises(Denied):
+        CapabilityLayer(r, a).invoke("appd__get_health", {})

@@ -9,16 +9,31 @@ typed output is refreshed — until the output is sufficient (validates vs its s
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from engine.capability import CapabilityLayer, Denied
-from engine.domain import DeclaredCapability, PhaseRecord, PhaseSpec, PhaseState, Playbook, Step, SubjectRef
+from engine.domain import (
+    DeclaredCapability,
+    PhaseRecord,
+    PhaseSpec,
+    PhaseState,
+    Playbook,
+    Step,
+    StepKind,
+    SubjectRef,
+)
 from engine.domain.outputs import OUTPUT_TYPES
 from engine.graph_runtime import FoldRegistry
 
 from .errors import PermanentError, TransientError
 from .planner import Planner
 from .state import RunState, attempt
+
+
+def _now() -> str:
+    """UTC isoformat timestamp for the record/step audit trail (D2)."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 class WaitingInput(Exception):
@@ -63,13 +78,19 @@ def _invoke_with_retry(layer: CapabilityLayer, cap_id: str, args: dict, approved
 def run_phase(state: RunState, phase: PhaseSpec, playbook: Playbook, planner: Planner,
               layer: CapabilityLayer, fold_registry: Optional[FoldRegistry] = None, *,
               source_of: Optional[Callable[[DeclaredCapability], str]] = None,
-              approved: bool = False, max_iters: int = 50) -> PhaseRecord:
+              approved: bool = False, decision: Optional[dict] = None,
+              max_iters: int = 50) -> PhaseRecord:
     subject = _coerce_subject(state["subject"])
     rec = PhaseRecord(
         id=f"{subject.id}:{phase.id}:{attempt(state, phase.id)}",
         subject=subject, phase=phase.id, goal=phase.goal or "",
-        state=PhaseState.active, plan=planner.plan(state, phase), steps=[],
+        state=PhaseState.active, plan=planner.plan(state, phase), steps=[], opened_at=_now(),
     )
+    # MUST-7: when an approved gate phase is (re-)entered with the operator's decision, the FIRST
+    # step records who authorized the write — the most accountability-critical event in D2.
+    if approved and decision:
+        rec.steps.append(Step(seq=1, kind=StepKind.decision, at=_now(),
+                              result={"decision": decision.get("decision")}, note=decision.get("actor")))
     output_type = OUTPUT_TYPES[phase.output]
     graph = state.get("graph")
     src_of = source_of or _default_source_of
@@ -98,29 +119,43 @@ def run_phase(state: RunState, phase: PhaseSpec, playbook: Playbook, planner: Pl
         except PermanentError as exc:                       # E4 — error_handler / on_failure
             had_failure = True
             rec.steps.append(Step(seq=len(rec.steps) + 1, kind="tool_call", capability=cap.id,
-                                  input=args, result={"error": str(exc)},
+                                  input=args, result={"error": str(exc)}, at=_now(),
                                   note="permanent failure → error_handler"))
             if run_remaining:
                 continue                                    # finish the remaining independent steps
+            # SHOU-11: fire the playbook's error_handler (escalate) before failing — E4's "escalate
+            # to on-call" was dead config; now it leaves an audit Step.
+            eh = playbook.error_handler
+            if eh is not None:
+                rec.steps.append(Step(seq=len(rec.steps) + 1, kind=StepKind.reasoning, at=_now(),
+                                      result={"escalated": True, "error": str(exc)},
+                                      note=f"error_handler fired: {eh.action} → {eh.to} via {eh.via}"))
             rec.state = PhaseState.failed
-            raise
+            rec.closed_at = _now()
+            return rec                                  # persist the failed record (+ escalation) and halt
 
         # fold the result into the shared graph via the source's adapter
         touched: list[str] = []
+        fold_note: Optional[str] = None
         if graph is not None and fold_registry is not None:
             try:
                 touched = fold_registry.fold(src_of(cap), result, graph)
             except KeyError:
-                touched = []
+                # SHOU-5: an unregistered fold-source is a misconfiguration audit must SEE — not a
+                # silent touched=[] that's indistinguishable from a legitimately-empty fold.
+                fold_note = f"no fold-adapter for source {src_of(cap)!r} — result not folded into the graph"
         evidence = result.get("evidence", []) if isinstance(result, dict) else []
 
         rec.steps.append(Step(seq=len(rec.steps) + 1, kind="tool_call", capability=cap.id,
-                              input=args, result=result, touched=touched, evidence=evidence))
+                              input=args, result=result, touched=touched, evidence=evidence,
+                              at=_now(), note=fold_note))
         rec.output = planner.update_output(state, rec)
 
     if had_failure and run_remaining:
         rec.state = PhaseState.blocked                      # partial — the phase reports blocked
+        rec.closed_at = _now()
         return rec
     output_type.model_validate(rec.output or {})            # contract check (E) — raises if invalid
     rec.state = PhaseState.done
+    rec.closed_at = _now()
     return rec

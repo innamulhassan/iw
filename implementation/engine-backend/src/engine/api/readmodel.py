@@ -24,12 +24,15 @@ class ReadModelStore:
         return self._docs.get((domain, subject_id))
 
 
-def project_incident(subject: dict, values: dict, graph: IncidentGraph, *, paused: bool) -> dict:
-    """Project the run state + graph into the incident document (the read-model)."""
+def project_incident(subject: dict, values: dict, graph: IncidentGraph, *, paused: bool,
+                     terminal: Optional[str] = None) -> dict:
+    """Project the run state + graph into the incident document (the read-model). `terminal` (e.g.
+    'denied') overrides the derived state for a halted run so polling clients aren't misled into
+    thinking approval is still pending."""
     records = values.get("phase_records", [])
     assess = next((r.get("output") or {} for r in records
                    if r.get("phase") == "assess" and r.get("output")), {})
-    state = "waiting_approval" if paused else ("closed" if records else "triage")
+    state = terminal or ("waiting_approval" if paused else ("closed" if records else "triage"))
     return {
         "_id": subject["id"],
         "domain": subject["domain"],

@@ -8,8 +8,12 @@ export function connectStream(
   baseUrl: string,
   sessionId: string,
   onEvent: (event: ChatEvent) => void,
+  afterSeq = 0,
 ): () => void {
-  const url = `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/stream`
+  // seed the initial connect with the client's current seq — EventSource can't set a Last-Event-ID
+  // header on a COLD connect, so without ?after_seq the server replays the whole log from 0 on every
+  // (re)subscribe / incident switch. Browser-internal reconnects still send Last-Event-ID.
+  const url = `${baseUrl}/sessions/${encodeURIComponent(sessionId)}/stream?after_seq=${afterSeq}`
   const es = new EventSource(url)
   es.onmessage = (m: MessageEvent<string>) => {
     try {

@@ -141,6 +141,8 @@ User supplies real **API / model / Mongo / Postgres**. Then:
 | P10 Live UI wiring | blocked | needs creds |
 | P11 Interactive widgets (**MCP Apps**) | next direction | the agreed path for *interactive* widgets: a tool returns a `ui://` HTML resource → host renders it in a **sandboxed iframe** → the widget calls tools back via **JSON-RPC over postMessage** (the open SEP-1865 standard, Anthropic+OpenAI). Host-side **RBAC** gates UI-initiated tool-calls (the pen). Our `html` widget + the registry are the seam. **Pilot first** — the spec is stable (2026-01-26) but the reference impl is young (per the no-assumption research) |
 
+_Per-phase counts above are as each phase first landed. After the design↔code audit + the two hardening waves (§8), totals are **backend 162 · frontend 19**, all green (ruff/typecheck/build clean)._
+
 ## 6. Design fixes made during implementation
 
 - **P3 · `DeclaredCapability.intents[]` was missing from `04-data-model` §6.2.** The intent resolver (`03-design` C4: `if need in c.intents`) and the registry table (C2) both require it, but the schema's JSON block omitted it. Added `intents[]` to the schema JSON + the field-list row in `04-data-model.html`, and to the `DeclaredCapability` model. The two design docs now agree.
@@ -149,4 +151,63 @@ User supplies real **API / model / Mongo / Postgres**. Then:
 
 - **UI patterns validated by research (workbench UIs + Claude Desktop) — keep the MVP; these ARE the convergent standards.** A message = typed parts → a **renderer registry** (`kind → component` + fallback) is the dominant pattern (Vercel AI SDK `data-*` parts; assistant-ui `MessagePrimitive.Parts` / `by_name` + `Fallback`; CopilotKit `useRenderTool` + wildcard; LangChain Agent Chat UI) — exactly our `widgets/registry.tsx`. **SSE** with start/content/end framing + `data:`-JSON deltas is universal — exactly our `/stream`. **Sandboxed-iframe** for agent-generated HTML = the **MCP-Apps** standard — exactly our `html` widget. Claude Desktop's **two-mode split** (ephemeral inline widgets + persistent right side-panel) = our chat widgets + the right pane. **Optional refinements (later, not MVP):** (1) one message = a *list* of parts (text + a widget in one turn); (2) tool-call **lifecycle streaming** with a `requires-action` status (the documented HITL hook); (3) interactive widget → **follow-up event** back into the agent loop (Claude's click→prompt; MCP-Apps `postMessage` round-trip for *interactive* iframes); (4) borrow from **LangChain Agent Chat UI** (Next.js+TS, renders any LangGraph stream + interrupts). **No standard exists for multi-user / observer UI** (presence, viewer/writer) — our pen/roles is a justified custom build, not a reinvention.
 - **Shared-session MVP 1 (decided with the user) — the pen + roles + widget registry + SSE.** One session per incident; everyone sees the same chat (arrival-ordered by `seq`). **One writer at a time ("the pen")** — only the pen-holder may send or approve; everyone else is a read-only **viewer**; the pen is handed over (`take-pen` / `release-pen`, one holder at a time). The agent does **one unit of work to completion, then the next message** (sequential). **Single approval** by the pen-holder — **no dual approval**. **UI tech:** the chat renders a heterogeneous event stream via a **widget registry** (`kind → component`: text · agent · tool-call · table · image · graph · **sandboxed-iframe HTML**); transport is **SSE** (`GET /stream`, `Last-Event-ID` resume) for the real app and **polling** in the tested MVP — both over the same event log; roles enforced **UI + server**. Built: `session/manager.py` (pen + `require_writer`), API `/stream` + `take-pen`/`release-pen` + writer-gated `messages`/`gate`, frontend `widgets/registry.tsx` + `api/stream.ts` + the pen badge/composer gating.
-- **Live sync = client polling, not push (decided with the user).** Problem 2 (B8.3) was specced as a pub/sub channel over Redis or a WebSocket hub. We chose **polling-primary**: an append-only per-session **event log** (one ordered stream, per-session `seq`); clients **poll `since(seq)`** every few seconds and apply deltas; join/reconnect = snapshot + resume-from-seq. **Rationale:** the channel was already liveness-only (correctness is in the stores), and polling **removes the cross-server fan-out problem entirely** — every server answers a poll statelessly from the shared store, so **no Redis, no WebSocket, no SSE, no sticky routing**. Trade-off accepted: ~seconds of latency + no token-level streaming (fine for triage). The `seq` interface is unchanged, so push (SSE / WebSocket+bus) can be added later with no other changes. Reflected in `03-design` B8.3/B8.4/E, `00-PRD` FR17/§7/§8/§9, and the code (`session/eventlog.py`, the API `/poll` endpoint, the frontend poll loop).
+- **Live sync = client polling, not push (decided with the user).** Problem 2 (B8.3) was specced as a pub/sub channel over Redis or a WebSocket hub. We chose **polling-primary**: an append-only per-session **event log** (one ordered stream, per-session `seq`); clients **poll `since(seq)`** every few seconds and apply deltas; join/reconnect = snapshot + resume-from-seq. **Rationale:** the channel was already liveness-only (correctness is in the stores), and polling **removes the cross-server fan-out problem entirely** — every server answers a poll statelessly from the shared store, so **no Redis, no WebSocket push bus, no sticky routing** (SSE is an optional liveness layer that replays the same `seq` API — `GET /stream`, `Last-Event-ID` resume — never a separate source of truth). Trade-off accepted: ~seconds of latency on poll + no token-level streaming (fine for triage). The `seq` interface is unchanged, so a WebSocket+bus remains a later option with no other changes. Reflected in `03-design` B8.3/B8.4/E, `00-PRD` FR17/§7/§8/§9, and the code (`session/eventlog.py`, the API `/poll` endpoint, the frontend poll loop).
+
+## 8. Design↔code audit & hardening pass (multi-agent audit, 51 confirmed findings)
+
+A fan-out audit (8 component auditors — domain · graph-runtime · capability · runtime · session · api · frontend · design-consistency — each finding adversarially verified) surfaced **51 confirmed findings**. The verdict: a solid, well-tested skeleton, but the **safety/governance spine** (gate enforcement, the read-only effect boundary, decision audit, run serialization, multi-client sync) had gaps the 125 passing tests didn't catch.
+
+**All 51 findings are now resolved** across two waves — every one that runs on the mocks is fixed + enforced by a test; only genuine real-credential integration (P9/P10) and a few investigative follow-ups remain. **Wave 1** closed the exploitable-now safety/security spine + the cheap correctness/doc wins. **Wave 2** (the foundation pass) closed the engine **process · state · flow** and the **workbench**: metadata-driven routing, the loop cap, the decision-Step audit, exactly-once writes, run-lock serialization, the error-handler, waiting-input, pen liveness, read-surface authz, the input queue, and the real HTTP client. **Totals: backend 125 → 162 tests · frontend 16 → 19 tests · all green + ruff/typecheck/build clean.**
+
+**Fixed this pass (with enforcing tests):**
+
+| ID | Area | Fix |
+|---|---|---|
+| MUST-1 | api | `/advance` on a paused run now **409s** — a gated write can only resume through the writer-guarded `/gate` (closes a total gate-bypass back door) |
+| MUST-2 | capability | resolver filters on the **authoritative policy effect** (`govern`'s `policy.effect ?? hint ?? unknown`), so a policy-corrected write can't slip into a read-only phase (FR12/AC1) |
+| MUST-3 | graph | `_matches` **rejects unknown predicate keys** (no silent match-all) + implements `id`/`name`/`impacted` |
+| MUST-4 | graph | `walk(until=…)` is now **BFS-shortest-path** with a `reached` flag — no silent dead-end on branching topology |
+| MUST-5 | runtime | **compile-time invariants**: a write phase must set `gate_writes`; every `phase.output` must be a known type (fail at load, not mid-run) |
+| MUST-9 | api | gate **deny halts** — terminal `denied` read-model + `/poll` status, not stuck on `waiting_approval` |
+| MUST-10 | api | gate **decisions + phase/graph deltas** appended to the one event stream (B8.3) — a reconnecting/2nd operator sees agent progress + the decision |
+| MUST-12 | docs | IMPLEMENTATION-PLAN no longer lumps SSE with rejected push infra (SSE is the shipped primary live transport) |
+| MUST-13 | docs | gate granularity reconciled — B5 + FR4 state the **per-write-phase** gate (matches code); **per-action** gating noted as a future refinement |
+| SHOU-3 | graph | `blast_radius` includes `hosted_on` (app→db→storage chain fully covered) |
+| SHOU-4 | graph | fact idempotency key includes `evidence_ref` — a corrected `annotate` is kept (B9.6), an exact replay stays idempotent |
+| SHOU-6 | runtime | `compile_run` wires `playbook.unknown_access` into the layer — a `deny` playbook actually refuses unknown-effect caps |
+| SHOU-7 | session | `answer_gate` enforces writer-check + terminal-only **after** the answered-once short-circuit (idempotency preserved) |
+| SHOU-8 | session | `create_or_join` gates authz **before** any mutation — no membership/pen pollution by an unauthorized actor |
+| SHOU-12 | runtime | unknown `phase.output` rejected at compile (folded into MUST-5) |
+| SHOU-15 | frontend | SSE handler no longer advances the poll high-water mark — a dropped/non-contiguous frame is still backfilled by poll |
+| SHOU-16 | frontend | `connectStream` seeds `?after_seq=` so a cold connect doesn't replay the whole log |
+| SHOU-17 | frontend | GraphView minimap is **driven by the slice** (bounded), not the hardcoded INC-4821 fixture |
+| MUST-11 (partial) | frontend | `poll` hardened so `role`/`penHolder` never regress to `undefined` (the writer-lockout bug); the real HTTP client mapping is P10 |
+| NICE-1/2/3/12 | domain/docs | `Action.team` (escalate); `revert_when` uses `fullmatch` (trailing-newline bypass); `Approval` comment `approve\|refine\|deny`; 02-spec tool list adds `path` |
+
+**Wave 2 — foundation pass (engine process · state · flow + workbench), each with an enforcing test:**
+
+| ID | Area | Fix |
+|---|---|---|
+| MUST-6 | runtime (flow) | conditional edges driven by playbook **metadata** (`min_confidence` → loop, `PhaseSpec.backtrack_to` → backtrack) not hardcoded phase ids — a renamed playbook wires correctly; a forward/missing `backtrack_to` is rejected at load. Folds in NICE-10 (`min_confidence_of` → `Optional`) |
+| MUST-7 | runtime (state) | a `decision` Step records **who approved** the write on resume (`RunState.pending_decision` → `Engine.resume(decision)`) |
+| MUST-8 | api/session (process) | the **run-owner lock** is acquired/released around `advance` + the gate resume — concurrent advances 409 instead of both driving the run (FR16/AC9) |
+| SHOU-1 | capability (process) | **exactly-once** `seen`-store on `layer.invoke` keyed by `idempotency_key` — a retry/replay returns the cached write result (FR5) |
+| SHOU-2 | graph | render-slice frontier **globally bounded** (`frontier_cap`/`expand_cap`); overflow folds into collapsed, invariant `full+frontier+collapsed=total` holds |
+| SHOU-5 | runtime | an **unregistered fold-source** is an audit note on the Step, not a silent `touched=[]` |
+| SHOU-9 | runtime (flow) | the confidence **loop is capped** (`MAX_LOOP_ATTEMPTS`) → advances (escalate) instead of a `GraphRecursionError` |
+| SHOU-10 | runtime (process) | `WaitingInput` is **caught** in the node → `status='waiting_input'` persisted + the run halts cleanly (no crash); `Engine.provide_input` resume plumbing added |
+| SHOU-11 | runtime (process) | `playbook.error_handler` **fires** (escalate Step) on a hard failure; the failed record persists + halts instead of crashing the node |
+| SHOU-18 | session | **pen liveness** — a stale pen-holder (no activity within `PEN_TTL`) can be force-taken; writer activity refreshes the lease (no multi-operator DoS) |
+| SHOU-19 | api | `gate_id` **bound to the engine's pending pause** (mismatch → 409); answered-once gates stay idempotent |
+| SHOU-20 | api (security) | the **read surface** (`incident`/`events`/`stream`/`poll`) re-checks membership via a required `?actor=` — a revoked operator loses reads + the live stream (AC9) |
+| SHOU-21 | api | `_engine_for(sid)` **rehydrates** the Engine on a cache miss + `Engine.started()` decides start-vs-resume (stateless multi-replica seam; full fidelity needs the durable graph at P9) |
+| MUST-11 (full) | frontend | a real **`HttpApiClient`** maps the wire shape → `PollResult`/`IncidentView`, passes `?actor=`, derives `role` from `pen_holder` (unit-tested with a stubbed fetch) |
+| NICE-4/6/9/11 | engine | recency-aware `_is_unhealthy`; adapter-`kind` asserted at dispatch; 2nd-operator **input queue drained** into the run (FR16/AC4); record/step **timestamps** (D2) |
+| SHOU-13 / NICE-5 / NICE-13 | docs | **Pydantic output models are the enforced contract** (`output_schemas`/`Playbook.schemas` reserved-descriptive); C5 autonomy unit = the whole capability row (scoping deferred); `graph_schema` is descriptive-only (B1 `register_types`/`validate` deferred) |
+| SHOU-14 | docs | B9.4 now states the investigation graph is **process-local / not checkpointed** — the resume guarantee covers the record trail + lock; cross-process graph rebuild is P9 |
+
+**Genuinely remaining — real-credential integration only (P9/P10), nothing mock-testable left:**
+
+- **P9** — real capability adapters (skill/MCP/A2A/API), the LangGraph **Postgres checkpointer**, the **Mongo read-model** + durable investigation-graph materialization (`serialize`/`from_doc`), and the LLM-backed **Planner** (replacing `ScriptedPlanner`). The exactly-once store, lock wiring, and rehydrate seam are built + unit-tested against mocks and become fully load-bearing here.
+- **P10** — point the workbench at the live `/poll` + `/stream` (the `HttpApiClient` is ready); multi-replica liveness over the shared stores.
+- **Investigative follow-ups** (no code defect outstanding): a cross-process INC-4821 walkthrough once the durable stores land; a per-AC1–9 traceability matrix; tightening the read-model (D6) to carry the rich GraphSlice/severity/open-gate action the UI maps best-effort today.

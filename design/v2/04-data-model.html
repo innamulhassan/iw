@@ -327,7 +327,7 @@ output_schemas: { ValidationResult: {...}, AllocationResult: {...}, VerifyResult
 <section class="sec">
   <div class="tag">4 · The Phase Record <span class="plane data">Mongo · data plane</span></div>
   <h2>The per-phase journey: PhaseRecord, Step, and the four outputs</h2>
-  <p class="lead">One record per phase entered — the durable account of what the agent did, written into the subject document on close (the live run state itself stays in LangGraph, §7). The PhaseRecord and Step shapes are universal; the <b>four outputs are incident-triage's</b> (another playbook defines its own).</p>
+  <p class="lead">One record per phase entered — the durable account of what the agent did, written into the subject document on close (the live run state itself stays in LangGraph, §7). The PhaseRecord and Step shapes are universal; the <b>four outputs are incident-triage's</b> (another playbook defines its own). <b>Output contracts are enforced:</b> each phase output is validated as a Pydantic model (AssessResult, RootCauseResult, RemediationResult, VerifyResult) — the <code>output_schemas</code> in the playbook are descriptive; these models are the enforced contract.</p>
 
   <!-- ---------- PHASERECORD ---------- -->
   <h3>4.1 · PhaseRecord — the per-phase journey</h3>
@@ -352,7 +352,8 @@ output_schemas: { ValidationResult: {...}, AllocationResult: {...}, VerifyResult
     <tr><td class="f">phase · goal</td><td>Which phase · its goal (carried from the playbook).</td></tr>
     <tr><td class="f">state</td><td>active · waiting_input · waiting_approval · blocked · done · failed.</td></tr>
     <tr><td class="f">plan · steps[] · output</td><td>What it set out to do · the ordered journey (4.2) · the typed result (4.4).</td></tr>
-    <tr><td class="f">summary · opened_at · closed_at</td><td>Rolling summary · timing (closed_at = null while open).</td></tr>
+    <tr><td class="f">opened_at · closed_at</td><td><b>ISO8601 timestamps.</b> opened_at set when the record is created; closed_at set on every terminal state (done, failed, blocked) — <b>null only while active</b>.</td></tr>
+    <tr><td class="f">summary</td><td>Rolling summary of the phase's work.</td></tr>
   </table>
 
   <!-- ---------- STEP ---------- -->
@@ -372,13 +373,13 @@ output_schemas: { ValidationResult: {...}, AllocationResult: {...}, VerifyResult
 <span class="c">// other kinds: suggestion → { proposal, rationale }   decision → { decision, actor }   user_input → { message }</span></pre>
   <table>
     <tr><th style="width:20%">Field</th><th>What it means (by <code>kind</code>)</th></tr>
-    <tr><td class="f">seq · at · kind</td><td><i>(all)</i> order · timestamp · the kind discriminator.</td></tr>
-    <tr><td class="f">capability · input · result</td><td><i>tool_call</i> — the capability invoked (resolved from a <code>need</code>, never a hardcoded tool) + args + what came back.</td></tr>
+    <tr><td class="f">seq · at · kind</td><td><i>(all)</i> order · <b>ISO8601 timestamp (every step)</b> · the kind ∈ {tool_call, reasoning, suggestion, decision, user_input}.</td></tr>
+    <tr><td class="f">capability · input · result</td><td><i>tool_call</i> — the capability invoked (resolved from a <code>need</code>, never a hardcoded tool) + args + what came back. <b>tool_call steps MUST name the <code>capability</code> id.</b></td></tr>
     <tr><td class="f">touched[]</td><td><i>tool_call</i> — graph node/fact ids read or written <b>→ links the step to the graph</b>.</td></tr>
     <tr><td class="f">evidence[]</td><td><i>tool_call</i> — deep links to backing data <b>→ flows into the output</b>.</td></tr>
     <tr><td class="f">proposal · rationale</td><td><i>suggestion</i> — what's proposed + why.</td></tr>
     <tr><td class="f">decision · actor</td><td><i>decision</i> (the gate) — approve \| refine \| deny + who.</td></tr>
-    <tr><td class="f">message · note</td><td><i>user_input</i> — what the operator said · <i>(any)</i> a short reasoning note.</td></tr>
+    <tr><td class="f">message · note</td><td><i>user_input</i> — what the operator said · <i>(any kind)</i> a short reasoning note.</td></tr>
   </table>
 
   <!-- ---------- WORKED EXAMPLE ---------- -->
@@ -483,7 +484,7 @@ output_schemas: { ValidationResult: {...}, AllocationResult: {...}, VerifyResult
   <span class="k">"actions"</span>: [ {
     "action_id":"a1", "kind":"mitigate",        <span class="c">// reverse | mitigate | escalate</span>
     "technique":"failover",                      <span class="c">// mitigate: failover|reroute|throttle|scale|isolate</span>
-    "target":"db:payments-ora",
+    "target":"db:payments-ora", "team":null,    <span class="c">// team set only for escalate actions</span>
     "expected_effect":"DB served by standby; I/O normal",   "blast_radius":"payments read path",
     "rollback":"fail back once disk replaced",
     "temporary":true, "revert_when":"incident_close",   <span class="c">// incident_close | action:&lt;id&gt; | problem | change</span>
@@ -495,7 +496,7 @@ output_schemas: { ValidationResult: {...}, AllocationResult: {...}, VerifyResult
 }</pre>
   <table>
     <tr><th style="width:24%">Field</th><th>What it means</th></tr>
-    <tr><td class="f">actions[]</td><td><code>action_id</code> · <code>kind</code> · <code>technique?</code> · <code>target</code> · <code>team?</code> · <code>expected_effect</code> <span class="new">NEW</span> · <code>blast_radius</code> <span class="new">NEW</span> · <code>rollback</code> <span class="new">NEW</span> · <code>temporary?</code>+<code>revert_when?</code> · <code>idempotency_key</code> · <code>gated</code> · <code>approval</code> <span class="new">NEW</span> · <code>result</code> <span class="new">NEW</span> · <code>status</code>.</td></tr>
+    <tr><td class="f">actions[]</td><td>Each action: <code>action_id</code> · <code>kind</code> {reverse, mitigate, escalate} · <code>technique?</code> (mitigate: failover|reroute|throttle|scale|isolate) · <code>target</code> · <code>team?</code> (escalate: the team paged) · <code>expected_effect</code> · <code>blast_radius</code> · <code>rollback</code> · <code>temporary?</code>+<code>revert_when?</code> · <code>idempotency_key</code> · <code>gated</code> · <code>approval{decision, actor, at}</code> · <code>result</code> · <code>status</code>.</td></tr>
     <tr><td class="f">followups[] · status</td><td>Durable fixes owned elsewhere {detail, basis, owner} · applied \| partial \| failed.</td></tr>
   </table>
 

@@ -8,6 +8,7 @@ automatic via the fold-adapter (fold.py); the LLM only queries + records explici
 """
 from __future__ import annotations
 
+from collections import deque
 from typing import Any, Optional
 
 import networkx as nx
@@ -15,7 +16,10 @@ import networkx as nx
 from engine.domain import Edge, Fact, Node
 
 UNKNOWN = "unknown"
-_FactKey = tuple[str, str, str, Optional[str]]  # (node id, fact key, source, observed_at)
+# (node id, fact key, source, observed_at, evidence_ref) — evidence_ref is part of the key so a
+# corrected finding (new evidence) is KEPT (B9.6 "never silently overwrites"); a true replay carries
+# the same evidence_ref and stays idempotent.
+_FactKey = tuple[str, str, str, Optional[str], Optional[str]]
 
 
 class IncidentGraph:
@@ -43,12 +47,13 @@ class IncidentGraph:
         return nid
 
     def _fact_key(self, node_id: str, f: Fact) -> _FactKey:
-        return (node_id, f.key, f.source, f.observed_at)
+        return (node_id, f.key, f.source, f.observed_at, f.evidence_ref)
 
     def _fold_fact(self, node_id: str, fact: Fact) -> bool:
-        """Idempotent fact insert, keyed by (node id, fact key, source, observed_at) — B9.6.
-        A replay (same key) is a no-op; a different source on the same fact key is KEPT (conflicting
-        facts stay visible, never silently overwritten)."""
+        """Idempotent fact insert, keyed by (node id, fact key, source, observed_at, evidence_ref)
+        — B9.6. A replay (same key) is a no-op; a different source OR a corrected finding (new
+        evidence_ref) on the same fact key is KEPT (conflicting/corrected facts stay visible, never
+        silently overwritten)."""
         node: Node = self._g.nodes[node_id]["node"]
         k = self._fact_key(node_id, fact)
         if any(self._fact_key(node_id, e) == k for e in node.facts):
@@ -92,10 +97,20 @@ class IncidentGraph:
 
     def walk(self, from_id: str, edges: list[str], dir: str = "out",
              until: Optional[dict] = None, max_depth: int = 12) -> dict:
-        """read · traverse a path along the given edge types (e.g. depends_on downward to the
-        cause). Cycle-safe via a visited set (B9.6 cycles)."""
+        """read · traverse along the given edge types (e.g. depends_on downward to the cause).
+        Cycle-safe via a visited set (B9.6 cycles). With `until`, BFS the edge-type-filtered
+        subgraph for the NEAREST matching node — so a branching topology (a→dead vs a→c→target,
+        the norm for dependency fan-out) does not silently dead-end on the wrong branch — and
+        returns `reached` so a miss is never silent. Without `until`, a greedy single-path frontier
+        walk (`reached` is None)."""
         if not self._g.has_node(from_id):
             return {"id": from_id, "status": UNKNOWN}
+        if until is not None:
+            return self._bfs_until(from_id, edges, dir, until, max_depth)
+        path = self._greedy_path(from_id, edges, dir, max_depth)
+        return {"from": from_id, "path": path, "nodes": [self._stub(n) for n in path], "reached": None}
+
+    def _greedy_path(self, from_id: str, edges: list[str], dir: str, max_depth: int) -> list[str]:
         path = [from_id]
         visited = {from_id}
         cur = from_id
@@ -112,23 +127,42 @@ class IncidentGraph:
             path.append(nxt)
             visited.add(nxt)
             cur = nxt
-            if until and self._matches(nxt, until):
-                break
-        return {"from": from_id, "path": path, "nodes": [self._stub(n) for n in path]}
+        return path
+
+    def _bfs_until(self, from_id: str, edges: list[str], dir: str, until: dict, max_depth: int) -> dict:
+        q: deque[tuple[str, list[str]]] = deque([(from_id, [from_id])])
+        visited = {from_id}
+        while q:
+            cur, p = q.popleft()
+            if cur != from_id and self._matches(cur, until):
+                return {"from": from_id, "path": p, "nodes": [self._stub(n) for n in p], "reached": True}
+            if len(p) - 1 >= max_depth:
+                continue
+            step = self._g.out_edges(cur, data=True) if dir == "out" else self._g.in_edges(cur, data=True)
+            for (u, v, d) in step:
+                cand = v if dir == "out" else u
+                if d.get("type") in edges and cand not in visited:
+                    visited.add(cand)
+                    q.append((cand, [*p, cand]))
+        return {"from": from_id, "path": [from_id], "nodes": [self._stub(from_id)], "reached": False}
 
     def find(self, predicate: dict) -> dict:
-        """read · nodes matching a structured predicate (label/layer/kind/type/unhealthy).
-        Structured (not arbitrary code) so it stays deterministic + governable."""
+        """read · nodes matching a structured predicate (label/layer/kind/type/id/name/unhealthy/
+        impacted). Structured (not arbitrary code) so it stays deterministic + governable; an
+        unrecognized key matches nothing (never silently match-all)."""
         matches = [self._stub(nid) for nid in self._g.nodes if self._matches(nid, predicate)]
         return {"predicate": predicate, "matches": matches, "count": len(matches)}
 
     def blast_radius(self, id: str, depends_edge: str = "depends_on", affects_edge: str = "affects") -> dict:
-        """read · the impacted set: things that depend_on id (dependents) + things id affects."""
+        """read · the impacted set: things that depend_on (or are hosted_on) id (dependents) + things
+        id affects. hosted_on shares depends_on's impact direction (a hosted thing fails when its
+        host fails), so the app→db→storage chain is fully covered for a storage-rooted query."""
         if not self._g.has_node(id):
             return {"id": id, "status": UNKNOWN}
+        depends_types = (depends_edge, "hosted_on")
         dep, aff = nx.DiGraph(), nx.DiGraph()
         for (u, v, d) in self._g.edges(data=True):
-            if d.get("type") == depends_edge:
+            if d.get("type") in depends_types:
                 dep.add_edge(u, v)
             elif d.get("type") == affects_edge:
                 aff.add_edge(u, v)
@@ -174,8 +208,15 @@ class IncidentGraph:
         return {"id": n.id, "kind": n.kind, "type": n.type, "layer": n.layer,
                 "labels": list(n.labels), "expandable": True}
 
+    _MATCH_KEYS = frozenset({"label", "layer", "kind", "type", "id", "name", "unhealthy", "impacted"})
+
     def _matches(self, nid: str, predicate: dict) -> bool:
         n: Node = self._g.nodes[nid]["node"]
+        # an UNRECOGNIZED predicate key is a no-match (never a silent match-all — find/walk must stay
+        # deterministic). An empty predicate {} still matches every node.
+        for k in predicate:
+            if k not in self._MATCH_KEYS:
+                return False
         if "label" in predicate and predicate["label"] not in n.labels:
             return False
         if "layer" in predicate and n.layer != predicate["layer"]:
@@ -184,13 +225,28 @@ class IncidentGraph:
             return False
         if "type" in predicate and n.type != predicate["type"]:
             return False
-        if predicate.get("unhealthy") and not self._is_unhealthy(n):
+        if "id" in predicate and n.id != predicate["id"]:
+            return False
+        if "name" in predicate and n.name != predicate["name"]:
+            return False
+        # `unhealthy` and `impacted` are the same query: a node carrying a non-ok fact.
+        if (predicate.get("unhealthy") or predicate.get("impacted")) and not self._is_unhealthy(n):
             return False
         return True
 
     @staticmethod
     def _is_unhealthy(n: Node) -> bool:
-        return any(f.impact_state is not None and f.impact_state.value != "ok" for f in n.facts)
+        # recency-aware (NICE-4): per fact key keep the LATEST impact_state (by observed_at), so a
+        # stale 'degraded' reading doesn't outvote a fresh 'ok'. (get() stays unordered on purpose —
+        # the agent reconciles conflicting facts; this is only the engine-level health verdict.)
+        latest: dict[str, Fact] = {}
+        for f in n.facts:
+            if f.impact_state is None:
+                continue
+            prev = latest.get(f.key)
+            if prev is None or (f.observed_at or "") >= (prev.observed_at or ""):
+                latest[f.key] = f
+        return any(f.impact_state is not None and f.impact_state.value != "ok" for f in latest.values())
 
     def __len__(self) -> int:
         return self._g.number_of_nodes()

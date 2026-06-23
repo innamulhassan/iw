@@ -30,6 +30,7 @@ phases:
   - id: verify-close
     effect: read-only
     output: VerifyResult
+    backtrack_to: root-cause
     goal: "Confirm recovery from the user's side; revert temporaries; a human closes."
     needs: [telemetry, synthetic-replay]
 graph_schema:

@@ -6,7 +6,7 @@ touches a tool directly.
 """
 from __future__ import annotations
 
-from engine.domain import Access, DeclaredCapability, PhaseEffect
+from engine.domain import Access, DeclaredCapability, Effect, PhaseEffect
 
 from .adapters import AdapterRegistry
 from .govern import Decision, govern
@@ -32,6 +32,7 @@ class CapabilityLayer:
         self.registry = registry
         self.adapters = adapters
         self.unknown_access = unknown_access
+        self._seen: dict[str, dict] = {}    # idempotency_key → cached write result (exactly-once, FR5)
 
     def resolve(self, need: str, phase_effect: PhaseEffect) -> list[DeclaredCapability]:
         return resolve_intent(need, phase_effect, self.registry)
@@ -45,8 +46,20 @@ class CapabilityLayer:
             raise Denied(f"{cap_id} denied — {decision.reason}")
         if decision.access is Access.ask and not approved:
             raise NeedsApproval(decision)
+        # exactly-once (FR5): a write carrying an idempotency_key is dispatched at most once — a retry
+        # or crash-replay with the same key returns the cached result, never double-applies the write.
+        key = input.get("idempotency_key") if isinstance(input, dict) else None
+        if key is not None and key in self._seen:
+            return self._seen[key]
         cap = self.registry.capability(cap_id)
         adapter = self.adapters.adapter_for(cap.provider)
         if adapter is None:
             raise Denied(f"{cap_id}: no adapter bound for provider {cap.provider!r}")
-        return adapter.invoke(cap_id, input)
+        # NICE-6: the bound adapter's kind must match its provider's declared kind (C1 "binds by kind")
+        provider = self.registry.provider_of(cap_id)
+        if provider is not None and adapter.kind is not provider.kind:
+            raise Denied(f"{cap_id}: adapter kind {adapter.kind} != provider kind {provider.kind}")
+        result = adapter.invoke(cap_id, input)
+        if key is not None and decision.effect is Effect.write:
+            self._seen[key] = result        # record only a successful WRITE dispatch
+        return result

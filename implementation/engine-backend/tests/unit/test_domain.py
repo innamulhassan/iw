@@ -217,3 +217,10 @@ def test_roundtrip(model, fixture_name):
     obj = model.model_validate(raw)
     again = model.model_validate(obj.model_dump(by_alias=True))
     assert again == obj
+
+
+# ── audit fix: escalate action carries `team` (04-data-model §4.4/§8) ────
+def test_escalate_action_accepts_team_field():
+    from engine.domain import Action, RemediationKind
+    a = Action(action_id="a2", kind=RemediationKind.escalate, team="storage")
+    assert a.team == "storage"

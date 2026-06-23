@@ -87,7 +87,7 @@ class RootCauseResult(Base):
 
 # ── Remediation ────────────────────────────────────────────────────────
 class Approval(Base):
-    decision: str                             # approve | deny | edit
+    decision: str                             # approve | refine | deny
     actor: str
     at: Optional[str] = None
 
@@ -100,6 +100,7 @@ class Action(Base):
     kind: RemediationKind                     # reverse | mitigate | escalate
     technique: Optional[str] = None           # mitigate: failover|reroute|throttle|scale|isolate
     target: Optional[str] = None
+    team: Optional[str] = None                # escalate: the team paged (04-data-model §4.4/§8)
     expected_effect: Optional[str] = None
     blast_radius: Optional[str] = None
     rollback: Optional[str] = None
@@ -114,7 +115,7 @@ class Action(Base):
     @field_validator("revert_when")
     @classmethod
     def _check_revert_when(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and not _REVERT_WHEN.match(v):
+        if v is not None and not _REVERT_WHEN.fullmatch(v):   # fullmatch: $ would let a trailing \n bypass
             raise ValueError(
                 f"revert_when must be incident_close|problem|change|action:<id>, got {v!r}"
             )

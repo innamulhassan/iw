@@ -7,6 +7,7 @@ under `on_failure: run-remaining` blocks the phase without crashing the run.
 """
 from __future__ import annotations
 
+import pytest
 
 from engine.capability import (
     AdapterRegistry,
@@ -194,3 +195,87 @@ def test_permanent_error_recorded_as_failed_step(playbook):
     # the one action permanently failed → run-remaining leaves the phase blocked with a failed step
     assert rec.state.value == "blocked"
     assert rec.steps[0].note and "permanent failure" in rec.steps[0].note
+
+
+# ── audit fixes: compile-time invariants + unknown_access wiring ─────────
+def test_compile_rejects_write_phase_without_gate_writes():
+    from engine.domain import PhaseEffect, PhaseSpec, Playbook
+    pb = Playbook(id="x", version="1.0.0", domain="d", phases=[
+        PhaseSpec(id="act", effect=PhaseEffect.write, output="RemediationResult", gate_writes=False)])
+    with pytest.raises(ValueError, match="gate_writes"):
+        compile_run(pb, build_planner(), build_layer())
+
+
+def test_compile_rejects_unknown_output_type():
+    from engine.domain import PhaseEffect, PhaseSpec, Playbook
+    pb = Playbook(id="x", version="1.0.0", domain="d", phases=[
+        PhaseSpec(id="a", effect=PhaseEffect.read_only, output="TypoResult")])
+    with pytest.raises(ValueError, match="unknown output"):
+        compile_run(pb, build_planner(), build_layer())
+
+
+def test_compile_wires_unknown_access_from_playbook():
+    from engine.domain import PhaseEffect, PhaseSpec, Playbook
+    pb = Playbook(id="x", version="1.0.0", domain="d", unknown_access="deny",
+                  phases=[PhaseSpec(id="a", effect=PhaseEffect.read_only, output="AssessResult")])
+    layer = build_layer()
+    compile_run(pb, build_planner(), layer)
+    assert layer.unknown_access is Access.deny      # a deny-playbook actually refuses unknown caps
+
+
+# ── audit fixes: decision-step audit, timestamps, waiting-input halt, error_handler, fold-note ──
+def test_resume_records_a_decision_step(playbook):
+    from engine.runtime import Engine
+    eng = Engine(playbook, build_planner(), build_layer(), _fold())
+    eng.start({"domain": "app-incident", "id": "INC-4821", "kind": "incident"}, thread_id="INC-dec")
+    eng.resume("INC-dec", decision={"decision": "approve", "actor": "j.rivera"})
+    vals = eng.state("INC-dec")["values"]
+    rem = next(r for r in vals["phase_records"] if r["phase"] == "remediation")
+    assert rem["steps"][0]["kind"] == "decision" and rem["steps"][0]["note"] == "j.rivera"
+
+
+def test_phase_records_are_timestamped(playbook):
+    from engine.runtime import Engine
+    eng = Engine(playbook, build_planner(), build_layer(), _fold())
+    eng.start({"domain": "app-incident", "id": "INC-4821", "kind": "incident"}, thread_id="INC-ts")
+    rec = eng.state("INC-ts")["values"]["phase_records"][0]
+    assert rec["opened_at"] and rec["closed_at"]         # done records carry timestamps (D2)
+
+
+def test_waiting_input_halts_run_without_crashing(playbook):
+    from engine.runtime import Engine
+    planner = MultiPhasePlanner({
+        "assess": ScriptedPlanner("assess", [("topology", {})], fx.ASSESS_RESULT, ask_operator_after=0),
+        "root-cause": ScriptedPlanner("rc", [("traces", {})], fx.ROOT_CAUSE_RESULT),
+        "remediation": ScriptedPlanner("rem", [("remediation-action", {})], fx.REMEDIATION_RESULT),
+        "verify-close": ScriptedPlanner("vf", [("synthetic-replay", {})], fx.VERIFY_RESULT),
+    })
+    eng = Engine(playbook, planner, build_layer(), _fold())
+    eng.start({"domain": "app-incident", "id": "INC-4821", "kind": "incident"}, thread_id="INC-wi")
+    vals = eng.state("INC-wi")["values"]
+    assert vals["status"] == "waiting_input"             # surfaced, not crashed
+    assert vals["phase_records"][0]["state"] == "waiting_input"
+
+
+def test_error_handler_fires_on_a_hard_failure():
+    from engine.domain import Defaults, ErrorHandler, PhaseEffect, PhaseSpec, Playbook, Retry
+    pb = Playbook(id="x", version="1.0.0", domain="d",
+                  defaults=Defaults(on_failure="abort", retry=Retry(max=1)),
+                  error_handler=ErrorHandler(action="escalate", to="on-call", via="pagerduty"),
+                  phases=[PhaseSpec(id="assess", effect=PhaseEffect.read_only, output="AssessResult",
+                                    needs=["telemetry"])])
+    layer = _read_layer("bad", "bad__x", ["telemetry"], _PermAdapter())
+    planner = ScriptedPlanner("p", [("telemetry", {})], fx.ASSESS_RESULT)
+    rec = run_phase(_state(), pb.phases[0], pb, planner, layer)
+    assert rec.state.value == "failed"
+    assert any(s.note and "error_handler fired" in s.note for s in rec.steps)
+
+
+def test_unregistered_fold_source_noted_on_step(playbook):
+    layer = _read_layer("obs", "obs__tel", ["telemetry"],
+                        MockAdapter(ProviderKind.mcp_remote, {"obs__tel": {"nodes": [], "evidence": []}}))
+    empty_fold = FoldRegistry()                          # NO adapter registered for source "obs"
+    planner = ScriptedPlanner("p", [("telemetry", {})], fx.ASSESS_RESULT)
+    rec = run_phase(_state(), _assess(playbook), playbook, planner, layer, empty_fold)
+    step = next(s for s in rec.steps if s.kind.value == "tool_call")
+    assert step.note and "no fold-adapter" in step.note  # audited, not silently swallowed

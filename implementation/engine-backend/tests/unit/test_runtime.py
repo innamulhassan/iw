@@ -115,3 +115,26 @@ def test_route_after_root_cause():
 def test_route_after_verify():
     assert route_after_verify(_state_with([{"phase": "verify-close", "output": {"recovered": True}}])) == END
     assert route_after_verify(_state_with([{"phase": "verify-close", "output": {"recovered": False}}])) == "root-cause"
+
+
+# ── audit fixes: metadata-driven routing, loop cap, backtrack validation ──
+def test_min_confidence_optional_when_absent():
+    pb = load_playbook(PLAYBOOK)
+    assert min_confidence_of(pb, "assess") is None       # no threshold → not a loop phase (NICE-10)
+    assert min_confidence_of(pb, "root-cause") == 0.7
+
+
+def test_loop_caps_attempts_so_it_never_spins():
+    from engine.runtime.state import route_after_loop
+    pb = load_playbook(PLAYBOOK)
+    low = {"phase": "root-cause", "output": {"candidates": [{"confidence": {"value": 0.1, "basis": "x"}}]}}
+    assert route_after_loop(_state_with([low] * 2), pb, "root-cause") == "loop"      # under cap → loop
+    assert route_after_loop(_state_with([low] * 6), pb, "root-cause") == "advance"   # capped → advance
+
+
+def test_playbook_rejects_forward_or_missing_backtrack():
+    from engine.domain import PhaseEffect, PhaseSpec, Playbook
+    with pytest.raises(ValueError, match="backtrack_to"):
+        Playbook(id="x", version="1.0.0", domain="d", phases=[
+            PhaseSpec(id="a", effect=PhaseEffect.read_only, output="AssessResult"),
+            PhaseSpec(id="b", effect=PhaseEffect.read_only, output="VerifyResult", backtrack_to="nope")])

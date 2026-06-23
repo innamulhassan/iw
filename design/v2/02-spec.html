@@ -163,7 +163,7 @@
     <tr><td class="f">Capability registry</td><td>Provider · DeclaredCapability · CapabilityPolicy; sync from sources; <code>govern()</code> at call time.</td><td>Postgres</td></tr>
     <tr><td class="f">Intent resolver</td><td>map a phase <code>need</code> → DeclaredCapabilities by intent + <code>effect</code>; apply policy (allow/ask/deny).</td><td>engine</td></tr>
     <tr><td class="f">Connectors</td><td>native MCP client · dynamic-MCP (register OpenAPI) · A2A specialist agents (App/DB/Network, Amelia/BladeLogic).</td><td>MCP · A2A</td></tr>
-    <tr><td class="f">Graph runtime</td><td>the in-memory graph (<code>networkx</code>) + the <b>tool surface</b> (get · neighbours · walk · find · blast_radius · annotate) + the <b>render-slice</b> + per-source <b>fold-adapters</b>; clustering; the cause walk. The engine owns it; the LLM acts via tools (Design B9).</td><td>networkx + Mongo + LangGraph</td></tr>
+    <tr><td class="f">Graph runtime</td><td>the in-memory graph (<code>networkx</code>) + the <b>tool surface</b> (get · neighbours · walk · find · blast_radius · path · annotate) + the <b>render-slice</b> + per-source <b>fold-adapters</b>; clustering; the cause walk. The engine owns it; the LLM acts via tools (Design B9).</td><td>networkx + Mongo + LangGraph</td></tr>
     <tr><td class="f">Run loop</td><td>phase state machine; the per-phase model agent loop; gates; retries; backtrack; checkpoint.</td><td>Python · LangGraph</td></tr>
     <tr><td class="f">Output validator</td><td>validate each phase output against the playbook's <code>output_schemas</code>.</td><td>engine</td></tr>
     <tr><td class="f">Audit + feedback</td><td>the Step journey as the audit trail; the Feedback store (separate from the run).</td><td>Mongo</td></tr>

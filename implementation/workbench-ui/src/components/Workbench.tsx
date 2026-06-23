@@ -48,11 +48,14 @@ export function Workbench({ client, pollMs = 4000, streamUrl }: {
         ? {
             ...prev,
             chat: mergeBySeq(prev.chat, r.events),
-            phases: r.phases,
-            graph: r.graph,
+            // only overwrite a field the poll actually carried — a real backend whose /poll omits a
+            // field must not wipe it, and role must NEVER regress to undefined (that would disable
+            // the pen-holder's composer + approve buttons).
+            phases: r.phases ?? prev.phases,
+            graph: r.graph ?? prev.graph,
             pendingGate: r.pendingGate,
-            role: r.role,
-            penHolder: r.penHolder,
+            role: r.role ?? prev.role,
+            penHolder: r.penHolder ?? prev.penHolder,
           }
         : prev,
     )
@@ -70,11 +73,14 @@ export function Workbench({ client, pollMs = 4000, streamUrl }: {
   // live chat over SSE when a stream URL is configured (real backend); merged by seq alongside poll
   useEffect(() => {
     if (!streamUrl || !sid) return
+    // seed the stream from the client's current seq so a cold connect doesn't replay from 0
     return connectStream(streamUrl, sid, (ev) => {
       if (!mounted.current) return
-      seqRef.current = Math.max(seqRef.current, ev.seq)
+      // do NOT advance seqRef here — poll() owns the high-water mark (r.seq). If we advanced it on
+      // each SSE frame, a dropped / non-contiguous frame would be suppressed by the next poll
+      // forever. SSE is liveness-only; correctness lives in the store + poll's gap-fill.
       setView((prev) => (prev ? { ...prev, chat: mergeBySeq(prev.chat, [ev]) } : prev))
-    })
+    }, seqRef.current)
   }, [streamUrl, sid])
 
   if (!view) return <div className="loading">Loading…</div>

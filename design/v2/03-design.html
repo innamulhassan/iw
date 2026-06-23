@@ -141,16 +141,29 @@
 <pre>def compile_run(playbook):                          <span class="c"># playbook = the Postgres row, pinned @version</span>
     pb = parse_frontmatter(playbook.body_md, playbook.phases, playbook.schemas)
     validate(pb)                                     <span class="c"># phases, graph_schema, output_schemas well-formed</span>
+    <span class="c"># ── COMPILE-TIME INVARIANTS (fail at LOAD, not mid-run) ──────</span>
+    <span class="c"># 1. every write phase MUST set gate_writes=true (else invoke mid-phase would see</span>
+    <span class="c">    #    access=ask but no interrupt_before to pause → Denied exception uncaught)</span>
+    for p in pb.phases:
+        if p.effect == "write" and not p.gate_writes:
+            raise ValueError(f"write phase {p.id} must set gate_writes=true")
+    <span class="c"># 2. every phase.output name must be a registered output type (else mid-run validation fails)</span>
+    for p in pb.phases:
+        if p.output not in OUTPUT_TYPES:
+            raise ValueError(f"phase {p.id}: unknown output type {p.output}")
+    <span class="c">──────────────────────────────────────────────────────────</span>
     register_types(pb.graph_schema)                  <span class="c"># node_types / edges / facts → graph builder + UI</span>
     register_schemas(pb.output_schemas)              <span class="c"># JSON Schema per phase output</span>
+    layer.unknown_access = Access(playbook.unknown_access)  <span class="c"># reconcile playbook policy into layer</span>
 
     g = StateGraph(RunState)
     for ph in pb.phases:
         g.add_node(ph.id, make_phase_node(ph, pb))   <span class="c"># B3 — the agent loop for this phase</span>
     g.set_entry_point(pb.phases[0].id)               <span class="c"># assess</span>
     wire_edges(g, pb.phases)                          <span class="c"># sequential + conditional (B6)</span>
+    gate_writes_phases = [p.id for p in pb.phases if p.gate_writes]
     return g.compile(checkpointer=PostgresSaver(...), # B5 — durable, resumable
-                     interrupt_before=["__gate__"])   <span class="c"># pause before any write</span></pre>
+                     interrupt_before=gate_writes_phases or None)  <span class="c"># pause before each gate_writes phase</span></pre>
 <p class="lead">Because the phases, types and contracts all come from the playbook, <b>compiling a different playbook yields a different engine behaviour with zero code change</b> — the domain-neutral promise, realized at compile time.</p>
 
 <h2 id="b2"><span class="n">B2</span> The run state</h2>
@@ -162,8 +175,8 @@
     phase_records:  Annotated[list, append]   <span class="c"># one PhaseRecord per phase entered (D2)</span>
     messages:       Annotated[list, append]   <span class="c"># the conversation (operator + agent)</span>
     current_phase:  str
-    pending_gate:   Optional[Action]      <span class="c"># set when a write is awaiting approval (B5)</span>
-    status:         str                   <span class="c"># running | waiting_approval | waiting_input | done | failed</span></pre>
+    pending_decision: dict                <span class="c"># {decision, actor} — carried into resumed gate phase; consumed once recorded</span>
+    status:         str                   <span class="c"># running|waiting_approval|waiting_input|done|failed — routed by B6 router</span></pre>
 <p>The <b>graph</b> is the shared world (it persists and grows across phases); each <b>PhaseRecord</b> is one phase's journey + typed output. On phase completion the engine <b>writes through</b> to the Mongo incident document (D6); the live state stays in the checkpointer until close.</p>
 
 <h2 id="b3"><span class="n">B3</span> The phase loop — plan → execute</h2>
@@ -185,7 +198,7 @@
     state.phase_records.append(rec); write_through_to_mongo(state)
     return state
   return node</pre>
-<p><b>Steps are emergent, not scripted</b> — the model decides the next need each iteration given what the graph already shows (e.g. "the DB span dominates → look below the DB"). The loop ends when the output is sufficient; reasoning, suggestions and the gate decision are also Steps (different <code>kind</code>).</p>
+<p><b>Steps are emergent, not scripted</b> — the planner (model) decides the next need each iteration given the current graph state and phase output. The loop ends when <code>sufficient(output, output_schema)</code> is true (all required fields present + validates). The output is refreshed after each tool call via <code>planner.update_output()</code>. Steps record tool calls (<code>kind=tool_call</code>), reasoning (<code>kind=reasoning</code>), gate decisions (<code>kind=decision</code>, recorded FIRST on re-entry if approved), and other events — the Step list is the audit trail.</p>
 
 <h2 id="b4"><span class="n">B4</span> Running the capability layer in the loop</h2>
 <p>Step 2 above — <code>capability_layer.call(need, …)</code> — is where intents become governed, real calls, <b>every iteration of the loop</b>. The layer never lets the model touch a tool directly.</p>
@@ -195,36 +208,47 @@
     dec  = govern(cap, playbook_of(state))      <span class="c"># C3 — effect × access (allow | ask | deny)</span>
     if dec.access == "deny":  raise Denied(cap)             <span class="c"># model must find another path / escalate</span>
     if dec.access == "ask":   return request_gate(cap, args, state)   <span class="c"># B5 — pause for approval</span>
-    raw = invoke(cap, args)                     <span class="c"># native MCP | dynamic-MCP | A2A (C1)</span>
+    key = input.get("idempotency_key") if isinstance(input, dict) else None
+    if key is not None and key in cache: return cache[key]  <span class="c"># exactly-once on WRITE</span>
+    adapter = adapter_for(cap.provider)        <span class="c"># bind by provider id</span>
+    if adapter.kind != provider(cap).kind: raise Denied(f"adapter kind mismatch")  <span class="c"># C1 binds by kind</span>
+    raw = adapter.invoke(cap.id, input)        <span class="c"># native MCP | dynamic-MCP | A2A dispatcher</span>
+    if key is not None and effect == Effect.write: cache[key] = raw  <span class="c"># cache ONLY writes</span>
     return Result(cap_id=cap.id, data=raw,
                   node_ids=raw.touched,         <span class="c"># which graph nodes this read/wrote</span>
                   evidence=raw.evidence_refs)   <span class="c"># deep links — fold into Fact.evidence_ref + output</span></pre>
 <table>
   <tr><th style="width:24%">In the loop</th><th>What happens</th></tr>
-  <tr><td class="f">resolve_intent</td><td><code>need</code> (e.g. <code>metrics</code>) → DeclaredCapabilities tagged with that intent whose <code>effect</code> is compatible with the phase (a read-only phase can never select a write capability).</td></tr>
-  <tr><td class="f">govern</td><td>resolves <code>effect × access</code> at call time; read → usually allow; write → ask (the gate); unknown → <code>playbook.unknown_access</code>.</td></tr>
-  <tr><td class="f">invoke</td><td>dispatches to the connector for the provider's <i>kind</i> — native MCP, a dynamic-MCP-wrapped API, or an A2A specialist agent.</td></tr>
-  <tr><td class="f">fold</td><td>the result updates the <b>graph</b> (new/updated nodes, facts with <code>evidence_ref</code>, edges) and the Step records <code>touched[]</code> + <code>evidence[]</code>.</td></tr>
+  <tr><td class="f">resolve_intent</td><td><code>need</code> (e.g. <code>metrics</code>) → DeclaredCapabilities tagged with that intent whose effect is compatible with the phase's <code>effect</code>. The filter uses the <b>authoritative</b> effect — <code>policy.effect ?? effect_hint ?? unknown</code>, the SAME value <code>govern()</code> enforces — <b>not</b> the raw <code>effect_hint</code>. So a capability whose hint says <code>read</code> but whose policy corrects it to <code>write</code> is still excluded from a read-only phase: a read phase <b>provably</b> never even ranks a write/unknown cap (FR12/AC1).</td></tr>
+  <tr><td class="f">govern</td><td>Calls <code>govern(cap, playbook)</code>: resolves <code>cap.effect_hint × CapabilityPolicy.access</code> at call time. read → usually allow (invoke, audit); write → ask (pause the run, wait for operator decision); unknown effect → <code>playbook.unknown_access</code> policy (allow|ask|deny per policy, reconciled into layer at compile B1).</td></tr>
+  <tr><td class="f">invoke</td><td>If <code>access=ask</code> and not yet approved: raise <code>NeedsApproval</code> (pause, no invoke); if deny: raise <code>Denied</code>; else dispatch. <code>invoke()</code> is the <b>exactly-once chokepoint</b> (FR5): a write carrying an <code>idempotency_key</code> is dispatched <b>at most once</b> — a retry or crash-replay with the same key returns the cached result, never double-applies. The bound adapter's <i>kind</i> must match its provider's declared kind (native MCP · dynamic-MCP-wrapped API · A2A specialist agent), else <code>Denied</code>; it returns the raw result with <code>evidence_refs</code>.</td></tr>
+  <tr><td class="f">fold</td><td>Each capability result is mapped to graph mutations (nodes/facts/edges) by a per-capability fold-adapter registered in FoldRegistry. The adapter is the ONLY place a source's shape meets graph schema. Fold updates the in-memory graph and records touched node ids + evidence refs in the Step.</td></tr>
 </table>
 
 <h2 id="b5"><span class="n">B5</span> The gate, checkpoint, resume</h2>
-<p><b>The gate.</b> A write capability (<code>effect=write</code>) in a <code>gate_writes</code> phase resolves <code>access=ask</code>. The phase sets <code>pending_gate</code> and the compiled graph's <code>interrupt_before</code> <b>pauses the run</b> (<code>status=waiting_approval</code>) — the engine returns control to the operator with the proposed <code>Action</code> (its <code>expected_effect · blast_radius · rollback · temporary/revert_when</code>).</p>
-<p><b>Resume.</b> The operator answers via the API (<code>approve | refine | deny</code>); the engine resumes the checkpointed thread. On <code>approve</code> it invokes (guarded by the idempotency key — exactly-once even on double-approve), records a <code>decision</code> Step + the action <code>result</code>, and continues.</p>
-<pre><span class="c"># resume path</span>
-if seen(action.idempotency_key): return cached_result          <span class="c"># exactly-once</span>
-result = invoke(action); record Step(kind="decision", decision=op.decision, actor=op.actor)
-<span class="c"># checkpoint: LangGraph persists RunState after EVERY step (PostgresSaver, thread_id = run_id),</span>
-<span class="c"># so a pause or crash resumes exactly where it stopped — no work lost, no double write.</span></pre>
+<p><b>The gate.</b> At compile, every <code>gate_writes</code> phase (effect=write, gate_writes=true) is named in <code>interrupt_before</code>. When the run enters such a phase, the LangGraph interrupt pauses BEFORE the phase node executes, leaving <code>next=[phase_id]</code> visible to the API (<code>status=waiting_approval</code>). The engine returns the phase spec + output so far; the operator <b>approves | refines | denies</b> via the API.</p>
+<p><b>Resume path.</b> The operator's decision {decision, actor} is posted to the API, which calls <code>engine.resume(thread_id, decision)</code>. The engine:</p>
+<ol>
+  <li>Updates the checkpoint with <code>pending_decision: {decision, actor}</code> (idempotent on decision content + idempotency_key).</li>
+  <li>Invokes the LangGraph thread, which re-enters the paused phase.</li>
+  <li>The phase node's FIRST step records <code>Step(kind=decision, decision=…, actor=…)</code> before any tool calls — the most accountability-critical event (D2).</li>
+  <li>Then the phase proceeds with the approved writes; <code>pending_decision</code> is consumed/nulled after the Step is appended.</li>
+  <li>LangGraph checkpoints after every step (durable + resumable).</li>
+</ol>
+<p><b>Exactly-once.</b> The decision is idempotent — a double-approve on the same gate with the same decision_id re-runs deterministically (same inputs → same result). Crash mid-phase = resume from the last checkpoint; transient failures within the phase retry per <code>defaults.retry</code>.</p>
 
 <h2 id="b6"><span class="n">B6</span> Phase transitions — conditional edges</h2>
-<p>Phases run in declared order, but two edges are conditional — this is what makes the run <b>adaptive and re-enterable</b>, not a fixed pipeline.</p>
+<p>Phases run in declared order, but the edges are driven by each phase's own <b>metadata</b> — <b>never hardcoded phase ids</b>. This is what makes the run <b>adaptive and re-enterable</b>, and what keeps the engine domain-neutral: a differently-named playbook (different phases, different loop/backtrack points) compiles to the right graph with zero code change.</p>
 <div class="flow"><span class="b">assess</span><span class="ar">→</span><span class="b">root-cause</span><span class="ar">↺ if conf &lt; min</span><span class="ar">→</span><span class="b">remediation</span><span class="ar">→</span><span class="b">verify</span><span class="ar">↺ if not recovered → root-cause</span><span class="ar">→</span><span class="b">END</span></div>
-<pre>g.add_edge("assess", "root_cause")
-g.add_conditional_edges("root_cause",
-    lambda s: "root_cause" if top_confidence(s) &lt; min_conf(s) else "remediation")  <span class="c"># gather more, or proceed</span>
-g.add_conditional_edges("verify",
-    lambda s: "root_cause" if not recovered(s) else END)        <span class="c"># backtrack with new evidence, or close</span></pre>
-<p>A re-entered phase opens a <b>new attempt</b> (<code>…:root-cause:2</code>); the graph and prior records are retained as context, so the second pass is better-informed. A human performs the final close after Verify reaches END.</p>
+<table>
+  <tr><th style="width:30%">A phase that declares…</th><th>…compiles to this edge (the contract)</th></tr>
+  <tr><td class="f"><code>effect: write</code><br>+ <code>gate_writes: true</code></td><td><b>Pauses before phase executes.</b> The phase id is added to <code>interrupt_before</code> at compile. When the run reaches this node, LangGraph halts with <code>next=[phase_id]</code> visible to the API. On resume with the operator's decision, the phase re-enters, records the decision Step (D2 audit: who approved + when), then proceeds with tool calls. <b>Every write phase MUST declare gate_writes=true</b> — validated at compile; otherwise writes would trigger access=ask mid-node, uncaught.</td></tr>
+  <tr><td class="f"><code>min_confidence: x</code><br>(a <b>loop</b> phase)</td><td><b>Re-enter the same phase</b> while <code>top_confidence(state) &lt; x</code>; else advance. Re-entries are <b>capped at 5 attempts</b> — once hit, advances anyway (inconclusive evidence proceeds; next phase may escalate) rather than infinite recursion. A phase with <code>min_confidence: null</code> never loops.</td></tr>
+  <tr><td class="f"><code>backtrack_to: &lt;earlier-phase&gt;</code><br>(a <b>backtrack / terminal</b> phase)</td><td>If the phase's <code>recovered</code> output field is true → <b>END</b> (close); else <b>re-enter the named earlier phase</b> to gather more evidence. <code>backtrack_to</code> must reference a phase that appears <i>earlier</i> in the phases list — <b>validated at Playbook.model_validator (compile load time)</b>, so a forward or missing target fails immediately, never silently mid-run.</td></tr>
+  <tr><td class="f">neither</td><td>Advance sequentially to the next declared phase in the phases list; if last, route to END.</td></tr>
+</table>
+<p><b>Halt on pause / failure.</b> The route_phase() function (the compiled conditional-edge router) checks <code>status</code> first: if <code>status ∈ {waiting_input, failed}</code> it returns <code>halt</code> → END, surfacing that status to the API. Only if status is <code>running</code> does routing proceed to loop/backtrack/advance logic. This guard ensures a paused or failed phase never silently advances. The router returns exactly one token — <code>halt · loop · advance · backtrack · close</code> — which LangGraph maps to a destination node (END, self, next, or backtrack_to).</p>
+<p>A re-entered phase opens a <b>new attempt</b> (<code>…:root-cause:2</code>); the graph and prior records are retained as context, so the second pass is better-informed. A human performs the final close after the terminal phase reaches END.</p>
 <div class="lead"><b>Related incidents — human-guided, one focus.</b> A run investigates <b>one</b> incident in its own focus. On launch (and as it looks out during its cycle), the engine <b>checks for an existing session on a similar incident</b>; if it finds one it <b>asks the operator</b> — link this as <i>related</i> (into a <code>cluster</code> via <code>member_of</code>), or open a new triage. It never auto-merges and never runs "at cluster scope" — each incident keeps its own session, phases, and closure; a linked cluster just lets the shared cause/fix propagate.</div>
 
 <h2 id="b7"><span class="n">B7</span> A full run trace — INC-4821</h2>
@@ -253,7 +277,7 @@ g.add_conditional_edges("verify",
 <p>One incident = one run, but requests land on any server and operators share it. The crux: a step that is <b>in-flight</b> (the agent mid-thought, streaming, calling a tool) lives in one server's memory — it isn't checkpointed yet.</p>
 <table>
   <tr><th style="width:26%">Mechanism</th><th>How</th></tr>
-  <tr><td class="f">Serialize the run</td><td>advancing a session takes a <b>per-session lock</b> (a Postgres advisory lock on the subject id). The holder is the transient <b>run-owner</b> and drives the agent loop — one step at a time. No second run can start for the incident.</td></tr>
+  <tr><td class="f">Serialize the run</td><td>advancing a session takes a <b>per-session lock</b> — a <b>lease with heartbeat</b> (a Postgres advisory lock on the subject id in production, or in-memory in-process for mocks). The holder is the transient <b>run-owner</b> and drives the agent loop one step at a time. No second run can start for the incident. The lease has a <b>30s TTL</b>; a slow tool keeps it by calling <code>heartbeat(session_id, token, ttl=30)</code>; a dead owner's lease expires and is stolen by another server, which resumes from the checkpoint.</td></tr>
   <tr><td class="f">Input during an in-flight step</td><td>a 2nd operator's message is <b>queued</b> (a per-session input queue), drained after the current step or at the next gate — merged into the one run, never spawning a second.</td></tr>
   <tr><td class="f">Reads &amp; chat go anywhere</td><td>only <b>advances</b> need the lock; <b>reads</b> (render graph/phases) hit the Mongo read-model and <b>chat</b> is polled from the event log (B8.3) — both from any server. No sticky load-balancing.</td></tr>
   <tr><td class="f">Crash mid-step</td><td>the lock lease expires → another server <b>resumes from the last checkpoint</b>; the lost step re-runs (reads idempotent, writes idempotency-keyed). No work lost, no double-write.</td></tr>
@@ -264,7 +288,7 @@ g.add_conditional_edges("verify",
 <p>Several operators, possibly on different servers, must see the same conversation, the agent's live stream, and the gate — in real time.</p>
 <table>
   <tr><th style="width:26%">Mechanism</th><th>How</th></tr>
-  <tr><td class="f">One event log per session</td><td>an <b>append-only log keyed by the subject</b>. Every event — a user message, an agent message, a gate prompt, a gate decision, a phase/graph delta — is <b>appended with a per-session sequence number</b>.</td></tr>
+  <tr><td class="f">One event log per session</td><td>an <b>append-only log keyed by the subject</b>. Every event — a user message, an agent message, a gate prompt, a gate decision, a phase/graph delta — is <b>appended with a per-session sequence number</b> (starts at 0, increments per append, returned to the caller). The log is queryable by <code>since(session_id, after_seq)</code> — returns all events with <code>seq > after_seq</code> (exclusive lower bound); <code>snapshot_seq(session_id)</code> returns the highest seq so far (the checkpoint for join-mid-flight).</td></tr>
   <tr><td class="f">Append, don't push</td><td>the agent <b>appends</b> its output to the log; any connected client (on any server) sees it on its <b>next poll</b> — not just the operator who triggered the step.</td></tr>
   <tr><td class="f">Clients = snapshot + polled deltas</td><td>a client <b>renders the heavy state from the read-model</b> (the graph/phases snapshot) and <b>applies the deltas it polls</b> from the log. The log carries the conversation + change events; the read-model carries the structured truth.</td></tr>
   <tr><td class="f">Join mid-flight / reconnect</td><td>fetch the <b>snapshot</b> (read-model + recent chat) and <b>poll from the last seq</b> → no lost or duplicated messages.</td></tr>
@@ -275,7 +299,7 @@ g.add_conditional_edges("verify",
 <h3>B8.4 · Edge cases</h3>
 <table>
   <tr><th style="width:30%">Case</th><th>Handling</th></tr>
-  <tr><td class="f">Gate while in-flight</td><td>the write gate pauses the run (no active step) → the run-owner lock releases → <b>any</b> operator can answer (answered-once, idempotent on the decision) → resume re-acquires the lock.</td></tr>
+  <tr><td class="f">Gate while in-flight</td><td>the write gate pauses the run (no active step) → the run-owner lock releases → the gate is <b>answered-once</b> (first terminal decision wins, idempotent on the result): a concurrent answer sees it already resolved and returns the same decision without re-checking writer status; the first answer itself is guarded by writer-only + terminal-only (approve|deny; refine is non-terminal and excluded) — → resume re-acquires the lock.</td></tr>
   <tr><td class="f">Two operators approve at once</td><td>answered-once + optimistic checkpoint version — first wins, the rest see it resolved.</td></tr>
   <tr><td class="f">Operator joins mid-investigation</td><td>snapshot (read-model + recent chat) + start polling from that seq → current state + live.</td></tr>
   <tr><td class="f">Network drop / reconnect</td><td>snapshot + resume-from-seq; client message ids dedupe a resend.</td></tr>
@@ -283,17 +307,17 @@ g.add_conditional_edges("verify",
   <tr><td class="f">Long session / compaction</td><td>the agent's context = the <b>current phase + prior phase OUTPUTS + on-demand graph slices</b> (B3/B4), not the raw history. The chat <i>pane</i> shows full history from the store; the agent <i>context</i> stays bounded.</td></tr>
   <tr><td class="f">Free chat never promoted</td><td>TTL-expires; no durable cost.</td></tr>
   <tr><td class="f">Any domain</td><td>identical machinery — the session is keyed by <code>{domain, id}</code>, so provisioning/capacity sessions work the same.</td></tr>
-  <tr><td class="f">Create-or-join race</td><td>two operators promote to the same subject at once → session creation is <b>idempotent on the subject id</b> (a unique key): the first creates the thread, the rest attach. Never two threads for one incident.</td></tr>
+  <tr><td class="f">Create-or-join race</td><td>two operators promote to the same subject at once → <code>create_or_join()</code> is idempotent on the subject id (a unique key) and checks authorization BEFORE any mutation: an unauthorized actor raises NotAuthorized before being recorded in members or pen_holder, so they cannot block the session. The first authorized creator makes the thread and holds the pen; the rest attach as viewers. Never two threads for one incident.</td></tr>
   <tr><td class="f">Promotion carries context</td><td>the free chat's prior messages <b>seed</b> the session's conversation — promotion is not a reset.</td></tr>
   <tr><td class="f">Headless / idle session</td><td>the run can advance (an autonomous step) or sit at a gate with <b>no client connected</b>; events persist → a late joiner replays them; a gate that sits too long escalates (<code>error_handler</code>).</td></tr>
-  <tr><td class="f">Slow vs crashed owner</td><td>the lock is a <b>lease with a heartbeat</b> — a slow tool keeps the lease; a dead owner lets it expire → another server resumes (B8.2). Distinguishing the two is why the lease heartbeats.</td></tr>
-  <tr><td class="f">Authorization mid-session</td><td>incident membership is <b>re-checked per event</b>, not only at join — a revoke drops the operator on the next event.</td></tr>
+  <tr><td class="f">Slow vs crashed owner</td><td>the lock is a <b>lease with a heartbeat</b> — a slow tool keeps the lease by calling <code>heartbeat(session_id, token, ttl)</code> on each step; a dead owner lets the 30s lease expire → another server calls <code>acquire(session_id, owner, ttl=30)</code>, succeeds (the expired lease is free), and resumes from the checkpoint. Distinguishing the two is why the heartbeat is required: a running owner refreshes every step, a crashed owner does not.</td></tr>
+  <tr><td class="f">Authorization mid-session</td><td>incident membership is <b>re-checked per event</b> (via <code>is_member(actor)</code> on every <code>post_event()</code>) and also on every read (incident/events/stream/poll) — a revoke drops the operator immediately on the next attempt, losing reads + writes (AC9).</td></tr>
   <tr><td class="f">A missed / failed poll</td><td>polling is <b>liveness-only</b> — a dropped request just retries on the next tick; the run still advances (the lock + checkpointer don't depend on it). Correctness lives in the stores, never the transport.</td></tr>
 </table>
 <div class="lead"><b>The whole session, in one line:</b> a <b>lock</b> serializes the one run, a <b>polled event log</b> syncs the many clients, and the durable stores hold the truth — so any server serves any request, and the chat is shared and live without push infra, a fourth store, or sticky routing.</div>
 
 <h3>B8.5 · Roles, the pen, and the chat UI (MVP)</h3>
-<p><b>The pen.</b> One member holds <b>the pen</b> (the single human writer) at a time — only the pen-holder may send a message or approve a gate; everyone else is a read-only <b>viewer</b>. (The pen is the <i>human</i> write-token — who may act; it sits above the <b>run-owner lock</b> of B8.2, which serialises the engine's one run — different mechanisms, same "one at a time" spirit.) The pen is handed over (<code>take-pen</code> / <code>release-pen</code>, one holder at a time; the creator starts with it). The agent runs <b>one unit of work to completion, then takes the next message</b> — strictly sequential. Approval is <b>single</b> — the pen-holder's OK is enough; <b>no dual approval</b> (a maker-checker rule is future). Roles are enforced <b>in the UI and re-checked at the server</b>.</p>
+<p><b>The pen.</b> One member holds <b>the pen</b> (the single human writer) at a time — only the pen-holder may send a message or approve a gate; everyone else is a read-only <b>viewer</b>. (The pen is the <i>human</i> write-token — who may act; it sits above the <b>run-owner lock</b> of B8.2, which serialises the engine's one run — different mechanisms, same "one at a time" spirit.) The pen is handed over (<code>take-pen</code> / <code>release-pen</code>, one holder at a time; the creator starts with it). <b>Pen liveness:</b> a holder's activity (message / gate decision) refreshes a heartbeat; an idle holder past <b>PEN_TTL (60s)</b> can be force-taken by any other member via <code>take-pen()</code>, so a disconnected operator never permanently blocks writes and gate approvals. The agent runs <b>one unit of work to completion, then takes the next message</b> — strictly sequential. Approval is <b>single</b> — the pen-holder's OK is enough; <b>no dual approval</b> (a maker-checker rule is future). Roles are enforced <b>in the UI and re-checked at the server</b> on every write.</p>
 <p><b>The chat UI.</b> The chat is a heterogeneous stream of typed events ordered by <code>seq</code>; each renders via a <b>widget registry</b> (<code>kind → component</code>: text · agent step / tool-call · table · image · graph · <b>sandboxed-iframe HTML</b> for untrusted/agent-generated UI). A new widget type = one renderer, no core change; untrusted HTML is isolated in a sandboxed iframe (the safety seam — aligns with the open <b>MCP-Apps</b> pattern). Transport: <b>SSE</b> (<code>GET /stream</code>, resume via <code>Last-Event-ID</code>) for the live app, polling as the simple fallback — both over the one event log, so a widget is just a richer event payload, independent of the transport.</p>
 
 <h2 id="b9"><span class="n">B9</span> The investigation graph — runtime, tools &amp; library</h2>
@@ -312,20 +336,20 @@ g.add_conditional_edges("verify",
 <p>The LLM never receives the raw graph; it gets a small, <b>governed</b> tool surface (capabilities, gated like any other, Part C). Mostly <b>read</b> (traverse/expand) + one <b>write</b> (annotate a finding, with provenance). Bulk graph-building is automatic — the engine <b>folds</b> each tool result (B9.4); the LLM only queries + records explicit findings.</p>
 <table>
   <tr><th style="width:34%">Tool</th><th>Effect · what it does</th></tr>
-  <tr><td class="f">graph.get(id)</td><td>read · a node + its facts.</td></tr>
-  <tr><td class="f">graph.neighbours(id, edge?, dir?)</td><td>read · adjacent nodes — <b>expand the frontier</b>.</td></tr>
-  <tr><td class="f">graph.walk(from, edges[], dir, until?)</td><td>read · traverse a path (e.g. <code>depends_on</code>/<code>hosted_on</code> downward to the cause).</td></tr>
-  <tr><td class="f">graph.find(predicate)</td><td>read · nodes matching — unhealthy, impacted, by layer/type.</td></tr>
+  <tr><td class="f">graph.get(id)</td><td>read · a node + its facts. Unknown id → <code>{id, status: "unknown"}</code>; never invents.</td></tr>
+  <tr><td class="f">graph.neighbours(id, edge?, dir?)</td><td>read · adjacent nodes — <b>expand the frontier</b>. Optional <code>edge</code> filter by edge type; <code>dir</code> = "in" | "out" (default). Caps at <code>expand_cap=12</code> per node; returns <code>{id, dir, neighbours:[stub…], more: N}</code> where <code>more</code> is the overflow count (omitted if 0).</td></tr>
+  <tr><td class="f">graph.walk(from, edges[], dir, until?)</td><td>read · traverse a path (e.g. <code>depends_on</code>/<code>hosted_on</code> downward to the cause). With <code>until</code> (a predicate dict), BFS the edge-type-filtered subgraph for the NEAREST matching node, returning <code>{from, path, nodes:[stub…], reached: true|false}</code>. Without <code>until</code>, a greedy single-path frontier walk, returning <code>reached: null</code>. Max depth 12; cycle-safe.</td></tr>
+  <tr><td class="f">graph.find(predicate)</td><td>read · nodes matching a structured predicate. Recognized keys: <code>label · layer · kind · type · id · name · unhealthy · impacted</code>; an unrecognized key → match fails (never silent match-all). Empty predicate <code>{}</code> matches all. Returns <code>{predicate, matches:[stub…], count}</code>.</td></tr>
   <tr><td class="f">graph.blast_radius(id)</td><td>read · the impacted set (walk <code>affects</code>/<code>depends_on</code>).</td></tr>
   <tr><td class="f">graph.path(from, to)</td><td>read · the shortest causal path.</td></tr>
-  <tr><td class="f">graph.annotate(target, key, value, evidence_ref)</td><td><b>write</b> · the agent records a finding (a fact/label/edge — e.g. mark <code>suspect</code>) — validated + provenance-stamped (which step). This is "build as it goes," governed.</td></tr>
+  <tr><td class="f">graph.annotate(target, key, value, evidence_ref)</td><td><b>write</b> · the agent records a finding (a fact or label like <code>suspect</code>) — validated + provenance-stamped (which step). <b>Requires a non-empty <code>evidence_ref</code></b> — a finding without evidence is rejected with <code>ValueError</code>. Target must exist (fold/add it first). Returns <code>{target, label|fact, evidence_ref, by_step}</code>. This is "build as it goes," audited not gated.</td></tr>
 </table>
 <p>Read tools resolve <code>effect: read-only</code> (allowed); <code>annotate</code> is a write but <b>low-risk</b> — it changes the agent's own working graph, not the world — so it is <b>audited, not gated</b> like a remediation.</p>
 
 <h3>B9.3 · Rendering — the slice the LLM sees</h3>
 <p>Each turn a deterministic <b>render-slice</b> projects the graph into the context — bounded regardless of size:</p>
 <ul>
-  <li><b>In full:</b> the subject node, the current cause path, flagged nodes (<code>suspect</code>/impacted) + their facts, and the <b>1-hop frontier</b> (adjacent un-expanded nodes, as stubs the agent can expand).</li>
+  <li><b>In full:</b> the subject node, the current cause path, flagged nodes (<code>suspect</code>/impacted) + their facts, and the <b>1-hop frontier</b> (adjacent un-expanded nodes, as stubs the agent can expand). Neighbours are capped per-node at <code>expand_cap=12</code> and the frontier is <b>globally</b> capped at <code>frontier_cap=20</code>; overflow neighbours fold into the collapsed count, so the invariant <code>full + frontier + collapsed = total</code> always holds (the slice stays ~10–30 nodes regardless of graph size).</li>
   <li><b>Collapsed:</b> healthy / ruled-out / resolved → a <b>count + one-line summary</b> ("135 healthy · collapsed").</li>
 </ul>
 <p>So even a 147-node incident renders ~10–30 nodes; the graph carries the memory, the slice shows only what's live. <b>This is the compaction</b> (B3) — the agent sees the distilled world + prior phase outputs, never the raw history.</p>
@@ -333,7 +357,7 @@ g.add_conditional_edges("verify",
 <h3>B9.4 · Lifecycle, the fold-adapter &amp; persistence</h3>
 <table>
   <tr><th style="width:20%">Step</th><th>What happens</th></tr>
-  <tr><td class="f">Load</td><td>rebuild the in-memory graph from the Mongo doc + checkpoint when a step starts (cheap — small).</td></tr>
+  <tr><td class="f">Load</td><td>rebuild the in-memory graph from the Mongo doc + checkpoint when a step starts (cheap — small). <span class="c"><i>Implementation note: in the mock-first build the graph is process-local and kept OUT of the LangGraph checkpoint (the checkpointed state holds only the serialisable record trail), so an in-process resume restores the record trail + lock but not the graph. Cross-process graph rebuild from the durable Mongo doc lands with the real stores (P9); until then the resume guarantee covers the record trail + lock.</i></span></td></tr>
   <tr><td class="f">Fold (the adapter)</td><td>each capability result is mapped into nodes/facts/edges by a <b>per-capability fold-adapter</b> (topology → nodes + <code>depends_on</code>; metrics → facts on a node; an alert source → an <code>alert</code> node + <code>observed_on</code>). The adapter is the <b>only</b> place a source's shape meets the graph schema (Part D) — a new source = a new fold-adapter, no engine change.</td></tr>
   <tr><td class="f">Mutate</td><td>folds + the agent's <code>annotate</code> apply to the in-memory graph, validated against the Part D node/edge types.</td></tr>
   <tr><td class="f">Checkpoint</td><td>after the step, the graph delta is checkpointed (LangGraph) + materialized to the Mongo doc — the read-model the UI + reads use.</td></tr>
@@ -345,7 +369,7 @@ g.add_conditional_edges("verify",
 <h3>B9.6 · Edge cases</h3>
 <table>
   <tr><th style="width:28%">Case</th><th>Handling</th></tr>
-  <tr><td class="f">Unknown node id</td><td>a tool references an id not in the graph → return "unknown"; the agent adds it (fold/annotate) or picks another path. Never silently invent.</td></tr>
+  <tr><td class="f">Unknown node id</td><td>a tool references an id not in the graph → return <code>{id, status: "unknown"}</code>; the agent adds it (fold/annotate) or picks another path. Never silently invent.</td></tr>
   <tr><td class="f">Conflicting facts</td><td>two sources disagree on a node's health → <b>keep both</b> (source + confidence + observed_at); the disagreement stays visible; reconcile by confidence/recency. The graph never silently overwrites.</td></tr>
   <tr><td class="f">Graph grows large</td><td>the render-slice collapses aggressively (path + frontier only); the agent expands on demand; in-memory stays small (per-incident).</td></tr>
   <tr><td class="f">Expand too wide</td><td><code>neighbours</code>/<code>walk</code> cap depth + breadth → "N more, collapsed"; the agent narrows.</td></tr>
@@ -376,12 +400,14 @@ g.add_conditional_edges("verify",
   <tr><th style="width:28%">Entity</th><th>Role · key fields</th></tr>
   <tr><td class="f">Provider</td><td>a source — <code>id · name · kind</code> (skill\|mcp_local\|mcp_remote\|a2a_agent\|api) <code>· connection · trusted · status · last_synced</code>.</td></tr>
   <tr><td class="f">DeclaredCapability</td><td>one action — <code>id (provider__action) · provider · description · input_schema · output_schema · effect_hint · intents[]</code> (which needs it satisfies).</td></tr>
-  <tr><td class="f">CapabilityPolicy</td><td><b>human-owned</b> — <code>capability_id · effect · access</code> (allow\|ask\|deny) <code>· status</code> (active\|pending_review) <code>· reviewed_by · reviewed_at</code>. A new capability lands <code>pending_review · deny</code>.</td></tr>
+  <tr><td class="f">CapabilityPolicy</td><td><b>human-owned</b> — <code>capability_id · effect · access</code> (allow\|ask\|deny) <code>· status</code> (active\|pending_review) <code>· reviewed_by · reviewed_at</code>. A new capability (registered with no policy) lands <code>pending_review · deny</code>, preventing any execution until a human reviews and approves; if a policy row exists (even <code>pending_review</code>), <code>govern()</code> respects that <code>access</code> decision in preference to DEFAULT.</td></tr>
 </table>
 <p>DDL is in E1. Declarations are machine-synced and refresh; the policy is human-owned and sticky across syncs.</p>
 
 <h2 id="c3"><span class="n">C3</span> <code>govern()</code> — resolved at call time, every time</h2>
-<pre>effect = policy(cap).effect ?? cap.effect_hint ?? "unknown"
+<p><b>Hard deny on missing capability:</b> if the capability is not in the registry, <code>govern()</code> returns <code>deny</code> immediately and never invokes — a missing/unregistered capability is never allowed to run.</p>
+<pre>if cap not in registry: return Decision(cap_id, unknown, deny, "not in registry")
+effect = policy(cap).effect ?? cap.effect_hint ?? "unknown"
 access = policy(cap).access ?? (playbook.unknown_access if effect=="unknown"
                                 else DEFAULT[trust(cap)][effect])</pre>
 <table>
@@ -392,14 +418,18 @@ access = policy(cap).access ?? (playbook.unknown_access if effect=="unknown"
 </table>
 
 <h2 id="c4"><span class="n">C4</span> Intent resolution</h2>
-<pre>def resolve_intent(need, phase_effect):
+<pre>def _effect_of(cap, registry):                     <span class="c"># the AUTHORITATIVE effect govern() will use</span>
+    pol = registry.policy(cap.id)
+    return (pol.effect if pol else None) or cap.effect_hint or Effect.unknown
+
+def resolve_intent(need, phase_effect, registry):
     return rank([c for c in declared_capabilities
                  if need in c.intents                       <span class="c"># satisfies the intent</span>
-                 and compatible(c.effect_hint, phase_effect)])  <span class="c"># read-only phase ⇒ no write caps</span></pre>
-<p>The playbook names <code>needs:[metrics, logs, …]</code>; resolution turns each into the concrete, allowed capability. <b>The <code>effect</code> boundary is enforced here</b>, at resolution — not only at the gate — so a read-only phase provably cannot select a write.</p>
+                 and compatible(_effect_of(c, registry), phase_effect)])  <span class="c"># POLICY-CORRECTED effect, not hint</span></pre>
+<p>The playbook names <code>needs:[metrics, logs, …]</code>; resolution turns each into the concrete, allowed capability. <b>The <code>effect</code> boundary is enforced here at POLICY-CORRECTED effect</b> — the resolver mirrors <code>govern()</code>'s effect calculation, so if a policy overrides a mistyped hint, the resolver uses the corrected effect. A read-only phase thus provably cannot select a write, even if a hint was wrong.</p>
 
 <h2 id="c5"><span class="n">C5</span> Autonomy ladder &amp; feedback</h2>
-<p>Operator <b>feedback</b> (D5), kept separate from the run, drives an <b>autonomy ladder</b> per <i>phase × node-type × severity</i>: a proven low-risk action can move <code>ask → allow</code> (earned autonomy); a declared <code>failure</code>/<code>correction</code> moves it back. Autonomy is narrow, evidence-based, and always reversible — the same <code>CapabilityPolicy</code> row is what changes.</p>
+<p>Operator <b>feedback</b> (D5), kept separate from the run, drives an <b>autonomy ladder</b> per <i>phase × node-type × severity</i>: a proven low-risk action can move <code>ask → allow</code> (earned autonomy); a declared <code>failure</code>/<code>correction</code> moves it back. Autonomy is narrow, evidence-based, and always reversible — the same <code>CapabilityPolicy</code> row is what changes. <span class="c"><i>Implementation note: the autonomy unit is the whole capability row, so an earned <code>allow</code> currently applies engine-wide; finer per-phase × node-type × severity scoping (re-keying the policy + the govern/resolver lookups) is a tracked refinement, not yet built.</i></span></p>
 
 <!-- ============================ PART D ============================ -->
 <div class="part">D · The data model</div>
@@ -626,30 +656,42 @@ db.incidents.createIndex({ "graph.nodes.id":1 }); db.incidents.createIndex({ "gr
 db.incidents.createIndex({ fingerprint:1 })   <span class="c">// + a vector index for similar-incident search</span></pre>
 
 <h2 id="e3"><span class="n">E3</span> Engine API (surface)</h2>
+<div class="lead"><b>The endpoint contract.</b> Each endpoint returns status + a consistent shape. Membership / roles re-checked per request (AC9 — a revoke drops the operator immediately). <code>actor</code> is a required query param on all reads; writes route through <code>require_writer</code> (pen-holder only). The run-owner lock serializes <code>/advance</code> and <code>/gate → resume</code> so only one server drives the thread.</div>
 <table>
-  <tr><th style="width:34%">Endpoint</th><th>Purpose</th></tr>
-  <tr><td class="f">POST /runs</td><td>start a run: { subject:{domain,id}, playbook } → seeds the graph, begins Assess; returns run_id.</td></tr>
-  <tr><td class="f">GET /runs/{id}</td><td>current state: current_phase, status, the pending gate (if any), the latest phase output.</td></tr>
-  <tr><td class="f">POST /runs/{id}/resume</td><td>answer a gate / input: { decision: approve\|refine\|deny, actor, note? } → resumes the checkpointed run (B5).</td></tr>
-  <tr><td class="f">GET /incidents/{id}</td><td>the denormalized incident document (graph + phase outputs) from Mongo.</td></tr>
-  <tr><td class="f">POST /feedback</td><td>{ subject, run_id?, actor, kind, verdict } → the feedback store (feeds the autonomy ladder).</td></tr>
-  <tr><td class="f">POST /playbooks · /providers · /policies</td><td>config-plane admin (author/validate/publish a playbook; register a provider; set a policy).</td></tr>
+  <tr><th style="width:26%">Endpoint</th><th style="width:48%">Contract</th><th>Returns</th></tr>
+  <tr><td class="f">POST /sessions</td><td><code>{domain, id, kind, actor}</code> → create or join a session; no run started yet; idempotent on subject. Checks related incidents + asks the operator to link or open new.</td><td><code>session_id, status, members[], pen_holder, role</code></td></tr>
+  <tr><td class="f">POST /sessions/{sid}/advance</td><td>acquire run-owner lock; if not started, start the run (seed graph → begin Assess); drain queued input; step to completion or gate pause. Release lock. 409 if paused at a gate (use /gate) or locked by another worker.</td><td><code>session_id, status (waiting_approval|done), next, pen_holder</code></td></tr>
+  <tr><td class="f">POST /sessions/{sid}/gate</td><td><code>{actor, gate_id, decision}</code>; writer-only (403 if not pen-holder). gate_id must match engine's pending pause, else 409. On <code>approve</code>: acquire lock → resume → fold decision Step → release lock. On <code>refine</code>: gate stays open (no lock). On <code>deny</code>: record denial, set read-model terminal state, halt.</td><td><code>session_id, status (waiting_approval|denied|done), gate{gate_id, decision, actor}, next</code></td></tr>
+  <tr><td class="f">GET /sessions/{sid}/incident</td><td><code>?actor=</code>; re-check membership (403). Return the durable read-model from Mongo (graph + phase outputs + terminal state).</td><td><code>incident document (D6) or 404 if not yet written</code></td></tr>
+  <tr><td class="f">POST /sessions/{sid}/messages</td><td><code>{actor, text}</code>; writer-only (403). Enqueue into the session's input queue (drained on next /advance). Append event to the one ordered stream.</td><td><code>seq (the event sequence number)</code></td></tr>
+  <tr><td class="f">POST /sessions/{sid}/take-pen</td><td><code>{actor}</code>; must be a member (403). Release from the current holder; grant to <code>actor</code>. (One pen-holder at a time.)</td><td><code>ok, pen_holder, role (writer|viewer)</code></td></tr>
+  <tr><td class="f">POST /sessions/{sid}/release-pen</td><td><code>{actor}</code>; must be the current pen-holder. Release; no new holder until take-pen.</td><td><code>ok, pen_holder</code></td></tr>
+  <tr><td class="f">GET /sessions/{sid}/events</td><td><code>?actor=, ?after_seq=0</code>; re-check membership (403). Return events appended since <code>after_seq</code>.</td><td><code>events[] (ordered by seq)</code></td></tr>
+  <tr><td class="f">GET /sessions/{sid}/stream</td><td><code>?actor=, ?after_seq=0</code>; SSE over text/event-stream. Resume from <code>Last-Event-ID</code> header or <code>after_seq</code>; retry via browser EventSource. Same <code>seq</code> as /events and /poll.</td><td><code>text/event-stream; each line: id: {seq}\ndata: {json}\n\n</code></td></tr>
+  <tr><td class="f">GET /sessions/{sid}/poll</td><td><code>?actor=, ?after_seq=0</code>; re-check membership (403). Return snapshot (read-model + status + pen_holder + role) + new events since seq. Single stateless call — no push infra needed.</td><td><code>incident, events[], seq, status (waiting_approval|denied|done|new), pen_holder, role</code></td></tr>
+  <tr><td class="f">POST /feedback</td><td><code>{domain, id, kind, actor, verdict?, note?, run_id?}</code>; <code>kind</code> = outcome|failure|correction (feeds autonomy ladder + learning loop).</td><td><code>stored, kind</code></td></tr>
+  <tr><td class="f">POST /playbooks · /providers · /policies</td><td>config-plane admin (author/validate/publish a playbook; register a provider; set a policy).</td><td>varies</td></tr>
 </table>
 
 <h2 id="e4"><span class="n">E4</span> Errors, retries, recovery</h2>
-<ul>
-  <li><b>Transient</b> capability failure → retry per <code>defaults.retry</code> (max + backoff); <b>permanent / blocked</b> → <code>error_handler</code> (escalate to on-call).</li>
-  <li><b>on_failure: run-remaining</b> — independent steps in a phase finish before the phase reports.</li>
-  <li><b>Exactly-once</b> — every write carries an <code>idempotency_key</code>; a replay after a crash returns the cached result, never double-applies.</li>
-  <li><b>Crash recovery</b> — the run resumes from the last checkpoint (every step is checkpointed); in-flight writes are idempotency-guarded.</li>
-  <li><b>Backtrack</b> — Verify failing recovery routes to Root cause as a new attempt; the graph + prior records are retained as context (B6).</li>
-</ul>
+<p><b>In the phase loop (B3):</b> a capability invocation raises <code>TransientError</code> or <code>PermanentError</code> (B4 classify, not the capability — the layer wraps raw exceptions). Transient → <b>retry per <code>defaults.retry</code></b> (<code>max</code> attempts; no backoff in-process); permanent → <b>record the error Step</b> (<code>kind=tool_call, result={error: …}</code>) → <b>check <code>on_failure</code></b>:</p>
+<table>
+  <tr><th style="width:26%">on_failure mode</th><th>Behaviour</th></tr>
+  <tr><td class="f"><code>run-remaining</code></td><td>finish any remaining independent steps in the phase; then set <code>state=blocked</code> (partial) and close. The run <b>continues to the next phase</b>; the escalation lives in the audit (the error Step is recorded; no separate error_handler fires).</td></tr>
+  <tr><td class="f">default (halt)</td><td><b>fire the playbook's <code>error_handler</code></b> immediately</td><td>append a reasoning Step (<code>result={escalated: true, error: …}</code>) with the handler's action/to/via, set <code>state=failed</code>, close the phase, <b>halt the run</b> (do not advance). The error-handler is an escalate Step — a persistent audit event, not config code that runs.</td></tr>
+</table>
+<p><b>Exactly-once &amp; checkpointing:</b> every write carries an <code>idempotency_key</code>; on resume after a crash, the layer checks <i>seen</i> and returns the cached result instead of re-invoking. The run state (graph + messages + phase records) is checkpointed after every step (LangGraph), so a second server resumes from the last checkpoint, re-runs any in-flight step (reads idempotent, writes guarded by idempotency_key).</p>
+<p><b>Backtrack:</b> Verify's <code>recovered</code> field determines the edge (B6). If false, the run backtracks to Root cause as a new attempt (same session, new <code>phase_records</code> entry with attempt++); the graph + prior outputs stay (context for the retry). A halted or denied run ends (status=failed or denied); human closes the incident.</p>
 
 <!-- ============================ PART F ============================ -->
 <div class="part">F · Operations</div>
 
 <h2 id="f1"><span class="n">F1</span> The console</h2>
 <p>The only operator UI — a <b>React</b> single-page app, in the Claude-Desktop three-pane shape: <b>Incidents</b> (left) · <b>Triage</b> — the whole incident's chat with the <b>approval gate inline</b> (center) · <b>Phases &amp; Steps</b> with a <b>Graph</b> tab (right). It evolves as autonomy is earned (the autonomy badge).</p>
+<h3>Live sync &amp; message flow</h3>
+<p>The UI runs a <b>polling loop</b> (or SSE for liveness) to fetch <code>/poll</code> every ~2 seconds (with <code>after_seq</code> to resume from the last event). Each poll returns: the read-model snapshot (incident + graph + phases) + new events since the client's seq + the current <code>status</code> + the <code>pen_holder</code>. Messages are typed by the UI user (pen-holder only) and sent via <code>POST /messages</code>, enqueued in the session, then drained into the run on the next <code>/advance</code>. So a message does NOT block — the operator sends it, sees it appended to the event stream, then a separate <code>/advance</code> call drives the run forward. (In future, a single <code>/message + auto-advance</code> endpoint may conflate these.)</p>
+<p><b>The gate, inline:</b> when the run pauses (status=waiting_approval), the gate prompt appears in the chat with the proposed action + expected_effect + blast_radius + rollback. The pen-holder clicks <code>approve | refine | deny</code>; the UI calls <code>POST /gate {gate_id, decision, actor}</code>. On <code>approve</code>, the server resumes the run. On <code>deny</code>, the run halts with status=denied (terminal). On <code>refine</code>, the gate stays open — the operator can send a follow-up message (via /messages) asking for a different action; the agent loops and proposes again. The pen is held until explicitly released or the incident closes.</p>
+<p><b>Roles:</b> the session has a <code>pen_holder</code> (the only writer) and viewers. The UI renders <code>/poll</code>'s <code>role</code> field (writer|viewer) to gate the send-message + approve buttons. A revoke (via <code>require_member</code> re-check at the server) drops the operator from the next event poll — they lose access to chat + incident doc immediately, without requiring a page refresh.</p>
 <figure><img src="diagrams/ui-console.png" alt="The triage console — Phases & Steps"></figure>
 <p style="font-size:12px;color:var(--ink2);margin:6px 0 0">Right pane on <b>Phases &amp; Steps</b> — the four phases, each step, and its typed output (worked run: INC-4821).</p>
 <figure style="margin-top:11px"><img src="diagrams/ui-console-graph.png" alt="The triage console — the Graph tab"></figure>

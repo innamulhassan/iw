@@ -9,6 +9,7 @@ One member holds the "pen" (the single writer) at a time; everyone else is a rea
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
@@ -16,6 +17,8 @@ from engine.domain import SubjectRef
 
 from .eventlog import EventLog, InMemoryEventLog
 from .lock import InMemoryRunLock, RunLock
+
+PEN_TTL = 60.0   # seconds — a pen-holder who hasn't acted within this window can be force-taken (B8.5)
 
 
 class NotAuthorized(Exception):
@@ -46,6 +49,7 @@ class Session:
     input_queue: list = field(default_factory=list)      # 2nd-operator inputs, drained per step/gate
     gate_decisions: dict = field(default_factory=dict)   # gate_id → resolved decision (answered-once)
     pen_holder: Optional[str] = None                     # the ONE current writer ("the pen"); others view
+    pen_heartbeat: float = 0.0                           # last writer activity — for the pen TTL (B8.5)
 
 
 def session_id_for(subject: SubjectRef) -> str:
@@ -55,10 +59,12 @@ def session_id_for(subject: SubjectRef) -> str:
 
 class SessionManager:
     def __init__(self, lock: Optional[RunLock] = None, event_log: Optional[EventLog] = None,
-                 authz: Optional[Callable[[SubjectRef, str], bool]] = None) -> None:
+                 authz: Optional[Callable[[SubjectRef, str], bool]] = None,
+                 clock: Optional[Callable[[], float]] = None) -> None:
         self.lock = lock or InMemoryRunLock()
         self.events = event_log or InMemoryEventLog()
         self._authz = authz or (lambda subject, actor: True)
+        self._clock = clock or time.monotonic
         self._sessions: dict[str, Session] = {}
 
     # ── lifecycle (B8.1) ────────────────────────────────────────────────
@@ -66,11 +72,16 @@ class SessionManager:
                         seed_messages: Optional[list] = None) -> Session:
         """Idempotent on the subject id: the first promoter creates the thread, the rest attach —
         never two threads for one incident (B8.4 create-or-join race)."""
+        # admission is gated BEFORE any mutation: an unauthorized actor must not pollute `members` or
+        # (as creator) be recorded as the sole pen-holder, which would block legitimate operators.
+        if not self._authz(subject, actor):
+            raise NotAuthorized(f"{actor} is not authorized for {session_id_for(subject)}")
         sid = session_id_for(subject)
         sess = self._sessions.get(sid)
         if sess is None:
             # the creator starts holding the pen (the one writer); later joiners are viewers
-            sess = Session(id=sid, subject=subject, messages=list(seed_messages or []), pen_holder=actor)
+            sess = Session(id=sid, subject=subject, messages=list(seed_messages or []),
+                           pen_holder=actor, pen_heartbeat=self._clock())
             self._sessions[sid] = sess
         sess.members.add(actor)
         return sess
@@ -93,13 +104,24 @@ class SessionManager:
 
     # ── the pen (one writer at a time) ──────────────────────────────────
     def take_pen(self, sess: Session, actor: str) -> bool:
-        """Become the writer. Succeeds if the pen is free or already yours — one holder at a time."""
+        """Become the writer. Succeeds if the pen is free, already yours, or STALE — a holder who
+        hasn't acted within PEN_TTL can be force-taken, so a disconnected operator can't permanently
+        block everyone else's writes + gate approvals (B8.5 pen liveness)."""
         if not self.is_member(sess, actor):
             raise NotAuthorized(f"{actor} is not a member of {sess.id}")
-        if sess.pen_holder in (None, actor):
+        now = self._clock()
+        holder = sess.pen_holder
+        stale = holder is not None and holder != actor and (now - sess.pen_heartbeat) > PEN_TTL
+        if holder in (None, actor) or stale:
             sess.pen_holder = actor
+            sess.pen_heartbeat = now
             return True
         return False
+
+    def touch_pen(self, sess: Session, actor: str) -> None:
+        """Refresh the pen lease on writer activity (a message / a gate decision)."""
+        if sess.pen_holder == actor:
+            sess.pen_heartbeat = self._clock()
 
     def release_pen(self, sess: Session, actor: str) -> bool:
         if sess.pen_holder == actor:
@@ -121,6 +143,7 @@ class SessionManager:
     def post_event(self, sess: Session, actor: str, event: dict) -> int:
         if not self.is_member(sess, actor):
             raise NotAuthorized(f"{actor} is not a member of {sess.id}")
+        self.touch_pen(sess, actor)                      # writer activity refreshes the pen lease
         return self.events.append(sess.id, {**event, "actor": actor})
 
     # ── input queue (B8.2) — never a 2nd run ────────────────────────────
@@ -134,9 +157,16 @@ class SessionManager:
 
     # ── gate (B8.4 answered-once) ───────────────────────────────────────
     def answer_gate(self, sess: Session, gate_id: str, decision: str, actor: str) -> dict:
-        """First wins; concurrent answers see it resolved — idempotent on the decision."""
+        """First wins; concurrent answers see it resolved — idempotent on the decision. The
+        writer-check and terminal-decision rule live HERE (not only in the API), so a second caller
+        can't bypass them — but BOTH run AFTER the answered-once short-circuit, so an already-resolved
+        gate stays idempotent even for a viewer."""
         if gate_id in sess.gate_decisions:
             return sess.gate_decisions[gate_id]
+        self.require_writer(sess, actor)                 # only the pen-holder decides a gate (B8.5)
+        self.touch_pen(sess, actor)                      # a gate decision is writer activity
+        if decision not in ("approve", "deny"):          # 'refine' is non-terminal — kept out of the store
+            raise ValueError(f"answer_gate records only terminal decisions (approve|deny), not {decision!r}")
         resolved = {"gate_id": gate_id, "decision": decision, "actor": actor}
         sess.gate_decisions[gate_id] = resolved
         return resolved

@@ -50,14 +50,15 @@ export function GraphView({ graph }: { graph: GraphSlice }) {
           </g>
         ))}
         <g transform={`translate(${W - 132}, 14)`} data-testid="minimap">
+          {/* density driven by the SLICE (not a hardcoded fixture), bounded so any incident fits */}
           <rect width={120} height={74} className="mm-bg" rx={4} />
-          {Array.from({ length: 135 }).map((_, i) => (
+          {Array.from({ length: Math.min(graph.collapsed.count, 27 * 12) }).map((_, i) => (
             <rect key={i} x={6 + (i % 27) * 4.1} y={8 + Math.floor(i / 27) * 5.4} width={2.8} height={3.6} className="mm-dot" />
           ))}
-          {Array.from({ length: 12 }).map((_, i) => (
+          {Array.from({ length: Math.min(graph.impacted, 27) }).map((_, i) => (
             <rect key={`hot-${i}`} x={6 + i * 4.1} y={8 + 4 * 5.4} width={2.8} height={3.6} className="mm-hot" />
           ))}
-          <text x={60} y={70} textAnchor="middle" className="mm-label">147 nodes</text>
+          <text x={60} y={70} textAnchor="middle" className="mm-label">{graph.total} nodes</text>
         </g>
       </svg>
       <div className="graph-legend">

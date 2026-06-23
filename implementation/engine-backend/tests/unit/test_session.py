@@ -180,3 +180,49 @@ def test_revoke_drops_the_pen():
     sess = mgr.create_or_join(SUBJECT, "alice")
     mgr.revoke(sess, "alice")
     assert sess.pen_holder is None                       # losing access drops the pen too
+
+
+# ── audit fixes: gate writer-check + terminal-only (after answered-once), join-time authz ──
+def test_answer_gate_rejects_viewer_on_unresolved_gate():
+    mgr = SessionManager()
+    sess = mgr.create_or_join(SUBJECT, "alice")        # alice holds the pen
+    mgr.create_or_join(SUBJECT, "bob")                 # viewer
+    with pytest.raises(NotWriter):
+        mgr.answer_gate(sess, "gate-x", "approve", "bob")     # a viewer cannot decide a gate
+
+
+def test_answer_gate_rejects_nonterminal_refine():
+    mgr = SessionManager()
+    sess = mgr.create_or_join(SUBJECT, "alice")
+    with pytest.raises(ValueError):
+        mgr.answer_gate(sess, "gate-x", "refine", "alice")    # refine is non-terminal
+
+
+def test_create_or_join_rejects_unauthorized_actor():
+    mgr = SessionManager(authz=lambda subject, actor: actor != "mallory")
+    with pytest.raises(NotAuthorized):
+        mgr.create_or_join(SUBJECT, "mallory")                # gated BEFORE any mutation
+    assert mgr.get(session_id_for(SUBJECT)) is None           # nothing polluted
+
+
+# ── audit fix: pen liveness — a stale (disconnected) pen-holder can be force-taken (SHOU-18) ──
+def test_stale_pen_can_be_force_taken():
+    clock = FakeClock()
+    mgr = SessionManager(clock=clock)
+    sess = mgr.create_or_join(SUBJECT, "alice")      # alice holds the pen
+    mgr.create_or_join(SUBJECT, "bob")
+    assert mgr.take_pen(sess, "bob") is False         # alice is live → no steal
+    clock.advance(120)                                 # > PEN_TTL with no alice activity
+    assert mgr.take_pen(sess, "bob") is True           # stale → bob force-takes
+    assert sess.pen_holder == "bob"
+
+
+def test_writer_activity_refreshes_the_pen_lease():
+    clock = FakeClock()
+    mgr = SessionManager(clock=clock)
+    sess = mgr.create_or_join(SUBJECT, "alice")
+    mgr.create_or_join(SUBJECT, "bob")
+    clock.advance(40)
+    mgr.touch_pen(sess, "alice")                       # alice acts at t=40
+    clock.advance(40)                                   # last activity 40 ago < PEN_TTL
+    assert mgr.take_pen(sess, "bob") is False           # not stale → can't steal

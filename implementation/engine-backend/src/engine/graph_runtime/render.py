@@ -16,7 +16,8 @@ _FLAGGED = ("suspect", "impacted")
 
 def render_slice(graph: IncidentGraph, subject_id: str,
                  cause_path: Optional[list[str]] = None,
-                 flagged_labels: tuple[str, ...] = _FLAGGED) -> dict:
+                 flagged_labels: tuple[str, ...] = _FLAGGED, *,
+                 frontier_cap: int = 20, expand_cap: int = 12) -> dict:
     cause_path = cause_path or []
     present = set(graph.node_ids())
 
@@ -32,31 +33,38 @@ def render_slice(graph: IncidentGraph, subject_id: str,
     for nid in graph.node_ids():
         n = graph.raw_node(nid)
         flagged = bool(set(n.labels) & set(flagged_labels))
-        unhealthy = any(f.impact_state is not None and f.impact_state.value != "ok" for f in n.facts)
-        if flagged or unhealthy:
+        if flagged or graph._is_unhealthy(n):           # NICE-4: recency-aware, single source of truth
             add_full(nid)
 
     full_set = set(full_ids)
 
-    # 1-hop frontier — adjacent, not-yet-full nodes, as expandable stubs
+    # 1-hop frontier — adjacent, not-yet-full nodes as stubs, GLOBALLY bounded (SHOU-2): without a
+    # global cap the frontier scales ~expand_cap × |full|, blowing the B9.3 "~10–30 nodes" envelope.
+    # Overflow neighbours fold into the collapsed count so full + frontier + collapsed == total holds.
     frontier: list[dict] = []
     frontier_ids: set[str] = set()
+    overflow = 0
     for nid in full_ids:
-        for stub in graph.neighbours(nid, cap=64).get("neighbours", []):
+        for stub in graph.neighbours(nid, cap=expand_cap).get("neighbours", []):
             sid = stub["id"]
-            if sid not in full_set and sid not in frontier_ids:
+            if sid in full_set or sid in frontier_ids:
+                continue
+            frontier_ids.add(sid)
+            if len(frontier) < frontier_cap:
                 frontier.append(stub)
-                frontier_ids.add(sid)
+            else:
+                overflow += 1                           # counted once, rendered as collapsed
 
-    rendered_ids = full_set | frontier_ids
+    rendered_ids = full_set | {s["id"] for s in frontier}
     collapsed_count = sum(1 for nid in present if nid not in rendered_ids)
 
+    overflow_note = f" (incl {overflow} frontier over cap)" if overflow else ""
     return {
         "full": [graph.get(nid) for nid in full_ids],
         "frontier": frontier,
         "collapsed": {
             "count": collapsed_count,
-            "summary": f"{collapsed_count} healthy / ruled-out · collapsed",
+            "summary": f"{collapsed_count} healthy / ruled-out · collapsed{overflow_note}",
         },
         "rendered": len(full_ids) + len(frontier),
         "total": len(graph),

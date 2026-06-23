@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from .common import Base
 from .enums import PhaseEffect, PlaybookStatus
@@ -38,7 +38,8 @@ class PhaseSpec(Base):
     goal: Optional[str] = None
     needs: list[str] = Field(default_factory=list)   # INTENTS, never tool names
     gate_writes: bool = False
-    min_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    min_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)  # set → a confidence LOOP phase
+    backtrack_to: Optional[str] = None               # set → re-enter this earlier phase if the check fails
 
     @field_validator("needs")
     @classmethod
@@ -64,6 +65,16 @@ class Playbook(Base):
     unknown_access: str = "ask"
     error_handler: Optional[ErrorHandler] = None
     changelog: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _backtrack_targets_an_earlier_phase(self) -> "Playbook":
+        ids = [p.id for p in self.phases]
+        for i, p in enumerate(self.phases):
+            if p.backtrack_to is not None and p.backtrack_to not in ids[:i]:
+                raise ValueError(
+                    f"phase {p.id!r} backtrack_to={p.backtrack_to!r} must reference an EARLIER phase "
+                    f"(a misconfigured backtrack would wire to a non-existent / forward node)")
+        return self
 
     @property
     def pk(self) -> tuple[str, str]:
