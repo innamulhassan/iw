@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Incident Triage — Design Set</title>
+<title>The Investigation Workbench — Design Set</title>
 <style>
   :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--bg:#f4f6f9;--card:#fff}
   *{box-sizing:border-box}
@@ -28,16 +28,16 @@
 </style></head><body><div class="wrap">
 
 <header>
-  <h1>Incident Triage — Investigation Engine</h1>
-  <p class="sub">The design set. A governed, in-house, <b>domain-neutral</b> investigation engine; incident triage is the first domain.</p>
+  <h1>The Investigation Workbench</h1>
+  <p class="sub">The design set. A governed, human-in-the-loop <b>workbench</b> for any production investigation — its <b>engine</b> runs a versioned playbook through guided, audited phases, and a human approves every write. <b>Incident triage is the first use case.</b></p>
   <p class="meta">Infrastructure Resilience &amp; Operations · v2 (current) · governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in</p>
 </header>
 
-<div class="start"><b>New here?</b> Start with <b>01 · Presentation</b> for the pitch, then <b>03 · Design</b> for the complete picture. Every doc has a <b>← Design-set index</b> link back here.</div>
+<div class="start"><b>New here?</b> Start with <b>01 · Overview</b> for the pitch, then <b>03 · Design</b> for the complete picture. Every doc has a <b>← Design-set index</b> link back here.</div>
 
 <div class="grp">Brief &amp; scope</div>
 <div class="cards">
-  <a class="card" href="01-presentation.html"><div class="num">01</div><div class="ct"><div class="t">Presentation <span class="arr">→</span></div><div class="d">The leadership brief — what it is, how it connects, the playbook, the console (both views), the staged graph, and delivery.</div><span class="who">for leadership</span></div></a>
+  <a class="card" href="01-presentation.html"><div class="num">01</div><div class="ct"><div class="t">Overview <span class="arr">→</span></div><div class="d">The leadership brief — what it is, how it connects, the playbook, the console (both views), the staged graph, and delivery.</div><span class="who">for eng leadership</span></div></a>
   <a class="card" href="02-spec.html"><div class="num">02</div><div class="ct"><div class="t">Spec <span class="arr">→</span></div><div class="d">The one-page scope — what we're building, the agent loop, the capability layer, three scenarios, and the build component spec.</div><span class="who">scope to start from</span></div></a>
 </div>
 
@@ -55,7 +55,7 @@
 </div>
 
 <footer>
-  Read order: <b>01</b> Presentation → <b>02</b> Spec → <b>03</b> Design → <b>04</b> Data Model → <b>05</b> Runbook → <b>06</b> Delivery → <b>07</b> Capability Layer. · The worked example <code>INC-4821</code> (failed disk → RAID rebuild → DB I/O → checkout latency) runs consistently through every doc. · Older drafts: <code>../v1/</code> (superseded, old model) · the separate HLD/LLD now combined into <b>03 · Design</b>: <code>_superseded/</code>.
+  Read order: <b>01</b> Overview → <b>02</b> Spec → <b>03</b> Design → <b>04</b> Data Model → <b>05</b> Runbook → <b>06</b> Delivery → <b>07</b> Capability Layer. · The worked example <code>INC-4821</code> (failed disk → RAID rebuild → DB I/O → checkout latency) runs consistently through every doc. · Older drafts: <code>../v1/</code> (superseded, old model) · the separate HLD/LLD now combined into <b>03 · Design</b>: <code>_superseded/</code>.
 </footer>
 
 </div></body></html>

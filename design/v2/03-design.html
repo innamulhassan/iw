@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Incident Triage — Engine &amp; Platform Design</title>
+<title>The Investigation Workbench — Engine &amp; Platform Design</title>
 <style>
   :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;--mono:'SF Mono',Consolas,Menlo,monospace}
   *{box-sizing:border-box}
@@ -45,9 +45,9 @@
 
 
 <header>
-  <h1>Incident Triage — Engine &amp; Platform Design</h1>
-  <p class="sub">The complete design, in one place: the system, <b>the engine on LangGraph</b>, the capability layer, the full data model, the physical/LLD detail, operations, and the release schedule. Domain-neutral; incident triage is the first domain.</p>
-  <p class="meta">Infrastructure Resilience &amp; Operations · v1.0 · combines the HLD + LLD + data model + delivery · companion: the Presentation (leadership) · worked on INC-4821 / payments-api</p>
+  <h1>The Investigation Workbench — Engine &amp; Platform Design</h1>
+  <p class="sub">The complete design, in one place: the system, <b>the engine on LangGraph</b>, the capability layer, the full data model, the physical/LLD detail, operations, and the release schedule. Domain-neutral; incident triage is the first use case.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · v1.0 · combines the HLD + LLD + data model + delivery · companion: the Overview (leadership) · worked on INC-4821 / payments-api</p>
 </header>
 
 <nav class="toc">
@@ -94,7 +94,7 @@
 <div class="part">A · The system</div>
 
 <h2 id="a1"><span class="n">A1</span> What &amp; why — goals</h2>
-<p>A governed, in-house <b>investigation engine</b> for production operations. One engine runs a versioned <b>playbook</b> through gated, audited phases; it builds a <b>graph</b> of the situation, reasons over it with the model, calls <b>governed capabilities</b> (never tools directly), and a human approves every write. The first domain is incident triage; the same engine runs other domains by loading a different playbook.</p>
+<p>The <b>Investigation Workbench</b> — a governed, in-house system for production operations. At its core, one <b>engine</b> runs a versioned <b>playbook</b> through gated, audited phases; it builds a <b>graph</b> of the situation, reasons over it with the model, calls <b>governed capabilities</b> (never tools directly), and a human approves every write. The first domain is incident triage; the same engine runs other domains by loading a different playbook.</p>
 <table>
   <tr><th style="width:26%">Goal</th><th>How the design meets it</th></tr>
   <tr><td class="f">No vendor lock-in</td><td>the engine calls abstract capabilities; a source can change without touching the engine (Part C).</td></tr>
@@ -736,6 +736,6 @@ db.incidents.createIndex({ fingerprint:1 })   <span class="c">// + a vector inde
   <tr><td class="f">Extensibility</td><td>a new source needs only a registry entry; a new domain only a new playbook — no engine change.</td></tr>
 </table>
 
-<footer>The complete design, in one place: <b>A</b> system · <b>B</b> the engine on LangGraph · <b>C</b> capability layer · <b>D</b> data model · <b>E</b> physical/LLD · <b>F</b> operations · <b>G</b> delivery. Companion: the <b>Presentation</b> (leadership) and the <b>Delivery Plan</b> (by-sprint Gantt). Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in.</footer>
+<footer>The complete design, in one place: <b>A</b> system · <b>B</b> the engine on LangGraph · <b>C</b> capability layer · <b>D</b> data model · <b>E</b> physical/LLD · <b>F</b> operations · <b>G</b> delivery. Companion: the <b>Overview</b> (leadership) and the <b>Delivery Plan</b> (by-sprint Gantt). Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in.</footer>
 
 </div></body></html>

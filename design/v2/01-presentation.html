@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Incident Triage AIOps — System Brief</title>
+<title>The Investigation Workbench — Overview</title>
 <style>
   :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;}
   *{box-sizing:border-box}
@@ -35,29 +35,36 @@
 
 
 <div class="cover">
-  <h1>Incident Triage AIOps — System Brief</h1>
-  <p class="sub">A governed, in-house engine for production incident support — one console, one capability layer, no vendor lock-in.</p>
-  <p class="meta">Infrastructure Resilience &amp; Operations · for leadership · full design in the companion Design doc</p>
+  <h1>The Investigation Workbench</h1>
+  <p class="sub"><b>A governed, human-in-the-loop workbench for any production investigation — its engine takes each one through guided phases; the agent does the legwork, a human approves every plan and every write.</b> Incident triage is the first use case.</p>
+  <p class="meta">Infrastructure Resilience &amp; Operations · Overview · for engineering leadership · full architecture in the companion Design doc</p>
 </div>
 
 <section class="page">
-  <div class="pn">1 · The system</div>
-  <h2>What it is, and how it connects</h2>
-  <p class="one">One <b>engine</b> drives the work and calls <b>abstract capabilities</b> — never tools directly, so it never changes when a source does. One <b>governed capability layer</b> sits over every source and binds each by its <b>kind</b> — a built-in <b>skill</b>, an <b>MCP</b> server, a <b>registered API</b> (a plugin wrapped as a dynamic MCP), or an <b>A2A agent</b> — in a clear onboarding priority: <b>native MCP</b> where a tool already speaks it; else <b>register the API</b> (its OpenAPI spec) <b>as a dynamic MCP</b> — no per-endpoint code, the way most REST tools onboard; else <b>A2A</b> for the deep, per-layer specialist agents — <b>App, DB, Network</b> root-cause, plus <b>Amelia / BladeLogic</b> wrapped as governed capabilities. Whichever kind, every call passes the same <b>allow / ask / deny</b> gate and is audited. The operator works in <b>one console</b>.</p>
-  <figure><img src="diagrams/system-arch.png" alt="System architecture component diagram"></figure>
+  <div class="pn">1 · What it is</div>
+  <h2>One engine that investigates — governed, and human-approved</h2>
+  <p class="one"><b>The Workbench runs a production investigation the way a senior engineer would — but governed.</b> An AI agent works through <b>guided phases</b> (assess → root cause → remediate → verify): it gathers context, builds the picture, finds the cause, proposes the fix. A <b>human approves every plan and every write</b> — nothing changes production without sign-off. The agent is fast; the human stays in control. We call it <b>governed autonomy</b>.</p>
+  <p class="one">It is <b>domain-neutral</b>: the process is a <b>versioned playbook</b> — a document, not code — so the same engine runs a different investigation by loading a different playbook. <b>Incident triage is the first use case</b>, the worked example throughout this brief; a <b>data-quality investigation across systems</b> is the same engine, a different playbook.</p>
+  <p class="one">Under it, one <b>governed capability layer</b> binds every source by its <b>kind</b>: a <b>native MCP</b> tool; a <b>REST API wrapped as a dynamic MCP</b> (from its OpenAPI spec — no per-endpoint code); or an <b>A2A specialist agent</b> (the deep App / DB / Network investigators; Amelia / BladeLogic wrapped). The shorthand: <b>MCP reaches down to tools; A2A reaches across to peer agents that investigate on their own and report back.</b> Whichever kind, <b>every call passes the same allow / ask / deny gate and is audited</b> — the operator works in <b>one console</b>.</p>
+  <figure><img src="diagrams/system-arch.png" alt="System architecture — the operator console over the engine; the capability layer binds native-MCP / dynamic-MCP / A2A sources; every call passes one allow/ask/deny gate"></figure>
+  <div style="border:1px solid var(--line);border-radius:10px;padding:12px 15px;margin:14px 0 2px;background:#fcfdfe">
+    <div style="font-size:12.5px;font-weight:700;color:var(--head);margin-bottom:5px">How it sits in the field — the consensus, executed coherently</div>
+    <p class="one sm" style="margin:0 0 7px">The strongest agentic-ops platforms are converging on the same bones, which de-risks the approach: <b>phased investigation</b> (Datadog's Bits AI SRE generates and tests hypotheses; the PRAXIS research agent runs four investigation phases), <b>earned autonomy</b> (Azure SRE Agent starts in <i>Review</i> mode and is granted autonomy only after its behaviour is validated), <b>writes gated behind human approval as the trust unlock</b> (Microsoft: <i>“no change deploys without human sign-off”</i>; Datadog gates high-stakes remediation), a <b>runtime-built dependency graph rather than a static CMDB</b> (Dynatrace's Davis reasons over live topology), and <b>MCP + A2A as complementary layers</b> (Google positions A2A as agent-to-agent, complementing MCP's agent-to-tools).</p>
+    <p class="one sm" style="margin:0"><b>Where this goes further than the platforms we surveyed:</b> one <b>uniform allow / ask / deny gate across all three binding kinds</b> (native-MCP, dynamic-MCP, A2A) — not a per-product guardrail — and one <b>domain-neutral engine</b> that runs incidents first and any other investigation next, same engine, different playbook. The surveyed platforms are incident/SRE-scoped; this is the deliberate lead.</p>
+  </div>
 </section>
 
 <section class="page">
   <div class="pn">2 · How it runs</div>
   <h2>The engine drives a playbook — the process is a document, not code</h2>
-  <p class="one">The engine takes an incident through four <b>re-enterable</b> phases, gated and audited. The process lives in a <b>versioned playbook</b>; change how incidents are handled by editing the playbook — the engine never changes. The engine is <b>domain-neutral</b>: a different playbook runs a different investigation domain (provisioning, capacity…) on the same engine.</p>
+  <p class="one">The engine takes an investigation through its <b>re-enterable</b> phases, gated and audited — shown here on the first use case, incident triage (<b>Assess → Root cause → Remediation → Verify &amp; close</b>). The process lives in a <b>versioned playbook</b>; change how the work is done by editing the playbook — the engine never changes. A <b>different playbook runs a different investigation</b> (a data-quality sweep, provisioning, capacity…) on the same engine.</p>
   <div class="flow"><span class="ph">Assess</span><span class="ar">→</span><span class="ph">Root cause</span><span class="ar">→</span><span class="ph">Remediation</span><span class="ar">→</span><span class="ph">Verify &amp; close</span><span class="re">↺ re-enterable</span></div>
   <div class="pts">
     <div class="pt"><b>Every phase</b> asks a few questions, calls the capabilities it's allowed, and records <b>what it did + the evidence</b>.</div>
     <div class="pt"><b>Every write</b> pauses for approval, in the conversation; closing is always a human act.</div>
     <div class="pt"><b>Durable</b> — checkpointed, exactly-once, resumable; it survives pauses and crashes.</div>
   </div>
-  <p class="one" style="margin-top:14px">Running the playbook does <b>three things</b>: ① it <b>follows the process</b> (the phases); ② it <b>builds an investigation graph — in stages</b>; ③ you <b>watch where it is</b>, phase by phase and as a graph, in the console.</p>
+  <p class="one" style="margin-top:14px">Running the playbook does <b>three things</b>: ① it <b>follows the process</b> (the phases); ② it <b>builds an investigation graph — in stages, from the live runtime state</b> (specific to this investigation, not a static CMDB pulled wholesale); ③ you <b>watch where it is</b>, phase by phase and as a graph, in the console.</p>
   <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0 6px;background:#fcfdfe">
     <div style="font-size:12.5px;font-weight:700;color:var(--head);margin-bottom:2px">② The playbook builds an investigation graph — in stages</div>
     <svg viewBox="0 0 920 152" style="width:100%;display:block">
@@ -118,8 +125,8 @@ phases:                                # TOOL-AGNOSTIC — an intent (needs) + a
 
 <section class="page">
   <div class="pn">3 · The playbook</div>
-  <h2>The complete playbook — the format we build to</h2>
-  <p class="one">The whole incident process is <b>one versioned Markdown file</b>: front-matter the engine executes (the phases as <b>intents</b>, not tools; the gates and defaults; the domain <b>type system</b>) and a body the agent follows. This is the actual <code>incident-triage.playbook.md</code> — to change how incidents are handled you edit this file; the engine never changes, and a <b>different file runs a different domain</b>.</p>
+  <h2>The first use case as a playbook — the format we build to</h2>
+  <p class="one">Here is the first use case in full — the <b>incident-triage</b> process as <b>one versioned Markdown file</b>: front-matter the engine executes (the phases as <b>intents</b>, not tools; the gates and defaults; the domain <b>type system</b>) and a body the agent follows. This is the actual <code>incident-triage.playbook.md</code>, not a sketch — to change how the work is done you edit this file; the engine never changes, and a <b>different file runs a different investigation</b>.</p>
   <pre class="code">---
 id: incident-triage
 version: 1.0.0
@@ -201,7 +208,7 @@ from. If recovery did not hold, backtrack to root cause. A human closes; the eng
 <section class="page">
   <div class="pn">4 · The operator UI</div>
   <h2>One workbench — watch the engine think, decide at the gates</h2>
-  <p class="one">The only UI, in the Claude-Desktop three-pane shape: <b>Incidents</b> on the left; in the center, <b>Triage</b> — the entire incident's chat, where the agent's steps, evidence, and suggestions appear and the <b>approval gate is inline</b>; and on the right, <b>Phases &amp; Steps</b> with a <b>Graph</b> tab — the phases with their typed outputs, or the live investigation graph with the cause path highlighted. It evolves with the operator as autonomy is earned.</p>
+  <p class="one">The only UI, in the Claude-Desktop three-pane shape: the <b>investigations</b> list on the left (here, incidents); in the center, the <b>conversation</b> — the entire investigation's chat, where the agent's steps, evidence, and suggestions appear and the <b>approval gate is inline</b>; and on the right, <b>Phases &amp; Steps</b> with a <b>Graph</b> tab — the phases with their typed outputs, or the live investigation graph with the cause path highlighted. It evolves with the operator as autonomy is earned.</p>
   <figure><img src="diagrams/ui-console.png" alt="The triage console — three panes, right pane on Phases & Steps"></figure>
   <p class="one sm" style="margin:7px 0 0">Right pane on <b>Phases &amp; Steps</b> — the four phases, each step, and its typed output. The worked run: <code>INC-4821</code> — a failed disk → RAID rebuild → DB I/O → checkout latency.</p>
   <figure style="margin-top:11px"><img src="diagrams/ui-console-graph.png" alt="The triage console — right pane switched to the Graph tab"></figure>
@@ -211,7 +218,7 @@ from. If recovery did not hold, backtrack to root cause. A human closes; the eng
 <section class="page">
   <div class="pn">5 · Delivery</div>
   <h2>Phased — value early, autonomy earned, the incumbent retired gradually</h2>
-  <p class="one">Five milestones over ~14 two-week sprints. Each is gated, audited, and reversible; <b>Amelia runs alongside</b> and is dialled down only as in-house actions prove themselves — no big-bang cutover.</p>
+  <p class="one">The first use case — incident triage — ships first; further investigations follow as new playbooks on the same engine. Autonomy is <b>earned, not assumed</b>: read-only assistance first, then gated writes, then graduated autonomy for proven low-risk actions — the same earned-autonomy path the leading platforms describe. Five milestones over ~14 two-week sprints, each gated, audited, and reversible; <b>Amelia runs alongside</b> and is dialled down only as in-house actions prove themselves — no big-bang cutover.</p>
   <div class="flow">
     <span class="ph">M0 Foundation · S1–2</span><span class="ar">→</span>
     <span class="ph">M1 Assisted · S3–5</span><span class="ar">→</span>
@@ -227,6 +234,6 @@ from. If recovery did not hold, backtrack to root cause. A human closes; the eng
   <p class="one" style="font-size:13px;color:var(--ink2)">Full by-sprint plan + the timeline (Gantt) + the parallel hardening track: the <b>Delivery Plan</b>.</p>
 </section>
 
-<footer>Full design: the companion <b>Design</b> doc (architecture · the engine on LangGraph · data model · low-level design) · delivery timeline in the <b>Delivery Plan</b>. Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor lock-in.</footer>
+<footer>Full design: the companion <b>Design</b> doc (architecture · the engine on LangGraph · data model · low-level design) · delivery timeline in the <b>Delivery Plan</b>. One engine, many investigations · governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor lock-in.</footer>
 
 </div></body></html>

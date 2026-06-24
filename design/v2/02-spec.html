@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Investigation Engine — Project Spec</title>
+<title>The Investigation Workbench — Project Spec</title>
 <style>
   :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--ok:#2E7D32;--warn:#B45309;--bg:#f4f6f9;--card:#fff;--mono:'SF Mono',Consolas,Menlo,monospace}
   *{box-sizing:border-box}
@@ -46,7 +46,7 @@
 
 
 <header>
-  <h1>Investigation Engine — Project Spec</h1>
+  <h1>The Investigation Workbench — Project Spec</h1>
   <p class="sub">The clean, single capture — <b>what we're building, how it works, and what to build</b>. Consolidates the HLD + LLD against the settled model; the full data model is the companion doc.</p>
   <p class="meta">Infrastructure Resilience &amp; Operations · v1.0 · for human + machine scoping · KISS · domain-neutral</p>
   <div class="one-line">Plan in a <b>playbook</b> · reason over a <b>graph</b> · act through <b>governed capabilities</b> · a <b>human</b> at every write.</div>
@@ -55,7 +55,7 @@
 <!-- 1 -->
 <section class="sec">
   <div class="tag">1 · What we're building</div>
-  <h2>A governed, in-house investigation engine</h2>
+  <h2>A governed, in-house Investigation Workbench</h2>
   <p class="lead">One <b>engine</b> runs a versioned <b>playbook</b> through gated, audited phases. It builds a <b>graph</b> of the situation, reasons over it with the model, calls <b>governed capabilities</b> (never tools directly), and a human approves every write. The first domain is <b>incident triage</b>; the <i>same engine</i> runs other domains (provisioning, capacity…) by loading a different playbook.</p>
   <div class="note dn"><b>Two kinds of "no lock-in".</b> <b>No vendor lock-in</b> — the engine calls abstract capabilities, so a source can be swapped without touching it. <b>No domain lock-in</b> — everything domain-specific lives in the playbook (types · phases · outputs); the engine, the graph shapes, the registry, governance, storage and the console are universal.</div>
   <table>
@@ -183,7 +183,7 @@
 </section>
 
 <footer>
-  This spec is the single, KISS capture — consolidating the HLD + LLD against the settled model. Companions: the <b>Data-Model</b> doc (every schema in full), the <b>Presentation</b> (leadership brief), the <b>Delivery Plan</b> (by-sprint). Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in.
+  This spec is the single, KISS capture — consolidating the HLD + LLD against the settled model. Companions: the <b>Data-Model</b> doc (every schema in full), the <b>Overview</b> (leadership brief), the <b>Delivery Plan</b> (by-sprint). Governed at the boundary · regulator-grade audit · earned, reversible autonomy · no vendor or domain lock-in.
 </footer>
 
 </div></body></html>
