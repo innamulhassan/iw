@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — Live Viewer</title>
+<style>
+  :root{--ink:#1f2937;--ink2:#51606e;--head:#0f3b5e;--accent:#1F4E79;--line:#dce3ec;--bg:#f4f6f9;--card:#fff;
+        --ok:#2E7D32;--warn:#B45309;--bad:#C0392B;--mono:'SF Mono',Consolas,Menlo,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .top{display:flex;align-items:center;gap:14px;padding:11px 18px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .top h1{font-size:16px;margin:0;color:var(--accent)}
+  .top .ttl{font-size:13px;color:var(--ink2)}
+  .pill{font-size:11px;font-weight:700;border-radius:999px;padding:3px 11px}
+  .pill.new{background:#eef1f5;color:var(--ink2)} .pill.running{background:#eef4fb;color:var(--accent)} .pill.waiting_approval{background:#fbf1e3;color:var(--warn)} .pill.done{background:#eaf7ec;color:var(--ok)}
+  .live{margin-left:auto;font-size:11.5px;color:var(--ink2);display:flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:b 1.6s infinite}
+  @keyframes b{0%,100%{opacity:.3}50%{opacity:1}}
+  .top input{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;width:110px}
+  .top button{font:inherit;font-size:12px;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:7px;padding:5px 11px;cursor:pointer}
+  .wrap{display:grid;grid-template-columns:296px 1fr 470px;height:calc(100vh - 48px)}
+  .col{overflow:auto;padding:14px}
+  .left{border-right:1px solid var(--line)} .center{border-right:1px solid var(--line);background:#fcfdfe} .right{background:#fbfcfe}
+  .lab{font-size:11px;font-weight:700;color:var(--head);text-transform:uppercase;letter-spacing:.05em;margin:2px 0 8px}
+  .lab .cap{font-weight:600;color:var(--ink2);text-transform:none;letter-spacing:0}
+  .note{font-size:11px;color:var(--ink2);margin:-4px 0 9px}
+  .note code{font-family:var(--mono);background:#eef1f5;border-radius:3px;padding:0 4px}
+  /* phases */
+  .ph{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:9px;padding:8px 11px;margin:0 0 7px;background:var(--card);cursor:pointer}
+  .ph:hover{border-color:var(--accent)} .ph.sel{border-color:var(--accent);box-shadow:0 1px 6px rgba(20,40,80,.08)}
+  .ph.pending{opacity:.55} .ph.active{border-left-color:var(--accent)} .ph.waiting_approval{border-left-color:var(--warn)} .ph.done{border-left-color:var(--ok)} .ph.failed{border-left-color:var(--bad)}
+  .ph .n{font-size:13.5px;font-weight:700;color:var(--head)} .ph .st{font-size:10.5px;font-weight:700;float:right}
+  .ph.done .st{color:var(--ok)} .ph.active .st{color:var(--accent)} .ph.waiting_approval .st{color:var(--warn)} .ph.pending .st{color:var(--ink2)}
+  .panel{margin-top:12px;border:1px solid var(--line);border-radius:9px;background:var(--card);padding:11px 13px}
+  .panel h3{font-size:13px;color:var(--accent);margin:0 0 6px}
+  .ndl{font-size:10.5px;font-weight:700;color:var(--head);text-transform:uppercase;letter-spacing:.04em;margin:11px 0 4px}
+  code{font-family:var(--mono);font-size:10.5px;background:#eef1f5;border-radius:3px;padding:0 4px;overflow-wrap:anywhere}
+  .src{color:var(--ink2);font-size:10px}
+  .plan{background:#f7faff;border:1px solid #e1e9f3;border-radius:8px;padding:9px 11px;font-size:12px}
+  .plan .goal{color:var(--head);font-weight:600;margin-bottom:4px} .plan .pmeta{color:var(--ink2);font-size:11px} .plan .intents{margin-top:6px}
+  .chip{display:inline-block;background:#eef4fb;border:1px solid #cfe0f0;border-radius:6px;padding:1px 7px;margin:2px 4px 2px 0;font-size:11px;color:var(--accent)}
+  pre.out{background:#f6f8fa;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-family:var(--mono);font-size:10.5px;line-height:1.5;white-space:pre-wrap;overflow:auto;margin:5px 0 0;color:#243}
+  /* chat */
+  .cdiv{display:flex;align-items:center;gap:10px;margin:18px 0 11px;font-size:9.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em}
+  .cdiv::before,.cdiv::after{content:"";flex:1;height:1px;background:var(--line)}
+  .msg{margin:11px 0;display:flex;gap:9px;align-items:flex-start} .msg.op{flex-direction:row-reverse}
+  .av{flex:0 0 27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:15px}
+  .av.ag{background:#eef4fb;border:1px solid #cfe0f0} .av.op{background:var(--accent)}
+  .bwrap{max-width:82%;min-width:0;display:flex;flex-direction:column} .msg.op .bwrap{align-items:flex-end}
+  .who{font-size:9.5px;color:var(--ink2);margin:0 0 3px;text-transform:capitalize}
+  .who .t{color:#aab3bd;margin-left:5px;text-transform:none}
+  .bub{border:1px solid var(--line);border-radius:13px;padding:9px 13px;font-size:12.5px;line-height:1.5;background:var(--card);word-break:break-word;white-space:pre-line}
+  .bub.ag{border-top-left-radius:4px}
+  .msg.op .bub{background:var(--accent);color:#fff;border-color:var(--accent);border-top-right-radius:4px}
+  .bub.reasoning{background:#fafbfc;color:var(--ink2);font-style:italic}
+  .bub.suggestion{background:#fbf7ee;border-color:#e7d6ad}
+  .bub.suggestion .ttl{display:block;font-weight:700;color:#92400e}
+  .cap2{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);background:#eef4fb;border:1px solid #cfe0f0;border-radius:5px;padding:1px 5px;margin-right:6px}
+  .rat{font-size:11px;color:var(--ink2);margin-top:5px;font-style:normal;border-top:1px dashed #e7d6ad;padding-top:5px}
+  .evimg{display:block;max-width:100%;border:1px solid var(--line);border-radius:8px;margin:7px 0 2px}
+  .ev{font-family:var(--mono);font-size:10px;color:var(--ink2);margin-top:3px} .ev a{color:var(--accent);text-decoration:none}
+  .gatecard{border:1.5px solid var(--warn);border-radius:11px;background:#fdf6ec;padding:12px 14px;margin:14px 0}
+  .gh{font-weight:700;color:#92400e;font-size:13px;margin-bottom:5px} .gp{font-size:12.5px;margin-bottom:10px}
+  .gb button{font:inherit;font-size:12px;font-weight:700;border-radius:7px;padding:6px 15px;margin-right:8px;border:1px solid}
+  .ga{background:var(--ok);color:#fff;border-color:var(--ok)} .gr{background:#fff;color:#92400e;border-color:#e7d6ad} .gd{background:#fff;color:var(--bad);border-color:#e6b3ab}
+  /* graph + node */
+  svg{width:100%;height:auto;display:block}
+  .nd{margin-top:14px;border:1px solid var(--line);border-radius:9px;background:var(--card);padding:12px 14px}
+  .nd h3{font-size:14px;margin:0 0 2px;color:var(--head)} .nd .ndm{font-size:11px;color:var(--ink2);margin:0 0 8px} .nd .nds{font-size:12.5px;color:var(--ink);margin:0 0 9px}
+  .nd table{width:100%;border-collapse:collapse;font-size:12px} .nd td{border-top:1px solid #eef1f5;padding:5px 6px;vertical-align:top} .nd td.k{font-weight:700;color:var(--head);width:32%;white-space:nowrap}
+  .nd ul.rel{margin:0;padding-left:18px;font-size:12px} .nd ul.rel li{margin:3px 0}
+  .hb{font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;vertical-align:middle;margin-left:6px}
+  /* right tabs + phase record */
+  .rtabs{display:flex;margin-bottom:10px}
+  .rt{font:inherit;font-size:12px;font-weight:700;padding:6px 14px;border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer}
+  .rt:first-child{border-radius:7px 0 0 7px} .rt:last-child{border-radius:0 7px 7px 0;border-left:none}
+  .rt.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .rec h3{font-size:13px;color:var(--accent);margin:0 0 8px}
+  table.recf{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}
+  table.recf td{border-top:1px solid #eef1f5;padding:4px 6px;vertical-align:top} table.recf td.k{font-weight:700;color:var(--head);width:34%;white-space:nowrap}
+  .rstep{padding:5px 0 5px 9px;margin:6px 0;font-size:12px;white-space:pre-line}
+  .rk{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:2px}
+  .empty{color:var(--ink2);font-size:13px;padding:16px}
+</style></head>
+<body>
+<div class="top">
+  <h1>Investigation Workbench</h1>
+  <span class="ttl" id="ttl">—</span><span class="pill" id="status">—</span>
+  <input id="inc" placeholder="INC-4821"><button onclick="openInc()">Open</button>
+  <span class="live"><span class="dot"></span><span id="livetxt">polling…</span></span>
+</div>
+<div class="wrap">
+  <div class="col left">
+    <div class="lab">Phases &amp; plan</div>
+    <div class="note">phases come from <code>playbook.json</code></div>
+    <div id="phases"></div><div id="panel"></div>
+  </div>
+  <div class="col center">
+    <div class="lab">Conversation <span class="cap">— live mirror of the agent chat (you talk to the agent in VS Code / Claude, not here)</span></div>
+    <div id="chat"><div class="empty">Loading…</div></div>
+  </div>
+  <div class="col right">
+    <div class="rtabs"><button class="rt active" id="rt-graph" onclick="setTab('graph')">Graph</button><button class="rt" id="rt-record" onclick="setTab('record')">Phase record</button></div>
+    <div id="pane-graph" class="rpane">
+      <div class="lab">Investigation graph <span class="cap" id="gcap"></span></div>
+      <div class="note">types constrained by <code>graph-schema.json</code> — the engine can't invent types</div>
+      <div id="graph"></div><div id="nodedetail"></div>
+    </div>
+    <div id="pane-record" class="rpane" style="display:none"><div id="record"></div></div>
+  </div>
+</div>
+
+<script>
+const HEALTH={subject:["#1F4E79","#fff","#1F4E79"],impacted:["#C26B4E","#FCF3EC","#9a3b2b"],degraded:["#C8860D","#FBF3E6","#92400e"],
+  unhealthy:["#C0392B","#FBECEB","#9a2b1f"],healthy:["#2E7D32","#EAF7EC","#16631f"],ruled_out:["#9AA5B1","#F4F6F8","#6b7480"],related:["#5B6B7B","#EEF1F5","#3a4654"]};
+let PHASE_LABEL={assess:"1 · Assess","root-cause":"2 · Root cause",remediation:"3 · Remediation (gated)","verify-close":"4 · Verify & close"};
+let PHASE_IDX={assess:0,"root-cause":1,remediation:2,"verify-close":3};
+let PLAYBOOK=null, CAPS=null, SCHEMA=null, DATA=null, TAB="graph";
+const P=new URLSearchParams(location.search);
+let NAME=P.get("incident")||"INC-4821", PIN=P.get("phase"), SEL=PIN||null, NODE=P.get("node")||null, USERSEL=!!PIN;
+
+function openInc(){const v=document.getElementById("inc").value.trim(); if(v){NAME=v;PIN=null;SEL=null;NODE=null;load();}}
+function selectPhase(p){SEL=p; USERSEL=true; const g=(DATA&&DATA.graph)||{nodes:[],edges:[]}; const lim=PHASE_IDX[SEL]??99;
+  const vis=new Set((g.nodes||[]).filter(n=>(PHASE_IDX[n.phase]??0)<=lim).map(n=>n.id));
+  if(NODE&&!vis.has(NODE)){const ce=(g.edges||[]).find(e=>e.type==="suspected_cause"&&vis.has(e.to)); NODE=ce?ce.to:([...vis][0]||null);}
+  renderPhases(DATA); renderPanel(DATA); drawGraph(g, SEL); renderNodeDetail(); renderRecord(DATA);}
+function selectNode(id){NODE=id; renderNodeDetail();}
+function setTab(t){if(t!=="graph"&&t!=="record")t="graph"; TAB=t; document.getElementById("pane-graph").style.display=t==="graph"?"":"none"; document.getElementById("pane-record").style.display=t==="record"?"":"none"; document.getElementById("rt-graph").classList.toggle("active",t==="graph"); document.getElementById("rt-record").classList.toggle("active",t==="record"); if(DATA)renderRecord(DATA);}
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function evidenceHtml(ev){return /\.(png|jpe?g|gif|webp)$/i.test(ev)
+  ? `<a href="${esc(ev)}" target="_blank"><img class="evimg" src="${esc(ev)}" alt="evidence"></a><div class="ev">▣ <a href="${esc(ev)}" target="_blank">${esc(ev)}</a></div>`
+  : `<div class="ev">▣ ${esc(ev)}</div>`;}
+
+async function load(){
+  try{
+    if(!SCHEMA){try{SCHEMA=await (await fetch("graph-schema.json?t="+Date.now(),{cache:"no-store"})).json();}catch(_){}}
+    if(!PLAYBOOK){try{PLAYBOOK=await (await fetch("playbook.json?t="+Date.now(),{cache:"no-store"})).json();
+      if(PLAYBOOK&&Array.isArray(PLAYBOOK.phases)){PHASE_LABEL={};PHASE_IDX={};PLAYBOOK.phases.forEach((p,i)=>{PHASE_LABEL[p.id]=p.label||p.id;PHASE_IDX[p.id]=i;});}}catch(_){}}
+    if(!CAPS){try{CAPS=await (await fetch("capabilities.json?t="+Date.now(),{cache:"no-store"})).json();}catch(_){}}
+    const r=await fetch(`incidents/${NAME}.json?t=`+Date.now(),{cache:"no-store"});
+    if(!r.ok) throw new Error(r.status);
+    document.getElementById("livetxt").textContent="live · "+new Date().toLocaleTimeString();
+    render(await r.json());
+  }catch(e){document.getElementById("livetxt").textContent="no server — run: python3 -m http.server 8000";}
+}
+
+function render(d){
+  const changed=JSON.stringify(d)!==JSON.stringify(DATA); DATA=d;
+  document.getElementById("ttl").textContent=`${d.incident} — ${d.title||""}`;
+  const s=document.getElementById("status"); s.textContent=(d.status||"").replace("_"," "); s.className="pill "+(d.status||"");
+  document.getElementById("inc").value=d.incident||NAME;
+  const active=(d.phases||[]).find(p=>p.state==="active"||p.state==="waiting_approval")||[...(d.phases||[])].reverse().find(p=>p.state==="done")||(d.phases||[])[0];
+  if(!PIN){ if(!USERSEL) SEL=(active||{}).phase; else if(!SEL||!(d.phases||[]).some(p=>p.phase===SEL)) SEL=(active||{}).phase; }
+  const _n=(d.graph&&d.graph.nodes)||[];
+  if(!_n.some(n=>n.id===NODE)){const ce=((d.graph&&d.graph.edges)||[]).find(x=>x.type==="suspected_cause"); NODE=ce?ce.to:((_n[0]||{}).id||null);}
+  renderPhases(d); renderPanel(d); renderChat(d); drawGraph(d.graph||{nodes:[],edges:[]},SEL); renderNodeDetail(); renderRecord(d);
+}
+
+function renderPhases(d){
+  document.getElementById("phases").innerHTML=(d.phases||[]).map(p=>{const st=p.state||"pending";
+    return `<div class="ph ${st} ${p.phase===SEL?"sel":""}" onclick="selectPhase('${p.phase}')"><span class="st">${st.replace("_"," ")}</span><div class="n">${PHASE_LABEL[p.phase]||p.phase}</div></div>`;}).join("");
+}
+function renderPanel(d){
+  const p=(d.phases||[]).find(x=>x.phase===SEL); if(!p){document.getElementById("panel").innerHTML="";return;}
+  const def=((PLAYBOOK&&PLAYBOOK.phases)||[]).find(x=>x.id===SEL)||{};
+  const intents=(def.intents||[]).map(i=>{const tools=((CAPS&&CAPS.capabilities)||[]).filter(c=>(c.intents||[]).includes(i)).map(c=>c.id);
+    return `<span class="chip">${esc(i)}${tools.length?` <span class="src">→ ${esc(tools.join(", "))}</span>`:""}</span>`;}).join("");
+  const out=p.output?`<pre class="out">${esc(JSON.stringify(p.output,null,2))}</pre>`:"";
+  document.getElementById("panel").innerHTML=`<div class="panel"><h3>${PHASE_LABEL[p.phase]||p.phase} — ${(p.state||"").replace("_"," ")}</h3>
+    <div class="ndl">Plan <span class="src">(playbook.json)</span></div>
+    <div class="plan">${def.goal?`<div class="goal">${esc(def.goal)}</div>`:""}
+      <div class="pmeta">${def.effect?`effect <b>${esc(def.effect)}</b>`:""}${def.gate?` · <b style="color:var(--warn)">⛔ gated</b>`:(def.effect?" · ungated":"")}${def.output?` · output <code>${esc(def.output)}</code>`:""}</div>
+      ${intents?`<div class="intents">needs: ${intents}</div>`:""}</div>
+    ${p.output?`<div class="ndl">Output</div>${out}`:""}</div>`;
+}
+
+function renderChat(d){
+  const el=document.getElementById("chat"); let html="", last=null;
+  (d.phases||[]).forEach(ph=>{(ph.steps||[]).forEach(s=>{
+    if(ph.phase!==last){html+=`<div class="cdiv">${PHASE_LABEL[ph.phase]||ph.phase}</div>`; last=ph.phase;}
+    html+=chatMsg(s);});});
+  if(d.status==="waiting_approval"&&d.pending_gate){
+    const gkind=d.pending_gate.kind;
+    const ghead=gkind==="advance"?"⏭ Approve to proceed":gkind==="close"?"🏁 Approve to close":"⛔ Approval needed";
+    const gtail=gkind==="write"?" (write — gated)":"";
+    const gopts=gkind==="write"?"approve · refine · deny":"approve · hold";
+    html+=`<div class="gatecard"><div class="gh">${ghead} — ${PHASE_LABEL[d.pending_gate.phase]||d.pending_gate.phase}${gtail}</div>
+      <div class="gp">${esc(d.pending_gate.proposal)}</div>
+      <div class="src" style="margin-top:6px">→ the operator decides in the <b>agent chat</b> (VS Code / Claude): <b>${gopts}</b>. This panel only visualises the pause.</div></div>`;
+  }
+  el.innerHTML=html||`<div class="empty">no conversation yet — start the engine</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+function chatMsg(s){
+  const t=s.at?`<span class="t">${esc(s.at)}</span>`:"";
+  if(s.kind==="decision"){ const ic={approve:"✓",refine:"↻",deny:"✗"}[s.result]||"•";
+    return `<div class="msg op"><div class="av op">🧑</div><div class="bwrap"><div class="who">you ${t}</div><div class="bub">${ic} <b>${esc(s.result)}</b>${s.actor?` — ${esc(s.actor)}`:""}</div></div></div>`; }
+  if(s.kind==="user_input")
+    return `<div class="msg op"><div class="av op">🧑</div><div class="bwrap"><div class="who">you ${t}</div><div class="bub">${esc(s.message||s.result||"")}</div></div></div>`;
+  const M=({tool_call:["🔎","agent · tool call"],reasoning:["💭","agent · reasoning"],suggestion:["💡","agent · proposed fix"]})[s.kind]||["•","agent"];
+  let body;
+  if(s.kind==="tool_call") body=`${s.capability?`<span class="cap2">${esc(s.capability)}</span>`:""}${esc(s.result||"")}${s.evidence?evidenceHtml(s.evidence):""}`;
+  else if(s.kind==="suggestion") body=`<span class="ttl">${esc(s.result||s.proposal||"")}</span>${s.rationale?`<div class="rat">${esc(s.rationale)}</div>`:""}`;
+  else body=esc(s.result||"");
+  return `<div class="msg ag"><div class="av ag">${M[0]}</div><div class="bwrap"><div class="who">${M[1]} ${t}</div><div class="bub ag ${s.kind}">${body}</div></div></div>`;
+}
+
+function drawGraph(g,selPhase){
+  const lim=(selPhase!=null&&PHASE_IDX[selPhase]!=null)?PHASE_IDX[selPhase]:99;
+  const cap=document.getElementById("gcap"); if(cap) cap.textContent=selPhase?`— as of ${PHASE_LABEL[selPhase]}`:"";
+  const nodes=(g.nodes||[]).filter(n=>(PHASE_IDX[n.phase]??0)<=lim);
+  const ids=new Set(nodes.map(n=>n.id));
+  const edges=(g.edges||[]).filter(e=>(PHASE_IDX[e.phase]??0)<=lim&&ids.has(e.from)&&ids.has(e.to));
+  if(!nodes.length){document.getElementById("graph").innerHTML='<div class="empty">no nodes yet at this phase</div>';return;}
+  const adj={}; nodes.forEach(n=>adj[n.id]=[]); edges.forEach(e=>{if(adj[e.from]&&adj[e.to]){adj[e.from].push(e.to);adj[e.to].push(e.from);}});
+  const root=(nodes.find(n=>n.health==="subject")||nodes.find(n=>n.kind==="incident")||nodes[0]).id;
+  const depth={[root]:0}, q=[root]; while(q.length){const c=q.shift(); adj[c].forEach(nx=>{if(depth[nx]==null){depth[nx]=depth[c]+1;q.push(nx);}});}
+  nodes.forEach(n=>{if(depth[n.id]==null)depth[n.id]=0;});
+  const rows={}; nodes.forEach(n=>{(rows[depth[n.id]]=rows[depth[n.id]]||[]).push(n);});
+  const W=720,RH=104,BW=128,BH=42,H=Object.keys(rows).length*RH+30,pos={};
+  Object.keys(rows).forEach(dp=>{const row=rows[dp],y=30+dp*RH; row.forEach((n,i)=>{pos[n.id]={x:(W/(row.length+1))*(i+1),y};});});
+  const es=edges.map(e=>{const a=pos[e.from],b=pos[e.to]; if(!a||!b)return""; const cause=e.type==="suspected_cause";
+    const col=cause?"#C0392B":"#9AA5B1",w=cause?2.2:1.4,dash=e.type==="changed"?'stroke-dasharray="5 4"':"",mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="${w}" ${dash}/><text x="${mx}" y="${my-3}" font-size="9.5" fill="${cause?"#9a2b1f":"#9AA5B1"}" text-anchor="middle">${cause?("cause "+(e.confidence??"")):(e.type||"").replace("_"," ")}</text>`;}).join("");
+  const ns=nodes.map(n=>{const p=pos[n.id],[st,fl,tx]=HEALTH[n.health]||HEALTH.healthy,dash=n.health==="ruled_out"?'stroke-dasharray="4 3"':"";
+    return `<g onclick="selectNode('${n.id}')" style="cursor:pointer"><rect x="${p.x-BW/2}" y="${p.y-BH/2}" width="${BW}" height="${BH}" rx="9" fill="${fl}" stroke="${st}" stroke-width="${n.health==="subject"?2:1.4}" ${dash}/>
+      <text x="${p.x}" y="${p.y-3}" font-size="11.5" font-weight="700" fill="${tx}" text-anchor="middle">${esc(n.label)}</text>
+      <text x="${p.x}" y="${p.y+11}" font-size="9" fill="${tx}" text-anchor="middle" opacity=".8">${esc(n.kind)}${n.health!=="healthy"&&n.health!=="subject"?" · "+n.health:""}</text></g>`;}).join("");
+  document.getElementById("graph").innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img">${es}${ns}</svg>`;
+}
+
+function renderNodeDetail(){
+  const el=document.getElementById("nodedetail"); const g=(DATA&&DATA.graph)||{nodes:[],edges:[]};
+  const n=(g.nodes||[]).find(x=>x.id===NODE); if(!n){el.innerHTML="";return;}
+  const c=HEALTH[n.health]||HEALTH.healthy;
+  const facts=(n.facts||[]).map(f=>{const prov=[f.source,f.at].filter(Boolean).join(" · ");
+    const meta=(prov||f.field)?`<div class="src">${esc(prov)}${f.field?` — <code>${esc(f.field)}</code>`:""}</div>`:"";
+    return `<tr><td class="k">${esc(f.key)}</td><td>${esc(f.value)}${meta}${f.evidence?evidenceHtml(f.evidence):""}</td></tr>`;}).join("")||`<tr><td colspan="2" class="src">no facts yet</td></tr>`;
+  const id2lab={}; (g.nodes||[]).forEach(x=>id2lab[x.id]=x.label);
+  const rels=(g.edges||[]).filter(e=>e.from===n.id||e.to===n.id).map(e=>{const o=e.from===n.id?e.to:e.from,dir=e.from===n.id?"→":"←";
+    return `<li><b>${esc((e.type||"").replace("_"," "))}</b> ${dir} ${esc(id2lab[o]||o)}${e.basis?` <span class="src">— ${esc(e.basis)}</span>`:""}</li>`;}).join("")||`<li class="src">no relations yet</li>`;
+  const inSchema=SCHEMA&&Array.isArray(SCHEMA.node_types)&&SCHEMA.node_types.includes(n.kind);
+  const sch=SCHEMA?(inSchema?` <span class="hb" style="color:#16631f;background:#eaf7ec;border:1px solid #2E7D32">✓ in graph-schema.json</span>`:` <span class="hb" style="color:#9a2b1f;background:#FBECEB;border:1px solid #C0392B">⚠ not in schema</span>`):"";
+  el.innerHTML=`<div class="nd"><h3>${esc(n.label)}<span class="hb" style="color:${c[2]};background:${c[1]};border:1px solid ${c[0]}">${esc(n.health)}</span></h3>
+    <p class="ndm"><b>type:</b> ${esc(n.kind)}${sch}${n.why_type?` — ${esc(n.why_type)}`:""}${n.phase?` · seen in ${PHASE_LABEL[n.phase]||n.phase}`:""}</p>
+    ${n.summary?`<p class="nds">${esc(n.summary)}</p>`:""}
+    <div class="ndl">Facts &amp; how they were captured</div><table>${facts}</table>
+    <div class="ndl">Relations <span class="src">(how the AI connected this node)</span></div><ul class="rel">${rels}</ul>
+    <div class="ndl">Full node graph-data <span class="src">(node + its edges)</span></div><pre class="out">${esc(JSON.stringify({incident:DATA.incident,node:n,edges:(g.edges||[]).filter(e=>e.from===n.id||e.to===n.id)},null,2))}</pre></div>`;
+}
+
+function renderRecord(d){
+  const el=document.getElementById("record"); if(!el) return;
+  const p=(d.phases||[]).find(x=>x.phase===SEL); if(!p){el.innerHTML='<div class="empty">no phase selected</div>';return;}
+  const KCOL={tool_call:"#1F4E79",reasoning:"#7A8794",suggestion:"#B45309",decision:"#2E7D32",user_input:"#6D28D9"};
+  const steps=(p.steps||[]).map(s=>{const col=KCOL[s.kind]||"#9AA5B1";
+    return `<div class="rstep" style="border-left:3px solid ${col}"><span class="rk" style="color:${col}">${(s.kind||"").replace("_"," ")}${s.at?` · <span style="color:var(--ink2);font-weight:400">${esc(s.at)}</span>`:""}</span>
+      <div>${s.capability?`<span class="cap2">[${esc(s.capability)}]</span> `:""}${esc(s.result||s.proposal||s.message||"")}${s.actor?` — <b>${esc(s.actor)}</b>`:""}${s.rationale?`<div class="src">${esc(s.rationale)}</div>`:""}${s.evidence?evidenceHtml(s.evidence):""}</div></div>`;}).join("")||`<div class="empty">no steps</div>`;
+  const F=[["id",p.id],["subject",p.subject?`${p.subject.domain} / ${p.subject.id}`:""],["state",p.state],["opened → closed",[p.opened_at,p.closed_at].filter(Boolean).join(" → ")],["goal",p.goal],["plan",p.plan],["summary",p.summary]];
+  const ft=F.filter(f=>f[1]).map(f=>`<tr><td class="k">${esc(f[0])}</td><td>${esc(f[1])}</td></tr>`).join("");
+  const out=p.output?`<div class="ndl">output</div><pre class="out">${esc(JSON.stringify(p.output,null,2))}</pre>`:"";
+  el.innerHTML=`<div class="rec"><h3>${PHASE_LABEL[p.phase]||p.phase} — phase record <span class="src">(as stored in the DB)</span></h3>
+    <table class="recf">${ft}</table>
+    <div class="ndl">Steps <span class="src">(colour = kind)</span></div>${steps}
+    ${out}
+    <div class="ndl">Phase record JSON <span class="src">(the full document in the DB)</span></div><pre class="out">${esc(JSON.stringify(p,null,2))}</pre></div>`;
+}
+
+if(P.get("tab"))setTab(P.get("tab"));
+load(); setInterval(load,2000);
+</script>
+</body></html>

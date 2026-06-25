@@ -1,0 +1,163 @@
+{
+  "incident": "INC-DEMO",
+  "title": "payments-api 5xx spike (after rev52)",
+  "subject": { "domain": "app-incident", "id": "INC-DEMO", "kind": "incident" },
+  "status": "done",
+  "current_phase": "verify-close",
+  "pending_gate": null,
+  "graph": {
+    "nodes": [
+      { "id": "INC-DEMO", "label": "INC-DEMO", "kind": "incident", "health": "subject", "phase": "assess",
+        "why_type": "kind=incident — it's the run subject, pulled from ServiceNow",
+        "summary": "payments-api 5xx spike after rev52 — SEV-2; resolved by rolling the deploy back.",
+        "facts": [
+          { "key": "number",     "value": "INC-DEMO",      "source": "ServiceNow", "field": "incident.number",           "at": "14:24Z" },
+          { "key": "severity",   "value": "SEV-2 (P2)",    "source": "ServiceNow", "field": "incident.severity" },
+          { "key": "service",    "value": "payments-api",  "source": "ServiceNow", "field": "incident.cmdb_ci" },
+          { "key": "assignment", "value": "Payments SRE",  "source": "ServiceNow", "field": "incident.assignment_group" },
+          { "key": "on-call",    "value": "j.rivera",      "source": "PagerDuty",  "field": "oncall.escalation_policy.user" },
+          { "key": "opened",     "value": "14:24Z",        "source": "ServiceNow", "field": "incident.opened_at" },
+          { "key": "state",      "value": "resolved",      "source": "ServiceNow", "field": "incident.state",            "at": "14:41Z" }
+        ] },
+      { "id": "INC-4471", "label": "INC-4471 (related)", "kind": "incident", "health": "related", "phase": "assess",
+        "why_type": "kind=incident (related) — surfaced by similarity search on symptom + service",
+        "summary": "Similar past incident — same connection-pool-misconfig class; was fixed by a rollback (informed this fix).",
+        "facts": [
+          { "key": "when",  "value": "~3 weeks ago",                       "source": "ServiceNow", "field": "incident.opened_at" },
+          { "key": "cause", "value": "a deploy misconfigured the DB pool", "source": "ServiceNow", "field": "incident.close_notes" },
+          { "key": "fix",   "value": "rolled back the offending deploy",   "source": "ServiceNow", "field": "incident.resolution" },
+          { "key": "match", "value": "0.81 similar",                       "source": "engine",     "field": "similar.score" }
+        ] },
+      { "id": "svc:payments-api", "label": "payments-api", "kind": "service", "health": "healthy", "phase": "assess",
+        "why_type": "kind=service — CMDB CI class cmdb_ci_app_server",
+        "summary": "Was impacted (5xx from DB connection-pool exhaustion); recovered after the rollback.",
+        "facts": [
+          { "key": "5xx rate", "value": "14.2% → 0.3% (recovered)", "source": "Datadog", "field": "trace.http.errors{service:payments-api,status:5xx}", "at": "14:24Z → 14:40Z", "evidence": "shots/status-board.png" },
+          { "key": "p99",      "value": "310ms (normal — it was errors, not latency)", "source": "Datadog", "field": "trace.payments-api.duration.p99", "at": "14:24Z" },
+          { "key": "pool",     "value": "0/5 free → 47/50 free", "source": "Splunk", "field": "log: 'HikariPool-1 - Connection is not available, timed out'", "at": "14:23Z" }
+        ] },
+      { "id": "svc:checkout", "label": "checkout", "kind": "service", "health": "healthy", "phase": "assess",
+        "why_type": "kind=service — CMDB CI; reached as a 1-hop dependency of payments-api",
+        "summary": "Downstream impact — checkout failures tracked payments-api; recovered with it.",
+        "facts": [
+          { "key": "checkout errors", "value": "~14% → 0.2% (recovered)", "source": "Datadog", "field": "trace.checkout.errors", "at": "14:25Z → 14:40Z" },
+          { "key": "dependency",      "value": "calls payments-api",       "source": "ServiceNow", "field": "cmdb_rel_ci 'Depends on'" }
+        ] },
+      { "id": "db:payments", "label": "payments DB", "kind": "database", "health": "healthy", "phase": "root-cause",
+        "why_type": "kind=database — CMDB CI class cmdb_ci_db_instance",
+        "summary": "Healthy throughout — ruled out as the cause (the limit was the client pool, not the DB).",
+        "facts": [
+          { "key": "query p99",   "value": "6ms (normal)", "source": "Datadog", "field": "postgres.query.duration.p99", "at": "14:26Z" },
+          { "key": "server conns","value": "healthy; not saturated server-side", "source": "Datadog", "field": "postgres.connections.active" }
+        ] },
+      { "id": "chg:rev52", "label": "deploy rev52", "kind": "change", "health": "unhealthy", "phase": "root-cause",
+        "why_type": "kind=change — a deployment record from GitHub Deployments",
+        "summary": "Root cause — shrank the DB connection pool 50 → 5; now rolled back.",
+        "facts": [
+          { "key": "sha",         "value": "a3f1c9e",                      "source": "GitHub",  "field": "deployment.sha" },
+          { "key": "diff",        "value": "db.pool.max 50 → 5 (typo)",    "source": "GitHub",  "field": "deployment.diff" },
+          { "key": "deployed",    "value": "14:13Z — 9 min before onset",  "source": "GitHub",  "field": "deployment.created_at" },
+          { "key": "confidence",  "value": "0.92",                         "source": "engine",  "field": "root_cause.confidence" },
+          { "key": "remediation", "value": "rolled back → rev51 (approved by j.rivera)", "source": "Runbook", "field": "action.result", "at": "14:38Z" }
+        ] }
+    ],
+    "edges": [
+      { "from": "INC-DEMO",         "to": "svc:payments-api", "type": "affects",         "phase": "assess",     "basis": "ServiceNow incident.cmdb_ci = payments-api" },
+      { "from": "svc:checkout",     "to": "svc:payments-api", "type": "depends_on",      "phase": "assess",     "basis": "ServiceNow cmdb_rel_ci 'Depends on::Used by'" },
+      { "from": "svc:payments-api", "to": "db:payments",      "type": "depends_on",      "phase": "root-cause", "basis": "trace shows payments-api spans calling postgres" },
+      { "from": "svc:payments-api", "to": "chg:rev52",        "type": "changed",         "phase": "root-cause", "basis": "GitHub: rev52 deployed to payments-api 14:13Z" },
+      { "from": "INC-DEMO",         "to": "chg:rev52",        "type": "suspected_cause", "confidence": 0.92, "phase": "root-cause", "basis": "pool-exhaustion logs + rev52 diff (pool 50→5) + onset timing" },
+      { "from": "INC-DEMO",         "to": "INC-4471",         "type": "related_to",      "phase": "assess",     "basis": "similarity search 0.81 on symptom + service" }
+    ]
+  },
+  "phases": [
+    {
+      "phase": "assess",
+      "state": "done",
+      "id": "INC-DEMO:assess:1",
+      "subject": { "domain": "app-incident", "id": "INC-DEMO", "kind": "incident" },
+      "goal": "What's affected, how bad, what changed — plus related incidents.",
+      "plan": "Pull the incident + topology, light telemetry on the symptom, recent changes, and similar priors.",
+      "opened_at": "14:24Z", "closed_at": "14:27Z",
+      "summary": "payments-api 5xx (errors, not latency); onset tracks rev52; found related INC-4471.",
+      "steps": [
+        { "kind": "tool_call", "capability": "servicenow", "result": "INC-DEMO · SEV-2 · payments-api · Payments SRE; checkout depends on it (cmdb_rel_ci); also found related INC-4471", "evidence": "shots/status-board.png" },
+        { "kind": "tool_call", "capability": "datadog",    "result": "trace.http.errors 0.3% → 14.2%; p99 normal — errors, not latency; onset 14:22, 9 min after rev52" },
+        { "kind": "reasoning", "result": "Errors not latency; onset tracks rev52; a similar past incident (INC-4471) was a pool misconfig fixed by rollback. Check the change + DB path." }
+      ],
+      "output": {
+        "incident_type": "errors",
+        "symptom": "payments-api 5xx 0.3% -> 14.2%",
+        "affected": ["payments-api", "checkout"],
+        "impact": "SEV-2 — ~14% of checkouts failing",
+        "changed": ["rev52 deployed 14:13Z, 9 min before onset"],
+        "related": ["INC-4471 (0.81 similar — pool misconfig, fixed by rollback)"],
+        "suggestions": ["inspect rev52 diff", "check DB connection-pool errors"]
+      }
+    },
+    {
+      "phase": "root-cause",
+      "state": "done",
+      "id": "INC-DEMO:root-cause:1",
+      "subject": { "domain": "app-incident", "id": "INC-DEMO", "kind": "incident" },
+      "goal": "The most probable cause — ranked, with evidence and a stated basis.",
+      "plan": "Walk the dependency graph from payments-api; rule out the DB; read the rev52 diff.",
+      "opened_at": "14:27Z", "closed_at": "14:31Z",
+      "summary": "Cause = rev52 shrank the DB pool 50->5 (conf 0.92); DB itself healthy.",
+      "steps": [
+        { "kind": "tool_call", "capability": "splunk",         "result": "log: 'HikariPool-1 - Connection is not available, timed out' — pool exhausted" },
+        { "kind": "tool_call", "capability": "grafana-traces", "result": "spans block acquiring a pool connection; postgres query p99 6ms (DB itself fine)" },
+        { "kind": "tool_call", "capability": "github-deploys",  "result": "rev52 (a3f1c9e) diff: db.pool.max 50 → 5" },
+        { "kind": "reasoning", "result": "DB healthy; rev52 shrank the pool 10x → exhaustion under load → 5xx. Cause = the change. Same class as INC-4471." }
+      ],
+      "output": {
+        "candidates": [
+          { "cause": "rev52 shrank the DB connection pool 50->5 -> pool exhaustion", "node": "chg:rev52", "confidence": { "value": 0.92, "basis": "pool-exhaustion logs; rev52 diff 50->5; onset matches deploy; matches INC-4471" } },
+          { "cause": "payments DB outage", "node": "db:payments", "confidence": { "value": 0.05, "basis": "ruled out — DB query p99 6ms, accepting connections" } }
+        ],
+        "selected": "chg:rev52",
+        "ruled_out": ["db:payments"]
+      }
+    },
+    {
+      "phase": "remediation",
+      "state": "done",
+      "id": "INC-DEMO:remediation:1",
+      "subject": { "domain": "app-incident", "id": "INC-DEMO", "kind": "incident" },
+      "goal": "The safest fix — propose it, wait for human approve/refine/deny.",
+      "plan": "Propose the smallest reversible action (roll back rev52); gate it for approval.",
+      "opened_at": "14:31Z", "closed_at": "14:38Z",
+      "summary": "Rolled back rev52 -> rev51, approved by j.rivera.",
+      "steps": [
+        { "kind": "suggestion", "result": "Roll back rev52 -> rev51 (reverse).", "rationale": "restores the pool to 50; reversible; smallest action; INC-4471 was fixed the same way" },
+        { "kind": "decision",   "result": "approve", "actor": "j.rivera" },
+        { "kind": "tool_call",  "capability": "runbook-failover", "result": "rollback to rev51 complete; pool back to 50", "evidence": "shots/status-board.png" }
+      ],
+      "output": {
+        "actions": [
+          { "kind": "reverse", "technique": "roll back deploy rev52 -> rev51", "expected_effect": "pool 50; 5xx back to baseline", "blast_radius": "payments-api only", "rollback": "re-deploy rev52 if needed", "approval": "approved by j.rivera", "result": "applied — recovered" }
+        ]
+      }
+    },
+    {
+      "phase": "verify-close",
+      "state": "done",
+      "id": "INC-DEMO:verify-close:1",
+      "subject": { "domain": "app-incident", "id": "INC-DEMO", "kind": "incident" },
+      "goal": "Confirm recovery from the user's side; a human closes.",
+      "plan": "Replay the user journey; check the 5xx baseline; record the resolution.",
+      "opened_at": "14:38Z", "closed_at": "14:41Z",
+      "summary": "Recovered; 5xx 14.2%->0.3%; closed.",
+      "steps": [
+        { "kind": "tool_call", "capability": "synthetic", "result": "checkout journey green; 5xx 0.3%, success 99.8%" },
+        { "kind": "reasoning", "result": "Recovered from the user side within 2 min of rollback. No temporary actions to revert. Resolution recorded for the next incident." }
+      ],
+      "output": {
+        "recovered": true,
+        "before_after": "5xx 14.2% → 0.3%; checkout success → 99.8%",
+        "resolution": "rolled back rev52 (pool 50->5 typo) to rev51",
+        "temporary_actions_status": []
+      }
+    }
+  ]
+}

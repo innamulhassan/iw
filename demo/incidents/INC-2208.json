@@ -1,0 +1,26 @@
+{
+  "incident": "INC-2208",
+  "title": "search-svc latency spike (new)",
+  "subject": { "domain": "app-incident", "id": "INC-2208", "kind": "incident" },
+  "status": "new",
+  "current_phase": "assess",
+  "pending_gate": null,
+  "graph": {
+    "nodes": [
+      { "id": "INC-2208", "label": "INC-2208", "kind": "incident", "health": "subject", "phase": "assess",
+        "why_type": "kind=incident — the run subject, opened in ServiceNow",
+        "summary": "search-svc latency spike — reported, not yet triaged.",
+        "facts": [
+          { "key": "reported", "value": "just now", "source": "ServiceNow", "field": "incident.opened_at" },
+          { "key": "symptom",  "value": "search p99 1.8s (was 200ms)", "source": "ServiceNow", "field": "incident.short_description" }
+        ] }
+    ],
+    "edges": []
+  },
+  "phases": [
+    { "phase": "assess",       "state": "pending", "steps": [], "output": null },
+    { "phase": "root-cause",   "state": "pending", "steps": [], "output": null },
+    { "phase": "remediation",  "state": "pending", "steps": [], "output": null },
+    { "phase": "verify-close", "state": "pending", "steps": [], "output": null }
+  ]
+}

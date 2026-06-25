@@ -1,0 +1,170 @@
+{
+  "incident": "INC-2256",
+  "title": "cart-svc 5xx spike on the checkout path",
+  "subject": { "domain": "app-incident", "id": "INC-2256", "kind": "incident" },
+  "status": "done",
+  "current_phase": "verify-close",
+  "pending_gate": null,
+  "closed_by": "operator",
+  "closed_at": "16:59Z",
+  "graph": {
+    "nodes": [
+      { "id": "INC-2256", "label": "INC-2256", "kind": "incident", "health": "subject", "phase": "assess",
+        "why_type": "kind=incident — the run subject, opened in ServiceNow",
+        "summary": "cart-svc 5xx spike (rev-118 flag) — fixed, recovered, and closed.",
+        "facts": [
+          { "key": "reported", "value": "2 min ago", "source": "ServiceNow", "field": "incident.opened_at" },
+          { "key": "symptom",  "value": "cart-svc HTTP 5xx 0.4% -> 11% on /checkout", "source": "Datadog", "field": "trace.http.errors{service:cart-svc}" },
+          { "key": "state",    "value": "closed by operator", "source": "ServiceNow", "field": "incident.state", "at": "16:59Z" },
+          { "key": "resolution","value": "reverted rev-118's checkout.strict_validation flag", "source": "engine", "field": "incident.resolution" }
+        ] },
+      { "id": "svc:cart-svc", "label": "cart-svc", "kind": "service", "health": "healthy", "phase": "assess",
+        "why_type": "kind=service — CMDB CI class cmdb_ci_app_server",
+        "summary": "Was impacted (5xx on /checkout); recovered after the flag flip.",
+        "facts": [
+          { "key": "affected", "value": "yes — the incident CI", "source": "ServiceNow", "field": "incident.cmdb_ci" },
+          { "key": "5xx rate", "value": "0.4% -> 11%", "source": "Datadog", "field": "trace.http.errors{service:cart-svc,status:5xx}", "at": "16:38Z" },
+          { "key": "latency",  "value": "p99 normal", "source": "Datadog", "field": "trace.cart-svc.duration.p99" }
+        ] },
+      { "id": "svc:checkout", "label": "checkout", "kind": "service", "health": "healthy", "phase": "assess",
+        "why_type": "kind=service — CMDB CI; calls cart-svc",
+        "summary": "Downstream — depends on cart-svc.",
+        "facts": [ { "key": "dependency", "value": "calls cart-svc", "source": "ServiceNow", "field": "cmdb_rel_ci 'Depends on'" } ] },
+      { "id": "db:cart-db", "label": "cart-db", "kind": "database", "health": "healthy", "phase": "assess",
+        "why_type": "kind=database — CMDB CI class cmdb_ci_db_instance",
+        "summary": "A dependency of cart-svc — checked, healthy (ruled out).",
+        "facts": [
+          { "key": "relation",  "value": "cart-svc depends on it", "source": "ServiceNow", "field": "cmdb_rel_ci" },
+          { "key": "query p99", "value": "5ms (normal)", "source": "Datadog", "field": "postgres.query.duration.p99" }
+        ] },
+      { "id": "svc:pricing-svc", "label": "pricing-svc", "kind": "service", "health": "healthy", "phase": "assess",
+        "why_type": "kind=service — CMDB CI; a backend of cart-svc",
+        "summary": "A dependency of cart-svc — checked, healthy (ruled out).",
+        "facts": [
+          { "key": "relation", "value": "cart-svc depends on it", "source": "ServiceNow", "field": "cmdb_rel_ci" },
+          { "key": "errors",   "value": "0 — p99 normal", "source": "Datadog", "field": "trace.pricing-svc.errors" }
+        ] },
+      { "id": "chg:rev-118", "label": "deploy rev-118", "kind": "change", "health": "unhealthy", "phase": "assess",
+        "why_type": "kind=change — a deployment record from GitHub Deployments",
+        "summary": "Root cause — flipped checkout.strict_validation on, 5xx-ing valid carts; flag now reverted.",
+        "facts": [
+          { "key": "deployed",   "value": "16:34 — 4 min before onset", "source": "GitHub", "field": "deployment.created_at" },
+          { "key": "diff",       "value": "checkout.strict_validation false -> true (one-line config flag)", "source": "GitHub", "field": "deployment.diff" },
+          { "key": "confidence", "value": "0.93", "source": "engine", "field": "root_cause.confidence" },
+          { "key": "remediation","value": "flag reverted -> false", "source": "Runbook", "field": "action.result", "at": "16:56Z" }
+        ] }
+    ],
+    "edges": [
+      { "from": "INC-2256",     "to": "svc:cart-svc",    "type": "affects",    "phase": "assess", "basis": "ServiceNow incident.cmdb_ci = cart-svc" },
+      { "from": "svc:checkout", "to": "svc:cart-svc",    "type": "depends_on", "phase": "assess", "basis": "ServiceNow cmdb_rel_ci 'Depends on::Used by'" },
+      { "from": "svc:cart-svc", "to": "db:cart-db",      "type": "depends_on", "phase": "assess", "basis": "ServiceNow cmdb_rel_ci" },
+      { "from": "svc:cart-svc", "to": "svc:pricing-svc", "type": "depends_on", "phase": "assess", "basis": "ServiceNow cmdb_rel_ci" },
+      { "from": "svc:cart-svc", "to": "chg:rev-118",     "type": "changed",    "phase": "assess", "basis": "GitHub: rev-118 deployed to cart-svc 16:34" },
+      { "from": "INC-2256",     "to": "chg:rev-118",     "type": "suspected_cause", "confidence": 0.93, "phase": "root-cause", "basis": "diff flips strict_validation; Splunk ValidationError 500s; trace shows 5xx in cart-svc's own handler, deps healthy" }
+    ]
+  },
+  "phases": [
+    { "phase": "assess", "state": "done",
+      "id": "INC-2256:assess:1",
+      "subject": { "domain": "app-incident", "id": "INC-2256", "kind": "incident" },
+      "goal": "What's affected, how bad, what changed — plus related incidents.",
+      "plan": "Open ServiceNow (incident + affected CIs + dependencies), Datadog (error-rate/latency), GitHub (recent deploys); check for similar priors.",
+      "opened_at": "16:42Z", "closed_at": "16:46Z",
+      "summary": "cart-svc 5xx (errors, not latency); onset tracks rev-118; deps cart-db + pricing-svc checked and ruled out.",
+      "steps": [
+        { "kind": "reasoning",  "at": "16:42:08", "result": "Assess plan (read-only):\n• ServiceNow — incident + affected CIs + dependencies\n• Datadog — error-rate / latency\n• GitHub — recent deploys\n• ServiceNow — similar priors\n→ Requesting approval to launch the browser." },
+        { "kind": "user_input", "at": "16:42:25", "message": "approve" },
+        { "kind": "reasoning",  "at": "16:42:30", "result": "Approved. Launching the browser → ServiceNow. Waiting for the operator to log in." },
+        { "kind": "user_input", "at": "16:43:02", "message": "logged in" },
+        { "kind": "tool_call",  "at": "16:43:20", "capability": "servicenow",    "result": "cart-svc is the affected CI; checkout depends on cart-svc; cart-svc depends on cart-db + pricing-svc. Captured the incident + CI dependency map.", "evidence": "shots/status-board.png" },
+        { "kind": "tool_call",  "at": "16:44:05", "capability": "datadog",       "result": "cart-svc 5xx 0.4% -> 11%; p99 latency normal (errors, not slowness); onset 16:38, ~4 min after the rev-118 deploy." },
+        { "kind": "tool_call",  "at": "16:44:35", "capability": "github-deploys", "result": "cart-svc rev-118 deployed 16:34 — a config change." },
+        { "kind": "reasoning",  "at": "16:44:55", "result": "Assess findings — affected: cart-svc + checkout; impact: SEV-3, a slice of checkouts failing; early read: errors (not latency) tracking rev-118; deps cart-db + pricing-svc still to check. Awaiting approval to proceed to Root cause." },
+        { "kind": "user_input", "at": "16:45:15", "message": "dig more — check the deps first" },
+        { "kind": "reasoning",  "at": "16:45:20", "result": "Operator asked to dig deeper before advancing — checking the two unchecked dependencies (cart-db, pricing-svc)." },
+        { "kind": "tool_call",  "at": "16:45:50", "capability": "datadog", "result": "cart-db: query p99 5ms (normal), connections healthy. pricing-svc: 0 errors, p99 normal. Both healthy." },
+        { "kind": "reasoning",  "at": "16:46:05", "result": "cart-db + pricing-svc both healthy — ruled out at the topology level. rev-118 (the config deploy) is the lead candidate. Re-presenting Assess findings for approval to proceed to Root cause." }
+      ],
+      "output": {
+        "incident_type": "errors",
+        "symptom": "cart-svc 5xx 0.4% -> 11% on /checkout",
+        "affected": ["cart-svc", "checkout"],
+        "impact": "SEV-3 — a slice of checkouts failing",
+        "changed": ["rev-118 deployed 16:34, ~4 min before onset"],
+        "ruled_out": ["cart-db", "pricing-svc"],
+        "suggestions": ["inspect the rev-118 diff"]
+      } },
+    { "phase": "root-cause", "state": "done",
+      "id": "INC-2256:root-cause:1",
+      "subject": { "domain": "app-incident", "id": "INC-2256", "kind": "incident" },
+      "goal": "The most probable cause — ranked, with evidence and a stated basis.",
+      "plan": "Pull the rev-118 diff (GitHub); read cart-svc error logs (Splunk); trace where the 5xx originates (Grafana); rank candidates with evidence.",
+      "opened_at": "16:49Z", "closed_at": "16:53Z",
+      "summary": "Cause = rev-118 flipped checkout.strict_validation on, 5xx-ing valid carts (conf 0.93); deps ruled out.",
+      "steps": [
+        { "kind": "user_input", "at": "16:49:00", "message": "approve — proceed to Root cause" },
+        { "kind": "reasoning",  "at": "16:49:10", "result": "Root-cause plan (read-only):\n• GitHub — the rev-118 diff\n• Splunk — cart-svc error logs\n• Grafana — trace where the 5xx originates\nThen rank the candidates with a stated basis. cart-db + pricing-svc already ruled out.\n→ Requesting approval to launch the browser." },
+        { "kind": "user_input", "at": "16:49:40", "message": "approve" },
+        { "kind": "reasoning",  "at": "16:49:45", "result": "Approved. Launching the browser → GitHub (SSO — already signed in). Reading the rev-118 diff." },
+        { "kind": "tool_call",  "at": "16:50:10", "capability": "github-deploys", "result": "rev-118 diff: checkout.strict_validation flipped false -> true (a one-line config flag).", "evidence": "shots/status-board.png" },
+        { "kind": "tool_call",  "at": "16:51:00", "capability": "splunk",         "result": "cart-svc logs: 'ValidationError: cart total mismatch' -> HTTP 500 on ~11% of /checkout calls since 16:34." },
+        { "kind": "tool_call",  "at": "16:51:45", "capability": "grafana-traces", "result": "Trace: the 5xx is thrown inside cart-svc's checkout handler — no failing downstream call. It's cart-svc's own code path." },
+        { "kind": "reasoning",  "at": "16:52:20", "result": "rev-118 enabled strict checkout validation that rejects valid carts -> 5xx. Errors originate in cart-svc; deps healthy. Cause = rev-118 (conf 0.93)." },
+        { "kind": "reasoning",  "at": "16:52:40", "result": "Root-cause finding: cause = rev-118 (config flag checkout.strict_validation=true), confidence 0.93; cart-db + pricing-svc ruled out. Awaiting approval to proceed to Remediation." }
+      ],
+      "output": {
+        "candidates": [
+          { "cause": "rev-118 enabled strict checkout validation -> 5xx on valid carts", "node": "chg:rev-118", "confidence": { "value": 0.93, "basis": "diff flips checkout.strict_validation=true; Splunk ValidationError 500s; trace shows the 5xx in cart-svc's own handler, not a downstream call" } },
+          { "cause": "cart-db / pricing-svc", "node": null, "confidence": { "value": 0.05, "basis": "ruled out in Assess — both healthy" } }
+        ],
+        "selected": "chg:rev-118",
+        "ruled_out": ["db:cart-db", "svc:pricing-svc"]
+      } },
+    { "phase": "remediation", "state": "done",
+      "id": "INC-2256:remediation:1",
+      "subject": { "domain": "app-incident", "id": "INC-2256", "kind": "incident" },
+      "goal": "The safest fix — propose it, wait for human approve/refine/deny.",
+      "plan": "Propose the smallest reversible action (flip the flag back); gate it for approval.",
+      "opened_at": "16:54Z", "closed_at": "16:56Z",
+      "summary": "Operator refined then approved; flipped checkout.strict_validation back to false via the runbook.",
+      "steps": [
+        { "kind": "user_input", "at": "16:54:00", "message": "approve — proceed to Remediation" },
+        { "kind": "reasoning",  "at": "16:54:10", "result": "The cause is a single config flag, so the smallest reversible fix is to flip checkout.strict_validation back to false — faster and lower-risk than a full deploy rollback." },
+        { "kind": "suggestion", "at": "16:54:30", "result": "Flip checkout.strict_validation -> false (revert rev-118's flag) via the runbook.", "rationale": "smallest reversible action; restores valid-cart checkout immediately; blast radius = cart-svc only; full rev-118 rollback is the fallback" },
+        { "kind": "decision",   "at": "16:55:00", "result": "refine", "actor": "operator" },
+        { "kind": "reasoning",  "at": "16:55:05", "result": "Refine requested — the write stayed gated, nothing applied. Offered: (a) full rev-118 rollback, (b) drain /checkout first, (c) other." },
+        { "kind": "decision",   "at": "16:56:00", "result": "approve", "actor": "operator" },
+        { "kind": "reasoning",  "at": "16:56:05", "result": "Approved (operator kept the original flag-flip). Applying via the runbook now." },
+        { "kind": "tool_call",  "at": "16:56:20", "capability": "runbook-failover", "result": "Flipped checkout.strict_validation -> false (reverted rev-118's flag). Applied; cart-svc picking up the change.", "evidence": "shots/status-board.png" }
+      ],
+      "output": {
+        "actions": [
+          { "kind": "reverse", "technique": "flip checkout.strict_validation -> false (revert rev-118's flag)", "expected_effect": "5xx back to baseline", "blast_radius": "cart-svc only", "rollback": "re-enable the flag", "approval": "refined, then approved by operator", "result": "applied" }
+        ]
+      } },
+    { "phase": "verify-close", "state": "done",
+      "id": "INC-2256:verify-close:1",
+      "subject": { "domain": "app-incident", "id": "INC-2256", "kind": "incident" },
+      "goal": "Confirm recovery from the user's side; a human closes.",
+      "plan": "Replay the /checkout journey (synthetic); confirm 5xx back to baseline; record the resolution. A human closes.",
+      "opened_at": "16:57Z", "closed_at": "16:59Z",
+      "summary": "Recovered — 5xx 11% -> 0.4%, checkout green within ~2 min of the fix; awaiting human close.",
+      "steps": [
+        { "kind": "user_input", "at": "16:57:00", "message": "approve — proceed to Verify & close" },
+        { "kind": "reasoning",  "at": "16:57:08", "result": "Verify plan (read-only):\n• Synthetic — replay the /checkout journey\n• Datadog — confirm 5xx back to baseline\nThen record the resolution for a human to close.\n→ Requesting approval to run it." },
+        { "kind": "user_input", "at": "16:57:30", "message": "approve" },
+        { "kind": "reasoning",  "at": "16:57:35", "result": "Approved. Running the synthetic replay of the /checkout journey." },
+        { "kind": "tool_call",  "at": "16:58:00", "capability": "synthetic", "result": "checkout journey GREEN; 5xx 0.4% (baseline); success 99.8%.", "evidence": "shots/status-board.png" },
+        { "kind": "tool_call",  "at": "16:58:20", "capability": "datadog",   "result": "cart-svc 5xx 11% -> 0.4% (recovered) since the flag flip at 16:56." },
+        { "kind": "reasoning",  "at": "16:58:35", "result": "Recovered from the user side within ~2 min of the fix. No temporary actions to revert. Resolution recorded. Ready for a human to close." },
+        { "kind": "decision",   "at": "16:59:30", "result": "approve", "actor": "operator" },
+        { "kind": "reasoning",  "at": "16:59:35", "result": "INC-2256 closed by the operator. Resolution recorded: reverted rev-118's checkout.strict_validation flag. The next similar incident will surface this as a prior." }
+      ],
+      "output": {
+        "recovered": true,
+        "before_after": "5xx 11% -> 0.4%; checkout journey green",
+        "resolution": "reverted rev-118's checkout.strict_validation flag (false)",
+        "temporary_actions_status": []
+      } }
+  ]
+}
