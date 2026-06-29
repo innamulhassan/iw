@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — Console</title>
+<style>
+  :root{
+    --bg:#eef1f6; --card:#fff; --ink:#1f2733; --ink2:#5a6678; --ink3:#94a0b0;
+    --line:#e4e9f0; --line2:#f0f3f8; --accent:#2557a7; --accent-soft:#eaf1fb;
+    --ok:#1f8a4c; --ok-soft:#e7f5ec; --warn:#c2780c; --warn-soft:#fdf3e3;
+    --bad:#cf3636; --bad-soft:#fbeceb; --purple:#7c3aed; --purple-soft:#f3edfd;
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+    --shadow:0 1px 3px rgba(20,40,80,.05),0 4px 14px rgba(20,40,80,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .app{height:100vh;display:flex;flex-direction:column}
+  code{font-family:var(--mono);font-size:.92em}
+  /* top */
+  .top{display:flex;align-items:center;gap:13px;padding:9px 16px;background:var(--card);border-bottom:1px solid var(--line);z-index:10}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;color:var(--accent);letter-spacing:-.2px}
+  .brand .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#2557a7,#3b7dd8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .sel,.open{display:flex;align-items:center;border:1px solid var(--line);border-radius:9px;background:#fbfcfe}
+  .sel{gap:7px;padding:5px 11px;font-weight:600} .sel .lab{font-size:9.5px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:.04em} .sel .car{color:var(--ink3);font-size:11px}
+  .open{overflow:hidden} .open .ic{padding:6px 9px;color:var(--ink3)} .open input{border:0;background:transparent;font:inherit;font-size:12.5px;padding:6px 4px;width:108px;outline:none}
+  .open button{border:0;border-left:1px solid var(--line);background:var(--accent);color:#fff;font:inherit;font-weight:700;font-size:12px;padding:6px 13px;cursor:pointer}
+  .recent{display:flex;gap:6px} .chip-i{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:7px;padding:3px 9px;color:var(--ink2);background:#fbfcfe;cursor:pointer}
+  .chip-i.act{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:700}
+  .spacer{flex:1}
+  .pill{font-size:11px;font-weight:700;border-radius:999px;padding:4px 12px}
+  .pill.wait{background:var(--warn-soft);color:var(--warn)} .pill.done{background:var(--ok-soft);color:var(--ok)} .pill.run{background:var(--accent-soft);color:var(--accent)}
+  .ava{width:30px;height:30px;border-radius:50%;background:#dfe7f2;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+  /* body */
+  .body{flex:1;display:grid;grid-template-columns:344px 1fr 460px;min-height:0}
+  .col{min-height:0;min-width:0;display:flex;flex-direction:column}
+  .col.left{border-right:1px solid var(--line);background:#f9fafc}
+  .col.right{border-left:1px solid var(--line);background:#f9fafc}
+  .colhead{padding:12px 16px 8px;font-size:10px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.07em}
+  .scroll{overflow:auto;flex:1;padding:0 14px 16px}
+  /* left phases */
+  .domain-tag{margin:0 14px 10px;font-size:11px;color:var(--ink2)} .domain-tag b{color:var(--ink)}
+  .ph{position:relative;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:10px 12px 10px 36px;margin:0 0 9px;box-shadow:var(--shadow);cursor:pointer}
+  .ph .dot{position:absolute;left:12px;top:12px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:700}
+  .ph.done .dot{background:var(--ok)} .ph.active .dot{background:var(--warn);box-shadow:0 0 0 4px var(--warn-soft)} .ph.pending .dot{background:#cdd6e2}
+  .ph .pn{font-weight:700;font-size:13.5px} .ph .ps{font-size:11px;color:var(--ink2);margin-top:2px}
+  .ph.active{border-color:var(--warn);background:#fffdf8} .ph.pending{opacity:.6} .ph.sel{display:block;outline:2px solid var(--accent);outline-offset:1px}
+  .conn{position:absolute;left:19.5px;top:28px;bottom:-9px;width:2px;background:var(--line)} .ph:last-child .conn{display:none}
+  .nowbar{margin:6px 14px 0;border:1px solid;border-radius:11px;padding:10px 13px}
+  .nowbar .t{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em} .nowbar .m{font-size:12.5px;color:var(--ink);margin-top:3px;font-weight:600} .nowbar .s{font-size:11px;color:var(--ink2);margin-top:3px}
+  /* left phases — collapsed card + expanded detail. LEGIBILITY pass for prod-support: larger text, higher contrast, strong section headers. */
+  .ph-top{display:flex;align-items:center;gap:6px}
+  .ph-chev{margin-left:auto;color:var(--ink3);font-size:13px}
+  .ph-stat{font-size:11.5px;color:var(--ink2);margin-top:3px;font-weight:700}
+  .ph-goal-c{font-size:12.5px;color:var(--ink2);margin-top:7px;line-height:1.55}
+  .ph-sum-c{font-size:13px;color:var(--ink);margin-top:6px;line-height:1.55;font-weight:500}
+  .phd{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);cursor:default}
+  .phd-time{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-family:var(--mono);font-weight:600;color:var(--ink);background:#eef2f8;border:1px solid var(--line2);border-radius:7px;padding:4px 10px}
+  .phd-lbl{font-size:10.5px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.06em;margin:19px 0 10px;display:flex;align-items:center;gap:8px;border-left:4px solid var(--accent);padding-left:9px}
+  .phd-lbl:first-of-type{margin-top:15px}
+  .phd-lbl .leg{display:flex;gap:11px;font-weight:600;color:var(--ink2);text-transform:none;letter-spacing:0;font-size:10px;margin-left:auto}
+  .phd-lbl .leg i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+  .phd-lbl .leg i.u{background:var(--ok)} .phd-lbl .leg i.e{background:var(--bad)} .phd-lbl .leg i.g{background:#8b97a8}
+  .phd-caps{display:flex;flex-direction:column;gap:9px}
+  .capc{border:0;border-left:4px solid;border-radius:8px;background:#f4f7fc;padding:11px 13px}
+  .capc.used{border-left-color:var(--ok)} .capc.issue{border-left-color:var(--bad)} .capc.idle{border-left-color:#8b97a8}
+  .capc.idle .capc-name{color:var(--ink2)} .capc.idle .capc-what{color:var(--ink2)}
+  .capc-h{display:flex;align-items:center;gap:8px}
+  .capc-name{font-weight:700;font-size:13.5px;color:var(--ink);flex:1;min-width:0}
+  .capc-eff{margin-left:auto;font-size:9px;font-weight:800;letter-spacing:.05em;border-radius:4px;padding:2px 7px;color:#fff;flex:0 0 auto}
+  .capc-eff.r{background:var(--ok)} .capc-eff.w{background:var(--bad)}
+  .capc-what{font-size:11.5px;color:var(--ink2);margin-top:5px;line-height:1.5}
+  .capc-stat{font-size:12px;font-weight:700;margin-top:7px}
+  .capc.used .capc-stat{color:var(--ok)} .capc.issue .capc-stat{color:var(--bad)} .capc.idle .capc-stat{color:var(--ink2)}
+  .phd-unreg{font-size:11.5px;color:var(--ink2);margin-top:10px}
+  .phd-unreg b{color:var(--ink);font-family:var(--mono);font-weight:700}
+  .phd-res{font-size:13px}
+  .rkv{display:block;padding:8px 0;border-top:1px solid var(--line2)} .rkv:first-child{border-top:0}
+  .rk{display:block;font-size:10.5px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+  .rv{display:block;font-size:13px;color:var(--ink);word-break:break-word;line-height:1.5}
+  .rvm{color:var(--ink3)}
+  .rvchip{display:inline-block;font-size:11.5px;background:#eef1f6;border:1px solid var(--line);border-radius:6px;padding:2px 9px;margin:2px 5px 2px 0;color:var(--ink)}
+  .res-sub{font-size:10.5px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;margin:15px 0 8px}
+  .res-card{border:0;border-left:4px solid var(--line);border-radius:8px;background:#f4f7fc;padding:10px 13px;margin-bottom:9px}
+  .kv{display:block;padding:7px 0;border-top:1px solid var(--line2)} .kv:first-child{border-top:0}
+  .kvk{display:block;font-size:10.5px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+  .kvv{display:block;font-size:13px;color:var(--ink);word-break:break-word;line-height:1.5}
+  .kvv.amber{color:var(--warn);font-weight:700}
+  .rvsub{color:var(--ink2);font-weight:700}
+/* center conversation */
+.capstrip{display:flex;gap:8px;overflow-x:auto;padding:9px 12px;border-bottom:1px solid var(--line);background:#fafcff;flex:0 0 auto}
+.capstrip::-webkit-scrollbar{height:6px}.capstrip::-webkit-scrollbar-thumb{background:#d0d8e2;border-radius:3px}
+.capcard{flex:0 0 auto;border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:130px;max-width:185px;background:#fff;box-shadow:var(--shadow);transition:border-color .15s}
+.capcard.ready{border-color:var(--ok);background:#f3faf6}
+.capcard.opened{border-color:var(--accent)}
+.capcard .cn{font-size:11.5px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.capcard .cd{font-size:9.5px;color:var(--ink3);margin:2px 0 6px;line-height:1.3;height:26px;overflow:hidden}
+.capcard .cs{display:flex;gap:4px;align-items:center}
+.capcard .cbtn{border:0;border-radius:6px;font:inherit;font-size:10px;font-weight:800;padding:4px 9px;cursor:pointer;color:#fff}
+.capcard .cbtn.open{background:var(--accent)} .capcard .cbtn.ready{background:var(--ok)} .capcard .cbtn[disabled]{opacity:.5;cursor:default}
+.capcard .cstat{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-left:auto}
+.capcard .cstat.on{color:var(--ok)} .capcard .cstat.off{color:var(--ink3)}
+.cdiv{display:flex;align-items:center;gap:10px;margin:16px 2px 10px;font-size:9.5px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+  .cdiv::before,.cdiv::after{content:"";flex:1;height:1px;background:var(--line)}
+  .msg{display:flex;gap:10px;margin:11px 0;align-items:flex-start} .msg.op{flex-direction:row-reverse}
+  .mav{flex:0 0 30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:18px;color:#fff;font-size:13px}
+  .bw{max-width:82%;min-width:0;display:flex;flex-direction:column} .msg.op .bw{align-items:flex-end}
+  .who{font-size:10px;color:var(--ink3);margin:0 0 4px;font-weight:600;display:flex;gap:7px;align-items:center}
+  .who .tm{color:#aab4c2;font-weight:400} .who .dur{color:#aab4c2;font-weight:400;font-family:var(--mono)}
+  .b{border:1px solid var(--line);border-radius:14px;border-top-left-radius:5px;padding:9px 13px;background:var(--card);box-shadow:var(--shadow)}
+  .msg.op .b{border-top-left-radius:14px;border-top-right-radius:5px;background:#f4f8fd;border-color:#d9e6f6}
+  .hl{font-weight:700;font-size:12.5px;color:var(--ink);display:block}
+  .b.reason{background:#fafbfd;color:var(--ink2)} .b.reason .body{font-style:italic;margin-top:3px}
+.b.thinking{color:#94a0b0;animation:blink 1s ease-in-out infinite alternate}
+@keyframes blink{from{opacity:.45}to{opacity:1}}
+  .sub{display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:1px 6px;margin-right:6px;color:#fff}
+  /* tool_call blocks */
+  .tklab{font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin:8px 0 3px}
+  .codeln{font-family:var(--mono);font-size:10.5px;background:#f6f8fb;border:1px solid var(--line2);border-radius:7px;padding:6px 9px;color:#2a3a4d;white-space:pre-wrap;word-break:break-word}
+  .reads{font-style:italic;color:var(--ink2);font-size:12px;margin-top:6px;border-left:3px solid var(--accent);padding-left:9px}
+  .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+  .ch2{font-size:9.5px;font-weight:700;border-radius:6px;padding:2px 7px;border:1px solid}
+  .ch2.read{background:var(--ok-soft);color:var(--ok);border-color:#bfe3cc} .ch2.write{background:var(--bad-soft);color:var(--bad);border-color:#f0c2bd}
+  .ch2.gop{background:var(--purple-soft);color:var(--purple);border-color:#e0d0f7;font-family:var(--mono)}
+  .ch2.rt{background:#eef1f6;color:var(--ink2);border-color:var(--line)}
+  .errbox{margin-top:7px;background:var(--bad-soft);border:1px solid #f0c2bd;border-radius:8px;padding:7px 10px;font-size:11.5px;color:#8a2b2b}
+  .errbox b{color:var(--bad)}
+  .cand{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:4px 0;border-top:1px solid var(--line2)} .cand:first-child{border-top:0}
+  .score{font-family:var(--mono);font-weight:700;font-size:10.5px;border-radius:5px;padding:1px 6px;background:#eef1f6;color:var(--ink2)} .cand.top .score{background:var(--bad-soft);color:var(--bad)}
+  .cand.top{font-weight:600}
+  .shot{display:block;max-width:230px;border:1px solid var(--line);border-radius:8px;margin-top:7px} .shotcap{font-size:10px;color:var(--ink3);margin-top:3px}
+  /* options + decision */
+  .opt{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;margin-top:6px;background:#fbfcfe}
+  .opt.rec{border-color:var(--ok);background:var(--ok-soft)} .opt .oid{font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--ink3);margin-top:1px}
+  .opt .olab{font-weight:600} .opt .ometa{font-size:10.5px;color:var(--ink2)} .opt .orec{margin-left:auto;font-size:9px;font-weight:800;color:var(--ok);text-transform:uppercase}
+  .rat{font-size:11.5px;color:var(--ink2);margin-top:7px} .rat b{color:var(--ink)}
+  .diff{font-size:11.5px;margin-top:7px;background:#fffaf1;border:1px solid #f0dcb6;border-radius:8px;padding:7px 9px}
+  .diff .from{color:var(--bad);text-decoration:line-through} .diff .to{color:var(--ok);font-weight:600}
+  /* gate */
+  .gate{margin:14px 0;border:2px solid;border-radius:14px;padding:12px 15px;box-shadow:var(--shadow)}
+  .gate.write{border-color:var(--warn);background:#fffaf1} .gate.advance{border-color:var(--accent);background:var(--accent-soft)} .gate.close{border-color:var(--ok);background:var(--ok-soft)}
+  .gate .gt{font-weight:800;font-size:12.5px;display:flex;align-items:center;gap:7px} .gate.write .gt{color:var(--warn)} .gate.advance .gt{color:var(--accent)} .gate.close .gt{color:var(--ok)}
+  .gate .gp{font-size:12.5px;margin:6px 0 8px;color:var(--ink)} .gate .gopts{display:flex;gap:7px;flex-wrap:wrap}
+  .gbtn{font-size:11.5px;font-weight:700;border:1px solid var(--line);border-radius:8px;padding:5px 12px;background:#fff;color:var(--ink2)}
+  /* decision verdict */
+  .verdict{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-radius:6px;padding:2px 9px;color:#fff}
+  .v-approve{background:var(--ok)} .v-deny{background:var(--bad)} .v-refine{background:var(--warn)} .v-close{background:var(--accent)} .v-hold{background:var(--ink3)}
+  .dmeta{font-size:11.5px;color:var(--ink2);margin-top:6px} .dmeta b{color:var(--ink)}
+  /* plan list */
+  .planrow{display:flex;gap:8px;font-size:12px;padding:4px 0;border-top:1px solid var(--line2);margin-top:6px} .planrow:first-child{border-top:0;margin-top:8px}
+  .planrow .pi{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:1px 7px;white-space:nowrap;height:fit-content}
+  .planrow .pt{color:var(--ink3);font-size:11px;margin-left:auto;white-space:nowrap}
+  .composer{border-top:1px solid var(--line);padding:10px 16px;display:flex;gap:9px;align-items:center;background:#fff}
+  .composer input{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 13px;font:inherit;font-size:13px;background:#fbfcfe;outline:none}
+  .composer .send{width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;border:0;font-size:15px}
+  .composer .note{font-size:10px;color:var(--ink3)}
+  /* right */
+  .tabs{display:flex;margin:0 14px 12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .tab{flex:1;text-align:center;font-size:12px;font-weight:700;padding:8px;color:var(--ink2);cursor:pointer} .tab.act{background:var(--accent);color:#fff}
+  .card{border:1px solid var(--line);border-radius:13px;background:var(--card);box-shadow:var(--shadow);margin:0 0 12px;overflow:hidden}
+  .gcard>summary{list-style:none;display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;font-size:12.5px} .gcard>summary::-webkit-details-marker{display:none}
+  .gcard .gtitle{font-weight:700} .gcard .gmeta{font-size:11px;color:var(--ink3);margin-left:auto} .gcard .chev{color:var(--ink3);transition:transform .15s} .gcard[open] .chev{transform:rotate(180deg)}
+  .gcard .gbody{padding:6px 10px 12px;border-top:1px solid var(--line2)}
+  .gctrls{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;z-index:2}
+  .gctrls button{width:26px;height:26px;border:1px solid var(--line);background:#fff;border-radius:7px;font-size:15px;line-height:1;cursor:pointer;color:var(--ink2);box-shadow:var(--shadow)}
+  .gctrls button:hover{background:var(--accent-soft);color:var(--accent)}
+  .gnode,.gedge{transition:opacity .12s}
+  .glegend{display:flex;flex-wrap:wrap;gap:7px 11px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line2);font-size:10px;color:var(--ink2)}
+  .glegend span{display:flex;align-items:center;gap:4px} .glegend .ld{width:10px;height:10px;border-radius:3px;display:inline-block} .glegend .lg-re{color:#a21caf;font-weight:700}
+  svg{width:100%;height:auto;display:block}
+  .ch{display:flex;align-items:center;justify-content:space-between;padding:11px 14px} .ch .t{font-weight:700;font-size:12.5px} .ch .meta{font-size:11px;color:var(--ink3)}
+  .cc{padding:0 14px 13px;border-top:1px solid var(--line2)}
+  .nd h4{margin:11px 0 4px;font-size:15px;font-weight:800} .nd .nh{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .hb{font-size:10.5px;font-weight:800;border-radius:6px;padding:3px 9px;text-transform:capitalize}
+  .ndkind{display:flex;align-items:center;gap:9px;margin:3px 0 5px;flex-wrap:wrap}
+  .ndkind-v{font-size:12.5px;font-weight:700;color:var(--ink);text-transform:capitalize;background:#eef2f8;border:1px solid var(--line2);border-radius:6px;padding:2px 10px}
+  .ndkind-sch{font-size:10.5px;font-weight:600} .ndkind-sch.ok{color:var(--ok)} .ndkind-sch.warn{color:var(--bad)}
+  .ndwhy{font-size:11.5px;color:var(--ink2);line-height:1.5;margin-bottom:2px}
+  .ndsum{font-size:13px;color:var(--ink);line-height:1.55;font-weight:500}
+  .seclbl{font-size:10.5px;font-weight:800;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 9px;display:flex;align-items:center;gap:8px;border-left:4px solid var(--accent);padding-left:9px}
+  .seclbl-n{margin-left:auto;font-weight:700;color:var(--ink2);font-size:10px;background:#eef1f6;border-radius:10px;padding:1px 9px}
+  .ndfact{padding:9px 0;border-top:1px solid var(--line2)} .ndfact:first-of-type{border-top:0}
+  .ndfact-k{font-size:10.5px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+  .ndfact-v{font-size:13px;color:var(--ink);line-height:1.5;word-break:break-word}
+  .ndcite{font-size:11px;color:var(--ink2);margin-top:5px;line-height:1.45;background:#f5f8fc;border-left:2px solid var(--line);border-radius:0 6px 6px 0;padding:4px 10px;font-family:var(--mono)} .ndcite b{color:var(--ink);font-weight:700;font-family:inherit} .ndcite-sep{color:var(--ink3);margin:0 3px}
+  .ndrel{padding:9px 0;border-top:1px solid var(--line2)} .ndrel:first-of-type{border-top:0}
+  .ndrel-h{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .ndrel-type{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 8px}
+  .ndrel-dir{color:var(--ink3);font-weight:700}
+  .ndrel-node{font-size:13px;font-weight:700;color:var(--ink)}
+  .ndrel-conf{font-size:10.5px;color:var(--ink2);font-family:var(--mono);margin-left:auto}
+  .recf{width:100%;border-collapse:collapse;font-size:12px} .recf td{padding:6px 4px;border-top:1px solid var(--line2);vertical-align:top} .recf tr:first-child td{border-top:0} .recf .rkc{font-weight:700;width:36%;white-space:nowrap}
+  /* phase record — the step JOURNEY: a timeline rail (sequence + intervals) with a tree for nested sub-steps */
+  .ndrel-at{font-size:10.5px;color:var(--ink2);font-family:var(--mono)}
+  .journey{position:relative;margin-top:2px}
+  .jstep{position:relative;padding-left:25px;margin-bottom:11px}
+  .jstep::before{content:"";position:absolute;left:7px;top:17px;bottom:-11px;width:2px;background:var(--line)}
+  .jstep:last-child::before{display:none}
+  .jdot{position:absolute;left:1px;top:5px;width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 3px var(--card)}
+  .jcard{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:9px;background:#fff;padding:9px 11px}
+  .jhead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .kbadge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#fff;border-radius:5px;padding:2px 7px;white-space:nowrap}
+  .jhl{font-weight:700;font-size:13px;flex:1;min-width:120px;color:var(--ink);line-height:1.4}
+  .jmeta{font-size:11px;color:var(--ink2);font-family:var(--mono);width:100%;margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .jmeta .jdur{color:var(--ink);font-weight:700} .jmeta .jsep{color:var(--ink3)}
+  .jbody{margin-top:7px;font-size:12px;line-height:1.5}
+  .jsubs{margin:10px 0 2px;padding-left:11px;border-left:2px dashed var(--line)}
+  .jsubs-lbl{font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px}
+  details.json{margin-top:9px;border:1px solid var(--line);border-radius:9px;background:#fbfcfe}
+  details.json>summary{cursor:pointer;font-size:10.5px;font-weight:700;color:var(--accent);padding:6px 10px;list-style:none} details.json>summary::-webkit-details-marker{display:none}
+  details.json[open]>summary{border-bottom:1px solid var(--line)}
+  details.json pre{margin:0;padding:10px;font-family:var(--mono);font-size:10px;line-height:1.5;color:#2a3a4d;white-space:pre-wrap;max-height:260px;overflow:auto}
+  .draft{position:fixed;top:7px;right:9px;font-size:10px;color:#fff;background:#94a0b0;border-radius:6px;padding:2px 8px;opacity:.8;z-index:20}
+</style></head>
+<body>
+<div class="draft" id="draft">loading…</div>
+<div class="app">
+  <div class="top">
+    <div class="brand"><span class="logo">🔭</span>Investigation Workbench</div>
+    <div class="sel"><span class="lab">Domain</span><span class="v">Incident</span><span class="car">▾</span></div>
+    <div class="open"><span class="ic">🔍</span><input id="idinput" value="INC-2290"><button onclick="openInc()">Open</button></div>
+    <button id="runbtn" onclick="runLive()" title="Run this incident live with the real xAI engine"
+      style="border:0;border-radius:9px;background:var(--ok);color:#fff;font-weight:700;font-size:12px;padding:7px 13px;cursor:pointer">▶ Run live</button>
+    <div class="recent" id="recent"></div>
+    <div class="spacer"></div>
+    <span class="pill" id="statuspill">—</span>
+    <div class="ava" id="opava">JR</div>
+  </div>
+  <div class="body">
+    <div class="col left">
+      <div class="colhead">Phases &amp; journey</div>
+      <div class="domain-tag" id="incline">—</div>
+      <div class="scroll" id="phases"></div>
+      <div class="nowbar" id="nowbar"></div>
+    </div>
+    <div class="col" style="background:#fff">
+      <div class="colhead">Conversation — the agent works, you decide</div>
+      <div class="capstrip" id="capstrip"></div>
+      <div class="scroll" id="chat"></div>
+      <div class="composer"><input id="chatinput" placeholder="Ask the agent, or refine the plan…"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();sendChat();}"><button class="send" onclick="sendChat()">↑</button></div>
+    </div>
+    <div class="col right">
+      <div class="colhead">Investigation</div>
+      <div class="tabs"><span class="tab act" id="rt-graph" onclick="rtab('graph')">Graph</span><span class="tab" id="rt-record" onclick="rtab('record')">Phase record</span></div>
+      <div class="scroll">
+        <div id="pane-graph"></div>
+        <div id="pane-record" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const P=new URLSearchParams(location.search);
+let NAME=P.get("incident")||"INC-2290", TAB=P.get("tab")||"graph", FOCUS=P.get("focus");
+let SCHEMA=null, STEPSCH=null, PLAYBOOK=null, DATA=null, SELPHASE=null, SELNODE=null, USERSEL=false, RECDONE=false;
+let GZ={k:1,x:0,y:0}, GOPEN=true, POLLER=null, CAPS=[];
+const PH_LABEL={assess:"Assess","root-cause":"Root cause",remediation:"Remediation","verify-close":"Verify & close"};
+let RECENT=["INC-2290","INC-3187","INC-2207","INC-2208"]; // fallback; overwritten from registry.json in load()
+const HEALTH={subject:["#fff","#2557a7","#2557a7"],impacted:["#fcf3ec","#c2780c","#9a4a12"],degraded:["#fcf3ec","#c2780c","#9a4a12"],
+  unhealthy:["#fbeceb","#cf3636","#a02b2b"],healthy:["#e7f5ec","#1f8a4c","#176b3a"],ruled_out:["#eef3ee","#7fae90","#4a6b56"],related:["#f3edfd","#7c3aed","#5b21b6"],
+  degraded:["#fdfae0","#caa207","#6f5a00"]};
+const EDGE_LABEL={suspected_cause:"CAUSE",related_to:"prior",hosted_on:"hosted on",depends_on:"depends on",runs_on:"runs on",routes_to:"routes to",changed:"changed",affects:"affects",observed_on:"observed on",member_of:"member of",located_in:"located in"};
+const esc=s=>(s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const kc=k=>(STEPSCH&&STEPSCH.kind_colors&&STEPSCH.kind_colors[k])||"#647084";
+const dur=ms=>ms==null?"":(ms>=1000?(ms/1000).toFixed(ms>=10000?0:1)+"s":ms+"ms");
+const timeNow=()=>{const d=new Date();return [d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');};
+const jblock=(obj,label)=>obj==null?"":`<details class="json"><summary>{ } ${esc(label)}</summary><pre>${esc(JSON.stringify(obj,null,2))}</pre></details>`;
+const KIND_ICON={plan:"🗺",reasoning:"💭",tool_call:"🔎",observation:"📌",suggestion:"💡",gate:"⛔",decision:"🧑",user_input:"🧑",escalation:"📟",backtrack:"↩"};
+
+async function jget(u){const r=await fetch(u+"?t="+Date.now());if(!r.ok)throw 0;return r.json();}
+async function load(){
+  try{[SCHEMA,STEPSCH,PLAYBOOK]=await Promise.all([jget("graph-schema.json"),jget("step-schema.json"),jget("playbook.json").catch(()=>null)]);}catch(e){}
+  if(PLAYBOOK&&PLAYBOOK.phases)PLAYBOOK.phases.forEach(p=>PH_LABEL[p.id]=p.label||PH_LABEL[p.id]);
+  // capability layer: the per-phase "capabilities available" reads from capabilities.json (matched to each phase's intents)
+  try{CAPS=((await jget("capabilities.json"))||{}).capabilities||[];}catch(e){}
+  // registry-driven: the incident picker + domain label read from registry.json (nothing in the top bar is hard-coded)
+  try{const REG=await jget("registry.json");
+      if(REG&&Array.isArray(REG.incidents)&&REG.incidents.length)RECENT=REG.incidents.filter(x=>typeof x==="string");
+      if(REG&&Array.isArray(REG.domains)&&REG.domains[0]){const dv=document.querySelector(".sel .v");if(dv)dv.textContent=REG.domains[0].label||REG.domains[0].id||dv.textContent;}
+  }catch(e){}
+  await poll(); refreshCaps(); if(!(DATA&&DATA.status==="done")) POLLER=setInterval(poll,2000);
+  setInterval(refreshCaps,3000);   // capability status (opened/ready/reads) refreshes on its own cadence
+}
+function switchInc(n){NAME=n;USERSEL=false;SELNODE=null;GZ={k:1,x:0,y:0};if(POLLER){clearInterval(POLLER);POLLER=null;}poll().then(()=>{if(DATA&&DATA.status!=="done")POLLER=setInterval(poll,2000);});}
+async function poll(){
+  try{DATA=await jget("incidents/"+NAME+".json");}catch(e){document.getElementById("draft").textContent="no incidents/"+NAME+".json";return;}
+  if(!USERSEL){const act=(DATA.phases||[]).find(p=>p.state==="active")||(DATA.phases||[]).slice().reverse().find(p=>p.state==="done");SELPHASE=act?act.phase:((DATA.phases||[{}])[0]||{}).phase;}
+  if(!SELPHASE)SELPHASE=((DATA.phases||[{}])[0]||{}).phase;
+  if(!RECDONE){const rp=P.get("rec");if(rp){SELPHASE=rp;USERSEL=true;}RECDONE=true;}
+  renderAll();
+  if(DATA&&DATA.status==="done"&&POLLER){clearInterval(POLLER);POLLER=null;}
+}
+function renderAll(){renderTop();renderPhases();renderChat();renderGraphPane();renderRecordPane();rtabSync();}
+
+function renderTop(){
+  document.getElementById("idinput").value=NAME;
+  document.getElementById("incline").innerHTML="<b>"+esc(NAME)+"</b> · "+esc(DATA.title||"");
+  document.getElementById("recent").innerHTML=RECENT.map(r=>`<span class="chip-i ${r===NAME?'act':''}" onclick="switchInc('${r}')">${r}</span>`).join("");
+  const st=DATA.status||"—", pill=document.getElementById("statuspill");
+  pill.className="pill "+(st==="done"?"done":st==="waiting_approval"?"wait":"run");
+  pill.textContent=st==="waiting_approval"?"● waiting your approval":st==="done"?"● closed":"● "+st;
+}
+function renderPhases(){
+  const order=(PLAYBOOK&&PLAYBOOK.phases?PLAYBOOK.phases.map(p=>p.id):["assess","root-cause","remediation","verify-close"]);
+  const byId={}; (DATA.phases||[]).forEach(p=>byId[p.phase]=p);
+  document.getElementById("phases").innerHTML=order.map((id,i)=>{
+    const p=byId[id]||{state:"pending"}; const st=p.state||"pending";
+    const cls=st==="done"?"done":st==="active"?"active":"pending";
+    const dot=st==="done"?"✓":st==="active"?"●":"";
+    const pb=((PLAYBOOK&&PLAYBOOK.phases)||[]).find(x=>x.id===id)||{};
+    const n=(p.steps||[]).length;
+    const isSel=id===SELPHASE;
+    const durc=phaseDur(p.opened_at,p.closed_at);
+    const stat=`${st.charAt(0).toUpperCase()+st.slice(1)}${durc?` · ${durc}`:""}${n?` · ${n} steps`:""}`;
+    const goalc=pb.goal||p.goal||"";
+    return `<div class="ph ${cls} ${isSel?'sel':''}" onclick="USERSEL=true;SELPHASE='${id}';TAB='record';renderAll()">
+      <div class="conn"></div><div class="dot">${dot}</div>
+      <div class="ph-top"><span class="pn">${i+1} · ${esc(PH_LABEL[id]||id)}</span><span class="ph-chev">${isSel?'▾':'▸'}</span></div>
+      <div class="ph-stat">${esc(stat)}</div>
+      ${goalc?`<div class="ph-goal-c">${esc(goalc)}</div>`:""}
+      ${p.summary?`<div class="ph-sum-c">${esc(p.summary)}</div>`:""}
+      ${isSel?phaseDetail(p,id):""}</div>`;
+  }).join("");
+  const nb=document.getElementById("nowbar");
+  if(DATA.status==="done"){nb.style.cssText="border-color:var(--ok);background:var(--ok-soft)";
+    nb.innerHTML=`<div class="t" style="color:var(--ok)">🏁 Closed</div><div class="m">${esc(DATA.closed_by||"operator")} closed it · ${esc(DATA.closed_at||"")}</div><div class="s">Recovered + verified. Recorded as a prior for next time.</div>`;
+  }else{const g=DATA.pending_gate; nb.style.cssText="border-color:var(--warn);background:var(--warn-soft)";
+    const gated=DATA.status==="waiting_approval"&&g;
+    const btns=gated?`<div style="display:flex;gap:8px;margin-top:9px">
+        <button onclick="gateLive('approve')" style="border:0;border-radius:8px;background:var(--ok);color:#fff;font-weight:700;font-size:12px;padding:7px 14px;cursor:pointer">Approve &amp; apply</button>
+        <button onclick="gateLive('deny')" style="border:1px solid var(--bad);border-radius:8px;background:#fff;color:var(--bad);font-weight:700;font-size:12px;padding:7px 13px;cursor:pointer">Deny</button>
+      </div>`:"";
+    nb.innerHTML=`<div class="t" style="color:var(--warn)">⛔ You are here · gated</div><div class="m">${esc(PH_LABEL[DATA.current_phase]||DATA.current_phase||"")} — awaiting your decision</div><div class="s">${g?esc(g.proposal||("The agent proposed a "+(g.kind||"write")+". Nothing changes until you approve.")):"Working…"}</div>${btns}`;}
+}
+
+/* ---- per-phase detail (timing · capabilities traffic-light · result field-by-field) — every value from the data files, nothing invented. Ported from Claude Design. ---- */
+const humanKey=k=>String(k).replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+function _secs(t){if(!t)return null;const m=String(t).split(":").map(Number);if(m.some(isNaN))return null;return (m[0]||0)*3600+(m[1]||0)*60+(m[2]||0);}
+function phaseDur(a,b){const x=_secs(a),y=_secs(b);if(x==null||y==null)return"";let d=y-x;if(d<0)return"";const mm=Math.floor(d/60),ss=d%60;return mm?(ss?`${mm}m ${ss}s`:`${mm}m`):`${ss}s`;}
+function scalarVal(v){
+  if(v==null||v==="")return '<span class="rvm">—</span>';
+  if(typeof v==="boolean")return v?"yes":"no";
+  if(typeof v==="number"||typeof v==="string")return esc(String(v));
+  if(Array.isArray(v))return v.length?v.map(x=>(x&&typeof x==="object")?objInline(x):`<span class="rvchip">${esc(String(x))}</span>`).join(""):'<span class="rvm">none</span>';
+  if(typeof v==="object")return objInline(v);
+  return esc(String(v));
+}
+function objInline(o){if(o==null||typeof o!=="object")return esc(String(o));
+  return Object.keys(o).map(k=>`<span class="rvsub">${esc(humanKey(k))}:</span> ${(o[k]!=null&&typeof o[k]==="object")?scalarVal(o[k]):esc(String(o[k]))}`).join(" · ");}
+function kvRows(o){return Object.keys(o).map(k=>{const v=o[k];const amber=/await|pending|denied/i.test(String(v));
+  return `<div class="kv"><span class="kvk">${esc(humanKey(k))}</span><span class="kvv ${amber?'amber':''}">${scalarVal(v)}</span></div>`;}).join("");}
+function resultReadable(out){
+  if(out==null)return '<div class="rvm">— no result recorded</div>';
+  if(typeof out!=="object")return esc(String(out));
+  const keys=Object.keys(out);if(!keys.length)return '<div class="rvm">— empty</div>';
+  return keys.map(k=>{const v=out[k];
+    if(Array.isArray(v)&&v.some(x=>x&&typeof x==="object"))
+      return `<div class="res-sub">${esc(humanKey(k))}</div>`+v.map(x=>`<div class="res-card">${kvRows(x)}</div>`).join("");
+    if(v&&typeof v==="object"&&!Array.isArray(v))
+      return `<div class="res-sub">${esc(humanKey(k))}</div><div class="res-card">${kvRows(v)}</div>`;
+    return `<div class="rkv"><div class="rk">${esc(humanKey(k))}</div><div class="rv">${scalarVal(v)}</div></div>`;
+  }).join("");
+}
+function capsForPhase(pb){if(!pb||!Array.isArray(pb.intents))return [];const ints=pb.intents;return (CAPS||[]).filter(c=>Array.isArray(c.intents)&&c.intents.some(it=>ints.includes(it)));}
+// did this phase's steps use capability c?  green=used ok · red=had trouble · gray=available-unused (correlate step.tool.id -> capability.id by prefix)
+function capStatus(c,p){
+  const used=(p.steps||[]).filter(s=>s.kind==="tool_call"&&s.tool&&s.tool.id&&String(c.id).startsWith(s.tool.id));
+  if(!used.length)return {state:"idle",label:"available · not used"};
+  const sts=used.map(s=>s.status);
+  const bad=sts.filter(x=>["error","timeout","denied","failed"].includes(x));
+  const ok=sts.filter(x=>["ok","committed","cached"].includes(x));
+  if(bad.length)return {state:"issue",label:ok.length?`${bad[0]} · retried OK`:bad.join(" · ")};
+  return {state:"used",label:sts.includes("committed")?"used · committed":"used OK"};
+}
+function phaseDetail(p,id){
+  const pb=((PLAYBOOK&&PLAYBOOK.phases)||[]).find(x=>x.id===id)||{};
+  const dur=phaseDur(p.opened_at,p.closed_at);
+  const timeChip=p.opened_at?`<div class="phd-time">🕐 ${esc(p.opened_at)}${p.closed_at?` → ${esc(p.closed_at)}`:" → …"}${dur?` · ${dur}`:""}</div>`:"";
+  const caps=capsForPhase(pb);
+  const capCards=caps.length?caps.map(c=>{const w=(c.effect==="write");const cs=capStatus(c,p);const nm=esc((c.label||c.id).split(" — ")[0].trim());
+    return `<div class="capc ${cs.state}"><div class="capc-h"><span class="capc-name">${nm}</span><span class="capc-eff ${w?'w':'r'}">${w?"write":"read"}</span></div>${c.what?`<div class="capc-what">${esc(c.what)}</div>`:""}<div class="capc-stat">${esc(cs.label)}</div></div>`;
+  }).join(""):'<div class="rvm">— none mapped to this phase</div>';
+  const usedIds=[...new Set((p.steps||[]).filter(s=>s.kind==="tool_call"&&s.tool&&s.tool.id).map(s=>s.tool.id))];
+  const unreg=usedIds.filter(tid=>!(CAPS||[]).some(c=>String(c.id).startsWith(tid)));
+  const unregHtml=unreg.length?`<div class="phd-unreg">Also used (unregistered): ${unreg.map(t=>`<b>${esc(t)}</b>`).join(", ")}</div>`:"";
+  const res=(p.output!=null)?resultReadable(p.output):`<div class="rvm">— no result yet (phase ${esc(p.state||"pending")})</div>`;
+  return `<div class="phd" onclick="event.stopPropagation()">
+    ${timeChip}
+    <div class="phd-lbl">Capabilities <span class="leg"><span><i class="u"></i>used</span><span><i class="e"></i>issue</span><span><i class="g"></i>idle</span></span></div>
+    <div class="phd-caps">${capCards}</div>${unregHtml}
+    <div class="phd-lbl">Result</div>
+    <div class="phd-res">${res}</div>
+  </div>`;
+}
+
+/* ---- the rich step renderer ---- */
+function stepCard(s){
+  const k=s.kind, isOp=(s.actor&&s.actor.role==="operator")||k==="user_input"||k==="decision";
+  if(k==="gate")return gateCard(s);
+  const who=(s.actor?(s.actor.id+" · "+s.actor.role):(k==="user_input"?"operator":"agent"));
+  const tm=esc(s.started_at||s.at||""), d=dur(s.duration_ms);
+  const head=`<div class="who"><span>${esc(who)}</span>${tm?`<span class="tm">${tm}</span>`:""}${d?`<span class="dur">· ${d}</span>`:""}</div>`;
+  let body=`<span class="hl">${esc(s.headline||defHead(s))}</span>`;
+  if(k==="plan") body+=planBody(s);
+  else if(k==="reasoning") body+=reasonBody(s);
+  else if(k==="tool_call") body+=toolBody(s);
+  else if(k==="observation") body+=obsBody(s);
+  else if(k==="suggestion") body+=suggBody(s);
+  else if(k==="decision") body+=decisionBody(s);
+  else if(k==="user_input") body+=`<div style="margin-top:3px">${esc(s.body||s.message||"")}</div>`;
+  else if(k==="escalation") body+=`<div class="dmeta">→ <b>${esc(s.to||"")}</b>${s.responder?" · "+esc(s.responder):""} · ${esc(s.reason||"")}</div>`+(s.capability?`<div class="chips"><span class="ch2 rt">${esc(s.capability)}</span></div>`:"");
+  else if(k==="backtrack") body+=`<div class="dmeta">reopens <b>${esc(s.reopens||"")}</b> · ${esc(s.reason||"")}</div>`+gopChips(s);
+  else body+=`<div style="margin-top:3px">${esc(s.result||s.body||"")}</div>`;
+  const bcl=k==="reasoning"?"b reason":"b";
+  const av=`<div class="mav" style="background:${kc(k)}">${KIND_ICON[k]||"•"}</div>`;
+  return `<div class="msg ${isOp?'op':''}">${av}<div class="bw">${head}<div class="${bcl}">${body}</div></div></div>`;
+}
+function defHead(s){return ({plan:"Plan",reasoning:"Reasoning",tool_call:s.capability||"Tool call",observation:"Observation",suggestion:"Proposal",decision:(s.verdict||s.result||"Decision"),user_input:"Message"}[s.kind])||s.kind;}
+function planBody(s){if(!s.plan)return s.result?`<div style="margin-top:3px">${esc(s.result)}</div>`:"";
+  return s.plan.map(p=>`<div class="planrow"><span class="pi">${esc(p.intent)}</span><span>${esc(p.why||"")}</span>${p.target?`<span class="pt">${esc(p.target)}</span>`:""}</div>`).join("");}
+function reasonBody(s){const sub=s.subtype?`<span class="sub" style="background:${kc('reasoning')}">${esc(s.subtype)}</span>`:"";
+  const conf=s.confidence!=null?`<div class="chips"><span class="ch2 rt">confidence ${s.confidence}</span></div>${s.confidence_basis?`<div class="rat" style="margin-top:5px"><b>basis:</b> ${esc(s.confidence_basis)}</div>`:""}`:"";
+  return `<div class="body">${sub}${esc(s.body||s.result||"")}</div>${conf}`;}
+function obsBody(s){return `<div style="margin-top:3px;font-style:italic;color:var(--ink2)">${esc(s.analysis||s.result||"")}</div>`+touchedChips(s)+gopChips(s)+(s.evidence?shotImg(s.evidence):"");}
+function toolBody(s){
+  if(s.input==null&&s.output==null&&!s.error&&s.result) return `<div style="margin-top:4px">${esc(s.result)}</div>`+(s.evidence?shotImg(s.evidence):"");
+  let h="";
+  if(s.tool) h+=`<div class="tklab">Tool</div><div class="codeln">${esc(s.tool.id)} · ${esc(s.tool.action||"")}${s.tool.target?" → "+esc(s.tool.target):""}${s.capability?`<br><span style="color:var(--ink3)">capability: ${esc(s.capability)}</span>`:""}${s.intent?`<br><span style="color:var(--ink3)">intent: ${esc(s.intent)}</span>`:""}</div>`;
+  else if(s.capability) h+=`<div class="tklab">Capability</div><div class="codeln">${esc(s.capability)}${s.intent?" · intent: "+esc(s.intent):""}</div>`;
+  if(s.input!=null) h+=`<div class="tklab">Input</div><div class="codeln">${esc(JSON.stringify(s.input))}</div>`;
+  if(s.error) h+=`<div class="errbox"><b>${esc(s.error.type||"error")}</b> — ${esc(s.error.message||"")} ${s.error.transient?"· transient → retry":""}</div>`;
+  if(s.output!=null){
+    if(s.output&&s.output.candidates){h+=`<div class="tklab">Output · ranked candidates</div>`+s.output.candidates.map((c,i)=>`<div class="cand ${i===0?'top':''}"><span class="score">${c.score!=null?c.score:""}</span><span>${esc(c.change||c.cause||c.id||"")}${c.at?` <span style="color:var(--ink3)">· ${esc(c.at)}</span>`:""}</span></div>`).join("");}
+    else h+=`<div class="tklab">Output</div><div class="codeln">${esc(JSON.stringify(s.output))}</div>`;
+  }
+  if(s.analysis) h+=`<div class="reads">agent reads: ${esc(s.analysis)}</div>`;
+  if(s.evidence) h+=shotImg(s.evidence);
+  let chips=[];
+  if(s.effect)chips.push(`<span class="ch2 ${s.effect}">${esc(s.effect)}</span>`);
+  if(s.access)chips.push(`<span class="ch2 rt">access: ${esc(s.access)}</span>`);
+  if(s.attempt&&s.attempt>1)chips.push(`<span class="ch2 rt">attempt ${s.attempt}</span>`);
+  if(s.idempotency_key)chips.push(`<span class="ch2 rt">idem: ${esc(s.idempotency_key)}</span>`);
+  if(chips.length)h+=`<div class="chips">${chips.join("")}</div>`;
+  h+=touchedChips(s);
+  h+=gopChips(s);
+  return h;
+}
+function gopChips(s){if(!s.graph_ops||!s.graph_ops.length)return"";
+  return `<div class="chips">`+s.graph_ops.map(g=>`<span class="ch2 gop">${esc(g.op)}${g.node?" "+esc(g.node):g.edge?" "+esc(g.edge):""}${g.to?" → "+esc(g.to):""}</span>`).join("")+`</div>`;}
+function touchedChips(s){if(!s.touched||!s.touched.length)return"";return `<div class="chips"><span class="ch2 rt">touched: ${esc(s.touched.join(", "))}</span></div>`;}
+function shotImg(ev){const a=Array.isArray(ev)?ev:[{ref:ev}];return a.map(e=>`<img class="shot" src="${esc(e.ref)}" alt="">${e.caption?`<div class="shotcap">${esc(e.caption)}</div>`:""}`).join("");}
+function suggBody(s){
+  let h="";
+  if(s.supersedes||s.gate)h+=`<div class="chips">${s.supersedes?`<span class="ch2 rt">supersedes ${esc(s.supersedes)}</span>`:""}${s.gate?`<span class="ch2 rt">gate: ${esc(s.gate.kind)}${s.gate.status?" · "+esc(s.gate.status):""}</span>`:""}</div>`;
+  h+=`<div style="margin-top:4px;font-weight:600">${esc(s.proposal||s.result||"")}</div>`;
+  if(s.diff)h+=`<div class="diff"><span class="from">${esc(s.diff.from)}</span> → <span class="to">${esc(s.diff.to)}</span></div>`;
+  if(s.options)h+=s.options.map(o=>`<div class="opt ${o.recommended?'rec':''}"><span class="oid">${esc(o.id)}</span><div><div class="olab">${esc(o.label)}</div><div class="ometa">${[o.kind,o.blast_radius?"blast: "+o.blast_radius:"",o.rollback?"rollback: "+o.rollback:"",o.expected_effect?"effect: "+o.expected_effect:"",o.risk?"risk: "+o.risk:""].filter(Boolean).map(esc).join(" · ")}</div></div>${o.recommended?'<span class="orec">rec</span>':''}</div>`).join("");
+  if(s.rationale)h+=`<div class="rat"><b>why:</b> ${esc(s.rationale)}</div>`;
+  if(s.fallback)h+=`<div class="rat"><b>fallback:</b> ${esc(s.fallback)}</div>`;
+  return h;
+}
+function decisionBody(s){
+  const v=esc(s.verdict||s.result||"");
+  let h=`<div style="margin-top:4px"><span class="verdict v-${v}">${v}</span></div>`;
+  if(s.chose)h+=`<div class="dmeta"><b>chose:</b> ${esc(s.chose)}${s.chose_against?` · <span style="color:var(--ink3)">against ${esc((s.chose_against||[]).join(", "))}</span>`:""}</div>`;
+  if(s.chose_against&&!s.chose)h+=`<div class="dmeta"><span style="color:var(--ink3)">rejected ${esc((s.chose_against||[]).join(", "))}</span></div>`;
+  if(s.refinement){const r=s.refinement;const parts=[r.keep?"keep "+(Array.isArray(r.keep)?r.keep.join(", "):r.keep):"",r.change?"change "+r.change:"",r.add_constraint?"add "+r.add_constraint:""].filter(Boolean);h+=`<div class="dmeta"><b>refined:</b> ${esc(parts.length?parts.join(" · "):JSON.stringify(r))}</div>`;}
+  if(s.reason)h+=`<div class="dmeta">${esc(s.reason)}</div>`;
+  return h;
+}
+function gateCard(s){
+  const gk=(s.gate&&s.gate.kind)||"advance";
+  const icon=gk==="write"?"⛔":gk==="close"?"🏁":"⏭";
+  const opts=(s.options||[]).map(o=>`<span class="gbtn">${esc(o.label||o.id)}</span>`).join("");
+  return `<div class="gate ${gk}"><div class="gt">${icon} ${gk==="write"?"Write gate":gk==="close"?"Close gate":"Checkpoint"}${s.duration_ms?`<span style="margin-left:auto;font-weight:400;color:var(--ink3);font-size:11px">waited ${dur(s.duration_ms)}</span>`:""}</div>
+    <div class="gp">${esc(s.prompt||s.headline||"")}</div><div class="gopts">${opts}</div></div>`;
+}
+
+/* ---- capability panel: open a browser to each tool, log in, mark ready ---- */
+let LIVECAPS=[];                       // live status from /capabilities (opened/ready/reads/wall)
+function renderCaps(){
+  const strip=document.getElementById("capstrip"); if(!strip)return;
+  // merge static config (from capabilities.json) with live status
+  const byKey={}; (CAPS||[]).forEach(c=>{byKey[c.id||slug(c.label||c.name)]={...c,key:c.id||slug(c.label||c.name)};});
+  LIVECAPS.forEach(c=>{if(byKey[c.key])Object.assign(byKey[c.key],c); else byKey[c.key]=c;});
+  const all=Object.values(byKey);
+  if(!all.length){strip.innerHTML="<span style='font-size:11px;color:var(--ink3)'>No capabilities configured.</span>";return;}
+  strip.innerHTML=all.map(c=>{
+    const opened=c.opened||c.is_open, ready=c.ready;
+    const cls="capcard "+(ready?"ready ":opened?"opened ":"");
+    const stat=ready?`<span class="cstat on">● ready · ${c.reads||0} read${(c.reads||0)===1?"":"s"}</span>`
+             :opened?`<span class="cstat off">log in…</span>`:`<span class="cstat off">not opened</span>`;
+    const obtn=`<button class="cbtn open" onclick="openCap('${c.key}')" ${opened?'disabled':''}>${opened?'opened':'open'}</button>`;
+    const rbtn=`<button class="cbtn ready" onclick="readyCap('${c.key}')" ${ready?'disabled':''}>${ready?'ready':'mark ready'}</button>`;
+    return `<div class="${cls}"><div class="cn" title="${esc(c.url||"")}">${esc(c.label||c.name||c.key)}</div>
+      <div class="cd">${esc(c.description||"")}</div><div class="cs">${obtn}${rbtn}${stat}</div></div>`;
+  }).join("");
+}
+function slug(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");}
+async function openCap(key){
+  const c=LIVECAPS.find(x=>x.key===key)||CAPS.find(x=>(x.id||slug(x.label))===key);
+  if(!c||!c.url){alert("No URL for this capability.");return;}
+  try{ const r=await fetch("/capabilities/"+encodeURIComponent(key)+"/open",{method:"POST"});
+       const j=await r.json(); if(!j.ok){alert(j.detail||"open failed — is the backend running headed?");} refreshCaps(); }
+  catch(e){ alert("Could not reach the backend."); }
+}
+async function readyCap(key){
+  try{ await fetch("/capabilities/"+encodeURIComponent(key)+"/ready",{method:"POST"}); }catch(e){ alert("Could not reach the backend."); }
+  refreshCaps();
+}
+async function refreshCaps(){
+  try{ const j=await (await fetch("/capabilities")).json(); LIVECAPS=j.capabilities||[]; renderCaps(); }catch(e){}
+}
+
+function chatBubble(m){
+  const isOp=m.role!=="agent";
+  const pending=m.pending;
+  const who=isOp?"operator":"agent", tm=esc(m.at||"");
+  const head=`<div class="who"><span>${who}</span>${tm?`<span class="tm">${tm}</span>`:""}</div>`;
+  const body=`<span class="hl">${esc(m.text||"")}</span>`;
+  const bcl=pending?"b thinking":"b";
+  const av=`<div class="mav" style="background:${isOp?'var(--accent)':'#1f8a4c'}">${isOp?'🧑':'🔭'}</div>`;
+  return `<div class="msg ${isOp?'op':''}">${av}<div class="bw">${head}<div class="${bcl}">${body}</div></div></div>`;
+}
+function renderChat(){
+  const chat=(DATA.chat||[]); const phs=DATA.phases||[];
+  let h="";
+  // investigation phases FIRST (steps), then the live chat at the BOTTOM so new messages are
+  // always visible — never buried above a long step list. A chat that's just-sent (pending) or
+  // recently active pins the pane to the bottom so the user sees their message + the reply.
+  phs.forEach(p=>{ if(!p.steps||!p.steps.length)return;
+    h+=`<div class="cdiv" id="cd-${esc(p.phase)}">${esc(PH_LABEL[p.phase]||p.phase)}</div>`;
+    p.steps.forEach(s=>h+=stepCard(s));
+  });
+  if(chat.length){ h+=`<div class="cdiv" id="cd-chat">Chat</div>`; chat.forEach(m=>h+=chatBubble(m)); }
+  const c=document.getElementById("chat");
+  const wasNearBottom=c.scrollHeight-c.scrollTop-c.clientHeight<120;
+  const hasPending=chat.some(m=>m.pending);
+  c.innerHTML=h||"<div style='color:var(--ink3);padding:20px'>No steps yet. Type below to ask the agent, or ▶ Run live.</div>";
+  if(FOCUS){const d=document.getElementById("cd-"+FOCUS);if(d)c.scrollTop=d.offsetTop-8;FOCUS=null;}
+  else if(hasPending||CHAT_BUSY||wasNearBottom) c.scrollTop=c.scrollHeight;   // keep chat in view
+  document.getElementById("draft").textContent=NAME+" · "+(phs.reduce((n,p)=>n+(p.steps||[]).length,0))+" steps · data-driven";
+}
+
+/* graph (BFS-layered, data-driven, zoom/pan/hover) */
+function renderGraphPane(){
+  const g=DATA.graph||{nodes:[],edges:[]}; const nodes=g.nodes||[], edges=g.edges||[];
+  // layer by STRUCTURAL topology only — suspected_cause is a shortcut, not a hop (else the root cause floats up beside the symptom)
+  const adj={}; nodes.forEach(n=>adj[n.id]=[]); edges.forEach(e=>{if(e.type==="suspected_cause")return;if(adj[e.from])adj[e.from].push(e.to);if(adj[e.to])adj[e.to].push(e.from);});
+  const reopened=new Set(); (DATA.phases||[]).forEach(p=>(p.steps||[]).forEach(s=>{if(s.kind==="backtrack"&&s.reopens)reopened.add(s.reopens);}));
+  const subj=(nodes.find(n=>n.health==="subject")||nodes[0]||{}).id;
+  const layer={}; const q=[subj]; layer[subj]=0;
+  while(q.length){const x=q.shift();(adj[x]||[]).forEach(y=>{if(layer[y]==null){layer[y]=layer[x]+1;q.push(y);}});}
+  nodes.forEach(n=>{if(layer[n.id]==null)layer[n.id]=1;});
+  const byL={}; nodes.forEach(n=>{(byL[layer[n.id]]=byL[layer[n.id]]||[]).push(n);});
+  const W=432, NW=120, NH=44, VGAP=94; const pos={}; const maxL=Math.max(0,...Object.keys(byL).map(Number));
+  Object.keys(byL).forEach(L=>{const row=byL[L]; const n=row.length; row.forEach((nd,i)=>{const x=n===1?W/2:(W-NW)/(n-1)*i+NW/2; pos[nd.id]={x:Math.max(NW/2+6,Math.min(W-NW/2-6,x)),y:34+L*VGAP};});});
+  const H=34+maxL*VGAP+NH+12;
+  let ed="";
+  edges.forEach(e=>{const a=pos[e.from],b=pos[e.to]; if(!a||!b)return;
+    const cause=e.type==="suspected_cause", rel=e.type==="related_to";
+    const col=cause?"#cf3636":rel?"#7c3aed":"#9aa6b6"; const dash=rel?'stroke-dasharray="5 4"':"";
+    const x1=a.x,y1=a.y+(b.y>a.y?NH/2:-NH/2),x2=b.x,y2=b.y+(b.y>a.y?-NH/2:NH/2);
+    const mx=(x1+x2)/2,my=(y1+y2)/2; const lab=(EDGE_LABEL[e.type]||esc(e.type))+(e.confidence?" "+e.confidence:"");
+    ed+=`<g class="gedge" data-from="${esc(e.from)}" data-to="${esc(e.to)}">`
+      +`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${cause?2.6:1.6}" ${dash} marker-end="url(#${cause?'ac':'a'})"/>`
+      +`<text x="${mx}" y="${my-2}" font-size="9.5" font-weight="${cause?700:500}" fill="${cause?'#b04444':rel?'#6b21a8':'#5a6a7a'}" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round">${lab}</text></g>`;
+  });
+  let no="";
+  nodes.forEach(n=>{const p=pos[n.id]; const c=HEALTH[n.health]||HEALTH.healthy;
+    const sw=n.health==="subject"?2.4:n.health==="unhealthy"?2.1:1.6;
+    no+=`<g class="gnode" data-id="${esc(n.id)}" onclick="SELNODE='${esc(n.id)}';renderGraphPane()"><rect x="${p.x-NW/2}" y="${p.y-NH/2}" width="${NW}" height="${NH}" rx="11" fill="${c[0]}" stroke="${c[1]}" stroke-width="${sw}"/>`
+      +`<text x="${p.x}" y="${p.y-3}" font-size="11.5" font-weight="700" fill="${c[2]}" text-anchor="middle">${esc(n.label)}</text>`
+      +`<text x="${p.x}" y="${p.y+11}" font-size="8.5" fill="${c[2]}" text-anchor="middle">${esc(n.kind)} · ${esc(n.health)}</text>`
+      +(reopened.has(n.id)?`<g><circle cx="${p.x+NW/2-11}" cy="${p.y-NH/2+11}" r="9" fill="#a21caf"/><text x="${p.x+NW/2-11}" y="${p.y-NH/2+15}" font-size="11" fill="#fff" text-anchor="middle">↩</text><title>re-opened after being ruled out (backtrack)</title></g>`:"")+`</g>`;
+  });
+  const svg=`<svg id="gsvg" viewBox="0 0 ${W} ${H}" role="img" style="cursor:grab;touch-action:none"><defs>`
+    +`<marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#9aa6b6"/></marker>`
+    +`<marker id="ac" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#cf3636"/></marker></defs>`
+    +`<g id="gz">${ed}${no}</g></svg>`;
+  const ctrls=`<div class="gctrls"><button title="zoom in" onclick="gzoom(1.25)">+</button><button title="zoom out" onclick="gzoom(.8)">−</button><button title="reset view" onclick="greset()">⤢</button></div>`;
+  const legend=`<div class="glegend"><span><i class="ld" style="background:#cf3636"></i>cause</span><span><i class="ld" style="background:#1f8a4c"></i>healthy</span><span><i class="ld" style="background:#c2780c"></i>impacted</span><span><i class="ld" style="background:#caa207"></i>degraded</span><span><i class="ld" style="background:#7fae90"></i>ruled out</span><span><i class="ld" style="background:#7c3aed"></i>related</span><span class="lg-re">↩ re-opened</span></div>`;
+  let h=`<details class="gcard" id="gcard" ${GOPEN?"open":""}><summary><span class="gtitle">Investigation graph</span><span class="gmeta">${nodes.length} nodes · hover to focus · scroll/drag</span><span class="chev">▾</span></summary><div class="gbody" style="position:relative">${ctrls}${svg}${legend}</div></details>`;
+  h+=nodeDetail(); document.getElementById("pane-graph").innerHTML=h;
+  attachGraph();
+}
+function applyGZ(){const z=document.getElementById("gz");if(z)z.setAttribute("transform",`translate(${GZ.x} ${GZ.y}) scale(${GZ.k})`);}
+function gzoom(f){GZ.k=Math.max(.4,Math.min(3.5,GZ.k*f));applyGZ();}
+function greset(){GZ={k:1,x:0,y:0};applyGZ();}
+function ghighlight(id){const svg=document.getElementById("gsvg");if(!svg)return;
+  svg.querySelectorAll(".gedge").forEach(e=>{e.style.opacity=(!id||e.getAttribute("data-from")===id||e.getAttribute("data-to")===id)?1:.1;});
+  svg.querySelectorAll(".gnode").forEach(n=>{const nid=n.getAttribute("data-id");
+    const on=!id||nid===id||[...svg.querySelectorAll(".gedge")].some(e=>{const f=e.getAttribute("data-from"),t=e.getAttribute("data-to");return (f===id&&t===nid)||(t===id&&f===nid);});
+    n.style.opacity=on?1:.18;});
+}
+function attachGraph(){
+  const card=document.getElementById("gcard"); if(card)card.addEventListener("toggle",()=>{GOPEN=card.open;});
+  const svg=document.getElementById("gsvg"); if(!svg)return; applyGZ();
+  svg.addEventListener("wheel",ev=>{ev.preventDefault();gzoom(ev.deltaY<0?1.12:0.9);},{passive:false});
+  let d=null;
+  const vbScale=()=>{const r=svg.getBoundingClientRect();const vw=(svg.viewBox&&svg.viewBox.baseVal&&svg.viewBox.baseVal.width)||r.width;return r.width?vw/r.width:1;};
+  svg.addEventListener("pointerdown",ev=>{d={x:ev.clientX,y:ev.clientY,ox:GZ.x,oy:GZ.y,s:vbScale()};svg.style.cursor="grabbing";});
+  svg.addEventListener("pointermove",ev=>{if(!d)return;GZ.x=d.ox+(ev.clientX-d.x)*d.s;GZ.y=d.oy+(ev.clientY-d.y)*d.s;applyGZ();});
+  svg.addEventListener("pointerup",()=>{d=null;svg.style.cursor="grab";});
+  svg.addEventListener("pointerleave",()=>{d=null;svg.style.cursor="grab";});
+  svg.querySelectorAll(".gnode").forEach(nd=>{nd.style.cursor="pointer";
+    nd.addEventListener("mouseenter",()=>ghighlight(nd.getAttribute("data-id")));
+    nd.addEventListener("mouseleave",()=>ghighlight(null));});
+}
+function nodeDetail(){
+  const nodes=(DATA.graph||{}).nodes||[]; const n=nodes.find(x=>x.id===SELNODE)||nodes.find(x=>x.health==="unhealthy")||nodes[0]; if(!n)return"";
+  const edges=((DATA.graph||{}).edges||[]).filter(e=>e.from===n.id||e.to===n.id);
+  const c=HEALTH[n.health]||HEALTH.healthy; const inSch=SCHEMA&&SCHEMA.node_types&&SCHEMA.node_types.includes(n.kind);
+  let h=`<div class="card"><div class="ch"><span class="t">Node — ${esc(n.label)}</span><span class="meta">click any node</span></div><div class="cc nd">
+    <div class="nh"><h4>${esc(n.label)}</h4><span class="hb" style="background:${c[0]};color:${c[2]}">${esc(n.health)}</span></div>
+    <div class="ndkind"><span class="ndkind-v">${esc(n.kind)}</span><span class="ndkind-sch ${inSch?'ok':'warn'}">${inSch?"✓ in graph-schema.json":"⚠ not in schema"}</span></div>
+    ${n.why_type?`<div class="ndwhy">${esc(n.why_type)}</div>`:""}`;
+  if(n.summary)h+=`<div class="seclbl">Summary</div><div class="ndsum">${esc(n.summary)}</div>`;
+  if(n.facts&&n.facts.length){
+    h+=`<div class="seclbl">Facts <span class="seclbl-n">${n.facts.length}</span></div>`+n.facts.map(f=>{
+      const cite=[f.source?`<b>${esc(f.source)}</b>`:"",f.field?esc(f.field):"",f.at?esc(f.at):""].filter(Boolean);
+      return `<div class="ndfact"><div class="ndfact-k">${esc(f.key)}</div><div class="ndfact-v">${esc(f.value)}</div>`
+        +(cite.length?`<div class="ndcite">📎 source: ${cite.join(' <span class="ndcite-sep">·</span> ')}</div>`:"")+`</div>`;
+    }).join("");
+  }
+  if(edges.length){
+    h+=`<div class="seclbl">Related <span class="seclbl-n">${edges.length}</span></div>`+edges.map(e=>{
+      const out=e.from===n.id; const other=out?e.to:e.from; const dir=out?"→":"←";
+      const lbl=EDGE_LABEL[e.type]||e.type;
+      return `<div class="ndrel"><div class="ndrel-h"><span class="ndrel-type">${esc(lbl)}</span><span class="ndrel-dir">${dir}</span><span class="ndrel-node">${esc(other)}</span>${e.at?`<span class="ndrel-at">🕐 ${esc(e.at)}</span>`:""}${e.confidence?`<span class="ndrel-conf">conf ${esc(e.confidence)}</span>`:""}</div>`
+        +(e.basis?`<div class="ndcite">📎 basis: ${esc(e.basis)}</div>`:"")+`</div>`;
+    }).join("");
+  }
+  h+=jblock({incident:NAME,node:n,edges:edges},"Full node graph-data — expand JSON")+`</div></div>`;
+  return h;
+}
+
+function recStep(s){
+  const col=kc(s.kind); let body="";
+  if(s.kind==="plan")body=planBody(s);
+  else if(s.kind==="reasoning")body=reasonBody(s);
+  else if(s.kind==="tool_call")body=toolBody(s);
+  else if(s.kind==="observation")body=obsBody(s);
+  else if(s.kind==="suggestion")body=suggBody(s);
+  else if(s.kind==="decision")body=decisionBody(s);
+  else if(s.kind==="gate")body=`<div style="margin-top:3px">${esc(s.prompt||"")}</div>`+(s.duration_ms?`<div class="dmeta">operator dwell: ${dur(s.duration_ms)}</div>`:"")+(s.options?`<div class="chips">`+s.options.map(o=>`<span class="ch2 rt">${esc(o.label||o.id)}</span>`).join("")+`</div>`:"");
+  else if(s.kind==="user_input")body=`<div style="margin-top:3px">“${esc(s.body||s.message||"")}”</div>`;
+  else if(s.kind==="escalation")body=`<div class="dmeta">→ <b>${esc(s.to||"")}</b>${s.responder?" · "+esc(s.responder):""} · ${esc(s.reason||"")}</div>`+(s.capability?`<div class="chips"><span class="ch2 rt">${esc(s.capability)}</span></div>`:"");
+  else if(s.kind==="backtrack")body=`<div class="dmeta">reopens <b>${esc(s.reopens||"")}</b> · ${esc(s.reason||"")}</div>`+gopChips(s);
+  else body=`<div style="margin-top:3px">${esc(s.result||s.body||"")}</div>`;
+  const t0=esc(s.started_at||s.at||""); const t1=(s.ended_at&&s.ended_at!==s.started_at)?(" → "+esc(s.ended_at)):"";
+  const meta=[ (t0?`⏱ ${t0}${t1}`:""), (s.duration_ms!=null?`<span class="jdur">${dur(s.duration_ms)}</span>`:""), (s.actor?esc(s.actor.id+" · "+s.actor.role):""), (s.status?("status: "+esc(s.status)):""), (s.intent?("intent: "+esc(s.intent)):"") ].filter(Boolean).join(' <span class="jsep">·</span> ');
+  const subs=(s.substeps&&s.substeps.length)?`<div class="jsubs"><div class="jsubs-lbl">▸ ${s.substeps.length} sub-steps</div>${s.substeps.map(recStep).join("")}</div>`:"";
+  return `<div class="jstep"><div class="jdot" style="background:${col}"></div>
+    <div class="jcard" style="border-left-color:${col}">
+      <div class="jhead"><span class="kbadge" style="background:${col}">${esc(s.kind)}${s.subtype?" · "+esc(s.subtype):""}</span><span class="jhl">${esc(s.headline||defHead(s))}</span></div>
+      <div class="jmeta">${meta}</div>
+      <div class="jbody">${body}</div>
+      ${subs}
+      ${jblock(s,"step record — full JSON")}
+    </div></div>`;
+}
+function renderRecordPane(){
+  const p=(DATA.phases||[]).find(x=>x.phase===SELPHASE)||(DATA.phases||[])[0]; if(!p){document.getElementById("pane-record").innerHTML="";return;}
+  let h=`<div class="card"><div class="ch"><span class="t">${esc(PH_LABEL[p.phase]||p.phase)} — phase record</span><span class="meta">as stored in the DB</span></div><div class="cc">
+    <table class="recf">
+      <tr><td class="rkc">id</td><td><code>${esc(p.id||"")}</code></td></tr>
+      <tr><td class="rkc">state</td><td><span class="hb" style="background:var(--ok-soft);color:var(--ok)">${esc(p.state||"")}</span></td></tr>
+      <tr><td class="rkc">opened → closed</td><td>${esc(p.opened_at||"")} → ${esc(p.closed_at||"—")}</td></tr>
+      <tr><td class="rkc">goal</td><td>${esc(p.goal||"")}</td></tr>
+      <tr><td class="rkc">summary</td><td>${esc(p.summary||"")}</td></tr>
+    </table>
+    <div class="seclbl">Step journey — what happened, in order <span class="seclbl-n">${(p.steps||[]).length}</span></div><div class="journey">`;
+  (p.steps||[]).forEach(s=>h+=recStep(s));
+  h+=`</div>`;
+  if(p.output)h+=`<div class="seclbl">Result — phase output</div><div class="phd-res">${resultReadable(p.output)}</div>`+jblock(p.output,"Phase output — raw JSON");
+  h+=jblock(p,"Full phase record — as stored")+`</div></div>`;
+  document.getElementById("pane-record").innerHTML=h;
+}
+
+function rtab(t){TAB=t;rtabSync();}
+function rtabSync(){
+  const pg=document.getElementById("pane-graph"),pr=document.getElementById("pane-record");
+  if(!pg||!pr)return;
+  pg.style.display=TAB==="graph"?"":"none"; pr.style.display=TAB==="record"?"":"none";
+  document.getElementById("rt-graph").classList.toggle("act",TAB==="graph");
+  document.getElementById("rt-record").classList.toggle("act",TAB==="record");
+}
+function openInc(){switchInc(document.getElementById("idinput").value.trim()||NAME);}
+
+/* ---- live driving: the real xAI engine runs the incident + writes incidents/<NAME>.json, which we poll ---- */
+async function runLive(){
+  const btn=document.getElementById("runbtn"); const id=NAME;
+  if(btn){btn.disabled=true;btn.textContent="● running…";}
+  try{ await fetch("/drive/"+encodeURIComponent(id),{method:"POST"}); }
+  catch(e){ if(btn){btn.textContent="▶ Run live";btn.disabled=false;} alert("Could not reach the engine backend. Start it: cd demo/engine-backend && ../run-live.sh"); return; }
+  if(POLLER){clearInterval(POLLER);} POLLER=setInterval(poll,2000); poll();   // animate as it writes
+}
+async function gateLive(decision){
+  try{ await fetch("/drive/"+encodeURIComponent(NAME)+"/gate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({decision})}); }
+  catch(e){ alert("Could not reach the engine backend."); return; }
+  if(POLLER){clearInterval(POLLER);} POLLER=setInterval(poll,2000); poll();
+}
+// chat: your message -> xAI Grok -> reply, appended to incidents/<NAME>.json chat[] (polled + rendered).
+// INSTANT echo: your message + a "thinking…" bubble appear the moment you hit Enter (optimistic),
+// so you always see feedback — then the 2s poll replaces them with the persisted bubbles + the reply.
+let CHAT_BUSY=false;
+async function sendChat(){
+  const inp=document.getElementById("chatinput"); const t=(inp.value||"").trim();
+  if(!t||CHAT_BUSY)return;
+  CHAT_BUSY=true;
+  inp.value=""; const btn=document.querySelector(".composer .send"); if(btn){btn.disabled=true;btn.textContent="…";}
+  // optimistic echo NOW (don't wait for the server round-trip)
+  DATA=DATA||{}; (DATA.chat=DATA.chat||[]).push({role:"operator",text:t,at:timeNow()});
+  DATA.chat.push({role:"agent",text:"…",at:timeNow(),pending:true});
+  renderChat();
+  const c=document.getElementById("chat"); if(c) c.scrollTop=c.scrollHeight;   // jump to show your msg
+  try{ const r=await fetch("/drive/"+encodeURIComponent(NAME)+"/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:t})});
+       const j=await r.json(); if(!j.ok){ /* error bubble persisted server-side */ } }
+  catch(e){ DATA.chat.push({role:"agent",text:"(could not reach the engine backend)",at:timeNow()}); renderChat(); }
+  finally{ if(btn){btn.disabled=false;btn.textContent="↑";} CHAT_BUSY=false; poll();
+           const c2=document.getElementById("chat"); if(c2) c2.scrollTop=c2.scrollHeight; }
+}
+// reset the Run button whenever a run finishes
+const _origPoll=poll;
+poll=async function(){ await _origPoll.apply(this,arguments); const b=document.getElementById("runbtn");
+  if(b&&DATA&&DATA.status==="done"){b.disabled=false;b.textContent="▶ Run live";} };
+load();
+</script>
+</body></html>

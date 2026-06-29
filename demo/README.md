@@ -22,6 +22,8 @@ recovery): all four phases, the write gate, the human close. Click through the *
 
 *(Server already running? Just open the URL above, or double-click **`quick-demo (INC-2256).webloc`**.)*
 
+> **The rich console (the "proper UX"):** **http://localhost:8000/ux-console.html?incident=INC-2290** — a data-driven operator console where **every step shows its full detail**: the tool `input` + `output` + the agent's `analysis`, the **options** presented, the operator's **decision**, and the **graph-ops** each step caused. Switch incidents in the top bar; try **`?incident=INC-3187`** (a storage case that **backtracks** on a ruled-out node and **escalates** to infra on-call), the **Graph** / **Phase record** tabs, and `?tab=record&rec=remediation` to land on the richest record.
+
 ---
 
 ## 1. What's in the folder
@@ -35,20 +37,25 @@ demo/
 ├─ playbook.md               the human-readable twin of playbook.json (+ the checkpoint rules)
 ├─ graph-schema.json         the TYPE SYSTEM: allowed node / edge / health types (the graph can't invent types)
 ├─ capabilities.json         the TOOLS: each intent → a tool URL + the fields it returns
+├─ step-schema.json          the STEP MODEL: the 10 step kinds + every field a step records (input · output · analysis · options · decision · graph-ops)
+├─ validate.py               CHECK: validates every incidents/*.json against the schemas — `python3 validate.py` (graph reconciles · seq · ids · enums · refs)
 │
 │  ── THE ENGINE (the intelligence) ──
 ├─ copilot-instructions.md   makes VS Code Copilot / Claude behave as the engine (read it, then drive)
 │
 │  ── THE STORE (one JSON per incident — the agent reads & writes these) ──
 ├─ incidents/
-│  ├─ INC-2256.json          ⭐ a FULLY-WORKED walkthrough (study this — every phase, the gate, the close)
+│  ├─ INC-2290.json          ⭐ the RICH exemplar — every step kind + situation (deny→re-propose w/ diff, error+retry, multi-candidate ranking, related-incident fetch, graph-ops per step)
+│  ├─ INC-3187.json          ⭐ rich exemplar #2 — adds BACKTRACK (re-open a ruled-out node) + ESCALATION (page infra on-call)
+│  ├─ INC-2256.json          a fully-worked walkthrough (the simple one — drives the quick demo)
 │  ├─ INC-4821.json          worked example (storage root-cause)
 │  ├─ INC-DEMO.json          worked example (deploy/config root-cause)
 │  ├─ INC-2207.json          fresh "new" incident — drive this one LIVE
 │  └─ INC-2208.json          fresh "new" incident — drive this one LIVE
 │
-│  ── THE VIEWER (visualisation only) ──
-├─ viewer.html               3-pane console: Phases+Plan · Conversation · Graph / Phase-record
+│  ── THE CONSOLES (visualisation only — data-driven; they read the JSON) ──
+├─ ux-console.html           ⭐ the rich operator console: full-detail steps (input · output · analysis · options · decision · graph-ops) — opens on INC-2290
+├─ viewer.html               the original 3-pane console (Phases+Plan · Conversation · Graph / Phase-record) — drives the INC-2256 quick demo
 └─ shots/
    └─ status-board.png       a real screenshot used as stand-in evidence in the rehearsal
 ```

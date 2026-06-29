@@ -1,77 +1,76 @@
 {
-  "note": "The capability layer as a flat list. Each entry maps the playbook's INTENTS to a real tool URL the agent opens via the browser (Chrome MCP), and declares the FIELDS that tool provides — so the engine knows what each capability can return. effect = read-only | write. Replace the urls with your real tools.",
+  "note": "The capability registry \u2014 file-as-DB. Each entry is just a tool URL + description (+ the playbook INTENTS it backs, and effect = read-only | write). Replace the urls with YOUR real tools; login is on-demand (the agent opens the url and, if a login wall shows, waits for you to log in in the browser window, then reads).",
   "capabilities": [
     {
       "id": "servicenow",
-      "label": "ServiceNow — incident & CMDB",
-      "intents": ["incident-source", "topology", "similar-incidents"],
+      "label": "ServiceNow \u2014 incident & CMDB",
+      "intents": [
+        "incident-source",
+        "similar-incidents"
+      ],
       "url": "https://your-instance.service-now.com/nav_to.do?uri=incident.do",
       "effect": "read-only",
-      "fields": ["incident.number", "incident.severity", "incident.cmdb_ci", "incident.assignment_group", "incident.opened_at", "incident.state", "incident.close_notes", "incident.resolution", "cmdb_rel_ci (Depends on / Hosted on)", "cmdb_ci.sys_class_name"],
-      "what": "The incident record, affected CIs, dependency relationships, and similar past incidents."
-    },
-    {
-      "id": "datadog",
-      "label": "Datadog — metrics & telemetry",
-      "intents": ["telemetry", "metrics"],
-      "url": "https://app.datadoghq.com/dashboard/lists",
-      "effect": "read-only",
-      "fields": ["trace.http.errors{service,status}", "trace.<svc>.duration.p50", "trace.<svc>.duration.p99", "throughput", "saturation", "postgres.query.duration.p99", "postgres.connections.active"],
-      "what": "Error-rate, latency (p50/p99), saturation, and DB query metrics for the affected service."
+      "description": "The incident record, affected CI, and similar past incidents."
     },
     {
       "id": "splunk",
-      "label": "Splunk — logs",
-      "intents": ["logs"],
+      "label": "Splunk \u2014 logs",
+      "intents": [
+        "logs"
+      ],
       "url": "https://your-splunk.example.com/en-US/app/search/search",
       "effect": "read-only",
-      "fields": ["log.message", "log.exception", "error_pattern", "pattern_count"],
-      "what": "Error logs / stack traces and recurring error patterns around the symptom window."
+      "description": "Error logs / stack traces and recurring error patterns around the symptom window."
     },
     {
       "id": "grafana-traces",
-      "label": "Grafana / Tempo — traces",
-      "intents": ["traces"],
+      "label": "Grafana / Tempo \u2014 traces",
+      "intents": [
+        "traces"
+      ],
       "url": "https://your-grafana.example.com/explore",
       "effect": "read-only",
-      "fields": ["span.duration", "span.db_time_pct", "span.parent", "slowest_span"],
-      "what": "Distributed traces — where the latency is spent and the call dependency chain."
+      "description": "Distributed traces \u2014 where the latency is spent and the call dependency chain."
     },
     {
       "id": "github-deploys",
-      "label": "GitHub — deploys & change history",
-      "intents": ["change-history"],
+      "label": "GitHub \u2014 deploys & change history",
+      "intents": [
+        "change-history"
+      ],
       "url": "https://github.com/your-org/payments-api/deployments",
       "effect": "read-only",
-      "fields": ["deployment.sha", "deployment.author", "deployment.created_at", "deployment.diff", "deployment.environment"],
-      "what": "Recent deploys / commits — the 'what changed' and the exact diff."
+      "description": "Recent deploys / commits \u2014 the 'what changed' and the exact diff."
     },
     {
       "id": "synthetic",
-      "label": "Synthetic monitor — replay",
-      "intents": ["synthetic-replay"],
+      "label": "Synthetic monitor \u2014 replay",
+      "intents": [
+        "synthetic-replay"
+      ],
       "url": "https://app.datadoghq.com/synthetics/list",
       "effect": "read-only",
-      "fields": ["journey_status", "p99", "success_rate"],
-      "what": "Replay the user journey to confirm recovery from the user's side."
+      "description": "Replay the user journey to confirm recovery from the user's side."
     },
     {
       "id": "runbook-failover",
-      "label": "Runbook — failover / rollback  (WRITE)",
-      "intents": ["remediation-action"],
+      "label": "Runbook \u2014 failover / rollback  (WRITE)",
+      "intents": [
+        "remediation-action"
+      ],
       "url": "https://your-runbook.example.com/actions/payments-db",
       "effect": "write",
-      "fields": ["action", "target", "result", "rollback_token"],
-      "what": "Trigger DB failover, rollback a deploy, restart, or scale. GATED — needs human approval."
+      "description": "Trigger DB failover, rollback a deploy, restart, or scale. GATED \u2014 needs human approval."
     },
     {
       "id": "pagerduty",
-      "label": "PagerDuty — on-call & escalate  (WRITE)",
-      "intents": ["escalation"],
+      "label": "PagerDuty \u2014 on-call & escalate  (WRITE)",
+      "intents": [
+        "escalation"
+      ],
       "url": "https://your-org.pagerduty.com/incidents",
       "effect": "write",
-      "fields": ["oncall.escalation_policy.user", "incident_url"],
-      "what": "Who's on call, and page / escalate. The escalate action is GATED."
+      "description": "Who's on call, and page / escalate. The escalate action is GATED."
     }
   ]
 }
