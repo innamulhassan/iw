@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { GraphFact, LedgerItem } from "../types";
-import type { Selection } from "../lib/store";
+import type { LiveNode, Selection } from "../lib/store";
+
+function shortId(id: string): string {
+  const i = id.indexOf(":");
+  return i >= 0 ? id.slice(i + 1) : id;
+}
 
 const STATUS_RANK: Record<string, number> = {
   confirmed: 0,
@@ -26,24 +31,29 @@ function fmtValue(v: unknown): string {
 interface Props {
   ledger: LedgerItem[];
   facts: Record<string, GraphFact>;
+  nodes: Record<string, LiveNode>;
   selection: Selection | null;
   onSelect: (sel: Selection | null) => void;
 }
 
-/** One clickable evidence fact (obs 8): shows predicate = value · WHO (source); clicking it
- *  highlights the fact + its subject node in the graph. */
+/** One clickable evidence row (obs 8). The reasoner's supporting/refuting lists may hold a Fact
+ *  id (→ predicate = value · source) OR a node id (the entity it points at); either way, clicking
+ *  it highlights the relevant node in the graph. */
 function FactRow({
   fid,
   facts,
+  nodes,
   selected,
   onSelect,
 }: {
   fid: string;
   facts: Record<string, GraphFact>;
+  nodes: Record<string, LiveNode>;
   selected: boolean;
   onSelect: (sel: Selection) => void;
 }) {
   const f = facts[fid];
+  const n = !f ? nodes[fid] : undefined;
   return (
     <li>
       <button
@@ -57,8 +67,12 @@ function FactRow({
             {f.unit ? ` ${f.unit}` : ""}
             {f.source ? <span className="evrow__src"> · {f.source}</span> : null}
           </>
+        ) : n ? (
+          <>
+            <span className="evrow__kind">{n.type}</span> <strong>{shortId(n.id)}</strong>
+          </>
         ) : (
-          <code className="evrow__id">{fid}</code>
+          <code className="evrow__id">{shortId(fid)}</code>
         )}
       </button>
     </li>
@@ -68,7 +82,7 @@ function FactRow({
 // The Popperian ledger (obs 8): each hypothesis expands to the FACTS corroborating/refuting it and
 // its CHAIN OF EVENTS. Every fact/link is clickable — it cross-highlights that node + fact in the
 // graph (a shared selection lifted to the workbench), so "which facts back this?" is one click.
-export default function HypothesisLedger({ ledger, facts, selection, onSelect }: Props) {
+export default function HypothesisLedger({ ledger, facts, nodes, selection, onSelect }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const sorted = [...ledger].sort((a, b) => {
     const rankDiff = rankOf(a.status) - rankOf(b.status);
@@ -144,6 +158,7 @@ export default function HypothesisLedger({ ledger, facts, selection, onSelect }:
                             key={fid}
                             fid={fid}
                             facts={facts}
+                            nodes={nodes}
                             selected={selection?.kind === "fact" && selection.id === fid}
                             onSelect={onSelect}
                           />
@@ -161,6 +176,7 @@ export default function HypothesisLedger({ ledger, facts, selection, onSelect }:
                             key={fid}
                             fid={fid}
                             facts={facts}
+                            nodes={nodes}
                             selected={selection?.kind === "fact" && selection.id === fid}
                             onSelect={onSelect}
                           />

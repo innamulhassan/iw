@@ -1240,3 +1240,16 @@ code {
 .chainrow__role--effect { background: var(--red-soft); color: var(--red); }
 .chainrow__role--condition { background: var(--accent-soft); color: var(--accent); }
 .chainrow__kind { font-size: 10px; color: var(--text-faint); text-transform: uppercase; }
+
+/* obs 8 (fix) — the cross-highlight must WIN over the layer-lane + origin strokes (which are
+   defined later in the file and would otherwise override it) and read unmistakably. */
+.graph-node--selected .graph-node__rect,
+.graph-node--origin.graph-node--selected .graph-node__rect,
+.graph-node--root.graph-node--selected .graph-node__rect{
+  stroke:var(--accent)!important; stroke-width:3.5!important; fill:var(--accent-soft)!important;
+  filter:drop-shadow(0 0 6px rgba(91,140,255,.55));
+}
+.graph-node--selected .graph-node__seq{ fill:var(--accent); }
+.graph-node--selected .graph-node__seq-num{ fill:#fff; }
+.evrow__kind{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.04em;
+  color:var(--faint); }

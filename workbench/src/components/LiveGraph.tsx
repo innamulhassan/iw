@@ -106,14 +106,16 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
   }, [ordered]);
   const relatedIds = useMemo(() => new Set(related.map((r) => r.node.id)), [related]);
 
-  // selection (shared with the ledger): a node selection highlights that node; a fact selection
-  // highlights the fact's subject node + the fact row in the drawer.
+  // selection (shared with the ledger): a node selection highlights that node; an evidence
+  // selection highlights the node it points at — its subject if the id is a Fact, or the node
+  // itself if the LLM referenced a NODE id in supporting_facts (both happen on the live path).
   const selectedId = selection
     ? selection.kind === "node"
       ? selection.id
-      : (live.facts[selection.id]?.subject ?? null)
+      : (live.facts[selection.id]?.subject ?? (live.nodes[selection.id] ? selection.id : null))
     : null;
-  const selectedFactId = selection?.kind === "fact" ? selection.id : null;
+  // highlight a fact row in the drawer only when the selected evidence id is a real Fact
+  const selectedFactId = selection?.kind === "fact" && live.facts[selection.id] ? selection.id : null;
 
   const { positions, columns, width, height } = useMemo(() => {
     const cols = TIER_ORDER.map((tier) => ({

@@ -59,6 +59,7 @@ export default function Workbench({
             <HypothesisLedger
               ledger={ledgerList(live)}
               facts={live.facts}
+              nodes={live.nodes}
               selection={selection}
               onSelect={setSelection}
             />

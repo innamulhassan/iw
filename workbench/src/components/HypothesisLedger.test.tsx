@@ -8,7 +8,7 @@ describe("HypothesisLedger", () => {
 
   it("shows confirmed and refuted hypotheses with both supporting and refuting evidence", () => {
     render(
-      <HypothesisLedger ledger={fixtureBundle.ledger} facts={{}} selection={null} onSelect={() => {}} />
+      <HypothesisLedger ledger={fixtureBundle.ledger} facts={{}} nodes={{}} selection={null} onSelect={() => {}} />
     );
 
     // Status badges for both sides of the story.
