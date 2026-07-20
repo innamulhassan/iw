@@ -4,6 +4,7 @@ adapter.
 """
 from .appd import AppDAdapter
 from .artifactory import ArtifactoryAdapter
+from .bigpanda import BigPandaAdapter
 from .cmdb import CmdbAdapter
 from .git import GitAdapter
 from .ocp import OcpAdapter
@@ -13,7 +14,7 @@ from .splunk import SplunkAdapter
 
 ALL_ADAPTERS = [
     PrometheusAdapter, SplunkAdapter, AppDAdapter, ServiceNowAdapter,
-    CmdbAdapter, OcpAdapter, ArtifactoryAdapter, GitAdapter,
+    CmdbAdapter, OcpAdapter, ArtifactoryAdapter, GitAdapter, BigPandaAdapter,
 ]
 
 
@@ -25,6 +26,7 @@ __all__ = [
     "ALL_ADAPTERS",
     "AppDAdapter",
     "ArtifactoryAdapter",
+    "BigPandaAdapter",
     "CmdbAdapter",
     "GitAdapter",
     "OcpAdapter",

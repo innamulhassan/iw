@@ -3,282 +3,321 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Investigation Workbench — Design, Architecture &amp; Data Model</title>
+<title>Investigation Workbench — Design &amp; Architecture</title>
 <style>
   :root{
-    --bg:#0f1115; --panel:#161a21; --panel2:#1c212b; --border:#2a3140; --text:#e6e9ef;
-    --muted:#9aa4b2; --faint:#6b7482; --accent:#5b8cff; --accent-soft:#1a2540;
-    --green:#4ade80; --amber:#fbbf24; --red:#f87171; --violet:#a78bfa; --teal:#2dd4bf;
+    --bg:#0f1115;--panel:#161a21;--panel2:#1c212b;--border:#2a3140;--text:#e6e9ef;--muted:#9aa4b2;
+    --faint:#6b7482;--accent:#5b8cff;--accent-soft:#1a2540;--green:#4ade80;--amber:#fbbf24;
+    --red:#f87171;--violet:#a78bfa;--teal:#2dd4bf;
     --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  }
-  @media (prefers-color-scheme:light){
-    :root{--bg:#f5f7fa;--panel:#ffffff;--panel2:#f0f3f8;--border:#dde3ec;--text:#1c2128;
-      --muted:#5a6472;--faint:#8a94a6;--accent:#2f6fed;--accent-soft:#e9f0ff;--green:#15803d;
-      --amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}
-  }
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:light){:root{--bg:#f6f8fb;--panel:#fff;--panel2:#eef2f8;
+    --border:#dde3ec;--text:#1c2128;--muted:#54606f;--faint:#8a94a6;--accent:#2f6fed;
+    --accent-soft:#e9f0ff;--green:#15803d;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;
-    font-size:15px;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
-  header.masthead{padding:56px 0 28px;border-bottom:1px solid var(--border);margin-bottom:36px}
-  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--accent);margin-bottom:12px}
-  h1{font-size:34px;line-height:1.2;margin:0 0 10px;letter-spacing:-.02em}
-  .sub{color:var(--muted);font-size:17px;max-width:70ch}
-  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
-  nav.docnav a{font-size:13px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;
-    color:var(--muted);text-decoration:none;background:var(--panel)}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65;font-size:15.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  header.masthead{padding:56px 0 26px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:36px;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:66ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  nav.docnav a{font-size:13px;padding:6px 13px;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;background:var(--panel)}
   nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
   nav.docnav a:hover{color:var(--text)}
-  h2{font-size:24px;margin:52px 0 6px;letter-spacing:-.01em;scroll-margin-top:20px}
-  h2 .n{font-family:var(--mono);color:var(--faint);font-size:16px;margin-right:10px}
-  h3{font-size:17px;margin:30px 0 8px}
-  p{margin:10px 0}
-  .lead{font-size:16px;color:var(--muted)}
-  code{font-family:var(--mono);font-size:.88em;background:var(--panel2);padding:1px 6px;
-    border-radius:5px;border:1px solid var(--border)}
-  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;
-    overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55}
+  h2{font-size:25px;margin:54px 0 4px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:15px;margin-right:10px}
+  h3{font-size:17px;margin:28px 0 6px}
+  p{margin:12px 0} .lead{font-size:16.5px;color:var(--muted);max-width:70ch}
+  code{font-family:var(--mono);font-size:.87em;background:var(--panel2);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
   pre code{background:none;border:none;padding:0}
-  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;
-    margin:18px 0}
-  .grid{display:grid;gap:16px}
-  .grid.two{grid-template-columns:1fr 1fr}
-  .grid.three{grid-template-columns:1fr 1fr 1fr}
-  @media(max-width:760px){.grid.two,.grid.three{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:18px 0}
+  .grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:720px){.grid.two,.grid.three{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
-  .card h4{margin:0 0 6px;font-size:15px}
-  .card p{margin:4px 0;font-size:14px;color:var(--muted)}
-  .tag{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;
-    background:var(--accent-soft);color:var(--accent);border:1px solid var(--border)}
-  .tag.g{background:rgba(74,222,128,.12);color:var(--green)}
-  .tag.a{background:rgba(251,191,36,.12);color:var(--amber)}
-  .tag.v{background:rgba(167,139,250,.12);color:var(--violet)}
-  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px}
-  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
-  th{color:var(--faint);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-  td code{font-size:.85em}
-  .kicker{font-family:var(--mono);font-size:12px;color:var(--faint);text-transform:uppercase;
-    letter-spacing:.08em;margin-bottom:4px}
-  .flow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:14px 0}
-  .step{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;
-    font-family:var(--mono);font-size:12.5px}
-  .arr{color:var(--faint)}
-  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;
-    border-radius:0 10px 10px 0;margin:16px 0;font-size:14px}
-  .callout.g{border-color:var(--green);background:rgba(74,222,128,.08)}
-  .muted{color:var(--muted)} .faint{color:var(--faint)}
-  ul.tight{margin:8px 0;padding-left:22px} ul.tight li{margin:4px 0}
-  .svgwrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;
-    padding:18px;margin:18px 0}
-  footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);
-    font-size:13px}
-  .lanes{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin:14px 0;font-size:11px;
-    font-family:var(--mono)}
-  .lane{border:1px solid var(--border);border-radius:8px;padding:8px 6px;text-align:center;
-    background:var(--panel2)}
-  .lane b{display:block;font-size:12px;margin-bottom:4px}
-  @media(max-width:760px){.lanes{grid-template-columns:repeat(2,1fr)}}
+  .card h4{margin:0 0 6px;font-size:15px}.card p{margin:4px 0;font-size:14px;color:var(--muted)}
+  .plain{border-left:3px solid var(--teal);background:rgba(45,212,191,.07);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+  .plain b{color:var(--teal)}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14.5px}
+  .muted{color:var(--muted)}.faint{color:var(--faint)}
+  ul.tight{margin:8px 0;padding-left:22px}ul.tight li{margin:5px 0}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+  /* ── diagram primitives (self-contained, responsive) ── */
+  .diagram{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;margin:22px 0}
+  .diagram .cap{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:14px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .layer{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 16px;background:var(--panel2)}
+  .layer .tag{flex:0 0 130px;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  .layer .body{flex:1;font-size:14px}
+  .layer.eng{border-color:var(--accent);background:var(--accent-soft)}
+  .layer.eng .tag{color:var(--accent)}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+  .box{border:1px solid var(--border);border-radius:10px;padding:9px 13px;background:var(--panel);font-size:13px;text-align:center}
+  .box b{display:block;font-size:13.5px} .box small{color:var(--faint);font-size:11px;font-family:var(--mono)}
+  .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+  .box.write{border-color:var(--amber);background:rgba(251,191,36,.08)}
+  .arrow{color:var(--faint);font-size:18px;line-height:1}
+  .down{align-self:center;color:var(--faint);font-size:18px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header class="masthead">
-  <div class="eyebrow">Investigation Workbench · iw</div>
-  <h1>Design, Architecture &amp; Data Model</h1>
-  <p class="sub">A governed, human-in-the-loop, LLM-orchestrated incident root-cause engine. The
-  LLM owns all judgment; the engine owns all mechanics. Every fact, hypothesis, and decision is
-  typed, sourced, and reconstructable from an append-only journal.</p>
+  <div class="eyebrow">Investigation Workbench</div>
+  <h1>Design &amp; Architecture</h1>
+  <p class="sub">A governed, human-in-the-loop engine that investigates an incident and produces an
+  evidence-backed root cause. It is built to be <b>generic and pluggable</b>: the reasoning is done
+  by a large language model behind a swappable interface, the tools are swappable adapters, and the
+  problem domain is a small configuration file — so the same engine serves many kinds of
+  investigation without change.</p>
   <nav class="docnav">
-    <a class="here" href="01-design-architecture.html">1 · Architecture &amp; Data Model</a>
-    <a href="02-incident-use-cases.html">2 · Incident Use Cases</a>
+    <a class="here" href="01-design-architecture.html">1 · Design &amp; Architecture</a>
+    <a href="02-incident-use-cases.html">2 · How Incidents Are Investigated</a>
     <a href="03-capability-integration.html">3 · Capability Integration</a>
   </nav>
 </header>
 
-<h2 id="what"><span class="n">01</span>What it is</h2>
-<p class="lead">iw turns a raw incident signal (a ServiceNow major incident) into a confirmed,
-evidence-backed root cause — the way a strong SRE would, but as a governed state machine. An LLM
-plans each phase and chooses tools; a deterministic engine validates, folds, gates, and journals
-every step. Side-effecting fixes are always paused for human approval.</p>
+<h2 id="idea"><span class="n">01</span>The idea, in one minute</h2>
+<p class="lead">Think of the system as a disciplined investigator working alongside a person. The
+investigator (an <b>LLM</b>) is good at judgment — reading signals, forming theories, deciding what
+to check next. But judgment alone is risky: it can hallucinate, contradict itself, or act without
+proof. So the LLM is placed inside an <b>engine</b> that enforces the rules of good investigation.</p>
+
+<div class="plain">
+  <p style="margin:0"><b>Plain version.</b> The <b>LLM decides</b> — which theory, which tool, what
+  the root cause is. The <b>engine checks and records</b> — it validates every step against a fixed
+  vocabulary, keeps one tamper-proof log, and blocks anything that would change a live system until a
+  <b>human approves</b> it. You get the creativity of a model with the accountability of a system.</p>
+</div>
 
 <div class="grid three">
-  <div class="card"><h4>LLM owns judgment</h4><p>Which hypothesis, which tool, when to advance,
-    what the root cause is — authored live by the model, never scripted.</p></div>
-  <div class="card"><h4>Engine owns mechanics</h4><p>Phase routing, type validation, the single
-    write seam, the confidence gates, the audit journal — deterministic and testable.</p></div>
-  <div class="card"><h4>Human owns consequence</h4><p>Any WRITE (a remediation) suspends at an
-    approval gate carrying the proposed action + its evidence chain.</p></div>
+  <div class="card"><h4>🧠 The LLM decides</h4><p>Forms theories, picks tools, weighs evidence,
+    names the root cause. Any capable model can be plugged in — it sits behind one interface.</p></div>
+  <div class="card"><h4>⚙️ The engine governs</h4><p>Validates each step, keeps the single source of
+    truth, applies the rules for advancing, and never lets a fix run on its own.</p></div>
+  <div class="card"><h4>🙋 The human approves</h4><p>Before anything changes a real system, the
+    investigation pauses and shows the proposed action plus the evidence behind it.</p></div>
 </div>
 
-<h2 id="arch"><span class="n">02</span>The engine — a phased orchestrator</h2>
-<p>One phase = one loop iteration: <b>plan</b> (typed ops) → <b>reduce</b> (validate + materialise)
-→ <b>fold</b> (apply to graph + ledger) → <b>gate</b> (guard the verdict) → <b>journal</b> → route
-to the next phase. No LangGraph, no agent sprawl — the uniform contract makes the whole controller
-a few lines and fully deterministic given a scripted planner.</p>
+<h2 id="components"><span class="n">02</span>The components</h2>
+<p class="lead">The system is a stack of layers. Each layer only talks to its neighbours, so any
+one can be replaced without touching the others.</p>
 
-<div class="flow">
-  <span class="step">FRAME</span><span class="arr">→</span>
-  <span class="step">TRIAGE</span><span class="arr">→</span>
-  <span class="step">HYPOTHESIZE</span><span class="arr">→</span>
-  <span class="step">INVESTIGATE</span><span class="arr">→</span>
-  <span class="step">REMEDIATE ⚑</span><span class="arr">→</span>
-  <span class="step">VERIFY</span><span class="arr">→</span>
-  <span class="step">CLOSE</span>
+<div class="diagram">
+  <div class="cap">Component stack — top is what people touch, bottom is the outside world</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">Interface</span><span class="body"><b>Web workbench</b> +
+      <b>HTTP / streaming API</b> — where a person watches the investigation and answers the approval.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">Orchestrator</span><span class="body"><b>Session</b> — drives
+      the engine step by step, streams progress, and holds the run at the human approval point.</span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">Engine</span><span class="body"><b>The phase loop</b> —
+      Planner → Reducer → Fold → Gate → Journal → route to the next phase. The deterministic core.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">Projections</span><span class="body"><b>Graph</b> (the picture
+      of the system) · <b>Ledger</b> (the competing theories) · <b>Journal</b> (the append-only log =
+      the source of truth).</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">Capabilities</span><span class="body"><b>Adapters + transports</b>
+      — one uniform way to call any tool; each tool is a small pluggable adapter.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">Tools</span><span class="body"><b>The outside world</b> —
+      <b>event correlation (AIOps)</b>, monitoring, topology/CMDB, logs, source control, deployment
+      platform, and a human-gated action channel. All swappable.</span></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:14px 0 0">The <b>event-correlation / AIOps</b> tool
+  (e.g. BigPanda, Moogsoft) is the first one tapped: it is the layer above raw monitoring that
+  collapses a storm of alerts into <em>one</em> correlated incident and its related/co-firing signals —
+  so the investigation starts from a de-noised, enriched picture rather than a wall of alerts.</p>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--accent)"></span> deterministic engine core</span>
+    <span><span class="dot" style="background:var(--panel2);border:1px solid var(--border)"></span> replaceable layer</span>
+  </div>
 </div>
-<p class="faint" style="font-size:13px">⚑ REMEDIATE is the one <code>writes_allowed</code> phase — a
-WRITE-effect call there suspends the run at the human approval gate.</p>
 
-<h3>The three authors (separation of powers)</h3>
+<h2 id="loop"><span class="n">03</span>How one step works — the phase loop</h2>
+<p class="lead">An investigation moves through a fixed sequence of phases. Every phase runs the same
+five-step loop, which is why the whole engine stays small and predictable.</p>
+
+<div class="diagram">
+  <div class="cap">One phase = one pass of the loop</div>
+  <div class="pipe">
+    <div class="box hl"><b>1 · Plan</b><small>LLM</small></div><span class="arrow">→</span>
+    <div class="box"><b>2 · Reduce</b><small>validate</small></div><span class="arrow">→</span>
+    <div class="box"><b>3 · Fold</b><small>write once</small></div><span class="arrow">→</span>
+    <div class="box"><b>4 · Gate</b><small>guard verdict</small></div><span class="arrow">→</span>
+    <div class="box"><b>5 · Journal</b><small>record</small></div><span class="arrow">→</span>
+    <div class="box"><b>route</b><small>next phase</small></div>
+  </div>
+  <div class="grid two" style="margin-top:16px">
+    <div class="card"><h4>1 · Plan</h4><p>The LLM reads the current picture and produces a structured
+      plan: which tools to call and what it concludes. Output is <em>typed</em>, never loose text.</p></div>
+    <div class="card"><h4>2 · Reduce</h4><p>The plan is checked against the fixed vocabulary — is this a
+      known entity type? a legal relationship? a valid measurement? Anything illegal is rejected; the
+      rest is accepted.</p></div>
+    <div class="card"><h4>3 · Fold</h4><p>The validated result is written into the picture, the theories,
+      and the log — through <em>one</em> function. Nothing else in the system is allowed to write.</p></div>
+    <div class="card"><h4>4 · Gate &amp; 5 · Journal</h4><p>The engine decides whether the phase may
+      advance (enough evidence? a rival ruled out?), then appends the whole step to the log. The next
+      phase is chosen from the verdict.</p></div>
+  </div>
+</div>
+
+<p>The phases follow the shape of a real investigation:</p>
+<div class="diagram">
+  <div class="cap">The investigation phases</div>
+  <div class="pipe">
+    <div class="box"><b>Frame</b><small>what &amp; where</small></div><span class="arrow">→</span>
+    <div class="box"><b>Triage</b><small>mitigate or dig</small></div><span class="arrow">→</span>
+    <div class="box"><b>Hypothesize</b><small>form theories</small></div><span class="arrow">→</span>
+    <div class="box"><b>Investigate</b><small>confirm / refute</small></div><span class="arrow">→</span>
+    <div class="box write"><b>Remediate ⚑</b><small>human-gated</small></div><span class="arrow">→</span>
+    <div class="box"><b>Verify</b><small>did it clear?</small></div><span class="arrow">→</span>
+    <div class="box"><b>Close</b><small>postmortem</small></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">⚑ Only the Remediate phase may change a live
+  system — and only after a person approves the specific action.</p>
+</div>
+
+<h3 style="margin-top:36px">The exact call path — one <code>Engine.step()</code>, top to bottom</h3>
+<p class="muted" style="font-size:14.5px">These are the real method names in the code. Read this and you
+can find anything in the source.</p>
+<div class="diagram">
+  <div class="cap">what actually runs when a phase executes</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">1 · drive</span><span class="body"><code>Session.advance()</code> → <code>Engine.step()</code> → <code>_run_phase(phase, spec)</code></span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">2 · context</span><span class="body">build a read-only <code>PlanContext</code> — the incident, the current graph slice, the ranked theories, the phase goal, last gate's feedback</span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">3 · plan</span><span class="body"><code>Planner.plan(ctx)</code> → <code>PlanOutput{calls, ops, verdict}</code> — the LLM's typed proposal (never loose text)</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">4 · tools</span><span class="body">for each call: <code>CapabilityLayer.serve(call)</code> → gate → <code>Source.fetch()</code> → <code>Adapter.normalize(raw)</code> → typed ops</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">5 · validate</span><span class="body"><code>Reducer.materialize(ops)</code> → <code>Materialized{nodes, facts, edges, rejections}</code> — illegal ops rejected, the rest kept</span></div>
+    <div class="down">↓</div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">6 · write ×1</span><span class="body"><code>fold.apply_delta(result)</code> — the ONE writer of Graph + Ledger — then <code>journal.append_phase()</code></span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">7 · route</span><span class="body"><code>Controller.check_gate()</code> + <code>next_phase()</code> — advance only if the evidence earned it (else repeat / backtrack)</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">8 · stream</span><span class="body">the Session emits the step as ordered events (SSE) the workbench folds into its panes — nothing invented</span></div>
+  </div>
+</div>
+
+<h3>Where each piece lives in the code</h3>
 <table>
-  <tr><th>Author</th><th>Role</th><th>Output</th></tr>
-  <tr><td><b>Planner</b> <span class="tag v">judgment</span></td><td>Turns phase context into a plan.
-    <code>LivePlanner</code> (grok-4.5) in production; <code>ScriptedPlanner</code> for CI.</td>
-    <td>A <code>PlanOutput</code>: typed ops + tool calls + narrative + a proposed verdict. Never free prose.</td></tr>
-  <tr><td><b>Reducer</b> <span class="tag a">validation</span></td><td>Materialises typed ops, rejecting
-    what a grammar can't express: registry membership, edge legality, predicate legality, mandatory
-    confidence, numeric bounds. Partial-accept.</td><td>Validated <code>Node/Fact/Edge/Event/HypDelta</code>
-    + a list of rejections.</td></tr>
-  <tr><td><b>Controller</b> <span class="tag">routing</span></td><td>Applies the phase's declarative
-    gate to the proposed verdict (an ADVANCE is only honoured if the gate passes) and picks the next
-    phase. A repeat-cap forces progression after <code>max_retries</code>.</td><td>The next phase, or
-    <code>None</code> to end.</td></tr>
+  <tr><th>Component</th><th>Code</th><th>Responsibility</th></tr>
+  <tr><td>Orchestrator</td><td><code>runtime/session.py</code> · <code>InvestigationSession</code></td><td>drives <code>step()</code>, suspends at the write-gate, streams events</td></tr>
+  <tr><td>Engine</td><td><code>runtime/engine.py</code> · <code>Engine</code></td><td>the phase loop: plan → reduce → fold → gate → journal → route</td></tr>
+  <tr><td>Planner (interface)</td><td><code>runtime/planner.py</code> · <code>Planner</code></td><td>the contract; <code>LivePlanner</code> (LLM) &amp; <code>ScriptedPlanner</code> (tests) implement it</td></tr>
+  <tr><td>Reducer</td><td><code>graph/reducer.py</code> · <code>materialize()</code></td><td>validate typed ops against the closed catalogue</td></tr>
+  <tr><td>Write seam</td><td><code>graph/fold.py</code> · <code>apply_delta()</code></td><td>the single mutator of Graph + Ledger</td></tr>
+  <tr><td>Controller</td><td><code>runtime/controller.py</code></td><td>gate the verdict, pick the next phase</td></tr>
+  <tr><td>Projections</td><td><code>graph/ · ledger/ · journal/</code></td><td>the picture · the theories · the source-of-truth log</td></tr>
+  <tr><td>Capabilities</td><td><code>capability/layer.py</code> + <code>capability/adapters/</code></td><td>uniform tool access; one adapter per tool (incl. event correlation)</td></tr>
+  <tr><td>Domain config</td><td><code>playbooks/*.yaml</code> · <code>Playbook</code></td><td>the phases, goals, and gates for a domain</td></tr>
 </table>
 
-<div class="callout">
-  <b>Single mutation seam.</b> Only <code>fold.apply_delta()</code> writes a phase's delta into the
-  three projections (graph · ledger · journal). <code>rebuild()</code> replays the journal's phase
-  entries to reconstruct graph + ledger from scratch — the proof that the <b>journal is the durable
-  source of truth</b> and the graph/ledger are projections.
+<h2 id="planner"><span class="n">04</span>How the planner is designed</h2>
+<p class="lead">The planner is the heart of the "pluggable" design. It is defined as a small
+<b>contract</b>, not a specific implementation, so the reasoning engine can be swapped freely.</p>
+
+<div class="diagram">
+  <div class="cap">The planner is an interface with interchangeable implementations</div>
+  <div class="pipe" style="justify-content:center">
+    <div class="box hl"><b>Engine</b><small>calls plan(context)</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>Planner contract</b><small>plan(context) → PlanOutput</small></div>
+  </div>
+  <div class="down" style="margin:6px 0">↓ any implementation that satisfies the contract</div>
+  <div class="pipe" style="justify-content:center">
+    <div class="box"><b>LLM planner</b><small>prompts a model, repairs its output</small></div>
+    <div class="box"><b>Scripted planner</b><small>fixed steps, for testing</small></div>
+    <div class="box" style="border-style:dashed"><b>your planner</b><small>anything conforming</small></div>
+  </div>
 </div>
 
-<h3>Live vs. mock — the LLM is the product</h3>
-<p>Both planners implement one <code>Planner</code> protocol, so they are interchangeable. The
-engine, reducer, ledger, and journal are <em>identical</em> on both paths — only the judgment author
-changes.</p>
-<div class="grid two">
-  <div class="card"><span class="kicker">production</span><h4>LivePlanner → xAI grok-4.5</h4>
-    <p>Selected by <code>IW_LIVE=1</code> when a key is present. Prompts the model for one JSON plan
-    per phase, with reject-and-repair guards (belief-channel, illegal-predicate, hypothesis-subject,
-    id-canonicalisation) so an off-catalog plan is corrected, never crashes. Runs off the HTTP thread
-    so long calls never freeze the SSE stream.</p></div>
-  <div class="card"><span class="kicker">ci net</span><h4>ScriptedPlanner → goldens</h4>
-    <p>Replays a fixed, hand-authored plan for each of the layered scenarios — the deterministic
-    byte-equivalence oracle (<code>export_bundle</code> vs <code>tests/e2e/golden/*.json</code>) that
-    guarantees the engine's mechanics never regress. Always-on, offline, no key.</p></div>
-</div>
+<p><b>What the planner receives</b> — a read-only snapshot of the investigation: the incident, the
+current picture of the system, the theories so far, the goal of this phase, and any feedback from the
+last step. <b>What it returns</b> — a typed <code>PlanOutput</code>: the tools to call, any conclusions
+as typed operations, a short narrative, and a proposed verdict (advance, repeat, or done).</p>
 
-<h2 id="data"><span class="n">03</span>The data model — a typed incident graph</h2>
-<p>The graph is the reasoning substrate. Its vocabulary is a <b>closed, typed registry</b> (43 node
-types, 36 edge types) so the LLM <em>classifies</em> into known types rather than inventing them —
-and the reducer validates every choice against the same specs the model was shown.</p>
+<pre><code># the contract — the engine depends only on this shape
+class Planner:
+    def plan(self, context) -> PlanOutput: ...
 
-<h3>Three storage shapes (the core ruling)</h3>
+# PlanOutput is structured, never free text
+PlanOutput(
+    calls   = [ ... ],   # tools to invoke this phase
+    ops     = [ ... ],   # typed conclusions (entities, facts, theories)
+    narrative = "...",   # a human-readable summary
+    verdict = advance | repeat | done,
+)</code></pre>
+
+<div class="callout"><b>Why this matters.</b> Because the engine only knows the contract, the model
+behind it is a plug. The LLM planner and a deterministic scripted planner are used
+<em>interchangeably</em> — the model for real investigations, the script for repeatable tests — with
+zero change to the engine, the rules, or the data model.</div>
+
+<h3>Making a model's output safe: reject-and-repair</h3>
+<p>An LLM can produce a plan that references something outside the allowed vocabulary. Instead of
+crashing or blindly trusting it, the LLM planner runs a small set of guards that <b>correct or drop</b>
+the offending part and keep the rest. So a slightly-wrong plan becomes a valid one, and a good plan
+passes untouched. A hard guardrail also caps how many times a phase may repeat, so an investigation
+always makes progress.</p>
+
+<h2 id="data"><span class="n">05</span>The data model — a typed picture of the system</h2>
+<p class="lead">Everything the investigation learns is stored as a small, strict graph. Its vocabulary
+is <b>closed</b> — a fixed catalogue of entity types and relationship types — so the LLM
+<em>classifies</em> into known shapes rather than inventing them, and every choice can be validated.</p>
+
 <div class="grid three">
-  <div class="card"><h4>Static property</h4><p>Immutable / identity attributes on a node
-    (<code>app_id</code>, <code>sha</code>, <code>env</code>). Never time-varying.</p></div>
-  <div class="card"><h4>Fact <span class="tag v">bi-temporal</span></h4><p>A reified, sourced
-    observation that was <em>true of</em> a thing <em>over a window</em>. Never mutated — a newer
-    value supersedes (closing <code>valid_to</code>); a wrong one is retracted.</p></div>
-  <div class="card"><h4>Event</h4><p>A point-in-time occurrence (<code>deployed</code>,
-    <code>evicted</code>, <code>index_dropped</code>) with an <code>occurred_at</code>.</p></div>
-</div>
-<div class="callout">Anything time-varying is a Fact, not a mutable property — this is what makes
-  <em>"reconstruct the graph as of incident-start"</em> answerable.</div>
-
-<h3>The provenance envelope (the W's)</h3>
-<p>One shared envelope — <code>source</code> + two clocks — is attached identically to Node, Fact,
-and Edge. A Fact already answers <b>who</b> (<code>source</code>), <b>what/where</b>
-(<code>subject_ref</code>, optional <code>where</code>), <b>when</b> (<code>valid_from</code> /
-<code>valid_to</code> valid-time, <code>observed_at</code> transaction-time) and <b>why</b>
-(<code>evidence</code>). Node provenance is a pure projection — a node's <code>source</code> and
-<code>first_seen</code> are derived from its earliest fact (the AppDynamics/Dynatrace entity model),
-so it is deterministic under journal replay with no redundant storage.</p>
-<pre><code># domain/fact.py — the reified, bi-temporal, sourced observation
-Fact(subject_ref, predicate, value, unit, where?,
-     valid_from, valid_to?, observed_at,          # two clocks: valid-time vs transaction-time
-     source, confidence? | source_reliability?,   # exactly one belief channel (R-C4)
-     evidence[], supersedes?, state)</code></pre>
-<p class="muted" style="font-size:13.5px"><b>Belief-channel invariant:</b> an <em>inferred</em> fact
-(<code>source=llm</code>) must carry a <code>confidence</code>; a <em>measured</em> fact (any tool)
-must carry a <code>source_reliability</code>. Never both, never neither.</p>
-
-<h3>Origin &amp; architectural layers</h3>
-<p>For a ServiceNow major incident the <b>incident record is the origin</b> — it renders as node #1
-(<code>origin</code> flag on the subject's incident). Nodes are laid out by the architectural layer
-they belong to, derived purely from their type — mirroring how APM/topology tools group entities and
-encoding the chain origin → symptom → topology → candidate change:</p>
-<div class="lanes">
-  <div class="lane"><b>Case</b>incident · hypothesis</div>
-  <div class="lane"><b>Signal</b>anomaly · alert · error_sig</div>
-  <div class="lane"><b>Service</b>service · endpoint · component</div>
-  <div class="lane"><b>Messaging</b>message_queue</div>
-  <div class="lane"><b>Database</b>database · schema · cache</div>
-  <div class="lane"><b>Infra</b>host · pod · cluster · job</div>
-  <div class="lane"><b>Network</b>lb · proxy · dns · waf · cert</div>
-  <div class="lane"><b>Change</b>commit · release · change · flag</div>
+  <div class="card"><h4>Entities &amp; relationships</h4><p>The things in the system (services,
+    databases, hosts, changes…) and how they connect (depends-on, runs-on, caused-by…). This is the
+    picture the investigation reasons over.</p></div>
+  <div class="card"><h4>Facts</h4><p>Timestamped, sourced observations — "this was true of that thing
+    over this window." Facts are never edited; a newer value supersedes the old one, so you can always
+    ask <em>"what did we know, and when?"</em></p></div>
+  <div class="card"><h4>Events</h4><p>Point-in-time occurrences — a deploy, a restart, a config change.
+    The moments that anchor a timeline.</p></div>
 </div>
 
-<h3>Causation as a refutable layer</h3>
-<p>Structural edges (<code>depends_on</code>, <code>runs_on</code>, <code>consumes_from</code>…) are
-the durable spine. Causal edges (<code>caused_by</code>, <code>supports</code>, <code>refutes</code>,
-<code>correlated_with</code>) are a separate <em>inferred</em> layer that carries mandatory confidence
-+ evidence and can be tombstoned when refuted — inferred relationships can be wrong, and the model
-says so. Evidence edges (<code>supports</code>/<code>refutes</code>) are <b>derived projections</b>
-the fold recomputes from each hypothesis's canonical fact-id lists, so the graph view can never
-disagree with the ledger.</p>
+<h3>Provenance — where each thing came from</h3>
+<p>Every entity, fact, and relationship carries a small, uniform envelope: <b>which tool</b> reported
+it and <b>when</b> it was first and last seen. This is what lets the interface show, for any node,
+"fetched from monitoring · first seen 14:05" — trust you can see, not take on faith.</p>
 
-<h2 id="ledger"><span class="n">04</span>The hypothesis ledger (Popperian)</h2>
-<p>A hypothesis is <em>both</em> a ledger entry and a graph node, so causal edges can reference it. It
-holds its supporting <em>and</em> refuting facts and a typed causal chain. Investigation is genuinely
-differential: a phase gate can require that a rival was ruled out or the leader was challenged before
-advancing. A status the reasoner marks <code>CONFIRMED</code> clears the gate even at a MED confidence
-band — conviction is signalled by status, the band is only the fallback.</p>
-<pre><code>Hypothesis(statement, status, confidence, root_candidate,
-           supporting_facts[FactId], refuting_facts[FactId],
-           causal_chain[ChainLink(kind, ref, ts, role, note)])</code></pre>
+<h3>Theories — the reasoning ledger</h3>
+<p>Competing explanations live in a ledger. Each theory keeps <b>both</b> the evidence for it and the
+evidence against it, plus the causal chain it implies. The engine can require genuine differential
+diagnosis — a rival must be ruled out, or the leading theory challenged — before an investigation is
+allowed to conclude.</p>
 
-<h2 id="session"><span class="n">05</span>Interactive session &amp; workbench</h2>
-<p>The interactive layer is pure composition over the deterministic fold — <b>no engine edits</b>:</p>
-<ul class="tight">
-  <li><b>Write-gate by composition.</b> A wrapped planner computes the plan, and if a
-    <code>writes_allowed</code> phase's plan carries a WRITE call it raises a suspend <em>before</em>
-    the write is served — the engine unwinds with nothing applied. On approve it re-runs with the
-    write intact; on deny it records the denial as feedback and the next plan replans.</li>
-  <li><b>Background drive.</b> For the live path a phase is seconds of LLM latency, so the drive runs
-    off the HTTP thread; <code>POST /sessions</code> returns immediately and the SSE stream shows
-    incremental progress.</li>
-  <li><b>An ordered event stream</b> (<code>phase_started · reasoning · capability_call · graph_delta
-    · ledger_delta · gate_opened · user_message · session_state</code>) derived purely from what the
-    engine recorded — the React workbench folds it into the panes.</li>
-</ul>
-<p>The <b>workbench</b> (Vite / React / TS) renders a two-way investigation chat, a layer-laned live
-graph with per-node origin/source/provenance badges, an expandable hypothesis ledger whose facts
-cross-highlight the graph, a decision-prompt approval gate, and a deep journal — all fed by the SSE
-store, nothing invented.</p>
-
-<h2 id="invariants"><span class="n">06</span>Design invariants</h2>
+<h2 id="principles"><span class="n">06</span>Design principles</h2>
 <div class="grid two">
-  <div class="card"><h4>Journal is truth</h4><p>Graph + ledger are projections; replay must equal the
-    live state, byte-for-byte.</p></div>
-  <div class="card"><h4>One write seam</h4><p><code>apply_delta</code> is the only mutator; an
-    interactive gate holds a computed-but-unapplied delta.</p></div>
-  <div class="card"><h4>Closed, typed vocabulary</h4><p>The LLM classifies into 43/36 known types;
-    an off-catalog op is rejected or repaired, never silently accepted.</p></div>
-  <div class="card"><h4>Append, never overwrite</h4><p>Facts/edges supersede or retract; two clocks
-    stay distinct (valid-time vs observed-time).</p></div>
-  <div class="card"><h4>Human-gated side effects</h4><p>A WRITE cannot execute outside an approved
-    gate — enforced in the capability layer, gate-first.</p></div>
-  <div class="card"><h4>Judgment ≠ mechanics</h4><p>Swap the planner (mock ⇄ live) with zero engine
-    change; the CI net stays deterministic.</p></div>
+  <div class="card"><h4>Pluggable reasoning</h4><p>The model sits behind one contract. Swap it, and the
+    engine, rules, and data model are untouched.</p></div>
+  <div class="card"><h4>Pluggable tools</h4><p>Every tool is a small adapter with a uniform shape. Add,
+    remove, or replace one without touching the others.</p></div>
+  <div class="card"><h4>Pluggable domain</h4><p>A problem domain is a lean configuration — the phases,
+    goals, and gates. The graph vocabulary and tools are shared across domains.</p></div>
+  <div class="card"><h4>One source of truth</h4><p>The append-only journal is authoritative; the picture
+    and the ledger are rebuilt from it. Replay must reproduce the exact same state.</p></div>
+  <div class="card"><h4>One write path</h4><p>A single function performs every change to state, so the
+    system can pause with a change computed-but-not-applied while a human decides.</p></div>
+  <div class="card"><h4>Human-gated consequences</h4><p>Reading is free; changing a live system is not
+    — it always stops for explicit approval, with the evidence shown.</p></div>
 </div>
 
 <footer>
-  Investigation Workbench — internal design reference. Engine: typed registry (43 nodes / 36 edges),
-  fold-monopoly, journal-as-truth, Popperian ledger, 9 mockable capabilities. Reasoning proven live
-  on xAI grok-4.5. · Companion docs: <a href="02-incident-use-cases.html" style="color:var(--accent)">Incident
-  Use Cases</a> · <a href="03-capability-integration.html" style="color:var(--accent)">Capability Integration</a>.
+  Investigation Workbench — design &amp; architecture. A pluggable engine: LLM reasoning behind one
+  contract, tools behind uniform adapters, the domain as lean configuration. · Continue:
+  <a href="02-incident-use-cases.html" style="color:var(--accent)">How Incidents Are Investigated</a> ·
+  <a href="03-capability-integration.html" style="color:var(--accent)">Capability Integration</a>.
 </footer>
 </div>
 </body>

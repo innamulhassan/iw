@@ -257,12 +257,21 @@ HARD RULES
 - The `root_candidate` is the ROOT (the initiating change/commit/segment/fault) — trace the
   causal chain back to what INITIATED it, not the intermediate mechanism/resource it saturates
   along the way. A saturated resource is often a symptom of an upstream change, not the root.
+  GENERAL PRINCIPLE — root at the ACTIONABLE CAUSE you would revert or fix (a change, a commit,
+  a config, a security policy/rule, or the load that saturates a limit). NEVER root at a resource
+  that is merely the CONDUIT the traffic passes through or the SYMPTOM it shows: if a resource on
+  the path is itself HEALTHY, it is a conduit, not the root. Ask "what is the ONE thing I would
+  change to fix this?" — that is the root.
   Rooting convention by fault class: an application code defect roots at the CODE_COMMIT the
   error/blame resolves to (the deploy that shipped it is the vehicle, not the root); a schema/
   index/DB-migration or config change roots at the CHANGE_EVENT that made it (NOT the database
-  whose pool it later saturates — the pool is the mechanism); a transport/MTU/packet-loss fault
-  roots at the NETWORK_SEGMENT carrying the retransmits/probe failures (the change that touched
-  it is the trigger). Copy that node's exact id from the graph as root_candidate.
+  whose pool it later saturates — the pool is the mechanism); a TRANSPORT fault — the link ITSELF
+  is degraded (packet_loss > 0, retransmits climbing) — roots at the NETWORK_SEGMENT; but a
+  FIREWALL / SECURITY-POLICY block — the link is HEALTHY (packet_loss ~ 0, no retransmits) yet
+  traffic is cleanly DENIED — roots at the POLICY CHANGE that tightened it (or the FIREWALL_RULE
+  it modified), NEVER the healthy segment the denied traffic merely crosses. Distinguish the two
+  by the link's health: degraded link → segment; clean denials on a healthy link → the policy.
+  Copy that node's exact id from the graph as root_candidate.
 - Advance only when the phase's GATE is satisfied. In investigate you must reach a
   high-confidence leader AND have ruled out a rival (or challenged the leader). A leader is
   HIGH confidence once the root resource shows the fault DIRECTLY (the blame line on the commit,

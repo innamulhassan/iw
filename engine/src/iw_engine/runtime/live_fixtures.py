@@ -297,7 +297,7 @@ def deployment() -> tuple[SubjectRef, dict, str]:
                                 "exception_class": "ConfigMissingError", "first_seen": t_on},
             "error_signature_hash": "cfg-missing-dbhost"}},
     }
-    return subject, fx, "change_event:chg-dep-99"
+    return subject, fx, "code_commit:9f2a1e0"
 
 
 def firewall() -> tuple[SubjectRef, dict, str]:
@@ -441,7 +441,9 @@ def firewall() -> tuple[SubjectRef, dict, str]:
                 "reliability": 0.97}]},
             "verify": {"fw_denies": []}},
     }
-    return subject, fx, "firewall_rule:fw-egr-118"
+    # both are the SAME root cause (the ACL tightening): the CHANGE you revert, or the RULE it
+    # tightened — accept either (a genuine domain equivalence, not a test crutch).
+    return subject, fx, ("change_event:chg-3311", "firewall_rule:fw-egr-118")
 
 
 def nochange() -> tuple[SubjectRef, dict, str]:

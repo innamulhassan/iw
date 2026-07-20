@@ -31,6 +31,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from iw_engine.capability import CapabilityLayer, ScenarioSource  # noqa: E402
 from iw_engine.capability.adapters import default_adapters  # noqa: E402
+from iw_engine.capability.adapters.remediation import RemediationAdapter  # noqa: E402
 from iw_engine.domain import registry  # noqa: E402
 from iw_engine.domain.catalog import (  # noqa: E402
     render_catalog,
@@ -66,13 +67,17 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
     subject, fixtures, golden_root = SCENARIOS[name]()
     pb: Playbook = load_playbook(ROOT / "src" / "iw_engine" / "playbooks" / "incident.yaml")
     adapters = default_adapters()
-    intent_provider = {i: a.provider for a in adapters for i in a.intents}
+    # include the write-effect remediation tool (parity with live_build_manager) so the LLM can
+    # PROPOSE apply_remediation in REMEDIATE instead of it being dropped as off-catalog.
+    tool_adapters = [*adapters, RemediationAdapter()]
+    intent_provider = {i: a.provider for a in tool_adapters for i in a.intents}
     source = ScenarioSource(intent_provider, fixtures)
-    layer = CapabilityLayer(adapters, source=source)
+    layer = CapabilityLayer(tool_adapters, source=source)
 
     catalog_text = render_catalog(registry, pb)
-    tools_text = render_tools(adapters)
-    planner = LivePlanner(client, catalog_text, tools_text, tool_intents(adapters),
+    tools_text = render_tools(tool_adapters, include_writes=True)
+    planner = LivePlanner(client, catalog_text, tools_text,
+                          tool_intents(tool_adapters, include_writes=True),
                           available_sources=available_intents(fixtures, adapters), verbose=True)
 
     engine = Engine(pb, planner, layer=layer)
@@ -91,7 +96,11 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
     winner = conf or lead
     root = winner.root_candidate if winner else None
     refuted = [h.id for h in res.ledger.hypotheses.values() if h.status.value == "refuted"]
-    converged = (root == golden_root) and (len(res.rejections) == 0) and bool(refuted)
+    # golden_root may be a single id or a tuple of equally-valid, causally-coupled roots (e.g. an
+    # ACL incident's root is legitimately the CHANGE that tightened the rule OR the rule itself).
+    golds = golden_root if isinstance(golden_root, (tuple, list)) else (golden_root,)
+    match = root in golds
+    converged = match and (len(res.rejections) == 0) and bool(refuted)
 
     print(f"\n-- {name} RESULT --")
     print(f"  phases:      {[p.value for p in res.phases_run]}")
@@ -99,13 +108,12 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
     for h in res.ledger.ranked():
         print(f"  hyp {h.id:8} status={h.status.value:11} conf={h.confidence.value:.2f} "
               f"root={h.root_candidate}")
-    print(f"  winner_root: {root}   golden_root: {golden_root}   "
-          f"MATCH={root == golden_root}")
+    print(f"  winner_root: {root}   golden_root: {' | '.join(golds)}   MATCH={match}")
     print(f"  rejections:  {len(res.rejections)}  {[r.reason for r in res.rejections][:6]}")
     print(f"  refuted:     {refuted}")
     print(f"  repairs:     {len(planner.repairs)}  {planner.repairs[:4]}")
     print(f"  >>> CONVERGED: {converged}")
-    return {"name": name, "converged": converged, "root": root, "golden": golden_root,
+    return {"name": name, "converged": converged, "root": root, "golden": " | ".join(golds),
             "rejections": len(res.rejections), "refuted": refuted,
             "repairs": len(planner.repairs),
             "outcome": res.close_outcome.value if res.close_outcome else "open"}

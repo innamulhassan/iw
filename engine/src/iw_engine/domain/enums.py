@@ -20,6 +20,7 @@ class Source(StrEnum):
     OCP = "ocp"
     ARTIFACTORY = "artifactory"
     GIT = "git"
+    BIGPANDA = "bigpanda"     # event aggregation / AIOps correlation (BigPanda, Moogsoft, ...)
     LLM = "llm"
     HUMAN = "human"
     ENGINE = "engine"
