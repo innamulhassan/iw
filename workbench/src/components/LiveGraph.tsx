@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { LiveState, LiveNode, Selection } from "../lib/store";
 import { nodesWithOrder, relatedIncidents } from "../lib/store";
+import { humanizePredicate } from "../lib/format";
 import { TIER_LABELS, TIER_ORDER, layerLabelForType, tierForType } from "../lib/tiers";
 
 const NODE_W = 168;
@@ -486,7 +487,7 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                       .join(" ")
                       .trim()}
                   >
-                    <strong>{f.predicate}</strong> = {formatValue(f.value)}
+                    <strong>{humanizePredicate(f.predicate)}</strong> = {formatValue(f.value)}
                     {f.unit ? ` ${f.unit}` : ""}
                     {f.where ? <span className="node-detail__where"> @{f.where}</span> : null}
                     {f.source && <span className="node-detail__meta"> · {f.source}</span>}

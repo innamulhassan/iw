@@ -33,6 +33,22 @@ export default function StartScreen({ onStart, onOpenExisting, error, busy }: Pr
 
   const domains = useMemo(() => Array.from(new Set(catalog.map((c) => c.domain))), [catalog]);
   const forDomain = catalog.filter((c) => c.domain === domain);
+  const sessionById = useMemo(() => {
+    const m = new Map<string, SessionListItem>();
+    for (const s of sessions) m.set(s.subject.id, s);
+    return m;
+  }, [sessions]);
+
+  // the run status of a catalog incident, for the summary badge + colour
+  function statusOf(id: string): { key: string; label: string } {
+    const s = sessionById.get(id);
+    if (!s) return { key: "waiting", label: "not started" };
+    if (s.state === "suspended") return { key: "suspended", label: "awaiting approval" };
+    if (s.state === "running") return { key: "running", label: "running" };
+    if (s.state === "closed") return { key: s.outcome || "closed", label: s.outcome || "closed" };
+    return { key: s.state, label: s.state };
+  }
+  const done = sessions.filter((s) => s.state === "closed").length;
 
   return (
     <div className="start">
@@ -82,48 +98,41 @@ export default function StartScreen({ onStart, onOpenExisting, error, busy }: Pr
         </section>
 
         <section className="start__catalog">
-          <h2 className="start__section-title">Runnable incidents — every layer</h2>
+          <div className="start__section-head">
+            <h2 className="start__section-title">All incidents — every layer</h2>
+            <span className="start__summary-count">{done}/{forDomain.length} completed</span>
+          </div>
           <div className="start__cards">
-            {forDomain.map((c) => (
-              <button
-                key={c.id}
-                className="incident-card"
-                disabled={busy}
-                onClick={() => onStart({ domain: c.domain, id: c.id, kind: c.kind })}
-              >
-                <div className="incident-card__top">
-                  <span className="incident-card__id">{c.id}</span>
-                  <span className="incident-card__layer">{c.layer}</span>
-                </div>
-                <p className="incident-card__title">{c.title}</p>
-                <span className="incident-card__cta">Start investigation →</span>
-              </button>
-            ))}
+            {forDomain.map((c) => {
+              const st = statusOf(c.id);
+              const ran = st.key !== "waiting";
+              return (
+                <button
+                  key={c.id}
+                  className={`incident-card incident-card--${st.key}`}
+                  disabled={busy}
+                  onClick={() =>
+                    ran ? onOpenExisting(`${c.domain}:${c.id}`) : onStart({ domain: c.domain, id: c.id, kind: c.kind })
+                  }
+                >
+                  <div className="incident-card__top">
+                    <span className="incident-card__id">{c.id}</span>
+                    <span className="incident-card__layer">{c.layer}</span>
+                  </div>
+                  <p className="incident-card__title">{c.title}</p>
+                  <div className="incident-card__foot">
+                    <span className={`run-status run-status--${st.key}`}>
+                      <span className="run-status__dot" />
+                      {st.label}
+                    </span>
+                    <span className="incident-card__cta">{ran ? "View →" : "Start →"}</span>
+                  </div>
+                </button>
+              );
+            })}
             {forDomain.length === 0 && !loadErr && <p className="start__empty">Loading incidents…</p>}
           </div>
         </section>
-
-        {sessions.length > 0 && (
-          <section className="start__history">
-            <h2 className="start__section-title">Other investigations</h2>
-            <ul className="start__history-list">
-              {sessions.map((s) => (
-                <li key={s.id}>
-                  <button className="incident-row" onClick={() => onOpenExisting(s.id)} disabled={busy}>
-                    <span className="incident-row__id">{s.subject.id}</span>
-                    <span className="incident-row__meta">
-                      <span className={`state-dot state-dot--${s.state}`} />
-                      <span className="incident-row__state">{s.state}</span>
-                      {s.outcome !== "open" && (
-                        <span className={`outcome-pill outcome-pill--${s.outcome}`}>{s.outcome}</span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
       </div>
     </div>
   );

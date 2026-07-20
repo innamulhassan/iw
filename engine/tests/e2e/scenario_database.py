@@ -48,7 +48,8 @@ def build():
     subject = SubjectRef(domain="app-incident", id="INC-7734", kind="incident")
 
     frame = phase("frame",
-        calls=[call("find_recent_changes"), call("active_alerts")],
+        calls=[call("find_recent_changes", ci="orders-api", window="30m"),
+               call("active_alerts", service="orders-api", env="prod")],
         ops=[
             node(NT.ANOMALY, anomaly_id="ANOM-1"),
             fact(ANOM, "onset_value", 5200, T_ONSET, unit="ms", source=S.PROMETHEUS),
@@ -92,7 +93,8 @@ def build():
        "Investigate, don't blind-mitigate.")
 
     hypothesize = phase("hypothesize",
-        calls=[call("diff_range"), call("list_related_incidents")],
+        calls=[call("diff_range", change="CHG-9", repo="db-migrations"),
+                   call("list_related_incidents", shared_dependency="orders-pg", window="5m")],
         ops=[
             node(NT.SCHEMA, db_id="orders-pg", schema_name="orders"),
             fact(SCHEMA, "index_health", 0.4, T_ONSET, source=S.PROMETHEUS, reliability=0.9),
@@ -120,7 +122,8 @@ def build():
     diff_fact = fid(COMMIT, "lines_added", T_CHANGE)
 
     investigate = phase("investigate",
-        calls=[call("get_snapshots"), call("instant_query")],
+        calls=[call("get_snapshots", service="orders-api", bt="GetOrderItems"),
+                    call("instant_query", query="conn_pool_util{db='orders-pg'}")],
         ops=[
             edge(ET.CAUSED_BY, H1, CHG, level="high"),
             update("h2", status="refuted", add_refuting=[p50_fact],

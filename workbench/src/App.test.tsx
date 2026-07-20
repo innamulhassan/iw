@@ -40,6 +40,6 @@ describe("App start screen", () => {
 
     // the incident-number input + start control exist
     expect(screen.getByPlaceholderText("e.g. INC-4821")).toBeTruthy();
-    expect(screen.getByText("Runnable incidents — every layer")).toBeTruthy();
+    expect(screen.getByText("All incidents — every layer")).toBeTruthy();
   });
 });

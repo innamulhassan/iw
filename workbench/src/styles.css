@@ -1253,3 +1253,38 @@ code {
 .graph-node--selected .graph-node__seq-num{ fill:#fff; }
 .evrow__kind{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.04em;
   color:var(--faint); }
+
+/* tool-call trace: why · in (query) · out (result) · trace span */
+.toolcall__trace{ padding:8px 12px 10px 28px; border-top:1px solid var(--border); font-size:12px;
+  display:flex; flex-direction:column; gap:5px; }
+.tr-row{ display:flex; gap:10px; align-items:baseline; }
+.tr-k{ flex:0 0 34px; font-family:var(--mono); font-size:10px; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--text-faint); font-weight:700; padding-top:1px; }
+.tr-v{ flex:1; color:var(--text); line-height:1.5; word-break:break-word; }
+.tr-param{ display:inline-block; margin-right:10px; }
+.tr-param b{ color:var(--text-muted); font-weight:600; }
+.tr-muted{ color:var(--text-faint); font-family:var(--mono); font-size:11px; }
+.tr-blocked{ color:var(--red); }
+.toolcall__result{ margin-left:auto; font-size:11px; color:var(--text-muted); max-width:46%;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* all-runs summary: status badge + colour per incident card */
+.start__section-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.start__summary-count{ font-family:var(--mono); font-size:12px; color:var(--text-muted); }
+.incident-card__foot{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+.run-status{ display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600;
+  text-transform:capitalize; color:var(--text-muted); }
+.run-status__dot{ width:8px; height:8px; border-radius:50%; background:var(--text-faint); }
+.run-status--waiting .run-status__dot{ background:var(--text-faint); }
+.run-status--running .run-status__dot{ background:var(--accent); animation:pulse 1.4s ease-in-out infinite; }
+.run-status--suspended{ color:var(--amber); } .run-status--suspended .run-status__dot{ background:var(--amber); }
+.run-status--resolved{ color:var(--green); } .run-status--resolved .run-status__dot{ background:var(--green); }
+.run-status--mitigated{ color:var(--teal); } .run-status--mitigated .run-status__dot{ background:var(--teal); }
+.run-status--error{ color:var(--red); } .run-status--error .run-status__dot{ background:var(--red); }
+@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
+.incident-card{ border-left:3px solid var(--border); }
+.incident-card--running{ border-left-color:var(--accent); }
+.incident-card--suspended{ border-left-color:var(--amber); }
+.incident-card--resolved{ border-left-color:var(--green); }
+.incident-card--mitigated{ border-left-color:var(--teal); }
+.incident-card--error{ border-left-color:var(--red); }

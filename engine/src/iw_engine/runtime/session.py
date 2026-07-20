@@ -363,7 +363,8 @@ class InvestigationSession:
             self._emit("capability_call", intent=inv.intent, provider=inv.provider,
                        effect=inv.effect.value, op_count=inv.op_count,
                        blocked=inv.blocked, reason=inv.reason,
-                       kind=inv.kind, started_at=inv.started_at, duration_ms=inv.duration_ms)
+                       kind=inv.kind, started_at=inv.started_at, duration_ms=inv.duration_ms,
+                       params=inv.params, summary=inv.summary)
         self._inv_cursor = len(self._engine.invocations)
         self._emit("graph_delta",
                    nodes=[{"id": n.id, "type": n.type.value, "created_by": n.created_by,

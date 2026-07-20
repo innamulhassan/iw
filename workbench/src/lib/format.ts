@@ -1,0 +1,52 @@
+// Human-readable labels for the engine's fact predicates, so the UI reads naturally
+// ("latency p99" instead of "red_latency_p99"). Falls back to a de-underscored form.
+
+const PRED_LABELS: Record<string, string> = {
+  red_latency_p50: "latency p50",
+  red_latency_p95: "latency p95",
+  red_latency_p99: "latency p99",
+  red_errors: "error rate",
+  red_rate: "request rate",
+  degraded: "degraded",
+  slo_target: "SLO target",
+  tier: "tier",
+  conn_pool_util: "connection pool",
+  active_connections: "active connections",
+  max_connections: "max connections",
+  slow_query_rate: "slow queries",
+  replication_lag: "replication lag",
+  index_health: "index health",
+  table_count: "table count",
+  consumer_lag: "consumer lag",
+  dlq_depth: "dead-letter depth",
+  throughput: "throughput",
+  backlog_size: "backlog",
+  cpu_utilization: "CPU used",
+  mem_utilization: "memory used",
+  disk_utilization: "disk used",
+  net_utilization: "network used",
+  cpu_saturation: "CPU saturation",
+  disk_saturation: "disk saturation",
+  restart_count: "restarts",
+  ready: "ready",
+  phase: "phase",
+  node_name: "node",
+  last_duration: "last run duration",
+  retrans_segs: "retransmits",
+  probe_success: "probe success",
+  packet_loss: "packet loss",
+  availability: "availability",
+  error_rate: "error rate",
+  call_rate: "call rate",
+  latency_p99: "latency p99",
+  onset_value: "onset",
+  severity_score: "severity",
+  days_to_expiry: "days to expiry",
+  lines_added: "lines added",
+  lines_deleted: "lines deleted",
+  status_code_dist: "status codes",
+};
+
+export function humanizePredicate(p: string): string {
+  return PRED_LABELS[p] ?? p.replace(/_/g, " ");
+}

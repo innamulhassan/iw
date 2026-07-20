@@ -237,6 +237,8 @@ export interface CapabilityCallEvent extends EventBase {
   kind?: string; // tool | workflow | llm (obs 9 — tool-vs-workflow)
   started_at?: string | null; // WHEN the call ran
   duration_ms?: number | null; // HOW LONG it took
+  params?: Record<string, unknown>; // the query that went IN
+  summary?: string; // one-line result that came OUT
 }
 export interface GraphDeltaNode {
   id: string;

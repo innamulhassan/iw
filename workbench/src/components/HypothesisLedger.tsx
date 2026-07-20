@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { GraphFact, LedgerItem } from "../types";
 import type { LiveNode, Selection } from "../lib/store";
+import { humanizePredicate } from "../lib/format";
 
 function shortId(id: string): string {
   const i = id.indexOf(":");
@@ -63,7 +64,7 @@ function FactRow({
       >
         {f ? (
           <>
-            <strong>{f.predicate}</strong> = {fmtValue(f.value)}
+            <strong>{humanizePredicate(f.predicate)}</strong> = {fmtValue(f.value)}
             {f.unit ? ` ${f.unit}` : ""}
             {f.source ? <span className="evrow__src"> · {f.source}</span> : null}
           </>

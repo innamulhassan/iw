@@ -39,6 +39,8 @@ export interface ToolCall {
   kind?: string; // tool | workflow | llm (obs 9)
   startedAt?: string | null; // WHEN it ran
   durationMs?: number | null; // HOW LONG it took
+  params?: Record<string, unknown>; // the query IN
+  summary?: string; // the result OUT
 }
 
 /** An operator turn in the two-way chat (obs 2). */
@@ -289,6 +291,8 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
         kind: ev.kind,
         startedAt: ev.started_at,
         durationMs: ev.duration_ms,
+        params: ev.params,
+        summary: ev.summary,
       };
       mutateTurn(s, (t) => ({ ...t, calls: [...t.calls, call] }));
       break;
