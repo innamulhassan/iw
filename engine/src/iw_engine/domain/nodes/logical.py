@@ -28,7 +28,13 @@ SPECS: tuple[NodeSpec, ...] = (
         type=NodeType.SERVICE,
         tier="L0",
         identity_keys=("service_name", "env"),
-        static_props=("service_name", "env", "repo", "language"),
+        # `service_name`/`env` are the identity; the rest are the CI's per-TOOL identifiers,
+        # resolved from the incident's CMDB CI, so each tool is queried by ITS OWN id (AppD by
+        # app_id, git by repo, the platform by k8s_workload, ServiceNow by sys_id) — not by
+        # reusing the display name everywhere. This is the identity backbone of a real cross-tool
+        # investigation ("get the app_id from the incident, then query AppD with it").
+        static_props=("service_name", "env", "repo", "language",
+                      "app_id", "sys_id", "k8s_workload"),
         fact_predicates=(
             "tier",
             "slo_target",

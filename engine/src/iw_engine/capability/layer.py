@@ -13,6 +13,7 @@ PRE-FETCHED raw payload (the seam unit tests feed directly).
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -75,12 +76,28 @@ class CapabilityCall(BaseModel):
     params: dict = Field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class CapabilityMeta:
+    """The small, self-describing metadata each capability carries. The tool catalogue the reasoner
+    sees is rendered FROM this — nothing about a specific tool is hardcoded in the engine or the
+    prompt, so adding a capability makes the reasoner aware of it automatically. `queries_by` is the
+    load-bearing field: it names the target identifier the tool needs (AppD by `app_id`, git by
+    `repo`, the platform by `k8s_workload`, most telemetry by `service_name`), which is how the
+    reasoner knows to resolve that id off the incident's CI and pass it — the identity backbone of a
+    real cross-tool investigation, expressed as data, not code."""
+
+    summary: str          # one line: what this capability is FOR
+    queries_by: str       # the target identifier it needs: app_id | repo | service_name | topic_id | fqdn | change_id
+    returns: str = ""     # what it contributes to the graph (optional, for the catalogue)
+
+
 @runtime_checkable
 class Adapter(Protocol):
     provider: str
     intents: frozenset[str]
     effect: Effect
     binding: Binding
+    meta: CapabilityMeta
 
     def normalize(self, raw: dict) -> list[Operation]: ...
 

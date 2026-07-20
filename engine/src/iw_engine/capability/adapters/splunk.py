@@ -11,6 +11,7 @@ from ...domain import registry
 from ...domain.common import EvidenceRef
 from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source
 from ...domain.operations import AddEdge, AddFact, AddNode, Operation
+from ..layer import CapabilityMeta
 
 
 class SplunkAdapter:
@@ -24,6 +25,9 @@ class SplunkAdapter:
     })
     effect = Effect.READ
     binding = Binding.MCP   # Splunk ships a first-party MCP server (GA)
+    meta = CapabilityMeta(
+        summary="Logs, error signatures, and firewall-deny records",
+        queries_by="service_name", returns="error signatures, denials")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []

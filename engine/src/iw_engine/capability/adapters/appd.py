@@ -9,6 +9,7 @@ from __future__ import annotations
 from ...domain import registry
 from ...domain.enums import Binding, EdgeType, Effect, NodeType, Origin, Source
 from ...domain.operations import AddEdge, AddEvent, AddFact, AddNode, Operation
+from ..layer import CapabilityMeta
 
 
 class AppDAdapter:
@@ -18,6 +19,9 @@ class AppDAdapter:
     })
     effect = Effect.READ
     binding = Binding.MCP   # covered via the Splunk-Observability MCP convergence
+    meta = CapabilityMeta(
+        summary="Application topology, traces, and the JDBC/HTTP exit-call boundary",
+        queries_by="app_id", returns="BT health, exit-calls, flow maps")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []

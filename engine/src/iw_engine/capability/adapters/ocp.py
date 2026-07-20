@@ -22,6 +22,7 @@ from __future__ import annotations
 from ...domain import registry
 from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source
 from ...domain.operations import AddEdge, AddEvent, AddFact, AddNode, Operation
+from ..layer import CapabilityMeta
 
 # k8s Event `reason` -> this registry's closed Pod event vocabulary
 # (pod event_types: scheduled, started, OOMKilled, evicted, restarted, terminated)
@@ -65,6 +66,9 @@ class OcpAdapter:
     intents = frozenset({"rollout_status", "pod_status", "events", "pod_logs"})
     effect = Effect.READ
     binding = Binding.MCP   # OpenShift ships a first-party MCP server (read-only default)
+    meta = CapabilityMeta(
+        summary="Kubernetes / OpenShift rollout, pod, and event state",
+        queries_by="k8s_workload", returns="rollout + pod status, events")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []

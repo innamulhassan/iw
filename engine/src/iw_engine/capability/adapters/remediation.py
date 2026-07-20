@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from ...domain.enums import Binding, Effect, Source
 from ...domain.operations import AddEvent, Operation
+from ..layer import CapabilityMeta
 
 
 class RemediationAdapter:
@@ -23,6 +24,9 @@ class RemediationAdapter:
     intents = frozenset({"apply_remediation"})
     effect = Effect.WRITE
     binding = Binding.A2A   # remediation delegation — the reserved write-side binding (§C)
+    meta = CapabilityMeta(
+        summary="Apply a proposed, reversible remediation (human-gated)",
+        queries_by="service_name", returns="the recorded effect")
 
     def normalize(self, raw: dict) -> list[Operation]:
         applied = raw.get("applied")

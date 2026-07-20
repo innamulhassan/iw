@@ -39,6 +39,7 @@ from __future__ import annotations
 from ...domain import registry
 from ...domain.enums import Binding, EdgeType, Effect, NodeType, Origin
 from ...domain.operations import AddEdge, AddNode, Operation
+from ..layer import CapabilityMeta
 
 # sys_class_name -> typed NodeType (the step-3 dispatch key, §E.2). Unrecognised classes
 # fall back to NodeType.CONFIG_ITEM (the registry's generic CMDB CI shape) in normalize().
@@ -119,6 +120,9 @@ class CmdbAdapter:
     })
     effect = Effect.READ
     binding = Binding.MCP   # served via the ServiceNow CMDB MCP surface
+    meta = CapabilityMeta(
+        summary="The declared dependency topology and CI identity",
+        queries_by="service_name", returns="CI nodes + structural edges")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []

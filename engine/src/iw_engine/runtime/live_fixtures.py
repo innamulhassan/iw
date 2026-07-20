@@ -31,9 +31,19 @@ def code_regression() -> tuple[SubjectRef, dict, str]:
         "servicenow": {"*": {
             "incident": {"number": "INC-4821", "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
-                         "cmdb_ci": {"display_value": "payments-api"}, "env": "prod"},
+                         "cmdb_ci": {"display_value": "payments-api",
+                                     "app_id": "APM-PAYMEN",
+                                     "sys_id": "sn_paymentsapi01",
+                                     "repo": "payments-api",
+                                     "k8s_workload": "prod/payments-api"
+                                    }, "env": "prod"},
             "changes": [{"number": "CHG-1", "type": "deployment",
-                         "cmdb_ci": {"display_value": "payments-api"},
+                         "cmdb_ci": {"display_value": "payments-api",
+                                     "app_id": "APM-PAYMEN",
+                                     "sys_id": "sn_paymentsapi01",
+                                     "repo": "payments-api",
+                                     "k8s_workload": "prod/payments-api"
+                                    },
                          "requested_by": "dev-kco", "start_date": t_chg,
                          "u_commit_sha": "abc123"}],
         }},
@@ -80,9 +90,19 @@ def database() -> tuple[SubjectRef, dict, str]:
         "servicenow": {"*": {
             "incident": {"number": "INC-7734", "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
-                         "cmdb_ci": {"display_value": "orders-api"}, "env": "prod"},
+                         "cmdb_ci": {"display_value": "orders-api",
+                                     "app_id": "APM-ORDERS",
+                                     "sys_id": "sn_ordersapi01",
+                                     "repo": "orders-api",
+                                     "k8s_workload": "prod/orders-api"
+                                    }, "env": "prod"},
             "changes": [{"number": "CHG-9", "type": "database",
-                         "cmdb_ci": {"display_value": "orders-api"},
+                         "cmdb_ci": {"display_value": "orders-api",
+                                     "app_id": "APM-ORDERS",
+                                     "sys_id": "sn_ordersapi01",
+                                     "repo": "orders-api",
+                                     "k8s_workload": "prod/orders-api"
+                                    },
                          "requested_by": "dba-jsmith", "start_date": t_chg}]}},
         "cmdb": {"*": {"env": "prod", "dependencies": [
             {"parent": "orders-api", "parent_type": "cmdb_ci_service",
@@ -129,7 +149,12 @@ def network() -> tuple[SubjectRef, dict, str]:
         "servicenow": {"*": {
             "incident": {"number": "INC-9001", "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
-                         "cmdb_ci": {"display_value": "checkout-svc"}, "env": "prod"},
+                         "cmdb_ci": {"display_value": "checkout-svc",
+                                     "app_id": "APM-CHECKO",
+                                     "sys_id": "sn_checkoutsvc01",
+                                     "repo": "checkout-svc",
+                                     "k8s_workload": "prod/checkout-svc"
+                                    }, "env": "prod"},
             "changes": []}},
         "cmdb": {"*": {"env": "prod",
                        "ci_attrs": {"SEG-EDGE-12": {"cidr": "10.20.4.0/24", "vlan": 204}},
@@ -192,9 +217,19 @@ def deployment() -> tuple[SubjectRef, dict, str]:
         "servicenow": {"*": {
             "incident": {"number": "INC-7731", "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
-                         "cmdb_ci": {"display_value": "checkout-api"}, "env": "prod"},
+                         "cmdb_ci": {"display_value": "checkout-api",
+                                     "app_id": "APM-CHECKO",
+                                     "sys_id": "sn_checkoutapi01",
+                                     "repo": "checkout-api",
+                                     "k8s_workload": "prod/checkout-api"
+                                    }, "env": "prod"},
             "changes": [{"number": "CHG-DEP-99", "type": "deployment",
-                         "cmdb_ci": {"display_value": "checkout-api"},
+                         "cmdb_ci": {"display_value": "checkout-api",
+                                     "app_id": "APM-CHECKO",
+                                     "sys_id": "sn_checkoutapi01",
+                                     "repo": "checkout-api",
+                                     "k8s_workload": "prod/checkout-api"
+                                    },
                          "requested_by": "svc-deploy-bot", "start_date": t_dep, "env": "prod",
                          "u_release_tag": "checkout-api-rev43", "u_commit_sha": "9f2a1e0"}]}},
         "cmdb": {"*": {"env": "prod", "dependencies": [
@@ -329,9 +364,19 @@ def firewall() -> tuple[SubjectRef, dict, str]:
         "servicenow": {"*": {
             "incident": {"number": "INC-7702", "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
-                         "cmdb_ci": {"display_value": "checkout-api"}, "env": "prod"},
+                         "cmdb_ci": {"display_value": "checkout-api",
+                                     "app_id": "APM-CHECKO",
+                                     "sys_id": "sn_checkoutapi01",
+                                     "repo": "checkout-api",
+                                     "k8s_workload": "prod/checkout-api"
+                                    }, "env": "prod"},
             "changes": [{"number": "CHG-3311", "type": "network",
-                         "cmdb_ci": {"display_value": "checkout-api"},
+                         "cmdb_ci": {"display_value": "checkout-api",
+                                     "app_id": "APM-CHECKO",
+                                     "sys_id": "sn_checkoutapi01",
+                                     "repo": "checkout-api",
+                                     "k8s_workload": "prod/checkout-api"
+                                    },
                          "requested_by": "netops-automation", "start_date": t_chg, "env": "prod"}],
             # a true RECURRENCE: same checkout-api + same egress vendor path went down before
             # (INC-7699), reverted then too — a strong hypothesis prior sharpening the FW rule.
@@ -460,7 +505,12 @@ def nochange() -> tuple[SubjectRef, dict, str]:
         "servicenow": {"*": {
             "incident": {"number": "INC-9100", "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
-                         "cmdb_ci": {"display_value": "checkout-api"}, "env": "prod"},
+                         "cmdb_ci": {"display_value": "checkout-api",
+                                     "app_id": "APM-CHECKO",
+                                     "sys_id": "sn_checkoutapi01",
+                                     "repo": "checkout-api",
+                                     "k8s_workload": "prod/checkout-api"
+                                    }, "env": "prod"},
             # the no-change class: an EMPTY change list is first-class (not an error) — it is
             # the REFUTING evidence for the 'invisible change' rival (h2): no deploy/config
             # event exists anywhere in the incident window to blame.
@@ -546,9 +596,19 @@ def messaging() -> tuple[SubjectRef, dict, str]:
         "servicenow": {"*": {
             "incident": {"number": "INC-8801", "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
-                         "cmdb_ci": {"display_value": "order-processor"}, "env": "prod"},
+                         "cmdb_ci": {"display_value": "order-processor",
+                                     "app_id": "APM-ORDERP",
+                                     "sys_id": "sn_orderprocessor01",
+                                     "repo": "order-processor",
+                                     "k8s_workload": "prod/order-processor"
+                                    }, "env": "prod"},
             "changes": [{"number": "CHG-55", "type": "deployment",
-                         "cmdb_ci": {"display_value": "order-processor"},
+                         "cmdb_ci": {"display_value": "order-processor",
+                                     "app_id": "APM-ORDERP",
+                                     "sys_id": "sn_orderprocessor01",
+                                     "repo": "order-processor",
+                                     "k8s_workload": "prod/order-processor"
+                                    },
                          "requested_by": "dev-mq", "start_date": t_chg}]}},
         "cmdb": {"*": {"env": "prod",
                        "ci_attrs": {"orders.events": {"broker": "kafka-prod-1", "partitions": 12}},
@@ -616,7 +676,12 @@ def infra() -> tuple[SubjectRef, dict, str]:
         "servicenow": {"*": {
             "incident": {"number": "INC-8900", "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
-                         "cmdb_ci": {"display_value": "checkout-svc"}, "env": "prod"},
+                         "cmdb_ci": {"display_value": "checkout-svc",
+                                     "app_id": "APM-CHECKO",
+                                     "sys_id": "sn_checkoutsvc01",
+                                     "repo": "checkout-svc",
+                                     "k8s_workload": "prod/checkout-svc"
+                                    }, "env": "prod"},
             # no-change class: a resource/co-tenancy fault, NOT a deploy — rules out CHG cause
             "changes": []}},
         "cmdb": {"*": {

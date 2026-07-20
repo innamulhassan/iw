@@ -13,6 +13,7 @@ from ...domain import registry
 from ...domain.common import EvidenceRef
 from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source
 from ...domain.operations import AddEdge, AddEvent, AddFact, AddNode, Operation
+from ..layer import CapabilityMeta
 
 
 class GitAdapter:
@@ -20,6 +21,9 @@ class GitAdapter:
     intents = frozenset({"get_commit", "diff_range", "get_pr_for_commit", "blame", "read_diff"})
     effect = Effect.READ
     binding = Binding.REST   # local git — a thin REST/CLI shim, not an MCP server
+    meta = CapabilityMeta(
+        summary="Diffs, blame, and pull-request context for a change",
+        queries_by="repo", returns="diffs, blame, commits")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []

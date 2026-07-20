@@ -12,6 +12,7 @@ from __future__ import annotations
 from ...domain import registry
 from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source
 from ...domain.operations import AddEdge, AddEvent, AddNode, Operation
+from ..layer import CapabilityMeta
 
 
 class ServiceNowAdapter:
@@ -27,6 +28,9 @@ class ServiceNowAdapter:
     })
     effect = Effect.READ
     binding = Binding.MCP   # ServiceNow ships a first-party MCP server (Zurich)
+    meta = CapabilityMeta(
+        summary="The incident record, its changes, related incidents, and the affected CI identity",
+        queries_by="incident_id", returns="incident, changes, CI + its tool identifiers")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []
@@ -50,7 +54,12 @@ class ServiceNowAdapter:
 
             ci = inc.get("cmdb_ci") or {}
             if ci.get("display_value"):
-                svc_props = {"service_name": ci["display_value"], "env": inc_env}
+                # resolve the CI's per-tool identifiers off the incident's CMDB CI — the identity
+                # backbone that lets each later tool be queried by ITS OWN id (AppD by app_id,
+                # git by repo, the platform by k8s_workload), not by the display name.
+                svc_props = {"service_name": ci["display_value"], "env": inc_env,
+                             **{k: ci[k] for k in ("app_id", "sys_id", "repo", "k8s_workload")
+                                if ci.get(k)}}
                 ops.append(AddNode(type=NodeType.SERVICE, props=svc_props))
                 svc_id = registry.node_id(NodeType.SERVICE, svc_props)
                 ops.append(AddEdge(type=EdgeType.AFFECTS, src=inc_id, dst=svc_id))

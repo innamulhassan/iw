@@ -142,25 +142,28 @@ Total: {len(node_types)} node types, {len(EDGE_SPECS)} edge types."""
 
 
 def render_tools(adapters, *, include_writes: bool = False) -> str:
-    """The CONCRETE capability (tool) intents the CapabilityLayer can resolve — the real
-    verbs you emit in `calls`. (The playbook's per-phase `allowed_intents` are the abstract
-    action budget; these are the tools that actually return data.)
+    """The concrete capabilities the layer can resolve — rendered FROM each capability's own
+    `meta` (its one-line purpose + the identifier it queries by). Nothing tool-specific is
+    hardcoded here: adding a capability makes the reasoner aware of it, and its `queries_by`
+    field tells the reasoner which resolved identifier to pass. `include_writes` surfaces WRITE
+    tools (labelled human-gated) so a live planner can propose a remediation in REMEDIATE."""
+    def block(a) -> str:
+        meta = getattr(a, "meta", None)
+        desc = f" — {meta.summary} · queries by `{meta.queries_by}`" if meta else ""
+        return f"  {a.provider}{desc}\n      intents: {'  '.join(sorted(a.intents))}"
 
-    `include_writes` surfaces WRITE-effect tools (labelled human-gated) so a LIVE planner can
-    PROPOSE a remediation as an `apply_remediation` call in REMEDIATE — the write it emits opens
-    the human approval gate. The scripted mock injects that call, so it defaults to read-only."""
-    lines: list[str] = []
-    writes: list[str] = []
-    for a in sorted(adapters, key=lambda x: x.provider):
-        for intent in sorted(a.intents):
-            hint = INTENT_HINTS.get(intent, "")
-            if a.effect.value == "write":
-                if include_writes:
-                    writes.append(f"  {intent}  [{a.provider}, WRITE — human-gated]"
-                                  + (f" — {hint}" if hint else ""))
-                continue  # otherwise write tools execute only in the human-gated remediate phase
-            lines.append(f"  {intent}  [{a.provider}]" + (f" — {hint}" if hint else ""))
-    return "## AVAILABLE TOOLS (emit these exact intent names in `calls`)\n" + "\n".join(lines + writes)
+    reads = [block(a) for a in sorted(adapters, key=lambda x: x.provider) if a.effect.value != "write"]
+    writes = [block(a).replace(f"  {a.provider}", f"  {a.provider} [WRITE — human-gated]", 1)
+              for a in sorted(adapters, key=lambda x: x.provider)
+              if a.effect.value == "write" and include_writes]
+    return (
+        "## AVAILABLE TOOLS — grouped by capability. Emit the exact intent names in `calls`.\n"
+        "# ROUTING: each capability names the id it 'queries by'. Resolve that id off the target\n"
+        "#   CI — the incident's Service carries app_id / repo / k8s_workload / sys_id, resolved\n"
+        "#   from the incident record — and pass it in the call params. Do NOT reuse the display\n"
+        "#   name for a tool that queries by a different id (AppD queries by app_id, git by repo,\n"
+        "#   the platform by k8s_workload).\n"
+        + "\n".join(reads + writes))
 
 
 def tool_intents(adapters, *, include_writes: bool = False) -> set[str]:

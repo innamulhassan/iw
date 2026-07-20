@@ -14,6 +14,7 @@ from __future__ import annotations
 from ...domain import registry
 from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source
 from ...domain.operations import AddEdge, AddEvent, AddNode, Operation
+from ..layer import CapabilityMeta
 
 
 class ArtifactoryAdapter:
@@ -21,6 +22,9 @@ class ArtifactoryAdapter:
     intents = frozenset({"get_artifact_by_digest", "get_build", "list_promotions", "aql_search"})
     effect = Effect.READ
     binding = Binding.MCP   # JFrog ships a first-party MCP server
+    meta = CapabilityMeta(
+        summary="Build → artifact → promotion lineage",
+        queries_by="repo", returns="builds, artifacts, promotions")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []

@@ -8,6 +8,7 @@ from __future__ import annotations
 from ...domain import registry
 from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source
 from ...domain.operations import AddEdge, AddEvent, AddFact, AddNode, Operation
+from ..layer import CapabilityMeta
 
 
 class PrometheusAdapter:
@@ -15,6 +16,9 @@ class PrometheusAdapter:
     intents = frozenset({"active_alerts", "instant_query", "range_query", "fetch_metrics"})
     effect = Effect.READ
     binding = Binding.REST   # no first-party MCP server — trivial raw REST
+    meta = CapabilityMeta(
+        summary="Time-series metrics (RED/USE) and firing alerts",
+        queries_by="service_name", returns="alerts + metric facts")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []

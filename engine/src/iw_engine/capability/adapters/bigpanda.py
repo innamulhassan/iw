@@ -17,6 +17,7 @@ from __future__ import annotations
 from ...domain import registry
 from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source
 from ...domain.operations import AddEdge, AddEvent, AddNode, Operation
+from ..layer import CapabilityMeta
 
 
 class BigPandaAdapter:
@@ -24,6 +25,9 @@ class BigPandaAdapter:
     intents = frozenset({"get_correlated_incident", "list_correlated_alerts", "get_flapping_signals"})
     effect = Effect.READ
     binding = Binding.MCP   # AIOps platforms expose a tool/API surface; wrap it as MCP or REST
+    meta = CapabilityMeta(
+        summary="Event correlation — collapses an alert storm into one incident",
+        queries_by="incident_id", returns="correlated incident, member alerts, related incidents")
 
     def normalize(self, raw: dict) -> list[Operation]:
         ops: list[Operation] = []
