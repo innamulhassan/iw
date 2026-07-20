@@ -439,7 +439,11 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                     {layerLabelForType(node.type)}
                   </text>
                   <text x={16} y={40} className="graph-node__label">
-                    {labelForNode(node)}
+                    {node.type === "hypothesis" && live.ledger[node.id]?.statement
+                      ? (live.ledger[node.id].statement.length > 22
+                          ? `${live.ledger[node.id].statement.slice(0, 21)}…`
+                          : live.ledger[node.id].statement)
+                      : labelForNode(node)}
                   </text>
                   {node.source && (
                     <text x={16} y={57} className="graph-node__src">
@@ -541,6 +545,10 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
               </button>
             </div>
             <code className="node-detail__id">{selected.id}</code>
+
+            {selected.type === "hypothesis" && live.ledger[selected.id]?.statement && (
+              <p className="node-detail__hyp">{live.ledger[selected.id].statement}</p>
+            )}
 
             {(selected.source || selected.first_seen) && (
               <p className="node-detail__prov">

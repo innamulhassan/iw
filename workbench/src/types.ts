@@ -284,6 +284,10 @@ export interface LedgerDeltaItem {
   status: string | null;
   confidence: number | null;
   basis: string;
+  statement?: string;
+  root_candidate?: string | null;
+  supporting?: string[];
+  refuting?: string[];
 }
 export interface LedgerDeltaEvent extends EventBase {
   type: "ledger_delta";

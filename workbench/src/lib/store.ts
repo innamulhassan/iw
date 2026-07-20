@@ -369,13 +369,13 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
         const existing = s.ledger[h.id];
         s.ledger[h.id] = {
           id: h.id,
-          statement: existing?.statement ?? h.id,
+          statement: h.statement || existing?.statement || h.id,
           status: h.status ?? existing?.status ?? "proposed",
           confidence: h.confidence ?? existing?.confidence ?? 0,
           basis: h.basis || existing?.basis || "",
-          root_candidate: existing?.root_candidate ?? null,
-          supporting: existing?.supporting ?? [],
-          refuting: existing?.refuting ?? [],
+          root_candidate: h.root_candidate ?? existing?.root_candidate ?? null,
+          supporting: h.supporting ?? existing?.supporting ?? [],
+          refuting: h.refuting ?? existing?.refuting ?? [],
           chain: existing?.chain ?? [],
         };
       }

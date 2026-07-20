@@ -1306,3 +1306,7 @@ code {
 .edge-tip__meta dt{ flex:0 0 78px; color:var(--text-faint); font-family:var(--mono); font-size:10.5px;
   text-transform:uppercase; letter-spacing:.04em; padding-top:1px; }
 .edge-tip__meta dd{ margin:0; color:var(--text); font-size:12px; }
+
+/* hypothesis statement in the node drawer */
+.node-detail__hyp{ margin:6px 0 4px; font-size:13px; line-height:1.45; color:var(--text);
+  font-weight:600; }

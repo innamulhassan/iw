@@ -391,10 +391,17 @@ class InvestigationSession:
     def _hyp_delta_view(self, delta) -> dict:
         hid = delta.hypothesis.id if delta.hypothesis else delta.hypothesis_id
         h = self._engine.ledger.hypotheses.get(hid)
+        # carry the full hypothesis on the delta (statement + root + evidence ids), NOT just the id
+        # — so the UI shows the real theory the moment it's proposed, never a bare "hyp:h1" waiting
+        # on a snapshot backfill.
         return {"id": hid, "action": delta.action.value,
                 "status": h.status.value if h else None,
                 "confidence": h.confidence.value if h else None,
-                "basis": delta.basis or (h.confidence.basis if h else "")}
+                "basis": delta.basis or (h.confidence.basis if h else ""),
+                "statement": h.statement if h else "",
+                "root_candidate": h.root_candidate if h else None,
+                "supporting": list(h.supporting_facts) if h else [],
+                "refuting": list(h.refuting_facts) if h else []}
 
     def _fact_view(self, fid: str) -> dict:
         f = self._engine.graph.facts.get(fid)
