@@ -1288,3 +1288,21 @@ code {
 .incident-card--resolved{ border-left-color:var(--green); }
 .incident-card--mitigated{ border-left-color:var(--teal); }
 .incident-card--error{ border-left-color:var(--red); }
+
+/* edge hover detail — relation · direction · origin · source · established · confidence */
+.edge-tip{ position:fixed; z-index:60; pointer-events:none; max-width:270px;
+  background:var(--pane-bg); border:1px solid var(--border); border-radius:10px;
+  box-shadow:var(--shadow-md); padding:10px 12px; }
+.edge-tip__rel{ font-weight:700; font-size:13px; display:flex; align-items:center; gap:8px; color:var(--text); }
+.edge-tip__kind{ font-size:9px; text-transform:uppercase; letter-spacing:.04em; font-weight:700;
+  padding:1px 6px; border-radius:10px; }
+.edge-tip__kind--causal{ background:rgba(167,139,250,.14); color:var(--violet); }
+.edge-tip__kind--structural{ background:var(--panel2,#eef2f8); color:var(--text-muted); }
+.edge-tip__dir{ margin:5px 0 8px; font-size:12px; color:var(--text-muted); }
+.edge-tip__dir b{ color:var(--text); }
+.edge-tip__arrow{ color:var(--text-faint); }
+.edge-tip__meta{ margin:0; display:flex; flex-direction:column; gap:2px; }
+.edge-tip__meta div{ display:flex; gap:8px; }
+.edge-tip__meta dt{ flex:0 0 78px; color:var(--text-faint); font-family:var(--mono); font-size:10.5px;
+  text-transform:uppercase; letter-spacing:.04em; padding-top:1px; }
+.edge-tip__meta dd{ margin:0; color:var(--text); font-size:12px; }

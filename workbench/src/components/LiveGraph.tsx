@@ -75,6 +75,36 @@ function colorForEdge(type: string, origin: string): string {
   return STRUCTURAL_COLOR;
 }
 
+const RELATION_LABELS: Record<string, string> = {
+  depends_on: "depends on",
+  calls: "calls",
+  runs_on: "runs on",
+  hosted_on: "hosted on",
+  deployed_to: "deployed to",
+  contains: "contains",
+  exposes: "exposes",
+  routes_to: "routes to",
+  connects_to: "connects to",
+  reads_from: "reads from",
+  writes_to: "writes to",
+  produces_to: "produces to",
+  consumes_from: "consumes from",
+  secured_by: "secured by",
+  changed_by: "changed by",
+  caused_by: "caused by",
+  supports: "supports",
+  refutes: "refutes",
+  correlated_with: "correlated with",
+  similar_to: "similar to",
+  recurrence_of: "recurrence of",
+  affects: "affects",
+  fired_on: "fired on",
+  introduced_by: "introduced by",
+};
+function humanizeRelation(t: string): string {
+  return RELATION_LABELS[t] ?? t.replace(/_/g, " ");
+}
+
 interface Props {
   live: LiveState;
   selection: Selection | null;
@@ -97,6 +127,8 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number; moved: boolean } | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const interactedRef = useRef(false); // once the user pans/zooms, stop auto-fitting
+  // the edge the pointer is over → a floating detail card (relation · direction · source · when)
+  const [hoverEdge, setHoverEdge] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const ordered = nodesWithOrder(live);
   const related = relatedIncidents(live);
@@ -324,20 +356,31 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
               const color = colorForEdge(edge.type, edge.origin);
               const isRelated = RELATED_EDGE_TYPES.has(edge.type);
               const causal = Boolean(EDGE_COLORS[edge.type]) || edge.origin === "inferred";
-              const est = relTime(edge.established);
+              const d = `M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y}`;
+              const isHover = hoverEdge?.id === edge.id;
               return (
-                <path
-                  key={edge.id}
-                  d={`M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y}`}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={causal ? 2 : 1.5}
-                  strokeDasharray={isRelated ? "2 4" : causal ? "6 4" : undefined}
-                  markerEnd={`url(#arrow-${color.replace("#", "")})`}
-                  className={causal ? "edge edge--causal" : "edge edge--structural"}
-                >
-                  <title>{`${edge.type} (${edge.origin})${est ? ` · established ${est}` : ""}`}</title>
-                </path>
+                <g key={edge.id}>
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={isHover ? (causal ? 3.5 : 3) : causal ? 2 : 1.5}
+                    strokeDasharray={isRelated ? "2 4" : causal ? "6 4" : undefined}
+                    markerEnd={`url(#arrow-${color.replace("#", "")})`}
+                    className={causal ? "edge edge--causal" : "edge edge--structural"}
+                  />
+                  {/* wide invisible hit-area so a thin edge is easy to hover for its detail */}
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={14}
+                    style={{ cursor: "pointer" }}
+                    onMouseEnter={(e) => setHoverEdge({ id: edge.id, x: e.clientX, y: e.clientY })}
+                    onMouseMove={(e) => setHoverEdge({ id: edge.id, x: e.clientX, y: e.clientY })}
+                    onMouseLeave={() => setHoverEdge((h) => (h?.id === edge.id ? null : h))}
+                  />
+                </g>
               );
             })}
 
@@ -409,6 +452,56 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
             })}
           </g>
         </svg>
+
+        {hoverEdge &&
+          (() => {
+            const edge = live.edges[hoverEdge.id];
+            if (!edge) return null;
+            const src = live.nodes[edge.src];
+            const dst = live.nodes[edge.dst];
+            const est = relTime(edge.established);
+            const pct = edge.confidence != null ? Math.round(edge.confidence * 100) : null;
+            const causal = Boolean(EDGE_COLORS[edge.type]) || edge.origin === "inferred";
+            return (
+              <div className="edge-tip" style={{ left: hoverEdge.x + 14, top: hoverEdge.y + 14 }}>
+                <div className="edge-tip__rel">
+                  {humanizeRelation(edge.type)}
+                  <span className={`edge-tip__kind edge-tip__kind--${causal ? "causal" : "structural"}`}>
+                    {causal ? "inferred" : "structural"}
+                  </span>
+                </div>
+                <div className="edge-tip__dir">
+                  <b>{src ? labelForNode(src) : shortId(edge.src)}</b>
+                  <span className="edge-tip__arrow"> → </span>
+                  <b>{dst ? labelForNode(dst) : shortId(edge.dst)}</b>
+                </div>
+                <dl className="edge-tip__meta">
+                  <div>
+                    <dt>origin</dt>
+                    <dd>{edge.origin}</dd>
+                  </div>
+                  {edge.source && (
+                    <div>
+                      <dt>source</dt>
+                      <dd>{edge.source}</dd>
+                    </div>
+                  )}
+                  {est && (
+                    <div>
+                      <dt>established</dt>
+                      <dd>{est}</dd>
+                    </div>
+                  )}
+                  {pct != null && (
+                    <div>
+                      <dt>confidence</dt>
+                      <dd>{pct}%</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            );
+          })()}
 
         {related.length > 0 && (
           <div className="related-panel">
