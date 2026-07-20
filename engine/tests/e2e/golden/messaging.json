@@ -1,0 +1,893 @@
+{
+  "graph": {
+    "edges": [
+      {
+        "confidence": null,
+        "dst": "change_event:chg-55",
+        "established": null,
+        "id": "edge:changed_by:service:order-processor|prod->change_event:chg-55:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:order-processor|prod",
+        "state": "active",
+        "type": "changed_by",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:order-processor|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:alt-7->service:order-processor|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:alt-7",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:order-processor|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-7->service:order-processor|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-7",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:order-processor|prod",
+        "established": null,
+        "id": "edge:affects:incident:inc-8801->service:order-processor|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "incident:inc-8801",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "message_queue:orders.events",
+        "established": null,
+        "id": "edge:consumes_from:service:order-processor|prod->message_queue:orders.events:declared",
+        "invalidated_by": null,
+        "origin": "declared",
+        "source": null,
+        "src": "service:order-processor|prod",
+        "state": "active",
+        "type": "consumes_from",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "code_commit:e5f6a7b",
+        "established": null,
+        "id": "edge:introduced_by:change_event:chg-55->code_commit:e5f6a7b:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "change_event:chg-55",
+        "state": "active",
+        "type": "introduced_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "incident:inc-8802",
+        "established": null,
+        "id": "edge:similar_to:incident:inc-8801->incident:inc-8802:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "incident:inc-8801",
+        "state": "active",
+        "type": "similar_to",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "change_event:chg-55",
+        "established": null,
+        "id": "edge:caused_by:hyp:h1->change_event:chg-55:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "hyp:h1",
+        "state": "active",
+        "type": "caused_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.3,
+        "dst": "hyp:h2",
+        "established": null,
+        "id": "edge:refutes:message_queue:orders.events->hyp:h2:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "message_queue:orders.events",
+        "state": "active",
+        "type": "refutes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:message_queue:orders.events->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "message_queue:orders.events",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      }
+    ],
+    "events": [
+      {
+        "at": "2026-07-19T09:30:00+00:00",
+        "entity": "change_event:chg-55",
+        "id": "evt:92226d2e45045628",
+        "invalidated_by": null,
+        "payload": {
+          "actor": "dev-mq"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "implemented"
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "entity": "alert:alt-7",
+        "id": "evt:b2ba0b6531012b07",
+        "invalidated_by": null,
+        "payload": {
+          "state": "firing"
+        },
+        "source": "prometheus",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "entity": "service:order-processor|prod",
+        "id": "evt:0e495a58291464df",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "entity": "incident:inc-8801",
+        "id": "evt:164bc62361c0f748",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T09:44:00+00:00",
+        "entity": "incident:inc-8802",
+        "id": "evt:ba20e88cda5e9535",
+        "invalidated_by": null,
+        "payload": {
+          "affected_ci": "fulfilment-api"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T10:20:00+00:00",
+        "entity": "service:order-processor|prod",
+        "id": "evt:a50d659821962544",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T10:20:00+00:00",
+        "entity": "anomaly:anom-7",
+        "id": "evt:3833fd0ac64c1d9c",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "cleared"
+      }
+    ],
+    "facts": [
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "id": "fact:12408b7cc45f0b84",
+        "observed_at": "2026-07-19T09:42:00+00:00",
+        "predicate": "onset_value",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "anomaly:anom-7",
+        "unit": "msgs",
+        "valid_to": null,
+        "value": 42000,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "id": "fact:50ca79fc1653db3a",
+        "observed_at": "2026-07-19T09:42:00+00:00",
+        "predicate": "severity_score",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "anomaly:anom-7",
+        "unit": null,
+        "valid_to": null,
+        "value": 2,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "id": "fact:8689c39a4584d11b",
+        "observed_at": "2026-07-19T09:42:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:order-processor|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T10:20:00+00:00",
+        "value": true,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "id": "fact:8e48719385f4c771",
+        "observed_at": "2026-07-19T09:42:00+00:00",
+        "predicate": "red_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:order-processor|prod",
+        "unit": "rpm",
+        "valid_to": null,
+        "value": 320,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "id": "fact:d11575184f188aaa",
+        "observed_at": "2026-07-19T09:42:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "superseded",
+        "subject": "service:order-processor|prod",
+        "unit": "ms",
+        "valid_to": "2026-07-19T09:56:00+00:00",
+        "value": 180,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "id": "fact:e2c9369ff03cb57c",
+        "observed_at": "2026-07-19T09:42:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:order-processor|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "id": "fact:0de45606e8aa2304",
+        "observed_at": "2026-07-19T09:42:00+00:00",
+        "predicate": "slo_target",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:order-processor|prod",
+        "unit": "s",
+        "valid_to": null,
+        "value": 60,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "id": "fact:6161dabfa64d0f7c",
+        "observed_at": "2026-07-19T09:42:00+00:00",
+        "predicate": "consumer_lag",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "message_queue:orders.events",
+        "unit": "msgs",
+        "valid_to": "2026-07-19T09:56:00+00:00",
+        "value": 42000,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:30:00+00:00",
+        "id": "fact:47203f451142b6ad",
+        "observed_at": "2026-07-19T09:30:00+00:00",
+        "predicate": "files_changed",
+        "source": "git",
+        "state": "active",
+        "subject": "code_commit:e5f6a7b",
+        "unit": null,
+        "valid_to": null,
+        "value": 1,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:30:00+00:00",
+        "id": "fact:e860299bdcf76a40",
+        "observed_at": "2026-07-19T09:30:00+00:00",
+        "predicate": "lines_added",
+        "source": "git",
+        "state": "active",
+        "subject": "code_commit:e5f6a7b",
+        "unit": null,
+        "valid_to": null,
+        "value": 22,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:30:00+00:00",
+        "id": "fact:4fe850d73ab4dd34",
+        "observed_at": "2026-07-19T09:30:00+00:00",
+        "predicate": "lines_deleted",
+        "source": "git",
+        "state": "active",
+        "subject": "code_commit:e5f6a7b",
+        "unit": null,
+        "valid_to": null,
+        "value": 4,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:56:00+00:00",
+        "id": "fact:836719272ebba65c",
+        "observed_at": "2026-07-19T09:56:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:order-processor|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 210,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:56:00+00:00",
+        "id": "fact:d9ac47ac5b923a7d",
+        "observed_at": "2026-07-19T09:56:00+00:00",
+        "predicate": "consumer_lag",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "message_queue:orders.events",
+        "unit": "msgs",
+        "valid_to": "2026-07-19T10:20:00+00:00",
+        "value": 61000,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:56:00+00:00",
+        "id": "fact:6c1b2f9190cdc8e3",
+        "observed_at": "2026-07-19T09:56:00+00:00",
+        "predicate": "dlq_depth",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "message_queue:orders.events",
+        "unit": "msgs",
+        "valid_to": null,
+        "value": 0,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:56:00+00:00",
+        "id": "fact:5170bdb64edd0bc4",
+        "observed_at": "2026-07-19T09:56:00+00:00",
+        "predicate": "throughput",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "message_queue:orders.events",
+        "unit": "msgs_per_min",
+        "valid_to": null,
+        "value": 1450,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T10:20:00+00:00",
+        "id": "fact:2e35ee3e366c3003",
+        "observed_at": "2026-07-19T10:20:00+00:00",
+        "predicate": "consumer_lag",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "message_queue:orders.events",
+        "unit": "msgs",
+        "valid_to": null,
+        "value": 300,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T10:20:00+00:00",
+        "id": "fact:62e26ce65bf8f4e4",
+        "observed_at": "2026-07-19T10:20:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:order-processor|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": false,
+        "where": null
+      }
+    ],
+    "nodes": [
+      {
+        "first_seen": "2026-07-19T09:30:00+00:00",
+        "first_source": "servicenow",
+        "id": "change_event:chg-55",
+        "last_seen": "2026-07-19T09:30:00+00:00",
+        "origin": false,
+        "props": {
+          "actor": "dev-mq",
+          "change_id": "CHG-55",
+          "change_type": "deployment",
+          "target_ref": "order-processor",
+          "ticket_id": "CHG-55"
+        },
+        "source": "servicenow",
+        "type": "change_event"
+      },
+      {
+        "first_seen": "2026-07-19T09:42:00+00:00",
+        "first_source": "prometheus",
+        "id": "service:order-processor|prod",
+        "last_seen": "2026-07-19T10:20:00+00:00",
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "service_name": "order-processor"
+        },
+        "source": "prometheus",
+        "type": "service"
+      },
+      {
+        "first_seen": "2026-07-19T09:42:00+00:00",
+        "first_source": "prometheus",
+        "id": "alert:alt-7",
+        "last_seen": "2026-07-19T09:42:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "ALT-7",
+          "rule": "HighConsumerLag"
+        },
+        "source": "prometheus",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-19T09:42:00+00:00",
+        "first_source": "prometheus",
+        "id": "anomaly:anom-7",
+        "last_seen": "2026-07-19T10:20:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-7"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
+      },
+      {
+        "first_seen": "2026-07-19T09:42:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-8801",
+        "last_seen": "2026-07-19T09:42:00+00:00",
+        "origin": true,
+        "props": {
+          "incident_id": "INC-8801"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T09:42:00+00:00",
+        "first_source": "prometheus",
+        "id": "message_queue:orders.events",
+        "last_seen": "2026-07-19T10:20:00+00:00",
+        "origin": false,
+        "props": {
+          "topic_id": "orders.events"
+        },
+        "source": "prometheus",
+        "type": "message_queue"
+      },
+      {
+        "first_seen": "2026-07-19T09:30:00+00:00",
+        "first_source": "git",
+        "id": "code_commit:e5f6a7b",
+        "last_seen": "2026-07-19T09:30:00+00:00",
+        "origin": false,
+        "props": {
+          "author": "dev-mq",
+          "authored_at": "2026-07-19 09:30:00+00:00",
+          "parent_sha": "d4c3b2a",
+          "repo": "order-processor",
+          "sha": "e5f6a7b"
+        },
+        "source": "git",
+        "type": "code_commit"
+      },
+      {
+        "first_seen": "2026-07-19T09:44:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-8802",
+        "last_seen": "2026-07-19T09:44:00+00:00",
+        "origin": false,
+        "props": {
+          "commander": null,
+          "incident_id": "INC-8802",
+          "severity": "3 - Moderate"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h1",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "CHG-55 (consumer deploy) shipped a slower per-message handler, dropping the consumer group's processing rate below the ingress rate so lag on orders.events accumulates"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h2",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "The broker is unhealthy (a partition rebalance storm) OR upstream producers flooded the topic with a traffic surge"
+        },
+        "source": null,
+        "type": "hypothesis"
+      }
+    ]
+  },
+  "journal": [
+    {
+      "actor": "engine",
+      "narrative": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream.",
+      "phase": "frame",
+      "refs": {
+        "edges": [
+          "edge:changed_by:service:order-processor|prod->change_event:chg-55:discovered",
+          "edge:fired_on:alert:alt-7->service:order-processor|prod:discovered",
+          "edge:affects:anomaly:anom-7->service:order-processor|prod:discovered"
+        ],
+        "events": [
+          "evt:92226d2e45045628",
+          "evt:b2ba0b6531012b07",
+          "evt:0e495a58291464df"
+        ],
+        "facts": [
+          "fact:12408b7cc45f0b84",
+          "fact:50ca79fc1653db3a",
+          "fact:8689c39a4584d11b",
+          "fact:8e48719385f4c771",
+          "fact:d11575184f188aaa",
+          "fact:e2c9369ff03cb57c",
+          "fact:0de45606e8aa2304"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "change_event:chg-55",
+          "service:order-processor|prod",
+          "service:order-processor|prod",
+          "alert:alt-7",
+          "anomaly:anom-7",
+          "service:order-processor|prod"
+        ]
+      },
+      "seq": 1
+    },
+    {
+      "actor": "engine",
+      "narrative": "Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind.",
+      "phase": "triage",
+      "refs": {
+        "edges": [
+          "edge:affects:incident:inc-8801->service:order-processor|prod:discovered",
+          "edge:consumes_from:service:order-processor|prod->message_queue:orders.events:declared"
+        ],
+        "events": [
+          "evt:164bc62361c0f748"
+        ],
+        "facts": [
+          "fact:6161dabfa64d0f7c"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "incident:inc-8801",
+          "message_queue:orders.events"
+        ]
+      },
+      "seq": 2
+    },
+    {
+      "actor": "engine",
+      "narrative": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation.",
+      "phase": "hypothesize",
+      "refs": {
+        "edges": [
+          "edge:introduced_by:change_event:chg-55->code_commit:e5f6a7b:discovered",
+          "edge:similar_to:incident:inc-8801->incident:inc-8802:inferred",
+          "edge:changed_by:service:order-processor|prod->change_event:chg-55:discovered"
+        ],
+        "events": [
+          "evt:ba20e88cda5e9535"
+        ],
+        "facts": [
+          "fact:47203f451142b6ad",
+          "fact:e860299bdcf76a40",
+          "fact:4fe850d73ab4dd34"
+        ],
+        "hypotheses": [
+          "hyp:h1",
+          "hyp:h2"
+        ],
+        "nodes": [
+          "code_commit:e5f6a7b",
+          "change_event:chg-55",
+          "incident:inc-8802",
+          "change_event:chg-55",
+          "hyp:h1",
+          "hyp:h2"
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "actor": "engine",
+      "narrative": "Lag is still climbing (61k) but ingress throughput is flat and the DLQ is empty \u2014 the deficit is purely consumer-side processing rate. get_snapshots shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) refuted; H1 (consumer deploy) confirmed at high confidence.",
+      "phase": "investigate",
+      "refs": {
+        "edges": [
+          "edge:caused_by:hyp:h1->change_event:chg-55:inferred"
+        ],
+        "events": [],
+        "facts": [
+          "fact:836719272ebba65c",
+          "fact:d9ac47ac5b923a7d",
+          "fact:d9ac47ac5b923a7d",
+          "fact:6c1b2f9190cdc8e3",
+          "fact:5170bdb64edd0bc4"
+        ],
+        "hypotheses": [
+          "hyp:h2",
+          "hyp:h1"
+        ],
+        "nodes": [
+          "service:order-processor|prod"
+        ]
+      },
+      "seq": 4
+    },
+    {
+      "actor": "engine",
+      "narrative": "Safest reversible fix: roll the consumer deploy back to the prior build. Awaiting approval (gated).",
+      "phase": "remediate",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 5
+    },
+    {
+      "actor": "engine",
+      "narrative": "Post-rollback: lag drained to ~300 messages; anomaly cleared. Root cause confirmed.",
+      "phase": "verify",
+      "refs": {
+        "edges": [],
+        "events": [
+          "evt:a50d659821962544",
+          "evt:3833fd0ac64c1d9c"
+        ],
+        "facts": [
+          "fact:2e35ee3e366c3003",
+          "fact:62e26ce65bf8f4e4"
+        ],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 6
+    },
+    {
+      "actor": "engine",
+      "narrative": "Postmortem: CHG-55 (consumer deploy) shipped a slower handler -> consumer processing rate fell below ingress -> lag on orders.events accumulated -> fulfilment SLA breach; rolling the deploy back drained the lag. A broker rebalance / producer surge was investigated and ruled out.",
+      "phase": "close",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [],
+        "nodes": []
+      },
+      "seq": 7
+    }
+  ],
+  "ledger": [
+    {
+      "basis": "post-rollback: consumer_lag drained to ~300 and the group is keeping up, anomaly cleared \u2014 confirms the consumer deploy was the cause",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "change_event:chg-55",
+      "statement": "CHG-55 (consumer deploy) shipped a slower per-message handler, dropping the consumer group's processing rate below the ingress rate so lag on orders.events accumulates",
+      "status": "confirmed",
+      "supporting": [
+        "fact:5170bdb64edd0bc4",
+        "fact:d9ac47ac5b923a7d"
+      ]
+    },
+    {
+      "basis": "The broker is unhealthy (a partition rebalance storm) OR upstream producers floo",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:5170bdb64edd0bc4",
+        "fact:6c1b2f9190cdc8e3"
+      ],
+      "root_candidate": "message_queue:orders.events",
+      "statement": "The broker is unhealthy (a partition rebalance storm) OR upstream producers flooded the topic with a traffic surge",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
+  "outcome": "resolved",
+  "phases": [
+    "frame",
+    "triage",
+    "hypothesize",
+    "investigate",
+    "remediate",
+    "verify",
+    "close"
+  ],
+  "postmortem": {
+    "contributing": [],
+    "narrative": [
+      {
+        "phase": "frame",
+        "seq": 1,
+        "text": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream."
+      },
+      {
+        "phase": "triage",
+        "seq": 2,
+        "text": "Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind."
+      },
+      {
+        "phase": "hypothesize",
+        "seq": 3,
+        "text": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation."
+      },
+      {
+        "phase": "investigate",
+        "seq": 4,
+        "text": "Lag is still climbing (61k) but ingress throughput is flat and the DLQ is empty \u2014 the deficit is purely consumer-side processing rate. get_snapshots shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) refuted; H1 (consumer deploy) confirmed at high confidence."
+      },
+      {
+        "phase": "remediate",
+        "seq": 5,
+        "text": "Safest reversible fix: roll the consumer deploy back to the prior build. Awaiting approval (gated)."
+      },
+      {
+        "phase": "verify",
+        "seq": 6,
+        "text": "Post-rollback: lag drained to ~300 messages; anomaly cleared. Root cause confirmed."
+      },
+      {
+        "phase": "close",
+        "seq": 7,
+        "text": "Postmortem: CHG-55 (consumer deploy) shipped a slower handler -> consumer processing rate fell below ingress -> lag on orders.events accumulated -> fulfilment SLA breach; rolling the deploy back drained the lag. A broker rebalance / producer surge was investigated and ruled out."
+      }
+    ],
+    "outcome": "resolved",
+    "root_cause": {
+      "chain": [],
+      "confidence": 0.9,
+      "root_candidate": "change_event:chg-55",
+      "statement": "CHG-55 (consumer deploy) shipped a slower per-message handler, dropping the consumer group's processing rate below the ingress rate so lag on orders.events accumulates"
+    },
+    "ruled_out": [
+      {
+        "basis": "The broker is unhealthy (a partition rebalance storm) OR upstream producers floo",
+        "statement": "The broker is unhealthy (a partition rebalance storm) OR upstream producers flooded the topic with a traffic surge"
+      }
+    ],
+    "subject": {
+      "domain": "app-incident",
+      "id": "INC-8801",
+      "kind": "incident"
+    },
+    "timeline": [
+      {
+        "at": "2026-07-19T09:30:00+00:00",
+        "entity": "change_event:chg-55",
+        "payload": {
+          "actor": "dev-mq"
+        },
+        "type": "implemented"
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "entity": "alert:alt-7",
+        "payload": {
+          "state": "firing"
+        },
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "entity": "service:order-processor|prod",
+        "payload": {},
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T09:42:00+00:00",
+        "entity": "incident:inc-8801",
+        "payload": {},
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T09:44:00+00:00",
+        "entity": "incident:inc-8802",
+        "payload": {
+          "affected_ci": "fulfilment-api"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T10:20:00+00:00",
+        "entity": "service:order-processor|prod",
+        "payload": {},
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T10:20:00+00:00",
+        "entity": "anomaly:anom-7",
+        "payload": {},
+        "type": "cleared"
+      }
+    ]
+  },
+  "subject": {
+    "domain": "app-incident",
+    "id": "INC-8801",
+    "kind": "incident"
+  }
+}

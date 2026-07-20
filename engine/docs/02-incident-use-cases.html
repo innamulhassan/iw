@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — Incident Use Cases</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a21;--panel2:#1c212b;--border:#2a3140;--text:#e6e9ef;--muted:#9aa4b2;
+    --faint:#6b7482;--accent:#5b8cff;--accent-soft:#1a2540;--green:#4ade80;--amber:#fbbf24;
+    --red:#f87171;--violet:#a78bfa;--teal:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:light){:root{--bg:#f5f7fa;--panel:#fff;--panel2:#f0f3f8;
+    --border:#dde3ec;--text:#1c2128;--muted:#5a6472;--faint:#8a94a6;--accent:#2f6fed;
+    --accent-soft:#e9f0ff;--green:#15803d;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+  header.masthead{padding:56px 0 28px;border-bottom:1px solid var(--border);margin-bottom:36px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:34px;line-height:1.2;margin:0 0 10px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:72ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+  nav.docnav a{font-size:13px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;background:var(--panel)}
+  nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  h2{font-size:24px;margin:48px 0 6px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:16px;margin-right:10px}
+  p{margin:10px 0} .lead{font-size:16px;color:var(--muted)}
+  code{font-family:var(--mono);font-size:.88em;background:var(--panel2);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--faint);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+  .uc{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:20px 0}
+  .uc-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .uc-id{font-family:var(--mono);font-size:13px;color:var(--faint)}
+  .uc-title{font-size:18px;font-weight:650;margin:0}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border);background:var(--panel2);color:var(--muted)}
+  .chip.layer{background:var(--accent-soft);color:var(--accent)}
+  .chip.g{background:rgba(74,222,128,.12);color:var(--green)} .chip.a{background:rgba(251,191,36,.12);color:var(--amber)}
+  .uc-grid{display:grid;grid-template-columns:130px 1fr;gap:4px 16px;margin-top:12px;font-size:13.5px}
+  .uc-grid dt{color:var(--faint);font-family:var(--mono);font-size:12px;padding-top:2px}
+  .uc-grid dd{margin:0}
+  .root{color:var(--green);font-weight:600}
+  .disc{border-left:3px solid var(--violet);background:rgba(167,139,250,.07);padding:8px 14px;border-radius:0 8px 8px 0;margin-top:12px;font-size:13px;color:var(--muted)}
+  .disc b{color:var(--violet)}
+  .tools{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .muted{color:var(--muted)} .faint{color:var(--faint)}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14px}
+  .callout.g{border-color:var(--green);background:rgba(74,222,128,.08)}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Investigation Workbench · iw</div>
+  <h1>Incident Use Cases</h1>
+  <p class="sub">Every architectural layer of a modern application stack, as a runnable incident.
+  Each case names its origin, symptom, topology, candidate changes, the discriminator that makes it
+  distinct, the tools the reasoner calls, and the confirmed root cause. All are runnable
+  interactively (mock or live LLM) and pinned by a golden test.</p>
+  <nav class="docnav">
+    <a href="01-design-architecture.html">1 · Architecture &amp; Data Model</a>
+    <a class="here" href="02-incident-use-cases.html">2 · Incident Use Cases</a>
+    <a href="03-capability-integration.html">3 · Capability Integration</a>
+  </nav>
+</header>
+
+<h2 id="matrix"><span class="n">01</span>Coverage matrix</h2>
+<p class="lead">Eight layers, each an incident with a distinct fault physics and a discriminator that
+rules out the obvious rival. <span class="chip g">✓ golden</span> = pinned by a byte-equivalence
+test. <span class="chip a">live</span> = has a provider-keyed fixture the LLM reasons over.</p>
+<table>
+  <tr><th>Incident</th><th>Layer</th><th>Symptom</th><th>Confirmed root cause</th><th>Outcome</th></tr>
+  <tr><td><code>INC-4821</code></td><td>Application code</td><td>payments-api 5xx after v4.12.0</td><td class="root">code_commit:abc123 (NPE)</td><td>resolved</td></tr>
+  <tr><td><code>INC-7731</code></td><td>Deployment</td><td>checkout-api CrashLoopBackOff after rev43</td><td class="root">rev43 removed ConfigMap key</td><td>mitigated</td></tr>
+  <tr><td><code>INC-9001</code></td><td>Network</td><td>checkout→pricing timeouts after MTU change</td><td class="root">network_segment:seg-edge-12</td><td>mitigated</td></tr>
+  <tr><td><code>INC-7734</code></td><td>Database</td><td>orders-api p99 latency after CHG-9</td><td class="root">change_event:chg-9 (index drop)</td><td>resolved</td></tr>
+  <tr><td><code>INC-7702</code></td><td>Firewall / Security</td><td>fraud-scoring egress blocked</td><td class="root">FW-EGR-118 ACL (CHG-3311)</td><td>resolved</td></tr>
+  <tr><td><code>INC-9100</code></td><td>No-change / Saturation</td><td>checkout-api pool saturation</td><td class="root">organic surge (no change)</td><td>mitigated</td></tr>
+  <tr><td><code>INC-8801</code></td><td>Messaging</td><td>order-processor consumer lag</td><td class="root">change_event:chg-55 (consumer deploy)</td><td>resolved</td></tr>
+  <tr><td><code>INC-8900</code></td><td>Infra</td><td>checkout-svc pod evicted</td><td class="root">batch_job:etl-nightly (noisy neighbour)</td><td>resolved</td></tr>
+</table>
+
+<div class="callout g"><b>Convergence proven live on xAI grok-4.5.</b> Driven by the real model (no
+scripted reasoning), the tested subset converged 3/3 — each reached the exact golden root cause with
+0 reducer rejections and the rival hypothesis refuted: <code>INC-4821 → code_commit:abc123</code>,
+<code>INC-7734 → change_event:chg-9</code>, <code>INC-9001 → network_segment:seg-edge-12</code>. The
+same run, interactive: grok-4.5 proposed a concrete SQL remediation, opened the human write-gate,
+and resolved on approval.</div>
+
+<h2 id="anatomy"><span class="n">02</span>Anatomy of a case</h2>
+<p>Each case shares the same shape — the differential-diagnosis discipline is what makes the pairs
+genuinely distinct rather than a re-skinned template.</p>
+
+<!-- DATABASE -->
+<div class="uc">
+  <div class="uc-head"><span class="uc-id">INC-7734</span><h3 class="uc-title">orders-api latency after an index drop</h3>
+    <span class="chip layer">Database</span><span class="chip g">✓ golden</span><span class="chip a">live</span></div>
+  <dl class="uc-grid">
+    <dt>origin</dt><dd>ServiceNow incident INC-7734; CHG-9 (a DB migration by dba-jsmith) landed 8m before onset.</dd>
+    <dt>symptom</dt><dd>orders-api p99 spikes to 5.2s while p50 stays flat at 46ms and errors at 1.5% — the tail alone is blown.</dd>
+    <dt>topology</dt><dd>service → database (JDBC exit-call to orders-pg); the endpoint reading <code>order_items</code> is the one on fire.</dd>
+    <dt>changes</dt><dd>CHG-9 dropped <code>idx_order_items_order_id</code>.</dd>
+    <dt>root cause</dt><dd class="root">change_event:chg-9 — missing index → full-table scans → JDBC pool exhaustion.</dd>
+    <dt>tools</dt><dd class="tools">appd.get_snapshots (exit-call) · prometheus.instant_query (pool 200/200) · servicenow.find_recent_changes · git.diff_range (the DROP INDEX line)</dd>
+  </dl>
+  <div class="disc"><b>Discriminator vs. code regression:</b> the service's own compute (p50) is
+    unaffected; the tail is entirely JDBC-wait-bound. That flat p50 refutes an application code path.</div>
+</div>
+
+<!-- NETWORK -->
+<div class="uc">
+  <div class="uc-head"><span class="uc-id">INC-9001</span><h3 class="uc-title">checkout → pricing timeouts after an MTU change</h3>
+    <span class="chip layer">Network</span><span class="chip g">✓ golden</span><span class="chip a">live</span></div>
+  <dl class="uc-grid">
+    <dt>symptom</dt><dd>Cross-service timeouts ~30m after an edge MTU/uplink change; retransmits climb on the segment.</dd>
+    <dt>topology</dt><dd>checkout-svc → pricing-svc across network segment SEG-EDGE-12; pricing-db ruled out.</dd>
+    <dt>root cause</dt><dd class="root">network_segment:seg-edge-12 — wire-level loss at the segment boundary.</dd>
+    <dt>tools</dt><dd class="tools">prometheus.fetch_metrics (retrans_segs, probe_success) · appd.flowmap (exit-call to pricing) · servicenow.find_recent_changes</dd>
+  </dl>
+  <div class="disc"><b>Discriminator:</b> the caller's own p50 is fast and the callee DB pool is
+    healthy (24% util) — the loss is on the segment, not either endpoint.</div>
+</div>
+
+<!-- APPLICATION CODE -->
+<div class="uc">
+  <div class="uc-head"><span class="uc-id">INC-4821</span><h3 class="uc-title">payments-api 5xx after v4.12.0</h3>
+    <span class="chip layer">Application code</span><span class="chip g">✓ golden</span><span class="chip a">live</span></div>
+  <dl class="uc-grid">
+    <dt>symptom</dt><dd>5xx error rate jumps; a NullPointerException in <code>TaxCalculator.java:88</code>.</dd>
+    <dt>topology</dt><dd>service → database (ruled out); pods stay Ready.</dd>
+    <dt>root cause</dt><dd class="root">code_commit:abc123 — <code>getRegion()</code> is null for intl orders → NPE.</dd>
+    <dt>tools</dt><dd class="tools">appd.bt_health / fetch_traces · git.blame + diff_range + get_pr_for_commit · splunk.error_signature_topk</dd>
+  </dl>
+  <div class="disc"><b>Discriminator:</b> a <code>refuted_variant</code> forces a backtrack — the DB
+    pool is healthy, so the fault is the code path v4.12.0 introduced, blamed to file:line.</div>
+</div>
+
+<!-- DEPLOYMENT -->
+<div class="uc">
+  <div class="uc-head"><span class="uc-id">INC-7731</span><h3 class="uc-title">checkout-api CrashLoopBackOff after rev43</h3>
+    <span class="chip layer">Deployment</span><span class="chip g">✓ golden</span></div>
+  <dl class="uc-grid">
+    <dt>symptom</dt><dd>Pods never reach Ready; CrashLoopBackOff right after rollout rev43 (PR #482).</dd>
+    <dt>topology</dt><dd>deployment → pod → configmap; checkout-db ruled out.</dd>
+    <dt>root cause</dt><dd class="root">rev43 removed the required ConfigMap key <code>DB_HOST</code>.</dd>
+    <dt>tools</dt><dd class="tools">ocp.rollout_status / pod_status / events / pod_logs · git.diff_range + get_pr_for_commit</dd>
+  </dl>
+  <div class="disc"><b>Discriminator:</b> the pod is <em>never</em> Ready (config panic at boot) — distinct
+    from a resource-limit OOMKill, which flaps Ready. Closes <code>mitigated</code>.</div>
+</div>
+
+<!-- FIREWALL -->
+<div class="uc">
+  <div class="uc-head"><span class="uc-id">INC-7702</span><h3 class="uc-title">fraud-scoring egress blocked by an ACL</h3>
+    <span class="chip layer">Firewall / Security</span><span class="chip g">✓ golden</span></div>
+  <dl class="uc-grid">
+    <dt>symptom</dt><dd>Egress calls fail cleanly (policy denies, not packet loss) after an ACL tightening.</dd>
+    <dt>topology</dt><dd>service → egress via firewall rule FW-EGR-118.</dd>
+    <dt>root cause</dt><dd class="root">CHG-3311 tightened FW-EGR-118 (egress ACL).</dd>
+    <dt>tools</dt><dd class="tools">splunk.search_fw_denies / fetch_logs · servicenow.query_change_log</dd>
+  </dl>
+  <div class="disc"><b>Discriminator:</b> clean policy denies (vs. retransmits) rule out a link fault;
+    a <code>premature_write</code> attempt exercises the gate block.</div>
+</div>
+
+<!-- SATURATION -->
+<div class="uc">
+  <div class="uc-head"><span class="uc-id">INC-9100</span><h3 class="uc-title">checkout-api pool saturation, empty change log</h3>
+    <span class="chip layer">No-change / Saturation</span><span class="chip g">✓ golden</span></div>
+  <dl class="uc-grid">
+    <dt>symptom</dt><dd>DB-pool saturation under a 3.4× organic traffic surge — and the change log is empty.</dd>
+    <dt>topology</dt><dd>service → database connection pool.</dd>
+    <dt>root cause</dt><dd class="root">organic surge — no causal change to revert.</dd>
+    <dt>tools</dt><dd class="tools">prometheus.range_query / fetch_metrics · servicenow.find_recent_changes (returns none)</dd>
+  </dl>
+  <div class="disc"><b>Discriminator:</b> a phantom-change rival is ruled out by the empty change log;
+    with nothing to revert, the correct terminal outcome is <code>mitigated</code>, not resolved.</div>
+</div>
+
+<!-- MESSAGING -->
+<div class="uc">
+  <div class="uc-head"><span class="uc-id">INC-8801</span><h3 class="uc-title">order-processor consumer lag after a deploy</h3>
+    <span class="chip layer">Messaging</span><span class="chip g">✓ golden</span></div>
+  <dl class="uc-grid">
+    <dt>symptom</dt><dd>Consumer lag on the <code>orders.events</code> topic climbs to 61k; fulfilment SLA breaches.</dd>
+    <dt>topology</dt><dd>service consumes_from message_queue; a consumer deploy (CHG-55) shipped a slower handler.</dd>
+    <dt>root cause</dt><dd class="root">change_event:chg-55 — consumer processing rate fell below ingress.</dd>
+    <dt>tools</dt><dd class="tools">prometheus.fetch_metrics (consumer_lag, dlq_depth, throughput) · git.diff_range · servicenow.list_related_incidents</dd>
+  </dl>
+  <div class="disc"><b>Discriminator vs. broker/producer:</b> the DLQ stays empty and producer
+    throughput is steady — the backlog is purely consumer-side, ruling out a rebalance or a poison flood.</div>
+</div>
+
+<!-- INFRA -->
+<div class="uc">
+  <div class="uc-head"><span class="uc-id">INC-8900</span><h3 class="uc-title">checkout pod evicted — noisy neighbour</h3>
+    <span class="chip layer">Infra</span><span class="chip g">✓ golden</span></div>
+  <dl class="uc-grid">
+    <dt>symptom</dt><dd>A tier-1 pod is evicted ("node low on resource: memory") on node-prod-17.</dd>
+    <dt>topology</dt><dd>pod runs_on host; an unbounded etl-nightly batch job is co-scheduled on the same host.</dd>
+    <dt>root cause</dt><dd class="root">batch_job:etl-nightly — starved the node; kubelet evicted the lowest-priority tenant.</dd>
+    <dt>tools</dt><dd class="tools">ocp.events (eviction) / pod_status · prometheus.fetch_metrics (HOST mem 98% vs POD mem 55%)</dd>
+  </dl>
+  <div class="disc"><b>Discriminator vs. app memory leak:</b> the host memory is pegged while the
+    victim pod's own memory was moderate right up to eviction — a co-tenancy fault, not the app leaking.</div>
+</div>
+
+<h2 id="running"><span class="n">03</span>Running any incident</h2>
+<p>Every incident is runnable the same way — the domain differs only by a lean playbook; the graph
+registry and capabilities are shared in the core.</p>
+<table>
+  <tr><th>Mode</th><th>How</th><th>Reasoning by</th></tr>
+  <tr><td>Deterministic (CI / offline)</td><td>Default backend — <code>build_manager()</code></td><td>ScriptedPlanner (golden)</td></tr>
+  <tr><td>Live LLM (product)</td><td><code>IW_LIVE=1 IW_LIVE_MODEL=grok-4.5</code></td><td>xAI grok-4.5</td></tr>
+  <tr><td>Batch convergence</td><td><code>scripts/run_live.py --scenario all --model grok-4.5</code></td><td>xAI grok-4.5</td></tr>
+</table>
+<p class="faint" style="font-size:13px">In every mode the run pauses at the REMEDIATE write-gate for
+human Approve / Refine / Deny before any side effect, and closes with a folded postmortem: the
+confirmed causal chain + timeline, reconstructed from the journal.</p>
+
+<footer>
+  Investigation Workbench — incident use cases, one per architectural layer. Live reasoning proven on
+  xAI grok-4.5 (3/3 convergence on the tested subset, human-gated remediation). · See
+  <a href="01-design-architecture.html" style="color:var(--accent)">Architecture</a> ·
+  <a href="03-capability-integration.html" style="color:var(--accent)">Capability Integration</a>.
+</footer>
+</div>
+</body>
+</html>

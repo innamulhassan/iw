@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — Capability Integration Guide</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a21;--panel2:#1c212b;--border:#2a3140;--text:#e6e9ef;--muted:#9aa4b2;
+    --faint:#6b7482;--accent:#5b8cff;--accent-soft:#1a2540;--green:#4ade80;--amber:#fbbf24;
+    --red:#f87171;--violet:#a78bfa;--teal:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:light){:root{--bg:#f5f7fa;--panel:#fff;--panel2:#f0f3f8;
+    --border:#dde3ec;--text:#1c2128;--muted:#5a6472;--faint:#8a94a6;--accent:#2f6fed;
+    --accent-soft:#e9f0ff;--green:#15803d;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+  header.masthead{padding:56px 0 28px;border-bottom:1px solid var(--border);margin-bottom:36px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:34px;line-height:1.2;margin:0 0 10px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:72ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+  nav.docnav a{font-size:13px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;background:var(--panel)}
+  nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  h2{font-size:24px;margin:48px 0 6px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:16px;margin-right:10px}
+  p{margin:10px 0} .lead{font-size:16px;color:var(--muted)}
+  code{font-family:var(--mono);font-size:.88em;background:var(--panel2);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55}
+  pre code{background:none;border:none;padding:0}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--faint);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+  .cap{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:18px 0}
+  .cap-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .cap-name{font-size:18px;font-weight:650;margin:0;font-family:var(--mono)}
+  .b{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 9px;border-radius:20px;border:1px solid var(--border)}
+  .b.mcp{background:rgba(91,140,255,.12);color:var(--accent)} .b.rest{background:rgba(45,212,191,.12);color:var(--teal)}
+  .b.a2a{background:rgba(167,139,250,.14);color:var(--violet)} .b.read{background:var(--panel2);color:var(--muted)}
+  .b.write{background:rgba(248,113,113,.12);color:var(--red)}
+  .cap-intents{font-family:var(--mono);font-size:12px;color:var(--muted);margin:6px 0 12px}
+  .req{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-top:10px}
+  .req h5{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--amber)}
+  .req ul{margin:0;padding-left:20px;font-size:13.5px} .req li{margin:3px 0}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14px}
+  .callout.r{border-color:var(--red);background:rgba(248,113,113,.08)}
+  .muted{color:var(--muted)} .faint{color:var(--faint)}
+  .grid{display:grid;gap:16px;grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .card h4{margin:0 0 6px;font-size:14px;font-family:var(--mono)} .card p{margin:2px 0;font-size:13px;color:var(--muted)}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Investigation Workbench · iw</div>
+  <h1>Capability Integration Guide</h1>
+  <p class="sub">iw reaches every tool through one seam: an <b>Adapter</b> that pairs a
+  binding-agnostic <code>normalize(raw) → Operation[]</code> with its data descriptors (provider,
+  intents, effect, binding). Today every adapter is backed by a mock transport; this guide is the
+  contract for wiring the real vendor — per capability, what to ask the owning team for.</p>
+  <nav class="docnav">
+    <a href="01-design-architecture.html">1 · Architecture &amp; Data Model</a>
+    <a href="02-incident-use-cases.html">2 · Incident Use Cases</a>
+    <a class="here" href="03-capability-integration.html">3 · Capability Integration</a>
+  </nav>
+</header>
+
+<h2 id="model"><span class="n">01</span>The integration model</h2>
+<p class="lead">A capability is a pure pair. The <b>normalize</b> half is deterministic and
+binding-agnostic — it maps a raw vendor payload to typed graph operations and never changes when the
+transport changes. The <b>transport</b> half (the one side-effecting seam) lives behind a
+<code>Source</code> and is swapped from mock to real without touching normalize.</p>
+<pre><code>class Adapter(Protocol):
+    provider: str            # "servicenow", "prometheus", ...
+    intents:  frozenset[str] # the verbs the planner may emit in `calls`
+    effect:   Effect         # READ | WRITE  (WRITE is human-gated)
+    binding:  Binding        # MCP | REST | A2A  (how the transport reaches it)
+    def normalize(self, raw: dict) -> list[Operation]: ...</code></pre>
+
+<div class="grid">
+  <div class="card"><h4>Binding · MCP</h4><p>The vendor (or a wrapper) exposes a Model Context
+    Protocol server; iw calls tools by name. Preferred for rich, evolving vendor APIs.</p></div>
+  <div class="card"><h4>Binding · REST</h4><p>A plain HTTP/JSON endpoint. Used where the vendor API is
+    simple and stable (metrics, git).</p></div>
+  <div class="card"><h4>Binding · A2A</h4><p>Agent-to-agent — a governed action handed to another
+    system that executes it. Used for the WRITE remediation, so the effect is owned + auditable there.</p></div>
+</div>
+<div class="callout"><b>Gate-first serving.</b> <code>layer.serve()</code> resolves → gates → fetches →
+normalizes. A WRITE with no approved gate returns <em>before</em> any transport call, so a
+side-effect can never precede human approval.</div>
+
+<h2 id="registry"><span class="n">02</span>Capability registry</h2>
+<table>
+  <tr><th>Provider</th><th>Binding</th><th>Effect</th><th>Intents</th></tr>
+  <tr><td><code>servicenow</code></td><td><span class="b mcp">MCP</span></td><td>read</td><td class="cap-intents">get_incident · ingest_alert · find_recent_changes · query_change_log · assess_impact · get_ci · list_related_incidents</td></tr>
+  <tr><td><code>prometheus</code></td><td><span class="b rest">REST</span></td><td>read</td><td class="cap-intents">active_alerts · fetch_metrics · instant_query · range_query</td></tr>
+  <tr><td><code>appd</code></td><td><span class="b mcp">MCP</span></td><td>read</td><td class="cap-intents">bt_health · fetch_traces · flowmap · get_snapshots · healthrule_violations</td></tr>
+  <tr><td><code>cmdb</code></td><td><span class="b mcp">MCP</span></td><td>read</td><td class="cap-intents">seed_graph · get_dependencies · impact_analysis · find_ci_by_attr · get_ci_class</td></tr>
+  <tr><td><code>splunk</code></td><td><span class="b mcp">MCP</span></td><td>read</td><td class="cap-intents">fetch_logs · search_errors · error_signature_topk · search_fw_denies · transaction_trace</td></tr>
+  <tr><td><code>ocp</code></td><td><span class="b mcp">MCP</span></td><td>read</td><td class="cap-intents">rollout_status · pod_status · events · pod_logs</td></tr>
+  <tr><td><code>git</code></td><td><span class="b rest">REST</span></td><td>read</td><td class="cap-intents">diff_range · blame · get_commit · get_pr_for_commit · read_diff</td></tr>
+  <tr><td><code>artifactory</code></td><td><span class="b mcp">MCP</span></td><td>read</td><td class="cap-intents">get_build · get_artifact_by_digest · list_promotions · aql_search</td></tr>
+  <tr><td><code>remediation</code></td><td><span class="b a2a">A2A</span></td><td><span class="b write">write</span></td><td class="cap-intents">apply_remediation</td></tr>
+</table>
+
+<h2 id="perprovider"><span class="n">03</span>Per-capability — what to request</h2>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">servicenow</h3><span class="b mcp">MCP</span><span class="b read">READ</span></div>
+  <p class="muted">The incident origin + change/CMDB context. Surfaces the incident record, firing
+  alerts, recent changes, and co-firing related incidents.</p>
+  <div class="req"><h5>Request from the ServiceNow / ITSM team</h5><ul>
+    <li>Instance URL + an OAuth (client-credentials) integration user, read scope on <code>incident</code>, <code>change_request</code>, <code>cmdb_ci*</code>, <code>em_alert</code>.</li>
+    <li>Table API read access (or the ServiceNow MCP server endpoint if one is provided).</li>
+    <li>The field mapping for change→CI (<code>cmdb_ci</code>, <code>u_commit_sha</code>) and related-incident correlation.</li>
+  </ul></div>
+</div>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">prometheus</h3><span class="b rest">REST</span><span class="b read">READ</span></div>
+  <p class="muted">RED/USE metrics + firing alerts — the quantitative symptom and its recovery.</p>
+  <div class="req"><h5>Request from the Observability team</h5><ul>
+    <li>The Prometheus / Thanos query endpoint (<code>/api/v1/query</code>, <code>/query_range</code>) + Alertmanager <code>/api/v2/alerts</code>.</li>
+    <li>A read token/bearer, and the metric names/labels for the RED (rate/errors/latency p50/p95/p99) and USE (cpu/mem/disk/net util + saturation, conn-pool, consumer-lag, dlq-depth) families.</li>
+  </ul></div>
+</div>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">appd</h3><span class="b mcp">MCP</span><span class="b read">READ</span></div>
+  <p class="muted">Application topology + the JDBC/HTTP exit-call boundary that discriminates a
+  callee-bound tail from a caller code path.</p>
+  <div class="req"><h5>Request from the APM (AppDynamics) team</h5><ul>
+    <li>Controller URL + an API client (read), the app/tier/BT identifiers, and access to snapshots, flow maps, BT health, and health-rule violations.</li>
+    <li>The AppDynamics MCP endpoint if available, else REST controller API v2 access.</li>
+  </ul></div>
+</div>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">cmdb</h3><span class="b mcp">MCP</span><span class="b read">READ</span></div>
+  <p class="muted">The declared dependency spine — seeds the topology and answers impact analysis.</p>
+  <div class="req"><h5>Request from the CMDB / Platform team</h5><ul>
+    <li>Read access to CI classes + relationships (Depends on / Runs on / Connects to), CI attributes, and impact-analysis.</li>
+    <li>The discovery-source + last-discovered timestamp per CI (feeds node provenance).</li>
+  </ul></div>
+</div>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">splunk</h3><span class="b mcp">MCP</span><span class="b read">READ</span></div>
+  <p class="muted">Logs, error signatures, and firewall denies — the textual evidence.</p>
+  <div class="req"><h5>Request from the Logging / SIEM team</h5><ul>
+    <li>Search head URL + a service account with read on the relevant indexes; saved-search or MCP tool access for error-signature top-K, transaction traces, and firewall-deny search.</li>
+    <li>The index/sourcetype map for app errors and firewall logs.</li>
+  </ul></div>
+</div>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">ocp</h3><span class="b mcp">MCP</span><span class="b read">READ</span></div>
+  <p class="muted">OpenShift / Kubernetes rollout, pod, and event state — deployment + infra faults.</p>
+  <div class="req"><h5>Request from the Container Platform team</h5><ul>
+    <li>A read-only ServiceAccount / kubeconfig (get/list/watch on pods, events, deployments, replicasets) scoped to the relevant namespaces.</li>
+    <li>Access to pod logs + rollout history; the OpenShift MCP endpoint if provided.</li>
+  </ul></div>
+</div>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">git</h3><span class="b rest">REST</span><span class="b read">READ</span></div>
+  <p class="muted">Diffs, blame, and PR metadata — resolves a change to the exact file:line.</p>
+  <div class="req"><h5>Request from the SCM (GitHub/GitLab) admins</h5><ul>
+    <li>A read (contents + PRs) token/app scoped to the relevant repos; the REST API base URL.</li>
+    <li>The repo↔service mapping so a change_event resolves to the right repository.</li>
+  </ul></div>
+</div>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">artifactory</h3><span class="b mcp">MCP</span><span class="b read">READ</span></div>
+  <p class="muted">Build → artifact → promotion lineage (the supply-chain spine).</p>
+  <div class="req"><h5>Request from the Build / Release team</h5><ul>
+    <li>Read access to builds, artifacts by digest, and promotion history (AQL); the registry base URL + a read token.</li>
+  </ul></div>
+</div>
+
+<div class="cap">
+  <div class="cap-head"><h3 class="cap-name">remediation</h3><span class="b a2a">A2A</span><span class="b write">WRITE · human-gated</span></div>
+  <p class="muted">The one side-effecting capability. The LLM proposes a concrete, reversible
+  <code>apply_remediation</code> action; the run <b>suspends at the human approval gate</b> carrying
+  the action + its evidence chain; on approval the action is handed to the executing system.</p>
+  <div class="req"><h5>Request from the Change / Automation team</h5><ul>
+    <li>An A2A endpoint (or runbook-automation / ServiceNow-Orchestration hook) that accepts a typed action and returns a recorded effect — <em>never</em> executed by iw directly.</li>
+    <li>The approved catalogue of reversible actions (rollback deploy, recreate index, revert ACL, reschedule job, scale pool) + the authorization/audit contract.</li>
+    <li>Confirmation that every action is idempotent + reversible, and that execution is logged on the vendor side.</li>
+  </ul></div>
+  <div class="callout r"><b>Boundary:</b> iw entering credentials or executing a financial/destructive
+  action directly is out of scope by design. iw <em>proposes + records</em>; the A2A executor + the
+  human own the consequence.</div>
+</div>
+
+<h2 id="migration"><span class="n">04</span>Mock → real migration path</h2>
+<p>The migration is per-capability and non-breaking, because normalize is transport-agnostic:</p>
+<table>
+  <tr><th>Step</th><th>What changes</th></tr>
+  <tr><td>1 · Keep normalize</td><td>The <code>normalize(raw)</code> for each adapter is already written + tested against mock payloads. It does not change.</td></tr>
+  <tr><td>2 · Swap the Source</td><td>Replace <code>MockSource</code> / <code>ScenarioSource</code> with the real transport (<code>McpSource</code>, <code>RestSource</code>, or a routed mix) for that provider only.</td></tr>
+  <tr><td>3 · Map the payload</td><td>If the real payload shape differs from the mock, adjust that adapter's normalize field-reads — the one place a vendor quirk lives.</td></tr>
+  <tr><td>4 · Verify</td><td>The golden e2e suite stays on mocks (deterministic CI); a gated live smoke run exercises the real transport per provider.</td></tr>
+</table>
+<div class="callout"><b>Do one capability at a time.</b> Because each adapter is isolated behind the
+same seam, ServiceNow can go live while the rest stay mocked — the engine, reducer, and every other
+capability are unaffected.</div>
+
+<footer>
+  Investigation Workbench — capability integration contract. 9 capabilities (8 read · 1 human-gated
+  write) across MCP / REST / A2A bindings. Mock transport today; per-provider real-vendor wiring per
+  this guide. · See <a href="01-design-architecture.html" style="color:var(--accent)">Architecture</a> ·
+  <a href="02-incident-use-cases.html" style="color:var(--accent)">Incident Use Cases</a>.
+</footer>
+</div>
+</body>
+</html>

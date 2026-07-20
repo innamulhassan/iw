@@ -1,0 +1,869 @@
+{
+  "graph": {
+    "edges": [
+      {
+        "confidence": null,
+        "dst": "service:checkout-svc|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:alt-9->service:checkout-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:alt-9",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "host:node-prod-17",
+        "established": null,
+        "id": "edge:runs_on:pod:checkout-7c9f-abc12->host:node-prod-17:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "pod:checkout-7c9f-abc12",
+        "state": "active",
+        "type": "runs_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:checkout-svc|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-9->service:checkout-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-9",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:checkout-svc|prod",
+        "established": null,
+        "id": "edge:affects:incident:inc-8900->service:checkout-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "incident:inc-8900",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "host:node-prod-17",
+        "established": null,
+        "id": "edge:runs_on:pod:checkout-7c9f-abc12->host:node-prod-17:declared",
+        "invalidated_by": null,
+        "origin": "declared",
+        "source": null,
+        "src": "pod:checkout-7c9f-abc12",
+        "state": "active",
+        "type": "runs_on",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.6,
+        "dst": "incident:inc-8901",
+        "established": null,
+        "id": "edge:similar_to:incident:inc-8900->incident:inc-8901:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "incident:inc-8900",
+        "state": "active",
+        "type": "similar_to",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "host:node-prod-17",
+        "established": null,
+        "id": "edge:runs_on:batch_job:etl-nightly|sched-3->host:node-prod-17:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "batch_job:etl-nightly|sched-3",
+        "state": "active",
+        "type": "runs_on",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "batch_job:etl-nightly|sched-3",
+        "established": null,
+        "id": "edge:caused_by:hyp:h1->batch_job:etl-nightly|sched-3:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "hyp:h1",
+        "state": "active",
+        "type": "caused_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.3,
+        "dst": "hyp:h2",
+        "established": null,
+        "id": "edge:refutes:pod:checkout-7c9f-abc12->hyp:h2:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "pod:checkout-7c9f-abc12",
+        "state": "active",
+        "type": "refutes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:host:node-prod-17->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "host:node-prod-17",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:batch_job:etl-nightly|sched-3->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "batch_job:etl-nightly|sched-3",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      }
+    ],
+    "events": [
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "entity": "alert:alt-9",
+        "id": "evt:2f0ba1cc656009a5",
+        "invalidated_by": null,
+        "payload": {
+          "state": "firing"
+        },
+        "source": "prometheus",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "entity": "pod:checkout-7c9f-abc12",
+        "id": "evt:a562aef61d640ae8",
+        "invalidated_by": null,
+        "payload": {
+          "message": "The node was low on resource: memory",
+          "reason": "Evicted"
+        },
+        "source": "ocp",
+        "state": "active",
+        "type": "evicted"
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "entity": "incident:inc-8900",
+        "id": "evt:8482e6dd95ed4731",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T02:19:00+00:00",
+        "entity": "incident:inc-8901",
+        "id": "evt:1f58d91064069ab6",
+        "invalidated_by": null,
+        "payload": {
+          "affected_ci": "search-svc"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T02:55:00+00:00",
+        "entity": "pod:checkout-7c9f-abc12",
+        "id": "evt:09e3baa924d2e48b",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "ocp",
+        "state": "active",
+        "type": "started"
+      },
+      {
+        "at": "2026-07-19T02:55:00+00:00",
+        "entity": "anomaly:anom-9",
+        "id": "evt:915c27a32c27a374",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "cleared"
+      }
+    ],
+    "facts": [
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:1b3308072553efaa",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "onset_value",
+        "source": "ocp",
+        "state": "active",
+        "subject": "anomaly:anom-9",
+        "unit": "evictions",
+        "valid_to": null,
+        "value": 1,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:5d39e12f702bd0c7",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "severity_score",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "anomaly:anom-9",
+        "unit": null,
+        "valid_to": null,
+        "value": 2,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:4116ecc9737bc322",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:checkout-svc|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T02:55:00+00:00",
+        "value": true,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:12fd480eab6a8bed",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "red_errors",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:checkout-svc|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T02:30:00+00:00",
+        "value": 0.09,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:e6f21ff38cf9a74f",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:checkout-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:84becd60ab1745db",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "phase",
+        "source": "ocp",
+        "state": "active",
+        "subject": "pod:checkout-7c9f-abc12",
+        "unit": null,
+        "valid_to": null,
+        "value": "Failed",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:88048479c1ba33e3",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "ready",
+        "source": "ocp",
+        "state": "active",
+        "subject": "pod:checkout-7c9f-abc12",
+        "unit": null,
+        "valid_to": null,
+        "value": false,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:38d1fd2649a0e0cf",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "node_name",
+        "source": "ocp",
+        "state": "active",
+        "subject": "pod:checkout-7c9f-abc12",
+        "unit": null,
+        "valid_to": null,
+        "value": "node-prod-17",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:54afdf6ba75e64be",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "mem_utilization",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "host:node-prod-17",
+        "unit": null,
+        "valid_to": "2026-07-19T02:30:00+00:00",
+        "value": 0.97,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "id": "fact:102193bb39baa829",
+        "observed_at": "2026-07-19T02:18:00+00:00",
+        "predicate": "backlog_size",
+        "source": "ocp",
+        "state": "active",
+        "subject": "batch_job:etl-nightly|sched-3",
+        "unit": "rows",
+        "valid_to": null,
+        "value": 8400000,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:30:00+00:00",
+        "id": "fact:4af7f3cc4b7965c6",
+        "observed_at": "2026-07-19T02:30:00+00:00",
+        "predicate": "red_errors",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:checkout-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.09,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:30:00+00:00",
+        "id": "fact:0c60f0ee5d8c2adf",
+        "observed_at": "2026-07-19T02:30:00+00:00",
+        "predicate": "mem_utilization",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "host:node-prod-17",
+        "unit": null,
+        "valid_to": "2026-07-19T02:55:00+00:00",
+        "value": 0.98,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:30:00+00:00",
+        "id": "fact:f86874b4474c16d8",
+        "observed_at": "2026-07-19T02:30:00+00:00",
+        "predicate": "mem_utilization",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "pod:checkout-7c9f-abc12",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.55,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:30:00+00:00",
+        "id": "fact:ab1e95d5ba643738",
+        "observed_at": "2026-07-19T02:30:00+00:00",
+        "predicate": "last_duration",
+        "source": "ocp",
+        "state": "active",
+        "subject": "batch_job:etl-nightly|sched-3",
+        "unit": "s",
+        "valid_to": null,
+        "value": 4200,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:55:00+00:00",
+        "id": "fact:2d3a78a60a7c9381",
+        "observed_at": "2026-07-19T02:55:00+00:00",
+        "predicate": "mem_utilization",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "host:node-prod-17",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.61,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T02:55:00+00:00",
+        "id": "fact:5bbc91907717dd13",
+        "observed_at": "2026-07-19T02:55:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:checkout-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": false,
+        "where": null
+      }
+    ],
+    "nodes": [
+      {
+        "first_seen": "2026-07-19T02:18:00+00:00",
+        "first_source": "prometheus",
+        "id": "service:checkout-svc|prod",
+        "last_seen": "2026-07-19T02:55:00+00:00",
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "service_name": "checkout-svc"
+        },
+        "source": "prometheus",
+        "type": "service"
+      },
+      {
+        "first_seen": "2026-07-19T02:18:00+00:00",
+        "first_source": "prometheus",
+        "id": "alert:alt-9",
+        "last_seen": "2026-07-19T02:18:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "ALT-9",
+          "rule": "PodEvicted"
+        },
+        "source": "prometheus",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-19T02:18:00+00:00",
+        "first_source": "ocp",
+        "id": "pod:checkout-7c9f-abc12",
+        "last_seen": "2026-07-19T02:55:00+00:00",
+        "origin": false,
+        "props": {
+          "name": null,
+          "namespace": null,
+          "uid": "checkout-7c9f-abc12"
+        },
+        "source": "ocp",
+        "type": "pod"
+      },
+      {
+        "first_seen": "2026-07-19T02:18:00+00:00",
+        "first_source": "prometheus",
+        "id": "host:node-prod-17",
+        "last_seen": "2026-07-19T02:55:00+00:00",
+        "origin": false,
+        "props": {
+          "fqdn": "node-prod-17"
+        },
+        "source": "prometheus",
+        "type": "host"
+      },
+      {
+        "first_seen": "2026-07-19T02:18:00+00:00",
+        "first_source": "ocp",
+        "id": "anomaly:anom-9",
+        "last_seen": "2026-07-19T02:55:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-9"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
+      },
+      {
+        "first_seen": "2026-07-19T02:18:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-8900",
+        "last_seen": "2026-07-19T02:18:00+00:00",
+        "origin": true,
+        "props": {
+          "incident_id": "INC-8900"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T02:19:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-8901",
+        "last_seen": "2026-07-19T02:19:00+00:00",
+        "origin": false,
+        "props": {
+          "commander": null,
+          "incident_id": "INC-8901",
+          "severity": "4 - Low"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T02:18:00+00:00",
+        "first_source": "ocp",
+        "id": "batch_job:etl-nightly|sched-3",
+        "last_seen": "2026-07-19T02:30:00+00:00",
+        "origin": false,
+        "props": {
+          "job_name": "etl-nightly",
+          "schedule_id": "sched-3"
+        },
+        "source": "ocp",
+        "type": "batch_job"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h1",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "the etl-nightly batch job (co-scheduled on node-prod-17) grew its heap unbounded and starved the node's memory, so the kubelet evicted the lowest-priority tenant \u2014 checkout-svc's pod"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h2",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "checkout-svc has an application memory leak that OOM-pressured its own pod off the node"
+        },
+        "source": null,
+        "type": "hypothesis"
+      }
+    ]
+  },
+  "journal": [
+    {
+      "actor": "engine",
+      "narrative": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory.",
+      "phase": "frame",
+      "refs": {
+        "edges": [
+          "edge:fired_on:alert:alt-9->service:checkout-svc|prod:discovered",
+          "edge:runs_on:pod:checkout-7c9f-abc12->host:node-prod-17:discovered",
+          "edge:affects:anomaly:anom-9->service:checkout-svc|prod:discovered"
+        ],
+        "events": [
+          "evt:2f0ba1cc656009a5",
+          "evt:a562aef61d640ae8"
+        ],
+        "facts": [
+          "fact:1b3308072553efaa",
+          "fact:5d39e12f702bd0c7",
+          "fact:4116ecc9737bc322",
+          "fact:12fd480eab6a8bed",
+          "fact:e6f21ff38cf9a74f",
+          "fact:84becd60ab1745db",
+          "fact:88048479c1ba33e3",
+          "fact:38d1fd2649a0e0cf"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "service:checkout-svc|prod",
+          "alert:alt-9",
+          "pod:checkout-7c9f-abc12",
+          "host:node-prod-17",
+          "anomaly:anom-9",
+          "service:checkout-svc|prod",
+          "pod:checkout-7c9f-abc12"
+        ]
+      },
+      "seq": 1
+    },
+    {
+      "actor": "engine",
+      "narrative": "Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating.",
+      "phase": "triage",
+      "refs": {
+        "edges": [
+          "edge:affects:incident:inc-8900->service:checkout-svc|prod:discovered",
+          "edge:runs_on:pod:checkout-7c9f-abc12->host:node-prod-17:declared"
+        ],
+        "events": [
+          "evt:8482e6dd95ed4731"
+        ],
+        "facts": [
+          "fact:54afdf6ba75e64be"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "incident:inc-8900",
+          "host:node-prod-17"
+        ]
+      },
+      "seq": 2
+    },
+    {
+      "actor": "engine",
+      "narrative": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation.",
+      "phase": "hypothesize",
+      "refs": {
+        "edges": [
+          "edge:similar_to:incident:inc-8900->incident:inc-8901:inferred",
+          "edge:runs_on:batch_job:etl-nightly|sched-3->host:node-prod-17:discovered"
+        ],
+        "events": [
+          "evt:1f58d91064069ab6"
+        ],
+        "facts": [
+          "fact:102193bb39baa829"
+        ],
+        "hypotheses": [
+          "hyp:h1",
+          "hyp:h2"
+        ],
+        "nodes": [
+          "incident:inc-8901",
+          "batch_job:etl-nightly|sched-3",
+          "hyp:h1",
+          "hyp:h2"
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "actor": "engine",
+      "narrative": "The node's memory is exhausted (98%) but checkout-svc's OWN pod memory was only 55% at eviction \u2014 this is not the app leaking. The etl-nightly batch job overran ~4x its window on the same node, holding the memory. H2 (app leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence.",
+      "phase": "investigate",
+      "refs": {
+        "edges": [
+          "edge:caused_by:hyp:h1->batch_job:etl-nightly|sched-3:inferred"
+        ],
+        "events": [],
+        "facts": [
+          "fact:4af7f3cc4b7965c6",
+          "fact:0c60f0ee5d8c2adf",
+          "fact:0c60f0ee5d8c2adf",
+          "fact:f86874b4474c16d8",
+          "fact:ab1e95d5ba643738"
+        ],
+        "hypotheses": [
+          "hyp:h2",
+          "hyp:h1"
+        ],
+        "nodes": [
+          "service:checkout-svc|prod"
+        ]
+      },
+      "seq": 4
+    },
+    {
+      "actor": "engine",
+      "narrative": "Safest reversible fix: reschedule etl-nightly off the tier-1 node and cap its memory. Awaiting approval (gated).",
+      "phase": "remediate",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 5
+    },
+    {
+      "actor": "engine",
+      "narrative": "Post-reschedule: node memory back to 61%; checkout pod Ready, no evictions. Root cause confirmed.",
+      "phase": "verify",
+      "refs": {
+        "edges": [],
+        "events": [
+          "evt:09e3baa924d2e48b",
+          "evt:915c27a32c27a374"
+        ],
+        "facts": [
+          "fact:2d3a78a60a7c9381",
+          "fact:5bbc91907717dd13"
+        ],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 6
+    },
+    {
+      "actor": "engine",
+      "narrative": "Postmortem: the unbounded etl-nightly batch job co-scheduled on node-prod-17 grew its heap and starved the node's memory -> the kubelet evicted the lowest-priority tenant (checkout-svc's tier-1 pod) -> checkout 5xx; rescheduling the batch job off the node with a memory cap resolved it. An application memory leak was investigated and ruled out.",
+      "phase": "close",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [],
+        "nodes": []
+      },
+      "seq": 7
+    }
+  ],
+  "ledger": [
+    {
+      "basis": "post-reschedule: node-prod-17 memory back to 61%, the checkout pod is Ready and stable, no further evictions \u2014 confirms the noisy-neighbor cause",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "batch_job:etl-nightly|sched-3",
+      "statement": "the etl-nightly batch job (co-scheduled on node-prod-17) grew its heap unbounded and starved the node's memory, so the kubelet evicted the lowest-priority tenant \u2014 checkout-svc's pod",
+      "status": "confirmed",
+      "supporting": [
+        "fact:0c60f0ee5d8c2adf",
+        "fact:ab1e95d5ba643738"
+      ]
+    },
+    {
+      "basis": "checkout-svc has an application memory leak that OOM-pressured its own pod off t",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:f86874b4474c16d8"
+      ],
+      "root_candidate": "pod:checkout-7c9f-abc12",
+      "statement": "checkout-svc has an application memory leak that OOM-pressured its own pod off the node",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
+  "outcome": "resolved",
+  "phases": [
+    "frame",
+    "triage",
+    "hypothesize",
+    "investigate",
+    "remediate",
+    "verify",
+    "close"
+  ],
+  "postmortem": {
+    "contributing": [],
+    "narrative": [
+      {
+        "phase": "frame",
+        "seq": 1,
+        "text": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory."
+      },
+      {
+        "phase": "triage",
+        "seq": 2,
+        "text": "Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating."
+      },
+      {
+        "phase": "hypothesize",
+        "seq": 3,
+        "text": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation."
+      },
+      {
+        "phase": "investigate",
+        "seq": 4,
+        "text": "The node's memory is exhausted (98%) but checkout-svc's OWN pod memory was only 55% at eviction \u2014 this is not the app leaking. The etl-nightly batch job overran ~4x its window on the same node, holding the memory. H2 (app leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence."
+      },
+      {
+        "phase": "remediate",
+        "seq": 5,
+        "text": "Safest reversible fix: reschedule etl-nightly off the tier-1 node and cap its memory. Awaiting approval (gated)."
+      },
+      {
+        "phase": "verify",
+        "seq": 6,
+        "text": "Post-reschedule: node memory back to 61%; checkout pod Ready, no evictions. Root cause confirmed."
+      },
+      {
+        "phase": "close",
+        "seq": 7,
+        "text": "Postmortem: the unbounded etl-nightly batch job co-scheduled on node-prod-17 grew its heap and starved the node's memory -> the kubelet evicted the lowest-priority tenant (checkout-svc's tier-1 pod) -> checkout 5xx; rescheduling the batch job off the node with a memory cap resolved it. An application memory leak was investigated and ruled out."
+      }
+    ],
+    "outcome": "resolved",
+    "root_cause": {
+      "chain": [],
+      "confidence": 0.9,
+      "root_candidate": "batch_job:etl-nightly|sched-3",
+      "statement": "the etl-nightly batch job (co-scheduled on node-prod-17) grew its heap unbounded and starved the node's memory, so the kubelet evicted the lowest-priority tenant \u2014 checkout-svc's pod"
+    },
+    "ruled_out": [
+      {
+        "basis": "checkout-svc has an application memory leak that OOM-pressured its own pod off t",
+        "statement": "checkout-svc has an application memory leak that OOM-pressured its own pod off the node"
+      }
+    ],
+    "subject": {
+      "domain": "app-incident",
+      "id": "INC-8900",
+      "kind": "incident"
+    },
+    "timeline": [
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "entity": "alert:alt-9",
+        "payload": {
+          "state": "firing"
+        },
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "entity": "pod:checkout-7c9f-abc12",
+        "payload": {
+          "message": "The node was low on resource: memory",
+          "reason": "Evicted"
+        },
+        "type": "evicted"
+      },
+      {
+        "at": "2026-07-19T02:18:00+00:00",
+        "entity": "incident:inc-8900",
+        "payload": {},
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T02:19:00+00:00",
+        "entity": "incident:inc-8901",
+        "payload": {
+          "affected_ci": "search-svc"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T02:55:00+00:00",
+        "entity": "pod:checkout-7c9f-abc12",
+        "payload": {},
+        "type": "started"
+      },
+      {
+        "at": "2026-07-19T02:55:00+00:00",
+        "entity": "anomaly:anom-9",
+        "payload": {},
+        "type": "cleared"
+      }
+    ]
+  },
+  "subject": {
+    "domain": "app-incident",
+    "id": "INC-8900",
+    "kind": "incident"
+  }
+}

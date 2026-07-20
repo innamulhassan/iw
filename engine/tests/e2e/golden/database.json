@@ -1,0 +1,1239 @@
+{
+  "graph": {
+    "edges": [
+      {
+        "confidence": null,
+        "dst": "change_event:chg-9",
+        "established": null,
+        "id": "edge:changed_by:service:orders-api|prod->change_event:chg-9:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:orders-api|prod",
+        "state": "active",
+        "type": "changed_by",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:orders-api|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:alt-1->service:orders-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:alt-1",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
+        "established": null,
+        "id": "edge:exposes:service:orders-api|prod->api_endpoint:orders-api|prod|get|-orders-{id}-items:declared",
+        "invalidated_by": null,
+        "origin": "declared",
+        "source": null,
+        "src": "service:orders-api|prod",
+        "state": "active",
+        "type": "exposes",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:orders-api|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-1->service:orders-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-1",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:orders-api|prod",
+        "established": null,
+        "id": "edge:affects:incident:inc-7734->service:orders-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "incident:inc-7734",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "database:orders-pg",
+        "established": null,
+        "id": "edge:depends_on:service:orders-api|prod->database:orders-pg:declared",
+        "invalidated_by": null,
+        "origin": "declared",
+        "source": null,
+        "src": "service:orders-api|prod",
+        "state": "active",
+        "type": "depends_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "code_commit:a1b2c3d",
+        "established": null,
+        "id": "edge:introduced_by:change_event:chg-9->code_commit:a1b2c3d:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "change_event:chg-9",
+        "state": "active",
+        "type": "introduced_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "incident:inc-7735",
+        "established": null,
+        "id": "edge:similar_to:incident:inc-7734->incident:inc-7735:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "incident:inc-7734",
+        "state": "active",
+        "type": "similar_to",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "incident:inc-7736",
+        "established": null,
+        "id": "edge:similar_to:incident:inc-7734->incident:inc-7736:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "incident:inc-7734",
+        "state": "active",
+        "type": "similar_to",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.6,
+        "dst": "incident:inc-7737",
+        "established": null,
+        "id": "edge:similar_to:incident:inc-7734->incident:inc-7737:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "incident:inc-7734",
+        "state": "active",
+        "type": "similar_to",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "database:orders-pg",
+        "established": null,
+        "id": "edge:depends_on:service:orders-api|prod->database:orders-pg:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:orders-api|prod",
+        "state": "active",
+        "type": "depends_on",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "change_event:chg-9",
+        "established": null,
+        "id": "edge:caused_by:hyp:h1->change_event:chg-9:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "hyp:h1",
+        "state": "active",
+        "type": "caused_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.3,
+        "dst": "hyp:h2",
+        "established": null,
+        "id": "edge:refutes:service:orders-api|prod->hyp:h2:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "service:orders-api|prod",
+        "state": "active",
+        "type": "refutes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:code_commit:a1b2c3d->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "code_commit:a1b2c3d",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:service:orders-api|prod->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "service:orders-api|prod",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:database:orders-pg->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "database:orders-pg",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      }
+    ],
+    "events": [
+      {
+        "at": "2026-07-19T13:57:00+00:00",
+        "entity": "change_event:chg-9",
+        "id": "evt:218261f2251a608e",
+        "invalidated_by": null,
+        "payload": {
+          "actor": "dba-jsmith"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "implemented"
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "entity": "alert:alt-1",
+        "id": "evt:8178b16c07b5caa6",
+        "invalidated_by": null,
+        "payload": {
+          "state": "firing"
+        },
+        "source": "prometheus",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "entity": "service:orders-api|prod",
+        "id": "evt:06ec00f4a1bc7040",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "entity": "incident:inc-7734",
+        "id": "evt:9dd820ef10df3e87",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:06:00+00:00",
+        "entity": "incident:inc-7735",
+        "id": "evt:14c22de78b2b9490",
+        "invalidated_by": null,
+        "payload": {
+          "affected_ci": "billing-api"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:07:00+00:00",
+        "entity": "incident:inc-7736",
+        "id": "evt:7f577c2549a48239",
+        "invalidated_by": null,
+        "payload": {
+          "affected_ci": "fulfillment-api"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:08:00+00:00",
+        "entity": "incident:inc-7737",
+        "id": "evt:6214ac711db210fb",
+        "invalidated_by": null,
+        "payload": {
+          "affected_ci": "returns-api"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T13:57:00+00:00",
+        "entity": "schema:orders-pg|orders",
+        "id": "evt:9453b549a0a24df2",
+        "invalidated_by": null,
+        "payload": {
+          "index_name": "idx_order_items_order_id"
+        },
+        "source": "git",
+        "state": "active",
+        "type": "index_dropped"
+      },
+      {
+        "at": "2026-07-19T14:50:00+00:00",
+        "entity": "service:orders-api|prod",
+        "id": "evt:b6bd85294a9ea7f8",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T14:50:00+00:00",
+        "entity": "anomaly:anom-1",
+        "id": "evt:9cb2509082945fa4",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "cleared"
+      }
+    ],
+    "facts": [
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:e499b9282bfa27c7",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "onset_value",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 5200,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:6d1126bf43636842",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "severity_score",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": null,
+        "valid_to": null,
+        "value": 2,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:9673a570d98777d1",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:orders-api|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T14:50:00+00:00",
+        "value": true,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:dc89e1eebe07f888",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "red_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:orders-api|prod",
+        "unit": "rpm",
+        "valid_to": null,
+        "value": 1180,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:353cd1b4ed3a87f3",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "red_errors",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:orders-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.015,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:0986e9575a94efa2",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "red_latency_p50",
+        "source": "appd",
+        "state": "superseded",
+        "subject": "service:orders-api|prod",
+        "unit": "ms",
+        "valid_to": "2026-07-19T14:20:00+00:00",
+        "value": 46,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:f6a2d761c5826495",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:orders-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:901be1f1d2cbe291",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "slo_target",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:orders-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 300,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:c0ed9dfa4f606b27",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "red_rate",
+        "source": "appd",
+        "state": "active",
+        "subject": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
+        "unit": "rpm",
+        "valid_to": null,
+        "value": 410,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:8791a4251f81e01b",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "red_errors",
+        "source": "appd",
+        "state": "active",
+        "subject": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.06,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:460d512459140524",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "active",
+        "subject": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 8100,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:601b87f377a6c3aa",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "status_code_dist",
+        "source": "appd",
+        "state": "active",
+        "subject": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
+        "unit": null,
+        "valid_to": null,
+        "value": {
+          "200": 0.94,
+          "504": 0.06
+        },
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:89c3d1a2c86fb728",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "superseded",
+        "subject": "service:orders-api|prod",
+        "unit": "ms",
+        "valid_to": "2026-07-19T14:20:00+00:00",
+        "value": 4800,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T13:57:00+00:00",
+        "id": "fact:25373161d9865a5b",
+        "observed_at": "2026-07-19T13:57:00+00:00",
+        "predicate": "files_changed",
+        "source": "git",
+        "state": "active",
+        "subject": "code_commit:a1b2c3d",
+        "unit": null,
+        "valid_to": null,
+        "value": 1,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T13:57:00+00:00",
+        "id": "fact:51f9286d11a5d0bc",
+        "observed_at": "2026-07-19T13:57:00+00:00",
+        "predicate": "lines_added",
+        "source": "git",
+        "state": "active",
+        "subject": "code_commit:a1b2c3d",
+        "unit": null,
+        "valid_to": null,
+        "value": 1,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T13:57:00+00:00",
+        "id": "fact:47df675e7a67b75a",
+        "observed_at": "2026-07-19T13:57:00+00:00",
+        "predicate": "lines_deleted",
+        "source": "git",
+        "state": "active",
+        "subject": "code_commit:a1b2c3d",
+        "unit": null,
+        "valid_to": null,
+        "value": 0,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:d89c5079f3eb79a0",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "index_health",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "schema:orders-pg|orders",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.4,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "id": "fact:88bbd6ad868ec59a",
+        "observed_at": "2026-07-19T14:05:00+00:00",
+        "predicate": "table_count",
+        "source": "cmdb",
+        "state": "active",
+        "subject": "schema:orders-pg|orders",
+        "unit": null,
+        "valid_to": null,
+        "value": 37,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:20:00+00:00",
+        "id": "fact:c784f1b1553ac872",
+        "observed_at": "2026-07-19T14:20:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "superseded",
+        "subject": "service:orders-api|prod",
+        "unit": "ms",
+        "valid_to": "2026-07-19T14:50:00+00:00",
+        "value": 7900,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:20:00+00:00",
+        "id": "fact:8ed5e6be3dd2f760",
+        "observed_at": "2026-07-19T14:20:00+00:00",
+        "predicate": "red_latency_p50",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:orders-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 42,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:20:00+00:00",
+        "id": "fact:fe51cbe6dcc7c4de",
+        "observed_at": "2026-07-19T14:20:00+00:00",
+        "predicate": "active_connections",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:orders-pg",
+        "unit": "conn",
+        "valid_to": null,
+        "value": 200,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:20:00+00:00",
+        "id": "fact:4e6e8fc90b8f9dca",
+        "observed_at": "2026-07-19T14:20:00+00:00",
+        "predicate": "max_connections",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:orders-pg",
+        "unit": "conn",
+        "valid_to": null,
+        "value": 200,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:20:00+00:00",
+        "id": "fact:9eb664480ef8ef7a",
+        "observed_at": "2026-07-19T14:20:00+00:00",
+        "predicate": "conn_pool_util",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:orders-pg",
+        "unit": "ratio",
+        "valid_to": null,
+        "value": 1.0,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:20:00+00:00",
+        "id": "fact:005a716052ba5365",
+        "observed_at": "2026-07-19T14:20:00+00:00",
+        "predicate": "slow_query_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:orders-pg",
+        "unit": "per_min",
+        "valid_to": null,
+        "value": 342,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:20:00+00:00",
+        "id": "fact:67de6355a418a8bf",
+        "observed_at": "2026-07-19T14:20:00+00:00",
+        "predicate": "replication_lag",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:orders-pg",
+        "unit": "s",
+        "valid_to": null,
+        "value": 0.3,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:50:00+00:00",
+        "id": "fact:5d2abe3264187321",
+        "observed_at": "2026-07-19T14:50:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:orders-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 95,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:50:00+00:00",
+        "id": "fact:d8aabf0c386c19cf",
+        "observed_at": "2026-07-19T14:50:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:orders-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": false,
+        "where": null
+      }
+    ],
+    "nodes": [
+      {
+        "first_seen": "2026-07-19T13:57:00+00:00",
+        "first_source": "servicenow",
+        "id": "change_event:chg-9",
+        "last_seen": "2026-07-19T13:57:00+00:00",
+        "origin": false,
+        "props": {
+          "actor": "dba-jsmith",
+          "change_id": "CHG-9",
+          "change_type": "database",
+          "target_ref": "orders-api",
+          "ticket_id": "CHG-9"
+        },
+        "source": "servicenow",
+        "type": "change_event"
+      },
+      {
+        "first_seen": "2026-07-19T14:05:00+00:00",
+        "first_source": "prometheus",
+        "id": "service:orders-api|prod",
+        "last_seen": "2026-07-19T14:50:00+00:00",
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "service_name": "orders-api"
+        },
+        "source": "prometheus",
+        "type": "service"
+      },
+      {
+        "first_seen": "2026-07-19T14:05:00+00:00",
+        "first_source": "prometheus",
+        "id": "alert:alt-1",
+        "last_seen": "2026-07-19T14:05:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "ALT-1",
+          "rule": "HighLatencyP99"
+        },
+        "source": "prometheus",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-19T14:05:00+00:00",
+        "first_source": "servicenow",
+        "id": "anomaly:anom-1",
+        "last_seen": "2026-07-19T14:50:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-1"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
+      },
+      {
+        "first_seen": "2026-07-19T14:05:00+00:00",
+        "first_source": "appd",
+        "id": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
+        "last_seen": "2026-07-19T14:05:00+00:00",
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "method": "GET",
+          "route_template": "/orders/{id}/items",
+          "service_name": "orders-api"
+        },
+        "source": "appd",
+        "type": "api_endpoint"
+      },
+      {
+        "first_seen": "2026-07-19T14:05:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-7734",
+        "last_seen": "2026-07-19T14:05:00+00:00",
+        "origin": true,
+        "props": {
+          "incident_id": "INC-7734"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T14:20:00+00:00",
+        "first_source": "prometheus",
+        "id": "database:orders-pg",
+        "last_seen": "2026-07-19T14:20:00+00:00",
+        "origin": false,
+        "props": {
+          "db_id": "orders-pg",
+          "engine": "postgres"
+        },
+        "source": "prometheus",
+        "type": "database"
+      },
+      {
+        "first_seen": "2026-07-19T13:57:00+00:00",
+        "first_source": "git",
+        "id": "code_commit:a1b2c3d",
+        "last_seen": "2026-07-19T13:57:00+00:00",
+        "origin": false,
+        "props": {
+          "author": "dba-jsmith",
+          "authored_at": "2026-07-19 13:57:00+00:00",
+          "parent_sha": "9f8e7d6",
+          "repo": "db-migrations",
+          "sha": "a1b2c3d"
+        },
+        "source": "git",
+        "type": "code_commit"
+      },
+      {
+        "first_seen": "2026-07-19T14:06:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-7735",
+        "last_seen": "2026-07-19T14:06:00+00:00",
+        "origin": false,
+        "props": {
+          "commander": null,
+          "incident_id": "INC-7735",
+          "severity": "3 - Moderate"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T14:07:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-7736",
+        "last_seen": "2026-07-19T14:07:00+00:00",
+        "origin": false,
+        "props": {
+          "commander": null,
+          "incident_id": "INC-7736",
+          "severity": "3 - Moderate"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T14:08:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-7737",
+        "last_seen": "2026-07-19T14:08:00+00:00",
+        "origin": false,
+        "props": {
+          "commander": null,
+          "incident_id": "INC-7737",
+          "severity": "4 - Low"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T13:57:00+00:00",
+        "first_source": "git",
+        "id": "schema:orders-pg|orders",
+        "last_seen": "2026-07-19T14:05:00+00:00",
+        "origin": false,
+        "props": {
+          "db_id": "orders-pg",
+          "schema_name": "orders"
+        },
+        "source": "prometheus",
+        "type": "schema"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h1",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "CHG-9 (DB migration) dropped an index on orders.order_items, forcing full-table scans that exhaust the JDBC connection pool and spike orders-api latency"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h2",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "A recent orders-api application code deploy introduced an inefficient/blocking code path"
+        },
+        "source": null,
+        "type": "hypothesis"
+      }
+    ]
+  },
+  "journal": [
+    {
+      "actor": "engine",
+      "narrative": "orders-api p99 latency spiked to 5.2s at 14:05, 8 minutes after CHG-9 (a DB migration) landed at 13:57. ALT-1 (HighLatencyP99) fired. p50 stays flat at 46ms and errors at 1.5% \u2014 the tail alone is blown.",
+      "phase": "frame",
+      "refs": {
+        "edges": [
+          "edge:changed_by:service:orders-api|prod->change_event:chg-9:discovered",
+          "edge:fired_on:alert:alt-1->service:orders-api|prod:discovered",
+          "edge:exposes:service:orders-api|prod->api_endpoint:orders-api|prod|get|-orders-{id}-items:declared",
+          "edge:affects:anomaly:anom-1->service:orders-api|prod:discovered"
+        ],
+        "events": [
+          "evt:218261f2251a608e",
+          "evt:8178b16c07b5caa6",
+          "evt:06ec00f4a1bc7040"
+        ],
+        "facts": [
+          "fact:e499b9282bfa27c7",
+          "fact:6d1126bf43636842",
+          "fact:9673a570d98777d1",
+          "fact:dc89e1eebe07f888",
+          "fact:353cd1b4ed3a87f3",
+          "fact:0986e9575a94efa2",
+          "fact:f6a2d761c5826495",
+          "fact:901be1f1d2cbe291",
+          "fact:c0ed9dfa4f606b27",
+          "fact:8791a4251f81e01b",
+          "fact:460d512459140524",
+          "fact:601b87f377a6c3aa"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "change_event:chg-9",
+          "service:orders-api|prod",
+          "service:orders-api|prod",
+          "alert:alt-1",
+          "anomaly:anom-1",
+          "api_endpoint:orders-api|prod|get|-orders-{id}-items"
+        ]
+      },
+      "seq": 1
+    },
+    {
+      "actor": "engine",
+      "narrative": "Declared SEV2. Still bleeding; CMDB shows orders-api's only dependency is orders-pg. Investigate, don't blind-mitigate.",
+      "phase": "triage",
+      "refs": {
+        "edges": [
+          "edge:affects:incident:inc-7734->service:orders-api|prod:discovered",
+          "edge:depends_on:service:orders-api|prod->database:orders-pg:declared"
+        ],
+        "events": [
+          "evt:9dd820ef10df3e87"
+        ],
+        "facts": [
+          "fact:89c3d1a2c86fb728"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "incident:inc-7734",
+          "database:orders-pg"
+        ]
+      },
+      "seq": 2
+    },
+    {
+      "actor": "engine",
+      "narrative": "Change-first: CHG-9 (DB migration) landed 8m before onset \u2014 prime suspect (H1). ServiceNow surfaces 3 sibling apps (billing-api, fulfillment-api, returns-api) that filed the SAME latency symptom within the same 5-minute window \u2014 all share orders-pg. A co-firing cluster that tight is a hypothesis prior pointing at the shared DB/migration (H1), not any one app's code. No application deploy is on record; a code regression remains a weaker alternative (H2) pending investigation.",
+      "phase": "hypothesize",
+      "refs": {
+        "edges": [
+          "edge:introduced_by:change_event:chg-9->code_commit:a1b2c3d:discovered",
+          "edge:similar_to:incident:inc-7734->incident:inc-7735:inferred",
+          "edge:similar_to:incident:inc-7734->incident:inc-7736:inferred",
+          "edge:similar_to:incident:inc-7734->incident:inc-7737:inferred"
+        ],
+        "events": [
+          "evt:14c22de78b2b9490",
+          "evt:7f577c2549a48239",
+          "evt:6214ac711db210fb",
+          "evt:9453b549a0a24df2"
+        ],
+        "facts": [
+          "fact:25373161d9865a5b",
+          "fact:51f9286d11a5d0bc",
+          "fact:47df675e7a67b75a",
+          "fact:d89c5079f3eb79a0",
+          "fact:88bbd6ad868ec59a"
+        ],
+        "hypotheses": [
+          "hyp:h1",
+          "hyp:h2"
+        ],
+        "nodes": [
+          "code_commit:a1b2c3d",
+          "change_event:chg-9",
+          "incident:inc-7735",
+          "incident:inc-7736",
+          "incident:inc-7737",
+          "schema:orders-pg|orders",
+          "hyp:h1",
+          "hyp:h2"
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "actor": "engine",
+      "narrative": "orders-api's own compute is fine (p50 flat at 42ms) \u2014 the tail is 100% JDBC-bound: get_snapshots pins the exit call to orders-pg, whose connection pool is maxed (200/200 via instant_query). git diff_range on CHG-9 shows the migration dropped an index, forcing full-table scans. H2 (code regression) refuted; H1 (migration/index) confirmed at high confidence.",
+      "phase": "investigate",
+      "refs": {
+        "edges": [
+          "edge:depends_on:service:orders-api|prod->database:orders-pg:discovered",
+          "edge:caused_by:hyp:h1->change_event:chg-9:inferred"
+        ],
+        "events": [],
+        "facts": [
+          "fact:c784f1b1553ac872",
+          "fact:8ed5e6be3dd2f760",
+          "fact:fe51cbe6dcc7c4de",
+          "fact:4e6e8fc90b8f9dca",
+          "fact:9eb664480ef8ef7a",
+          "fact:005a716052ba5365",
+          "fact:67de6355a418a8bf"
+        ],
+        "hypotheses": [
+          "hyp:h2",
+          "hyp:h1"
+        ],
+        "nodes": [
+          "service:orders-api|prod",
+          "database:orders-pg"
+        ]
+      },
+      "seq": 4
+    },
+    {
+      "actor": "engine",
+      "narrative": "Safest reversible fix: re-add the dropped index (or roll back CHG-9). Awaiting approval (gated).",
+      "phase": "remediate",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 5
+    },
+    {
+      "actor": "engine",
+      "narrative": "Post-fix: p99 back to 95ms; anomaly cleared. Root cause confirmed.",
+      "phase": "verify",
+      "refs": {
+        "edges": [],
+        "events": [
+          "evt:b6bd85294a9ea7f8",
+          "evt:9cb2509082945fa4"
+        ],
+        "facts": [
+          "fact:5d2abe3264187321",
+          "fact:d8aabf0c386c19cf"
+        ],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 6
+    },
+    {
+      "actor": "engine",
+      "narrative": "Postmortem: CHG-9 (DB migration) dropped an index on orders.order_items -> full-table scans -> JDBC pool exhaustion -> orders-api latency spike; re-adding the index resolved it. An application code regression was investigated and ruled out.",
+      "phase": "close",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [],
+        "nodes": []
+      },
+      "seq": 7
+    }
+  ],
+  "ledger": [
+    {
+      "basis": "post-fix: p99 back to ~95ms, JDBC exit-call latency and pool pressure gone, anomaly cleared \u2014 confirms the causal chain",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "change_event:chg-9",
+      "statement": "CHG-9 (DB migration) dropped an index on orders.order_items, forcing full-table scans that exhaust the JDBC connection pool and spike orders-api latency",
+      "status": "confirmed",
+      "supporting": [
+        "fact:51f9286d11a5d0bc",
+        "fact:c784f1b1553ac872",
+        "fact:fe51cbe6dcc7c4de"
+      ]
+    },
+    {
+      "basis": "A recent orders-api application code deploy introduced an inefficient/blocking c",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:8ed5e6be3dd2f760"
+      ],
+      "root_candidate": "service:orders-api|prod",
+      "statement": "A recent orders-api application code deploy introduced an inefficient/blocking code path",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
+  "outcome": "resolved",
+  "phases": [
+    "frame",
+    "triage",
+    "hypothesize",
+    "investigate",
+    "remediate",
+    "verify",
+    "close"
+  ],
+  "postmortem": {
+    "contributing": [],
+    "narrative": [
+      {
+        "phase": "frame",
+        "seq": 1,
+        "text": "orders-api p99 latency spiked to 5.2s at 14:05, 8 minutes after CHG-9 (a DB migration) landed at 13:57. ALT-1 (HighLatencyP99) fired. p50 stays flat at 46ms and errors at 1.5% \u2014 the tail alone is blown."
+      },
+      {
+        "phase": "triage",
+        "seq": 2,
+        "text": "Declared SEV2. Still bleeding; CMDB shows orders-api's only dependency is orders-pg. Investigate, don't blind-mitigate."
+      },
+      {
+        "phase": "hypothesize",
+        "seq": 3,
+        "text": "Change-first: CHG-9 (DB migration) landed 8m before onset \u2014 prime suspect (H1). ServiceNow surfaces 3 sibling apps (billing-api, fulfillment-api, returns-api) that filed the SAME latency symptom within the same 5-minute window \u2014 all share orders-pg. A co-firing cluster that tight is a hypothesis prior pointing at the shared DB/migration (H1), not any one app's code. No application deploy is on record; a code regression remains a weaker alternative (H2) pending investigation."
+      },
+      {
+        "phase": "investigate",
+        "seq": 4,
+        "text": "orders-api's own compute is fine (p50 flat at 42ms) \u2014 the tail is 100% JDBC-bound: get_snapshots pins the exit call to orders-pg, whose connection pool is maxed (200/200 via instant_query). git diff_range on CHG-9 shows the migration dropped an index, forcing full-table scans. H2 (code regression) refuted; H1 (migration/index) confirmed at high confidence."
+      },
+      {
+        "phase": "remediate",
+        "seq": 5,
+        "text": "Safest reversible fix: re-add the dropped index (or roll back CHG-9). Awaiting approval (gated)."
+      },
+      {
+        "phase": "verify",
+        "seq": 6,
+        "text": "Post-fix: p99 back to 95ms; anomaly cleared. Root cause confirmed."
+      },
+      {
+        "phase": "close",
+        "seq": 7,
+        "text": "Postmortem: CHG-9 (DB migration) dropped an index on orders.order_items -> full-table scans -> JDBC pool exhaustion -> orders-api latency spike; re-adding the index resolved it. An application code regression was investigated and ruled out."
+      }
+    ],
+    "outcome": "resolved",
+    "root_cause": {
+      "chain": [],
+      "confidence": 0.9,
+      "root_candidate": "change_event:chg-9",
+      "statement": "CHG-9 (DB migration) dropped an index on orders.order_items, forcing full-table scans that exhaust the JDBC connection pool and spike orders-api latency"
+    },
+    "ruled_out": [
+      {
+        "basis": "A recent orders-api application code deploy introduced an inefficient/blocking c",
+        "statement": "A recent orders-api application code deploy introduced an inefficient/blocking code path"
+      }
+    ],
+    "subject": {
+      "domain": "app-incident",
+      "id": "INC-7734",
+      "kind": "incident"
+    },
+    "timeline": [
+      {
+        "at": "2026-07-19T13:57:00+00:00",
+        "entity": "change_event:chg-9",
+        "payload": {
+          "actor": "dba-jsmith"
+        },
+        "type": "implemented"
+      },
+      {
+        "at": "2026-07-19T13:57:00+00:00",
+        "entity": "schema:orders-pg|orders",
+        "payload": {
+          "index_name": "idx_order_items_order_id"
+        },
+        "type": "index_dropped"
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "entity": "alert:alt-1",
+        "payload": {
+          "state": "firing"
+        },
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "entity": "service:orders-api|prod",
+        "payload": {},
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T14:05:00+00:00",
+        "entity": "incident:inc-7734",
+        "payload": {},
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:06:00+00:00",
+        "entity": "incident:inc-7735",
+        "payload": {
+          "affected_ci": "billing-api"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:07:00+00:00",
+        "entity": "incident:inc-7736",
+        "payload": {
+          "affected_ci": "fulfillment-api"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:08:00+00:00",
+        "entity": "incident:inc-7737",
+        "payload": {
+          "affected_ci": "returns-api"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:50:00+00:00",
+        "entity": "service:orders-api|prod",
+        "payload": {},
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T14:50:00+00:00",
+        "entity": "anomaly:anom-1",
+        "payload": {},
+        "type": "cleared"
+      }
+    ]
+  },
+  "subject": {
+    "domain": "app-incident",
+    "id": "INC-7734",
+    "kind": "incident"
+  }
+}

@@ -1,0 +1,44 @@
+[project]
+name = "iw-engine"
+version = "0.1.0"
+description = "Investigation Workbench — governed, typed, phased incident-investigation engine (core)"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "networkx>=3.2",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "hypothesis>=6.100",
+]
+server = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# live_planner embeds the LLM system-prompt verbatim, incl. single-line JSON op examples that
+# must not be reflowed — line length isn't meaningful for that prompt template.
+"src/iw_engine/runtime/live_planner.py" = ["E501"]

@@ -1,0 +1,62 @@
+# The tuned incident playbook — declarative config for ONE incident class (DESIGN §2.3).
+# WHAT/WHEN only: phases, allowed intents, gates, transitions, and one tunables block.
+# The engine owns all mechanics; the LLM owns all judgment.
+id: incident-core
+applies_to: app-incident
+entry_phase: frame
+capabilities: [servicenow, splunk, appd, prometheus, cmdb, ocp, artifactory, git]
+
+phases:
+  - id: frame
+    goal: "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + topology + candidate changes."
+    allowed_intents: [ingest_alert, query_change_log, seed_graph, get_dependencies]
+    produces_required: [nodes_touched, facts_added]
+    gate: {min_facts: 1}
+    on_verdict: {advance: triage, repeat: frame}
+
+  - id: triage
+    goal: "Still bleeding? Decide mitigate-now vs investigate; narrow the suspect set."
+    allowed_intents: [assess_impact, list_dependencies, apply_mitigation]
+    produces_required: [facts_added]
+    on_verdict: {advance: hypothesize, repeat: triage, backtrack: frame}
+
+  - id: hypothesize
+    goal: "Generate causal explanations, change-first; fall back to saturation/onset when the change set is empty."
+    allowed_intents: [enumerate_changes, propose_hypotheses, correlate_timeline]
+    produces_required: [hypotheses_updated]
+    on_verdict: {advance: investigate, repeat: hypothesize}
+
+  - id: investigate
+    goal: "Confirm or refute the leading hypothesis with evidence; rule out rivals."
+    allowed_intents: [fetch_logs, fetch_metrics, fetch_traces, read_diff, blame, query_change_log, correlate_timeline]
+    produces_required: [facts_added]
+    gate: {require_confidence_gate: true, require_refutation: true}
+    on_verdict: {advance: remediate, repeat: investigate, backtrack: hypothesize}
+
+  - id: remediate
+    goal: "Propose the safest reversible fix (+ mitigation); side-effects are human-gated."
+    allowed_intents: [propose_fix, apply_mitigation]
+    produces_required: [hypotheses_updated]
+    writes_allowed: true          # the one phase that may execute write-effect capabilities
+    on_verdict: {advance: verify, repeat: remediate}
+
+  - id: verify
+    goal: "Did the symptom clear and does the confirmed chain still hold?"
+    allowed_intents: [recheck_symptom, confirm_chain]
+    produces_required: [facts_added]
+    on_verdict: {advance: close, backtrack: hypothesize}
+
+  - id: close
+    goal: "Postmortem: the confirmed causal chain + timeline, folded from the journal."
+    allowed_intents: [render_postmortem]
+    produces_required: []
+    on_verdict: {}
+
+tunables:
+  confidence_gate: 0.8
+  max_retries: 2
+  theta: 0.6
+  delta: 0.15
+  confidence_band: {low: 0.3, med: 0.6, high: 0.9}
+  evidence_floors: {frame: 1}
+  op_ceiling: {frame: 40, triage: 30, hypothesize: 30, investigate: 40, remediate: 15, verify: 20, close: 10}

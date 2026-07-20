@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — Design, Architecture &amp; Data Model</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a21; --panel2:#1c212b; --border:#2a3140; --text:#e6e9ef;
+    --muted:#9aa4b2; --faint:#6b7482; --accent:#5b8cff; --accent-soft:#1a2540;
+    --green:#4ade80; --amber:#fbbf24; --red:#f87171; --violet:#a78bfa; --teal:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:light){
+    :root{--bg:#f5f7fa;--panel:#ffffff;--panel2:#f0f3f8;--border:#dde3ec;--text:#1c2128;
+      --muted:#5a6472;--faint:#8a94a6;--accent:#2f6fed;--accent-soft:#e9f0ff;--green:#15803d;
+      --amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;
+    font-size:15px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+  header.masthead{padding:56px 0 28px;border-bottom:1px solid var(--border);margin-bottom:36px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:12px}
+  h1{font-size:34px;line-height:1.2;margin:0 0 10px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:70ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+  nav.docnav a{font-size:13px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;
+    color:var(--muted);text-decoration:none;background:var(--panel)}
+  nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  nav.docnav a:hover{color:var(--text)}
+  h2{font-size:24px;margin:52px 0 6px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:16px;margin-right:10px}
+  h3{font-size:17px;margin:30px 0 8px}
+  p{margin:10px 0}
+  .lead{font-size:16px;color:var(--muted)}
+  code{font-family:var(--mono);font-size:.88em;background:var(--panel2);padding:1px 6px;
+    border-radius:5px;border:1px solid var(--border)}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;
+    overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55}
+  pre code{background:none;border:none;padding:0}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;
+    margin:18px 0}
+  .grid{display:grid;gap:16px}
+  .grid.two{grid-template-columns:1fr 1fr}
+  .grid.three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:760px){.grid.two,.grid.three{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15px}
+  .card p{margin:4px 0;font-size:14px;color:var(--muted)}
+  .tag{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;
+    background:var(--accent-soft);color:var(--accent);border:1px solid var(--border)}
+  .tag.g{background:rgba(74,222,128,.12);color:var(--green)}
+  .tag.a{background:rgba(251,191,36,.12);color:var(--amber)}
+  .tag.v{background:rgba(167,139,250,.12);color:var(--violet)}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--faint);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  td code{font-size:.85em}
+  .kicker{font-family:var(--mono);font-size:12px;color:var(--faint);text-transform:uppercase;
+    letter-spacing:.08em;margin-bottom:4px}
+  .flow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:14px 0}
+  .step{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;
+    font-family:var(--mono);font-size:12.5px}
+  .arr{color:var(--faint)}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;
+    border-radius:0 10px 10px 0;margin:16px 0;font-size:14px}
+  .callout.g{border-color:var(--green);background:rgba(74,222,128,.08)}
+  .muted{color:var(--muted)} .faint{color:var(--faint)}
+  ul.tight{margin:8px 0;padding-left:22px} ul.tight li{margin:4px 0}
+  .svgwrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    padding:18px;margin:18px 0}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);
+    font-size:13px}
+  .lanes{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin:14px 0;font-size:11px;
+    font-family:var(--mono)}
+  .lane{border:1px solid var(--border);border-radius:8px;padding:8px 6px;text-align:center;
+    background:var(--panel2)}
+  .lane b{display:block;font-size:12px;margin-bottom:4px}
+  @media(max-width:760px){.lanes{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Investigation Workbench · iw</div>
+  <h1>Design, Architecture &amp; Data Model</h1>
+  <p class="sub">A governed, human-in-the-loop, LLM-orchestrated incident root-cause engine. The
+  LLM owns all judgment; the engine owns all mechanics. Every fact, hypothesis, and decision is
+  typed, sourced, and reconstructable from an append-only journal.</p>
+  <nav class="docnav">
+    <a class="here" href="01-design-architecture.html">1 · Architecture &amp; Data Model</a>
+    <a href="02-incident-use-cases.html">2 · Incident Use Cases</a>
+    <a href="03-capability-integration.html">3 · Capability Integration</a>
+  </nav>
+</header>
+
+<h2 id="what"><span class="n">01</span>What it is</h2>
+<p class="lead">iw turns a raw incident signal (a ServiceNow major incident) into a confirmed,
+evidence-backed root cause — the way a strong SRE would, but as a governed state machine. An LLM
+plans each phase and chooses tools; a deterministic engine validates, folds, gates, and journals
+every step. Side-effecting fixes are always paused for human approval.</p>
+
+<div class="grid three">
+  <div class="card"><h4>LLM owns judgment</h4><p>Which hypothesis, which tool, when to advance,
+    what the root cause is — authored live by the model, never scripted.</p></div>
+  <div class="card"><h4>Engine owns mechanics</h4><p>Phase routing, type validation, the single
+    write seam, the confidence gates, the audit journal — deterministic and testable.</p></div>
+  <div class="card"><h4>Human owns consequence</h4><p>Any WRITE (a remediation) suspends at an
+    approval gate carrying the proposed action + its evidence chain.</p></div>
+</div>
+
+<h2 id="arch"><span class="n">02</span>The engine — a phased orchestrator</h2>
+<p>One phase = one loop iteration: <b>plan</b> (typed ops) → <b>reduce</b> (validate + materialise)
+→ <b>fold</b> (apply to graph + ledger) → <b>gate</b> (guard the verdict) → <b>journal</b> → route
+to the next phase. No LangGraph, no agent sprawl — the uniform contract makes the whole controller
+a few lines and fully deterministic given a scripted planner.</p>
+
+<div class="flow">
+  <span class="step">FRAME</span><span class="arr">→</span>
+  <span class="step">TRIAGE</span><span class="arr">→</span>
+  <span class="step">HYPOTHESIZE</span><span class="arr">→</span>
+  <span class="step">INVESTIGATE</span><span class="arr">→</span>
+  <span class="step">REMEDIATE ⚑</span><span class="arr">→</span>
+  <span class="step">VERIFY</span><span class="arr">→</span>
+  <span class="step">CLOSE</span>
+</div>
+<p class="faint" style="font-size:13px">⚑ REMEDIATE is the one <code>writes_allowed</code> phase — a
+WRITE-effect call there suspends the run at the human approval gate.</p>
+
+<h3>The three authors (separation of powers)</h3>
+<table>
+  <tr><th>Author</th><th>Role</th><th>Output</th></tr>
+  <tr><td><b>Planner</b> <span class="tag v">judgment</span></td><td>Turns phase context into a plan.
+    <code>LivePlanner</code> (grok-4.5) in production; <code>ScriptedPlanner</code> for CI.</td>
+    <td>A <code>PlanOutput</code>: typed ops + tool calls + narrative + a proposed verdict. Never free prose.</td></tr>
+  <tr><td><b>Reducer</b> <span class="tag a">validation</span></td><td>Materialises typed ops, rejecting
+    what a grammar can't express: registry membership, edge legality, predicate legality, mandatory
+    confidence, numeric bounds. Partial-accept.</td><td>Validated <code>Node/Fact/Edge/Event/HypDelta</code>
+    + a list of rejections.</td></tr>
+  <tr><td><b>Controller</b> <span class="tag">routing</span></td><td>Applies the phase's declarative
+    gate to the proposed verdict (an ADVANCE is only honoured if the gate passes) and picks the next
+    phase. A repeat-cap forces progression after <code>max_retries</code>.</td><td>The next phase, or
+    <code>None</code> to end.</td></tr>
+</table>
+
+<div class="callout">
+  <b>Single mutation seam.</b> Only <code>fold.apply_delta()</code> writes a phase's delta into the
+  three projections (graph · ledger · journal). <code>rebuild()</code> replays the journal's phase
+  entries to reconstruct graph + ledger from scratch — the proof that the <b>journal is the durable
+  source of truth</b> and the graph/ledger are projections.
+</div>
+
+<h3>Live vs. mock — the LLM is the product</h3>
+<p>Both planners implement one <code>Planner</code> protocol, so they are interchangeable. The
+engine, reducer, ledger, and journal are <em>identical</em> on both paths — only the judgment author
+changes.</p>
+<div class="grid two">
+  <div class="card"><span class="kicker">production</span><h4>LivePlanner → xAI grok-4.5</h4>
+    <p>Selected by <code>IW_LIVE=1</code> when a key is present. Prompts the model for one JSON plan
+    per phase, with reject-and-repair guards (belief-channel, illegal-predicate, hypothesis-subject,
+    id-canonicalisation) so an off-catalog plan is corrected, never crashes. Runs off the HTTP thread
+    so long calls never freeze the SSE stream.</p></div>
+  <div class="card"><span class="kicker">ci net</span><h4>ScriptedPlanner → goldens</h4>
+    <p>Replays a fixed, hand-authored plan for each of the layered scenarios — the deterministic
+    byte-equivalence oracle (<code>export_bundle</code> vs <code>tests/e2e/golden/*.json</code>) that
+    guarantees the engine's mechanics never regress. Always-on, offline, no key.</p></div>
+</div>
+
+<h2 id="data"><span class="n">03</span>The data model — a typed incident graph</h2>
+<p>The graph is the reasoning substrate. Its vocabulary is a <b>closed, typed registry</b> (43 node
+types, 36 edge types) so the LLM <em>classifies</em> into known types rather than inventing them —
+and the reducer validates every choice against the same specs the model was shown.</p>
+
+<h3>Three storage shapes (the core ruling)</h3>
+<div class="grid three">
+  <div class="card"><h4>Static property</h4><p>Immutable / identity attributes on a node
+    (<code>app_id</code>, <code>sha</code>, <code>env</code>). Never time-varying.</p></div>
+  <div class="card"><h4>Fact <span class="tag v">bi-temporal</span></h4><p>A reified, sourced
+    observation that was <em>true of</em> a thing <em>over a window</em>. Never mutated — a newer
+    value supersedes (closing <code>valid_to</code>); a wrong one is retracted.</p></div>
+  <div class="card"><h4>Event</h4><p>A point-in-time occurrence (<code>deployed</code>,
+    <code>evicted</code>, <code>index_dropped</code>) with an <code>occurred_at</code>.</p></div>
+</div>
+<div class="callout">Anything time-varying is a Fact, not a mutable property — this is what makes
+  <em>"reconstruct the graph as of incident-start"</em> answerable.</div>
+
+<h3>The provenance envelope (the W's)</h3>
+<p>One shared envelope — <code>source</code> + two clocks — is attached identically to Node, Fact,
+and Edge. A Fact already answers <b>who</b> (<code>source</code>), <b>what/where</b>
+(<code>subject_ref</code>, optional <code>where</code>), <b>when</b> (<code>valid_from</code> /
+<code>valid_to</code> valid-time, <code>observed_at</code> transaction-time) and <b>why</b>
+(<code>evidence</code>). Node provenance is a pure projection — a node's <code>source</code> and
+<code>first_seen</code> are derived from its earliest fact (the AppDynamics/Dynatrace entity model),
+so it is deterministic under journal replay with no redundant storage.</p>
+<pre><code># domain/fact.py — the reified, bi-temporal, sourced observation
+Fact(subject_ref, predicate, value, unit, where?,
+     valid_from, valid_to?, observed_at,          # two clocks: valid-time vs transaction-time
+     source, confidence? | source_reliability?,   # exactly one belief channel (R-C4)
+     evidence[], supersedes?, state)</code></pre>
+<p class="muted" style="font-size:13.5px"><b>Belief-channel invariant:</b> an <em>inferred</em> fact
+(<code>source=llm</code>) must carry a <code>confidence</code>; a <em>measured</em> fact (any tool)
+must carry a <code>source_reliability</code>. Never both, never neither.</p>
+
+<h3>Origin &amp; architectural layers</h3>
+<p>For a ServiceNow major incident the <b>incident record is the origin</b> — it renders as node #1
+(<code>origin</code> flag on the subject's incident). Nodes are laid out by the architectural layer
+they belong to, derived purely from their type — mirroring how APM/topology tools group entities and
+encoding the chain origin → symptom → topology → candidate change:</p>
+<div class="lanes">
+  <div class="lane"><b>Case</b>incident · hypothesis</div>
+  <div class="lane"><b>Signal</b>anomaly · alert · error_sig</div>
+  <div class="lane"><b>Service</b>service · endpoint · component</div>
+  <div class="lane"><b>Messaging</b>message_queue</div>
+  <div class="lane"><b>Database</b>database · schema · cache</div>
+  <div class="lane"><b>Infra</b>host · pod · cluster · job</div>
+  <div class="lane"><b>Network</b>lb · proxy · dns · waf · cert</div>
+  <div class="lane"><b>Change</b>commit · release · change · flag</div>
+</div>
+
+<h3>Causation as a refutable layer</h3>
+<p>Structural edges (<code>depends_on</code>, <code>runs_on</code>, <code>consumes_from</code>…) are
+the durable spine. Causal edges (<code>caused_by</code>, <code>supports</code>, <code>refutes</code>,
+<code>correlated_with</code>) are a separate <em>inferred</em> layer that carries mandatory confidence
++ evidence and can be tombstoned when refuted — inferred relationships can be wrong, and the model
+says so. Evidence edges (<code>supports</code>/<code>refutes</code>) are <b>derived projections</b>
+the fold recomputes from each hypothesis's canonical fact-id lists, so the graph view can never
+disagree with the ledger.</p>
+
+<h2 id="ledger"><span class="n">04</span>The hypothesis ledger (Popperian)</h2>
+<p>A hypothesis is <em>both</em> a ledger entry and a graph node, so causal edges can reference it. It
+holds its supporting <em>and</em> refuting facts and a typed causal chain. Investigation is genuinely
+differential: a phase gate can require that a rival was ruled out or the leader was challenged before
+advancing. A status the reasoner marks <code>CONFIRMED</code> clears the gate even at a MED confidence
+band — conviction is signalled by status, the band is only the fallback.</p>
+<pre><code>Hypothesis(statement, status, confidence, root_candidate,
+           supporting_facts[FactId], refuting_facts[FactId],
+           causal_chain[ChainLink(kind, ref, ts, role, note)])</code></pre>
+
+<h2 id="session"><span class="n">05</span>Interactive session &amp; workbench</h2>
+<p>The interactive layer is pure composition over the deterministic fold — <b>no engine edits</b>:</p>
+<ul class="tight">
+  <li><b>Write-gate by composition.</b> A wrapped planner computes the plan, and if a
+    <code>writes_allowed</code> phase's plan carries a WRITE call it raises a suspend <em>before</em>
+    the write is served — the engine unwinds with nothing applied. On approve it re-runs with the
+    write intact; on deny it records the denial as feedback and the next plan replans.</li>
+  <li><b>Background drive.</b> For the live path a phase is seconds of LLM latency, so the drive runs
+    off the HTTP thread; <code>POST /sessions</code> returns immediately and the SSE stream shows
+    incremental progress.</li>
+  <li><b>An ordered event stream</b> (<code>phase_started · reasoning · capability_call · graph_delta
+    · ledger_delta · gate_opened · user_message · session_state</code>) derived purely from what the
+    engine recorded — the React workbench folds it into the panes.</li>
+</ul>
+<p>The <b>workbench</b> (Vite / React / TS) renders a two-way investigation chat, a layer-laned live
+graph with per-node origin/source/provenance badges, an expandable hypothesis ledger whose facts
+cross-highlight the graph, a decision-prompt approval gate, and a deep journal — all fed by the SSE
+store, nothing invented.</p>
+
+<h2 id="invariants"><span class="n">06</span>Design invariants</h2>
+<div class="grid two">
+  <div class="card"><h4>Journal is truth</h4><p>Graph + ledger are projections; replay must equal the
+    live state, byte-for-byte.</p></div>
+  <div class="card"><h4>One write seam</h4><p><code>apply_delta</code> is the only mutator; an
+    interactive gate holds a computed-but-unapplied delta.</p></div>
+  <div class="card"><h4>Closed, typed vocabulary</h4><p>The LLM classifies into 43/36 known types;
+    an off-catalog op is rejected or repaired, never silently accepted.</p></div>
+  <div class="card"><h4>Append, never overwrite</h4><p>Facts/edges supersede or retract; two clocks
+    stay distinct (valid-time vs observed-time).</p></div>
+  <div class="card"><h4>Human-gated side effects</h4><p>A WRITE cannot execute outside an approved
+    gate — enforced in the capability layer, gate-first.</p></div>
+  <div class="card"><h4>Judgment ≠ mechanics</h4><p>Swap the planner (mock ⇄ live) with zero engine
+    change; the CI net stays deterministic.</p></div>
+</div>
+
+<footer>
+  Investigation Workbench — internal design reference. Engine: typed registry (43 nodes / 36 edges),
+  fold-monopoly, journal-as-truth, Popperian ledger, 9 mockable capabilities. Reasoning proven live
+  on xAI grok-4.5. · Companion docs: <a href="02-incident-use-cases.html" style="color:var(--accent)">Incident
+  Use Cases</a> · <a href="03-capability-integration.html" style="color:var(--accent)">Capability Integration</a>.
+</footer>
+</div>
+</body>
+</html>

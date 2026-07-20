@@ -1,0 +1,211 @@
+import { describe, expect, it } from "vitest";
+import type { SessionEvent, Snapshot } from "../types";
+import {
+  activePhase,
+  emptyState,
+  ledgerList,
+  nodesInOrder,
+  nodesWithOrder,
+  reduce,
+  relatedIncidents,
+} from "./store";
+
+const events: SessionEvent[] = [
+  { seq: 1, ts: "t", type: "phase_started", phase: "frame" },
+  { seq: 2, ts: "t", type: "reasoning", phase: "frame", narrative: "5xx spiked after deploy" },
+  {
+    seq: 3,
+    ts: "t",
+    type: "capability_call",
+    intent: "active_alerts",
+    provider: "prometheus",
+    effect: "read",
+    op_count: 4,
+    blocked: false,
+    reason: null,
+  },
+  {
+    seq: 4,
+    ts: "t",
+    type: "graph_delta",
+    nodes: [
+      { id: "service:pay", type: "service", created_by: 1 },
+      { id: "anomaly:a1", type: "anomaly", created_by: 1 },
+    ],
+    edges: [],
+    facts: [],
+    events: [],
+  },
+  { seq: 5, ts: "t", type: "session_state", state: "running", phase: "triage" },
+];
+
+describe("store reducer — the live event fold", () => {
+  it("builds a chat turn per phase with reasoning + tool-call cards", () => {
+    const s = reduce(emptyState(), { kind: "events", events });
+    expect(s.turns).toHaveLength(1);
+    expect(s.turns[0].phase).toBe("frame");
+    expect(s.turns[0].reasoning).toMatch(/5xx spiked/);
+    expect(s.turns[0].calls).toHaveLength(1);
+    expect(s.turns[0].calls[0].intent).toBe("active_alerts");
+    expect(activePhase(s)).toBe("frame");
+    expect(s.lastSeq).toBe(5);
+  });
+
+  it("materialises graph nodes carrying their created_by badge, in creation order", () => {
+    const s = reduce(emptyState(), { kind: "events", events });
+    const ordered = nodesInOrder(s);
+    expect(ordered).toHaveLength(2);
+    expect(ordered.every((n) => n.created_by === 1)).toBe(true);
+    expect(s.nodes["anomaly:a1"].type).toBe("anomaly");
+  });
+
+  it("is idempotent — a re-delivered seq is never applied twice", () => {
+    const once = reduce(emptyState(), { kind: "events", events });
+    const twice = reduce(once, { kind: "events", events });
+    expect(twice.turns).toHaveLength(1);
+    expect(nodesInOrder(twice)).toHaveLength(2);
+    expect(twice.turns[0].calls).toHaveLength(1);
+  });
+
+  it("opens a write-gate and records the operator decision", () => {
+    let s = reduce(emptyState(), { kind: "events", events });
+    s = reduce(s, {
+      kind: "events",
+      events: [
+        { seq: 6, ts: "t", type: "phase_started", phase: "remediate" },
+        {
+          seq: 7,
+          ts: "t",
+          type: "gate_opened",
+          gate_id: "g1",
+          phase: "remediate",
+          reasoning: "roll back",
+          actions: [{ intent: "apply_remediation", params: {}, provider: "remediation", effect: "write", summary: "rollback" }],
+          hypothesis: { id: "hyp:h1", statement: "deploy broke it", status: "supported", confidence: 0.9, root_candidate: "code_commit:abc" },
+          evidence: [],
+        },
+        { seq: 8, ts: "t", type: "session_state", state: "suspended", phase: "remediate" },
+      ],
+    });
+    expect(s.state).toBe("suspended");
+    expect(s.gate?.gate_id).toBe("g1");
+    expect(s.turns.at(-1)?.gateId).toBe("g1");
+    expect(s.gates["g1"].hypothesis?.statement).toBe("deploy broke it");
+
+    const decided = reduce(s, { kind: "decision", gateId: "g1", decision: "approve" });
+    expect(decided.gate).toBeNull();
+    expect(decided.decisions["g1"].decision).toBe("approve");
+  });
+
+  it("badges nodes with a DENSE creation order (symptom #1) — not the raw phase seq", () => {
+    // two nodes born in phase 1 (created_by 1) + one in phase 2 (created_by 2): the badges must
+    // be a dense 1,2,3 in creation order, with the anomaly (symptom) sorted first — NOT 1,1,2.
+    const evs: SessionEvent[] = [
+      { seq: 1, ts: "t", type: "phase_started", phase: "frame" },
+      {
+        seq: 2,
+        ts: "t",
+        type: "graph_delta",
+        nodes: [
+          { id: "service:pay", type: "service", created_by: 1 },
+          { id: "anomaly:a1", type: "anomaly", created_by: 1 },
+        ],
+        edges: [],
+        facts: [{ id: "f1", subject: "service:pay", predicate: "red_errors", value: 0.4 }],
+        events: [],
+      },
+      { seq: 3, ts: "t", type: "phase_started", phase: "triage" },
+      {
+        seq: 4,
+        ts: "t",
+        type: "graph_delta",
+        nodes: [{ id: "incident:inc-1", type: "incident", created_by: 2 }],
+        edges: [],
+        facts: [],
+        events: [],
+      },
+    ];
+    const s = reduce(emptyState(), { kind: "events", events: evs });
+    const ordered = nodesWithOrder(s);
+    expect(ordered.map((n) => n.order)).toEqual([1, 2, 3]);
+    expect(new Set(ordered.map((n) => n.order)).size).toBe(3); // dense + unique
+    expect(ordered[0].type).toBe("anomaly"); // the entry-point symptom is #1
+    // and the per-phase observations captured the fact the frame phase gathered
+    const frame = s.turns.find((t) => t.phase === "frame");
+    expect(frame?.obs.factIds).toContain("f1");
+    expect(frame?.obs.nodeIds).toHaveLength(2);
+  });
+
+  it("surfaces SIMILAR_TO-linked related incidents, and records WHO approved the gate", () => {
+    const snapshot = {
+      session_id: "app-incident:INC-1",
+      subject: { domain: "app-incident", id: "INC-1", kind: "incident" },
+      state: "running",
+      outcome: "open",
+      phases: ["frame"],
+      graph: { nodes: [], edges: [], facts: [], events: [] },
+      ledger: [],
+      journal: [],
+      postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: null,
+      messages: [],
+      events: [
+        { seq: 1, ts: "t", type: "phase_started", phase: "hypothesize" },
+        {
+          seq: 2,
+          ts: "t",
+          type: "graph_delta",
+          nodes: [
+            { id: "incident:inc-1", type: "incident", created_by: 1 },
+            { id: "incident:inc-2", type: "incident", created_by: 1 },
+          ],
+          edges: [{ id: "e1", type: "similar_to", src: "incident:inc-1", dst: "incident:inc-2", origin: "inferred" }],
+          facts: [],
+          events: [],
+        },
+      ],
+    } as unknown as Snapshot;
+
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    const related = relatedIncidents(s);
+    expect(related).toHaveLength(1);
+    expect(related[0].node.id).toBe("incident:inc-2"); // the prior, not the primary
+    expect(related[0].relation).toBe("similar_to");
+
+    const decided = reduce(s, {
+      kind: "events",
+      events: [
+        { seq: 3, ts: "t", type: "phase_started", phase: "remediate" },
+        { seq: 4, ts: "t", type: "gate_opened", gate_id: "g1", phase: "remediate", reasoning: "roll back", actions: [], hypothesis: null, evidence: [] },
+        { seq: 5, ts: "t", type: "gate_decision", gate_id: "g1", decision: "approve", actor: "alice@oncall", source: "human", reason: "", phase: "remediate" },
+      ],
+    });
+    expect(decided.decisions["g1"].decision).toBe("approve");
+    expect(decided.decisions["g1"].actor).toBe("alice@oncall");
+    expect(decided.decisions["g1"].source).toBe("human");
+  });
+
+  it("seeds full detail from a snapshot then replays its events for badges + chat", () => {
+    const snapshot = {
+      session_id: "app-incident:INC-1",
+      subject: { domain: "app-incident", id: "INC-1", kind: "incident" },
+      state: "suspended",
+      outcome: "open",
+      phases: ["frame"],
+      graph: { nodes: [{ id: "service:pay", type: "service", props: { service_name: "pay" } }], edges: [], facts: [], events: [] },
+      ledger: [{ id: "hyp:h1", statement: "deploy broke it", status: "supported", confidence: 0.9, basis: "b", root_candidate: null, supporting: [], refuting: [], chain: [] }],
+      journal: [],
+      postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: null,
+      messages: [],
+      events,
+    } as unknown as Snapshot;
+
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    // props from the bundle, created_by from the replayed event stream
+    expect(s.nodes["service:pay"].props.service_name).toBe("pay");
+    expect(s.nodes["service:pay"].created_by).toBe(1);
+    expect(ledgerList(s)).toHaveLength(1);
+    expect(s.turns).toHaveLength(1);
+  });
+});

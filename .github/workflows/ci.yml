@@ -1,34 +1,36 @@
-name: CI
+name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
-  test:
-    name: lint + tests
+  engine:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          enable-cache: true
+      - run: pip install -e ".[dev]"
+      - run: pytest -q          # unit + end-to-end scenarios (fully mocked, no creds/network)
+      - run: ruff check
 
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Lint (ruff)
-        run: uv run ruff check
-
-      - name: Format check (ruff)
-        run: uv run ruff format --check
-
-      - name: Tests (pytest)
-        # The suite is fully self-contained — no LLM, no network, no external
-        # services. MCP servers are spawned as stdio subprocesses by the tests.
-        run: uv run pytest -q
+  workbench:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workbench
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run build       # tsc --noEmit && vite build
+      - run: npm test

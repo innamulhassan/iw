@@ -1,0 +1,799 @@
+{
+  "graph": {
+    "edges": [
+      {
+        "confidence": null,
+        "dst": "service:checkout-api|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:alt-1->service:checkout-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:alt-1",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:checkout-api|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-1",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "database:checkout-db",
+        "established": null,
+        "id": "edge:depends_on:service:checkout-api|prod->database:checkout-db:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:checkout-api|prod",
+        "state": "active",
+        "type": "depends_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:checkout-api|prod",
+        "established": null,
+        "id": "edge:affects:incident:inc-9001->service:checkout-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "incident:inc-9001",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "database:checkout-db",
+        "established": null,
+        "id": "edge:caused_by:hyp:h1->database:checkout-db:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "hyp:h1",
+        "state": "active",
+        "type": "caused_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.3,
+        "dst": "hyp:h2",
+        "established": null,
+        "id": "edge:refutes:service:checkout-api|prod->hyp:h2:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "service:checkout-api|prod",
+        "state": "active",
+        "type": "refutes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:database:checkout-db->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "database:checkout-db",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      }
+    ],
+    "events": [
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "entity": "alert:alt-1",
+        "id": "evt:3261a06b2331ebb7",
+        "invalidated_by": null,
+        "payload": {
+          "state": "firing"
+        },
+        "source": "prometheus",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "entity": "service:checkout-api|prod",
+        "id": "evt:de7a9c47c46a22a9",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T09:08:00+00:00",
+        "entity": "incident:inc-9001",
+        "id": "evt:2b5378a9eb965dd7",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T09:08:00+00:00",
+        "entity": "database:checkout-db",
+        "id": "evt:2c70d6efefee8a5d",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "connection_storm"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "service:checkout-api|prod",
+        "id": "evt:649b56663feb5826",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "anomaly:anom-1",
+        "id": "evt:f192cf482494009a",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "cleared"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "incident:inc-9001",
+        "id": "evt:9c50e7121493a939",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "servicenow",
+        "state": "active",
+        "type": "mitigated"
+      }
+    ],
+    "facts": [
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:66d3c10edb398567",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "red_rate",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:checkout-api|prod",
+        "unit": "x_baseline",
+        "valid_to": "2026-07-19T09:20:00+00:00",
+        "value": 3.4,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:86af820ab4daa9c3",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 6800,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:419f605bdf3417fe",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "onset_value",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": null,
+        "valid_to": null,
+        "value": 6800,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:8ee29e8fa037ce1f",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "severity_score",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": null,
+        "valid_to": null,
+        "value": 2,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:8e5bdc91aebce7d2",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T09:45:00+00:00",
+        "value": true,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:092e63989deb01d7",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "red_errors",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.08,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:dfe59811ec90764e",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "red_latency_p50",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 780,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:9f5f57f61595005c",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "id": "fact:6ca00899491f2f63",
+        "observed_at": "2026-07-19T09:00:00+00:00",
+        "predicate": "slo_target",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 500,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:08:00+00:00",
+        "id": "fact:c84640160ee599e9",
+        "observed_at": "2026-07-19T09:08:00+00:00",
+        "predicate": "conn_pool_util",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "database:checkout-db",
+        "unit": null,
+        "valid_to": "2026-07-19T09:20:00+00:00",
+        "value": 0.86,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:8b676678d1d87f14",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "conn_pool_util",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "database:checkout-db",
+        "unit": null,
+        "valid_to": "2026-07-19T09:45:00+00:00",
+        "value": 0.97,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:d2d2e598d24e0440",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "active_connections",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:checkout-db",
+        "unit": "conn",
+        "valid_to": null,
+        "value": 194,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:d7639becab5e1d32",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "max_connections",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:checkout-db",
+        "unit": "conn",
+        "valid_to": null,
+        "value": 200,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:bb152e784d8e4796",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "slow_query_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:checkout-db",
+        "unit": "per_min",
+        "valid_to": null,
+        "value": 88,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:a6d1645ae16add84",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "red_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": "x_baseline",
+        "valid_to": null,
+        "value": 4.1,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:ba27f114089e1f33",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "no_evidence:find_recent_changes",
+        "source": "engine",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": {
+          "basis": "ServiceNow change log re-checked at the DB boundary \u2014 still clean, no deploy/config change in the incident window",
+          "scope": "service:checkout-api|prod"
+        },
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "id": "fact:af72609609b2e04b",
+        "observed_at": "2026-07-19T09:45:00+00:00",
+        "predicate": "conn_pool_util",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "database:checkout-db",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.52,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "id": "fact:5ba20fc0925286a4",
+        "observed_at": "2026-07-19T09:45:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": false,
+        "where": null
+      }
+    ],
+    "nodes": [
+      {
+        "first_seen": "2026-07-19T09:00:00+00:00",
+        "first_source": "prometheus",
+        "id": "service:checkout-api|prod",
+        "last_seen": "2026-07-19T09:45:00+00:00",
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "service_name": "checkout-api"
+        },
+        "source": "prometheus",
+        "type": "service"
+      },
+      {
+        "first_seen": "2026-07-19T09:00:00+00:00",
+        "first_source": "prometheus",
+        "id": "alert:alt-1",
+        "last_seen": "2026-07-19T09:00:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "ALT-1",
+          "rule": "HighConnPoolUtilization"
+        },
+        "source": "prometheus",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-19T09:00:00+00:00",
+        "first_source": "prometheus",
+        "id": "anomaly:anom-1",
+        "last_seen": "2026-07-19T09:45:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-1"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
+      },
+      {
+        "first_seen": "2026-07-19T09:08:00+00:00",
+        "first_source": "prometheus",
+        "id": "database:checkout-db",
+        "last_seen": "2026-07-19T09:45:00+00:00",
+        "origin": false,
+        "props": {
+          "db_id": "checkout-db",
+          "engine": "postgres"
+        },
+        "source": "prometheus",
+        "type": "database"
+      },
+      {
+        "first_seen": "2026-07-19T09:08:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-9001",
+        "last_seen": "2026-07-19T09:45:00+00:00",
+        "origin": true,
+        "props": {
+          "incident_id": "INC-9001"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h1",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "Organic traffic surge saturated checkout-db's connection pool (USE-saturation, no code/deploy change)"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h2",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "An unreported deploy or config change to checkout-api caused the regression"
+        },
+        "source": null,
+        "type": "hypothesis"
+      }
+    ]
+  },
+  "journal": [
+    {
+      "actor": "engine",
+      "narrative": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service.",
+      "phase": "frame",
+      "refs": {
+        "edges": [
+          "edge:fired_on:alert:alt-1->service:checkout-api|prod:discovered",
+          "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered"
+        ],
+        "events": [
+          "evt:3261a06b2331ebb7",
+          "evt:de7a9c47c46a22a9"
+        ],
+        "facts": [
+          "fact:66d3c10edb398567",
+          "fact:86af820ab4daa9c3",
+          "fact:419f605bdf3417fe",
+          "fact:8ee29e8fa037ce1f",
+          "fact:8e5bdc91aebce7d2",
+          "fact:092e63989deb01d7",
+          "fact:dfe59811ec90764e",
+          "fact:9f5f57f61595005c",
+          "fact:6ca00899491f2f63"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "service:checkout-api|prod",
+          "alert:alt-1",
+          "service:checkout-api|prod",
+          "anomaly:anom-1"
+        ]
+      },
+      "seq": 1
+    },
+    {
+      "actor": "engine",
+      "narrative": "Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
+      "phase": "triage",
+      "refs": {
+        "edges": [
+          "edge:depends_on:service:checkout-api|prod->database:checkout-db:discovered",
+          "edge:affects:incident:inc-9001->service:checkout-api|prod:discovered"
+        ],
+        "events": [
+          "evt:2b5378a9eb965dd7",
+          "evt:2c70d6efefee8a5d"
+        ],
+        "facts": [
+          "fact:c84640160ee599e9"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "service:checkout-api|prod",
+          "database:checkout-db",
+          "incident:inc-9001"
+        ]
+      },
+      "seq": 2
+    },
+    {
+      "actor": "engine",
+      "narrative": "ServiceNow's change log for the incident window is EMPTY \u2014 change-first comes up dry. Falling back to the onset-correlated saturation signal: H1 (the pool) leads on the USE trend; H2 (a change nobody logged) stays alive as the rival until we can rule it out.",
+      "phase": "hypothesize",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1",
+          "hyp:h2"
+        ],
+        "nodes": [
+          "hyp:h1",
+          "hyp:h2"
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "actor": "engine",
+      "narrative": "Ruled out the phantom change (clean change log). Pool util at 97% tracks the onset exactly, and checkout-db is the only dependency in play.",
+      "phase": "investigate",
+      "refs": {
+        "edges": [
+          "edge:caused_by:hyp:h1->database:checkout-db:inferred"
+        ],
+        "events": [],
+        "facts": [
+          "fact:8b676678d1d87f14",
+          "fact:d2d2e598d24e0440",
+          "fact:d7639becab5e1d32",
+          "fact:bb152e784d8e4796",
+          "fact:a6d1645ae16add84",
+          "fact:ba27f114089e1f33"
+        ],
+        "hypotheses": [
+          "hyp:h2",
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 4
+    },
+    {
+      "actor": "engine",
+      "narrative": "No change to roll back, so the safest reversible action is capacity: scale the pool and add a read replica. Awaiting approval (gated).",
+      "phase": "remediate",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 5
+    },
+    {
+      "actor": "engine",
+      "narrative": "Post-scale-up: pool util back to 52%, symptom cleared. The saturation trend still only correlates with the onset \u2014 there is no revert experiment to run for an organic surge, so the hypothesis stays 'supported', not confirmed.",
+      "phase": "verify",
+      "refs": {
+        "edges": [],
+        "events": [
+          "evt:649b56663feb5826",
+          "evt:f192cf482494009a",
+          "evt:9c50e7121493a939"
+        ],
+        "facts": [
+          "fact:af72609609b2e04b",
+          "fact:5ba20fc0925286a4"
+        ],
+        "hypotheses": [],
+        "nodes": []
+      },
+      "seq": 6
+    },
+    {
+      "actor": "engine",
+      "narrative": "Postmortem: checkout-api degraded under an organic 3.4x traffic surge that saturated checkout-db's connection pool. No change or deploy was found in the window (ruled out). Scaling the pool resolved the symptom; root cause is the leading, evidence-supported but unconfirmed hypothesis \u2014 closed MITIGATED.",
+      "phase": "close",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [],
+        "nodes": []
+      },
+      "seq": 7
+    }
+  ],
+  "ledger": [
+    {
+      "basis": "mitigation: scale checkout-db's connection pool and add read capacity \u2014 a reversible capacity fix, not a revert (there's no change to revert)",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "database:checkout-db",
+      "statement": "Organic traffic surge saturated checkout-db's connection pool (USE-saturation, no code/deploy change)",
+      "status": "supported",
+      "supporting": [
+        "fact:8b676678d1d87f14"
+      ]
+    },
+    {
+      "basis": "An unreported deploy or config change to checkout-api caused the regression",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:ba27f114089e1f33"
+      ],
+      "root_candidate": null,
+      "statement": "An unreported deploy or config change to checkout-api caused the regression",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
+  "outcome": "mitigated",
+  "phases": [
+    "frame",
+    "triage",
+    "hypothesize",
+    "investigate",
+    "remediate",
+    "verify",
+    "close"
+  ],
+  "postmortem": {
+    "contributing": [
+      {
+        "confidence": 0.9,
+        "statement": "Organic traffic surge saturated checkout-db's connection pool (USE-saturation, no code/deploy change)"
+      }
+    ],
+    "narrative": [
+      {
+        "phase": "frame",
+        "seq": 1,
+        "text": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service."
+      },
+      {
+        "phase": "triage",
+        "seq": 2,
+        "text": "Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate."
+      },
+      {
+        "phase": "hypothesize",
+        "seq": 3,
+        "text": "ServiceNow's change log for the incident window is EMPTY \u2014 change-first comes up dry. Falling back to the onset-correlated saturation signal: H1 (the pool) leads on the USE trend; H2 (a change nobody logged) stays alive as the rival until we can rule it out."
+      },
+      {
+        "phase": "investigate",
+        "seq": 4,
+        "text": "Ruled out the phantom change (clean change log). Pool util at 97% tracks the onset exactly, and checkout-db is the only dependency in play."
+      },
+      {
+        "phase": "remediate",
+        "seq": 5,
+        "text": "No change to roll back, so the safest reversible action is capacity: scale the pool and add a read replica. Awaiting approval (gated)."
+      },
+      {
+        "phase": "verify",
+        "seq": 6,
+        "text": "Post-scale-up: pool util back to 52%, symptom cleared. The saturation trend still only correlates with the onset \u2014 there is no revert experiment to run for an organic surge, so the hypothesis stays 'supported', not confirmed."
+      },
+      {
+        "phase": "close",
+        "seq": 7,
+        "text": "Postmortem: checkout-api degraded under an organic 3.4x traffic surge that saturated checkout-db's connection pool. No change or deploy was found in the window (ruled out). Scaling the pool resolved the symptom; root cause is the leading, evidence-supported but unconfirmed hypothesis \u2014 closed MITIGATED."
+      }
+    ],
+    "outcome": "mitigated",
+    "root_cause": null,
+    "ruled_out": [
+      {
+        "basis": "An unreported deploy or config change to checkout-api caused the regression",
+        "statement": "An unreported deploy or config change to checkout-api caused the regression"
+      }
+    ],
+    "subject": {
+      "domain": "app-incident",
+      "id": "INC-9001",
+      "kind": "incident"
+    },
+    "timeline": [
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "entity": "alert:alt-1",
+        "payload": {
+          "state": "firing"
+        },
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "entity": "service:checkout-api|prod",
+        "payload": {},
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T09:08:00+00:00",
+        "entity": "incident:inc-9001",
+        "payload": {},
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T09:08:00+00:00",
+        "entity": "database:checkout-db",
+        "payload": {},
+        "type": "connection_storm"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "service:checkout-api|prod",
+        "payload": {},
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "anomaly:anom-1",
+        "payload": {},
+        "type": "cleared"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "incident:inc-9001",
+        "payload": {},
+        "type": "mitigated"
+      }
+    ]
+  },
+  "subject": {
+    "domain": "app-incident",
+    "id": "INC-9001",
+    "kind": "incident"
+  }
+}

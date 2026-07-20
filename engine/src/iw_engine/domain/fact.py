@@ -1,0 +1,82 @@
+"""Fact — a reified, bi-temporal, sourced observation about a node or edge.
+
+The single most important modelling ruling (DESIGN §2.1 R-G5): a Fact is what was
+TRUE OF a thing OVER A WINDOW, not a mutable property stamped on it. Facts are never
+mutated — a newer value SUPERSEDES (closing valid_to); a wrong observation is RETRACTED.
+This is what makes "reconstruct the graph as of incident-start" answerable.
+
+Bi-temporal: `valid_from/valid_to` = real-world truth window; `observed_at` = when we
+learned it (transaction time). `valid_to=None` means "still true" (open interval).
+"""
+from __future__ import annotations
+
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from .common import Confidence, EvidenceRef
+from .enums import FactState, Source
+
+# a fact value is one of a small typed set; `unit` qualifies numbers
+FactValue = bool | int | float | str | dict | None
+
+
+class Fact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    subject_ref: str                       # NodeId or EdgeId this fact is about (WHAT/WHERE-entity)
+    predicate: str                         # registry-controlled per node type (reducer-validated)
+    value: FactValue = None
+    unit: str | None = None
+    where: str | None = None               # optional spatial/context W: segment / AZ / region / node
+                                           # (the other W's already live here: source=WHO, subject=WHAT,
+                                           # valid_from/observed_at=WHEN, evidence=WHY/proof)
+
+    # bi-temporal
+    valid_from: datetime
+    valid_to: datetime | None = None       # None = still true
+    observed_at: datetime
+
+    source: Source
+    # exactly one belief channel is meaningful per fact (R-C4):
+    confidence: Confidence | None = None          # for INFERRED facts
+    source_reliability: float | None = Field(default=None, ge=0.0, le=1.0)  # for MEASURED facts
+
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+    supersedes: str | None = None          # FactId this replaces (never mutate — supersede)
+    state: FactState = FactState.ACTIVE
+    created_by: int                        # journal seq — lineage
+
+    @model_validator(mode="after")
+    def _window_ok(self) -> Fact:
+        if self.valid_to is not None and self.valid_to < self.valid_from:
+            raise ValueError(f"fact {self.id}: valid_to < valid_from")
+        return self
+
+    @model_validator(mode="after")
+    def _belief_channel(self) -> Fact:
+        """Enforce R-C4 (VALIDATION-VERDICT §B P0 #3): exactly one belief channel is meaningful,
+        and WHICH one is fixed by provenance — an INFERRED fact (source=llm, the model reasoned
+        it into being) carries a `confidence`; a directly-MEASURED fact (any tool/engine/human
+        observation) carries `source_reliability`. Neither-nor-both was prose-only before; this
+        makes it a hard invariant so a naked inferred fact can't defeat the discipline."""
+        if self.source == Source.LLM:
+            if self.confidence is None:
+                raise ValueError(f"fact {self.id}: inferred (source=llm) fact must carry a confidence")
+            if self.source_reliability is not None:
+                raise ValueError(
+                    f"fact {self.id}: inferred fact carries confidence, not source_reliability")
+        else:
+            if self.source_reliability is None:
+                raise ValueError(
+                    f"fact {self.id}: measured (source={self.source.value}) fact must carry "
+                    "source_reliability")
+            if self.confidence is not None:
+                raise ValueError(
+                    f"fact {self.id}: measured fact carries source_reliability, not a confidence")
+        return self
+
+    @property
+    def is_open(self) -> bool:
+        return self.valid_to is None and self.state == FactState.ACTIVE
