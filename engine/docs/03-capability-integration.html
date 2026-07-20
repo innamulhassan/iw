@@ -125,7 +125,42 @@ property of the adapter — so a tool can move between styles without any other 
     live on that system, not here.</p></div>
 </div>
 
-<h2 id="registry"><span class="n">03</span>What the engine connects to</h2>
+<h2 id="identity"><span class="n">03</span>Identity resolution — one CI, many tool identities</h2>
+<p class="lead">A tool is only useful if you query it with the identifier <em>it</em> understands. The
+same service is "orders-api" in the incident, an app-id in APM, a repo in source control, a workload
+on the platform. iw makes that explicit and self-describing — so each tool is queried by its own id,
+never by reusing the display name.</p>
+
+<div class="plain"><p style="margin:0"><b>The idea.</b> The incident names a <b>CI</b>. From it, iw
+resolves the CI's <em>per-tool identifiers</em>, and each capability <b>declares which id it needs</b>.
+So the reasoner queries APM by <code>app_id</code>, source control by <code>repo</code>, the platform
+by <code>k8s_workload</code> — the realistic chain "get the app-id from the incident, then query APM
+with it."</p></div>
+
+<table>
+  <tr><th>Capability</th><th>Queries by</th><th>The id it needs</th></tr>
+  <tr><td>APM (topology / traces)</td><td><code>app_id</code></td><td>the application's APM id</td></tr>
+  <tr><td>Source control · build/artifacts</td><td><code>repo</code></td><td>the repository</td></tr>
+  <tr><td>Deployment platform</td><td><code>k8s_workload</code></td><td>the namespace/workload</td></tr>
+  <tr><td>Metrics · logs · topology</td><td><code>service_name</code></td><td>the service name/labels</td></tr>
+  <tr><td>ITSM · event correlation</td><td><code>incident_id</code></td><td>the incident record</td></tr>
+</table>
+
+<p>Two things make this composable:</p>
+<ul style="margin:8px 0;padding-left:22px;font-size:14.5px">
+  <li><b>Each capability is self-describing.</b> It carries a small <code>meta</code> — a one-line
+  purpose and a <code>queries_by</code> field naming the id it needs. The tool catalogue the reasoner
+  sees is rendered <em>from</em> this, so nothing tool-specific is hardcoded; adding a capability makes
+  the reasoner aware of it automatically.</li>
+  <li><b>The CI is the identity backbone.</b> The service the incident affects carries
+  <code>app_id · sys_id · repo · k8s_workload</code>, resolved off the incident record. The reasoner
+  reads a capability's <code>queries_by</code>, picks that id off the CI, and passes it.</li>
+</ul>
+<div class="callout"><b>Proven live.</b> Given only this metadata, the model queried APM with the
+resolved <code>app_id</code> and source control with the <code>repo</code> — each tool by its own id,
+with nothing about a specific tool written into the engine or the prompt.</div>
+
+<h2 id="registry"><span class="n">04</span>What the engine connects to</h2>
 <p class="lead">The capabilities group into a few purposes. Eight are read-only sources of evidence;
 one is a human-gated action channel.</p>
 <table>
@@ -142,7 +177,7 @@ one is a human-gated action channel.</p>
   <tr><td>Remediation action</td><td>Automation / runbook</td><td><span class="b a2a">A2A</span></td><td><b>the one write</b> — a proposed, reversible fix, executed only after approval</td></tr>
 </table>
 
-<h2 id="request"><span class="n">04</span>What to request from each team</h2>
+<h2 id="request"><span class="n">05</span>What to request from each team</h2>
 <p class="lead">To connect a real system, ask its owning team for read access plus the small mapping
 the adapter needs. Below is the checklist per capability.</p>
 
@@ -249,7 +284,7 @@ the adapter needs. Below is the checklist per capability.</p>
   human own the consequence. It never enters credentials or performs a destructive action on its own.</div>
 </div>
 
-<h2 id="migration"><span class="n">05</span>Going from simulator to real — one at a time</h2>
+<h2 id="migration"><span class="n">06</span>Going from simulator to real — one at a time</h2>
 <p class="lead">Because each adapter is isolated behind the same seam, you connect real systems
 <b>independently</b>. One capability can go live while the rest stay simulated — nothing else is
 affected.</p>
