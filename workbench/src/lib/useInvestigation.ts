@@ -230,6 +230,10 @@ export function useInvestigation() {
       const res = await advance(id);
       dispatch({ kind: "events", events: res.events });
       await reconcile(id);
+    } catch (err) {
+      // surface a failed advance (backend 4xx/5xx/unreachable) like every other action —
+      // otherwise the spinner just stops and the run looks stalled with no feedback
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }

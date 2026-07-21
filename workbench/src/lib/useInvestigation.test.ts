@@ -229,3 +229,37 @@ describe("useInvestigation — SSE reconnect (review finding 3)", () => {
     expect(last()).toBe(fresh);
   });
 });
+
+describe("useInvestigation — step() error surfacing (review finding 19)", () => {
+  it("a failed advance surfaces a visible error and still clears busy", async () => {
+    advanceResponse = {
+      ok: false,
+      status: 502,
+      statusText: "bad gateway",
+      json: async () => ({ detail: "backend restarting" }),
+    };
+    const { result } = await openHook();
+    await act(async () => {
+      await result.current.step();
+    });
+    expect(result.current.error).toBe("502 backend restarting"); // visible, not console-only
+    expect(result.current.busy).toBe(false);
+  });
+
+  it("a successful advance folds the returned events", async () => {
+    advanceResponse = {
+      ok: true,
+      json: async () => ({
+        events: [{ seq: 9, ts: "t", type: "phase_started", phase: "triage" }],
+        state: "running",
+      }),
+    };
+    const { result } = await openHook();
+    await act(async () => {
+      await result.current.step();
+    });
+    expect(result.current.state.lastSeq).toBe(9);
+    expect(result.current.error).toBeNull();
+    expect(result.current.busy).toBe(false);
+  });
+});
