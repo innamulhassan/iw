@@ -201,11 +201,19 @@ def install_backend(force: bool = False) -> bool:
     subprocess.run([py_launcher, "-m", "venv", str(venv)], check=True)
     _ok("venv created")
 
+    # pip env: force installs INTO the venv. On Windows a global pip.ini with
+    # `user = true` (common with some Python installers / Microsoft Store Python)
+    # makes pip try --user, which is rejected inside a venv with
+    # "cannot perform a --user install". PIP_USER=0 overrides any such config.
+    pip_env = os.environ.copy()
+    pip_env["PIP_USER"] = "0"
+    pip_env["PIP_NO_INPUT"] = "1"
+
     _banner("installing backend deps (pyproject.toml with [server,dev] extras)")
     cmd = [str(py), "-m", "pip", "install", "--upgrade", "pip"]
-    subprocess.run(cmd, cwd=ENGINE, check=True)
-    cmd = [str(py), "-m", "pip", "install", "-e", ".[server,dev]"]
-    subprocess.run(cmd, cwd=ENGINE, check=True)
+    subprocess.run(cmd, cwd=ENGINE, check=True, env=pip_env)
+    cmd = [str(py), "-m", "pip", "install", "--no-user", "-e", ".[server,dev]"]
+    subprocess.run(cmd, cwd=ENGINE, check=True, env=pip_env)
     _ok("backend deps installed")
     return True
 
