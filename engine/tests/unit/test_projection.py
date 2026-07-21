@@ -205,10 +205,34 @@ def test_ledger_promotion_gate():
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.9))], seq=1)
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h2", 0.3))], seq=2)
     from iw_engine.domain.playbook import Tunables
-    assert led.promotion_ok(Tunables(confidence_gate=0.8, delta=0.15)) is True
-    # a strong rival blocks promotion
+    tun = Tunables(confidence_gate=0.8, delta=0.15)
+    # ANY alive rival blocks — even a weak one must be refuted, not out-scored
+    # (2026-07-22 review, finding 2: the old >=gate filter let sub-gate rivals slip by)
+    assert led.promotion_ok(tun) is False
+    # a strong rival blocks promotion too
     led.apply([HypDelta(action=HypAction.RERANK, hypothesis_id="hyp:h2",
                         confidence=Confidence(value=0.85, basis="rival evidence"))], seq=3)
+    assert led.promotion_ok(tun) is False
+    # only REFUTING the rival clears the field and unblocks promotion
+    led.apply([HypDelta(action=HypAction.REFUTE, hypothesis_id="hyp:h2")], seq=4)
+    assert led.promotion_ok(tun) is True
+
+
+def test_ledger_promotion_blocked_by_equal_rivals():
+    """Review scenario: two 0.9 rivals — margin 0 < delta AND a live rival — must not promote."""
+    led = Ledger()
+    led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.9))], seq=1)
+    led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h2", 0.9))], seq=2)
+    from iw_engine.domain.playbook import Tunables
+    assert led.promotion_ok(Tunables(confidence_gate=0.8, delta=0.15)) is False
+
+
+def test_ledger_promotion_blocked_by_sub_gate_rival():
+    """Review scenario: an unrefuted 0.75 rival under a 0.8 gate must block promotion."""
+    led = Ledger()
+    led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.9))], seq=1)
+    led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h2", 0.75))], seq=2)
+    from iw_engine.domain.playbook import Tunables
     assert led.promotion_ok(Tunables(confidence_gate=0.8, delta=0.15)) is False
 
 

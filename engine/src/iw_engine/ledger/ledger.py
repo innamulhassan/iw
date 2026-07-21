@@ -74,14 +74,19 @@ class Ledger:
         return None
 
     def promotion_ok(self, tunables: Tunables) -> bool:
-        """Leading crosses the gate, beats the runner-up by delta, no unrefuted rival above gate."""
+        """Leading crosses the gate, beats the runner-up by delta, no unrefuted rival.
+
+        EVERY alive competitor counts as a rival, at ANY band — Popperian confirmation
+        (R-C4/INV-8) demands rivals be REFUTED, not merely out-scored, so an unrefuted
+        0.75 rival under a 0.8 gate still blocks promotion (2026-07-22 review, finding 2).
+        """
         alive = self.alive()
         if not alive:
             return False
         lead = alive[0]
         if lead.confidence.value < tunables.confidence_gate:
             return False
-        rivals = [h for h in alive[1:] if h.confidence.value >= tunables.confidence_gate]
+        rivals = alive[1:]   # ALL alive unrefuted rivals block — no band filter
         if rivals:
             return False
         runner = alive[1].confidence.value if len(alive) > 1 else 0.0

@@ -28,12 +28,14 @@ def check_gate(spec: PhaseSpec, result: PhaseResult, ledger: Ledger,
     if fail is None and len(result.facts_added) < spec.gate.min_facts:
         fail = f"min_facts {spec.gate.min_facts} not met"
     if fail is None and spec.gate.require_confidence_gate:
-        lead = ledger.leading()
-        # a hypothesis the reasoner marked CONFIRMED clears the gate even at a MED band —
-        # conviction is signalled by status, the band is only the fallback (validation fix A1).
-        confirmed = lead is not None and lead.status == HypothesisStatus.CONFIRMED
-        if lead is None or (not confirmed and lead.confidence.value < tunables.confidence_gate):
-            fail = "confidence gate not met"
+        # INV-8: promotion is the ENGINE's decision, never the LLM's. promotion_ok requires
+        # the leader to cross the confidence gate, beat the field by delta, and have NO
+        # alive unrefuted rival — an LLM-set CONFIRMED status grants no bypass (the old
+        # status short-circuit let a rival-contested or below-gate hypothesis clear the
+        # gate; 2026-07-22 review, finding 2).
+        if not ledger.promotion_ok(tunables):
+            fail = ("confidence gate not met (lead below gate, margin < delta, "
+                    "or an unrefuted rival is still alive)")
     if fail is None and spec.gate.require_refutation:
         # genuine differential investigation: a rival was ruled out, or the leader was challenged
         refuted_rival = any(h.status == HypothesisStatus.REFUTED for h in ledger.hypotheses.values())
