@@ -757,6 +757,178 @@ def infra() -> tuple[SubjectRef, dict, str]:
     return subject, fx, "batch_job:etl-nightly|sched-3"
 
 
+def cache() -> tuple[SubjectRef, dict, str]:
+    """product-api latency after a cache-client deploy (INC-5500). Golden root = the CODE_COMMIT
+    that disabled singleflight (9f8e7d6). The cache tier's collapse (hit-rate, evictions, memory)
+    surfaces as prometheus metrics on the cache node; appd shows the service's p50 flat (rules
+    out a code regression); git carries the disabling diff."""
+    t_chg, t_on, t_inv, t_fix = _dt(14, 10), _dt(14, 16), _dt(14, 31), _dt(14, 56)
+    subject = SubjectRef(domain="app-incident", id="INC-5500", kind="incident")
+    cache = "cache:product-redis"
+    fx = {
+        "servicenow": {"*": {
+            "incident": {"number": "INC-5500", "opened_at": t_on, "priority": "2 - High",
+                         "assigned_to": "sre-oncall", "state": "in_progress",
+                         "cmdb_ci": {"display_value": "product-api", "app_id": "APM-PRODUCT",
+                                     "sys_id": "sn_productapi01", "repo": "product-api",
+                                     "k8s_workload": "prod/product-api"}, "env": "prod"},
+            "changes": [{"number": "CHG-22", "type": "deployment",
+                         "cmdb_ci": {"display_value": "product-api", "app_id": "APM-PRODUCT",
+                                     "sys_id": "sn_productapi01", "repo": "product-api",
+                                     "k8s_workload": "prod/product-api"},
+                         "requested_by": "platform-team", "start_date": t_chg,
+                         "u_commit_sha": "9f8e7d6"}]}},
+        "cmdb": {"*": {"env": "prod", "dependencies": [
+            {"parent": "product-api", "parent_type": "cmdb_ci_service",
+             "child": "product-redis", "child_type": "cmdb_ci_appl",
+             "rel_type": "Depends on::Used by"}]}},
+        "prometheus": {
+            "*": {"service": {"name": "product-api", "env": "prod"},
+                  "alerts": [{"id": "ALT-1", "alertname": "HighLatencyP99", "at": t_on,
+                              "state": "firing"}],
+                  "metrics": [{"subject": cache, "predicate": "hit_rate", "value": 0.41,
+                               "at": t_inv, "reliability": 0.97, "unit": "ratio"},
+                              {"subject": cache, "predicate": "eviction_rate", "value": 420,
+                               "at": t_inv, "reliability": 0.95, "unit": "per_min"},
+                              {"subject": cache, "predicate": "mem_utilization", "value": 0.94,
+                               "at": t_inv, "reliability": 0.97, "unit": "ratio"}]},
+            "verify": {"service": {"name": "product-api", "env": "prod"},
+                       "metrics": [{"subject": cache, "predicate": "hit_rate", "value": 0.96,
+                                    "at": t_fix, "reliability": 0.98, "unit": "ratio"},
+                                      {"predicate": "degraded", "value": False, "at": t_fix,
+                                       "reliability": 0.98},
+                                      {"predicate": "red_latency_p99", "value": 140, "at": t_fix,
+                                       "reliability": 0.98, "unit": "ms"}]}},
+        "appd": {"*": {
+            "service": {"name": "product-api", "env": "prod"},
+            "bt": {"name": "/products/{id}"},
+            "bt_metrics": [{"predicate": "red_latency_p50", "value": 67, "unit": "ms",
+                            "at": t_inv, "reliability": 0.95}],
+            "snapshots": [{"exit_calls": [{"type": "REDIS", "cache_id": "product-redis"}]}]}},
+        "git": {"*": {
+            "commit": {"sha": "9f8e7d6", "repo": "product-api", "author": "platform-team",
+                       "parent_sha": "a1b2c3d", "authored_at": t_chg},
+            "blame": {"sha": "9f8e7d6", "repo": "product-api",
+                      "file": "pkg/cache/client.go", "line": 88, "at": t_inv,
+                      "reliability": 0.98,
+                      "snippet": ("// v3.4.0: singleflight disabled — every request now issues "
+                                  "its own cache read instead of sharing one in-flight")}}},
+    }
+    return subject, fx, "code_commit:9f8e7d6"
+
+
+def featureflag() -> tuple[SubjectRef, dict, str]:
+    """cart-api 5xx after a feature-flag flip (INC-5600). Golden root = the FEATURE_FLAG (the
+    flag is edge-isolated, so the causal link is via the model's hypothesis root_candidate, not
+    a typed edge). The flag flip is a ServiceNow change (CHG-77); the error signature is new
+    (first_seen at the flip); git blame shows the gated branch that throws on bulk carts."""
+    t_flg, t_on, t_inv, t_fix = _dt(14, 5), _dt(14, 5), _dt(14, 21), _dt(14, 43)
+    subject = SubjectRef(domain="app-incident", id="INC-5600", kind="incident")
+    flag = "feature_flag:new-tax-engine|prod"
+    fx = {
+        "servicenow": {"*": {
+            "incident": {"number": "INC-5600", "opened_at": t_on, "priority": "2 - High",
+                         "assigned_to": "sre-oncall", "state": "in_progress",
+                         "cmdb_ci": {"display_value": "cart-api", "app_id": "APM-CART",
+                                     "sys_id": "sn_cartapi01", "repo": "cart-api",
+                                     "k8s_workload": "prod/cart-api"}, "env": "prod"},
+            "changes": [{"number": "CHG-77", "type": "feature-flag",
+                         "cmdb_ci": {"display_value": "cart-api", "app_id": "APM-CART",
+                                     "sys_id": "sn_cartapi01", "repo": "cart-api"},
+                         "requested_by": "tax-platform", "start_date": t_flg,
+                         "u_release_tag": "new-tax-engine@100%"}],
+            "related_incidents": [
+                {"number": "INC-4988", "priority": "3 - Moderate", "opened_at": _dt(13, 0),
+                 "cmdb_ci": "pricing-api", "confidence": "high"}]}},
+        "cmdb": {"*": {"env": "prod", "dependencies": []}},
+        "prometheus": {
+            "*": {"service": {"name": "cart-api", "env": "prod"},
+                  "alerts": [{"id": "ALT-1", "alertname": "High5xxRate", "at": t_on,
+                              "state": "firing"}],
+                  "metrics": [{"predicate": "red_errors", "value": 0.34, "at": t_on,
+                               "reliability": 0.97},
+                              {"subject": flag, "predicate": "rollout_percentage", "value": 100,
+                               "at": t_on, "reliability": 0.99},
+                              {"subject": flag, "predicate": "enabled", "value": True,
+                               "at": t_on, "reliability": 0.99}]},
+            "verify": {"service": {"name": "cart-api", "env": "prod"},
+                       "metrics": [{"subject": flag, "predicate": "rollout_percentage",
+                                    "value": 0, "at": t_fix, "reliability": 0.99},
+                                      {"predicate": "red_errors", "value": 0.003, "at": t_fix,
+                                       "reliability": 0.98},
+                                      {"predicate": "degraded", "value": False, "at": t_fix,
+                                       "reliability": 0.98}]}},
+        "splunk": {"*": {
+            "service": {"name": "cart-api", "env": "prod"},
+            "errors": [{"signature_hash": "taxengine-bulk-cart",
+                        "exception_class": "TaxEngineException",
+                        "file_line": "services/cart-api/src/tax/engine.py:142",
+                        "first_seen": t_flg.isoformat(), "_time": t_inv,
+                        "count": 312, "last_seen": t_inv.isoformat(), "trace_id": "tr-7c3"}]}},
+        "git": {"*": {
+            "commit": {"sha": "c3d4e5f", "repo": "cart-api", "author": "tax-platform",
+                       "authored_at": _dt(11, 0)},   # 3 days ago — the last deploy, pre-flag
+            "blame": {"sha": "c3d4e5f", "repo": "cart-api",
+                      "file": "services/cart-api/src/tax/engine.py", "line": 142, "at": t_inv,
+                      "reliability": 0.98,
+                      "snippet": "if items.size > 5: raise TaxEngineException()  // behind new-tax-engine flag"},
+            "error_signature_hash": "taxengine-bulk-cart"}},
+    }
+    return subject, fx, flag
+
+
+def certificate() -> tuple[SubjectRef, dict, str]:
+    """auth-svc intermittent 503 from an expiring intermediate cert (INC-5700). Golden root =
+    the CERTIFICATE (edge-isolated; the causal link is via the model's hypothesis). The cert's
+    expiry surfaces via artifactory; the handshake errors surface via splunk; prometheus shows
+    the PARTIAL (~40%) failure that discriminates a cert fault from a total outage."""
+    t_exp, t_on, t_inv, t_fix = _dt(14, 0), _dt(14, 30), _dt(14, 45), _dt(15, 10)
+    subject = SubjectRef(domain="app-incident", id="INC-5700", kind="incident")
+    cert = "certificate:auth-tls-intermediate"
+    fx = {
+        "servicenow": {"*": {
+            "incident": {"number": "INC-5700", "opened_at": t_on, "priority": "2 - High",
+                         "assigned_to": "sre-oncall", "state": "in_progress",
+                         "cmdb_ci": {"display_value": "auth-svc", "app_id": "APM-AUTH",
+                                     "sys_id": "sn_authsvc01", "repo": "auth-svc",
+                                     "k8s_workload": "prod/auth-svc"}, "env": "prod"},
+            "changes": [],
+            "related_incidents": [
+                {"number": "INC-3344", "priority": "3 - Moderate",
+                 "opened_at": _dt(0, 0), "cmdb_ci": "billing-svc", "confidence": "high"}]}},
+        "cmdb": {"*": {"env": "prod", "dependencies": []}},
+        "prometheus": {
+            "*": {"service": {"name": "auth-svc", "env": "prod"},
+                  "alerts": [{"id": "ALT-1", "alertname": "High5xxRate", "at": t_on,
+                              "state": "firing"}],
+                  "metrics": [{"predicate": "red_errors", "value": 0.40, "at": t_on,
+                               "reliability": 0.97},
+                              {"subject": cert, "predicate": "days_to_expiry", "value": 0,
+                               "at": t_on, "reliability": 0.99}]},
+            "verify": {"service": {"name": "auth-svc", "env": "prod"},
+                       "metrics": [{"subject": cert, "predicate": "days_to_expiry", "value": 90,
+                                    "at": t_fix, "reliability": 0.99},
+                                      {"predicate": "red_errors", "value": 0.002, "at": t_fix,
+                                       "reliability": 0.98},
+                                      {"predicate": "degraded", "value": False, "at": t_fix,
+                                       "reliability": 0.98}]}},
+        "splunk": {"*": {
+            "service": {"name": "auth-svc", "env": "prod"},
+            "errors": [{"signature_hash": "pkix-path-building-failed",
+                        "exception_class": "SSLHandshakeException",
+                        "file_line": "sun.security.validator.Validator",
+                        "first_seen": t_exp.isoformat(), "_time": t_inv,
+                        "count": 8840, "last_seen": t_inv.isoformat(), "trace_id": "tr-1a2"}]}},
+        "artifactory": {"*": {
+            "artifacts": [{"sha256": "cert-auth-tls-intermediate",
+                           "repo": "tls-secrets", "created": t_exp,
+                           "properties": {"cn": "auth-svc.internal",
+                                          "issuer": "Corp Intermediate CA",
+                                          "not_after": t_exp.isoformat()}}]}},
+    }
+    return subject, fx, cert
+
+
 # registry key = catalog `key`; extended per-layer for obs 11 (>=2 use cases per layer)
 LIVE_SCENARIOS: dict[str, Callable[[], tuple[SubjectRef, dict, str]]] = {
     "code_regression": code_regression,
@@ -767,4 +939,7 @@ LIVE_SCENARIOS: dict[str, Callable[[], tuple[SubjectRef, dict, str]]] = {
     "nochange": nochange,
     "messaging": messaging,
     "infra": infra,
+    "cache": cache,
+    "featureflag": featureflag,
+    "certificate": certificate,
 }
