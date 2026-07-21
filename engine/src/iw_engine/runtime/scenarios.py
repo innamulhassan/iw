@@ -18,7 +18,6 @@ the server still starts.
 """
 from __future__ import annotations
 
-import os
 import pathlib
 import sys
 from collections.abc import Callable
@@ -33,7 +32,8 @@ from ..domain.enums import Phase
 from ..domain.playbook import Playbook
 from ..domain.subject import SubjectRef
 from .live_fixtures import LIVE_SCENARIOS
-from .live_planner import GeminiClient, LivePlanner, XaiClient
+from .live_planner import LivePlanner
+from .llm_client import make_llm_client
 from .loader import load_playbook
 from .planner import PlanOutput, ScriptedPlanner
 from .session import SessionManager
@@ -167,17 +167,11 @@ def build_manager(*, playbook: Playbook | None = None,
 
 # ── the LIVE backend (obs 10: the LLM is the product; mock above is the CI net) ─────
 def make_live_client(model: str | None = None):
-    """Resolve an LLM client: xAI (XAI_API_KEY) else Gemini (~/.secrets/stock/gemini-api-key.txt).
-    The model can be pinned via the IW_LIVE_MODEL env (else a sensible current-flagship default).
-    Returns None when no key is present, so the server can fall back to the scripted mock."""
-    pinned = model or os.environ.get("IW_LIVE_MODEL")
-    xai = os.environ.get("XAI_API_KEY")
-    if xai:
-        return XaiClient(xai, model=pinned or "grok-4.5")
-    key_file = pathlib.Path.home() / ".secrets" / "stock" / "gemini-api-key.txt"
-    if key_file.exists() and key_file.read_text().strip():
-        return GeminiClient(key_file.read_text().strip(), model=pinned or "gemini-2.5-flash-lite")
-    return None
+    """Resolve an LLM client for the live backend. Thin wrapper over `llm_client.make_llm_client`
+    (the consolidated factory) — kept so existing callers (`from scenarios import make_live_client`)
+    keep working. Selection is xAI-first (XAI_API_KEY), then Gemini, then None; IW_LIVE_PROVIDER
+    overrides. See `iw_engine.runtime.llm_client` for the full precedence + how to plug in any LLM."""
+    return make_llm_client(model)
 
 
 def _available_intents(fixtures: dict, adapters) -> set[str]:

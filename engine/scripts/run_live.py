@@ -22,7 +22,6 @@ AssetOne .env (xAI). No key -> the script prints how to provide one and exits 0.
 from __future__ import annotations
 
 import argparse
-import os
 import pathlib
 import sys
 
@@ -41,18 +40,15 @@ from iw_engine.domain.catalog import (  # noqa: E402
 from iw_engine.domain.playbook import Playbook  # noqa: E402
 from iw_engine.runtime import Engine, load_playbook  # noqa: E402
 from iw_engine.runtime.live_fixtures import LIVE_SCENARIOS as SCENARIOS  # noqa: E402
-from iw_engine.runtime.live_planner import GeminiClient, LivePlanner, XaiClient  # noqa: E402
+from iw_engine.runtime.live_planner import LivePlanner  # noqa: E402
+from iw_engine.runtime.llm_client import make_llm_client  # noqa: E402
 
 
 # ── client + wiring ───────────────────────────────────────────────────────────────
 def make_client(model: str | None):
-    key_file = pathlib.Path.home() / ".secrets" / "stock" / "gemini-api-key.txt"
-    xai = os.environ.get("XAI_API_KEY")
-    if xai:
-        return XaiClient(xai, model=model or "grok-4.5")
-    if key_file.exists() and key_file.read_text().strip():
-        return GeminiClient(key_file.read_text().strip(), model=model or "gemini-2.5-flash-lite")
-    return None
+    """Resolve a live LLM client via the consolidated factory (xAI-first, then Gemini,
+    then None). IW_LIVE_PROVIDER overrides; see iw_engine.runtime.llm_client."""
+    return make_llm_client(model)
 
 
 def available_intents(fixtures: dict, adapters) -> set[str]:

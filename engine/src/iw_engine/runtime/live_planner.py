@@ -14,9 +14,6 @@ The LLM never emits free-form graph mutations except through the closed op set:
 from __future__ import annotations
 
 import json
-import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -56,31 +53,6 @@ def _hid(x) -> str:
     return s[4:] if s.startswith("hyp:") else s
 
 
-def _loads_salvage(text: str) -> dict:
-    """Parse the model's JSON; if it is fenced or truncated, salvage the outermost object.
-    Never re-calls the API (daily quota is precious)."""
-    text = (text or "").strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text[:4].lower() == "json":
-            text = text[4:]
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-    start = text.find("{")
-    if start >= 0:
-        # try progressively shorter suffixes down to the last balanced close brace
-        for end in range(len(text), start, -1):
-            if text[end - 1] != "}":
-                continue
-            try:
-                return json.loads(text[start:end])
-            except json.JSONDecodeError:
-                continue
-    raise RuntimeError(f"unparseable LLM response (len={len(text)}): {text[:160]!r}")
-
-
 _ID_KEYS = ("sha", "change_id", "segment_id", "db_id", "signature_hash", "alert_id",
             "incident_id", "anomaly_id", "service_name")
 
@@ -116,104 +88,24 @@ def render_graph_full(graph, *, max_facts: int = 8) -> str:
     return "NODES:\n" + "\n".join(nlines) + ("\nEDGES:\n" + "\n".join(elines) if elines else "")
 
 
-# ── LLM clients (stdlib urllib only) ──────────────────────────────────────────
-def _retry_delay(err: urllib.error.HTTPError, *, fallback: float, cap: float = 90.0) -> float:
-    """Honor the server's back-off hint on a 429/503: the `Retry-After` header (seconds) or the
-    Google RetryInfo `retryDelay` (e.g. "42s") in the error body — else the caller's exponential
-    fallback. Capped so a huge daily-quota hint can't wedge the run for minutes."""
-    ra = err.headers.get("Retry-After") if err.headers else None
-    if ra:
-        try:
-            return min(cap, float(ra))
-        except ValueError:
-            pass
-    try:
-        body = json.loads(err.read().decode())
-        for det in body.get("error", {}).get("details", []):
-            delay = det.get("retryDelay")
-            if isinstance(delay, str) and delay.endswith("s"):
-                return min(cap, float(delay[:-1]))
-    except Exception:
-        pass
-    return min(cap, fallback)
+# ── LLM clients — implementation lives in llm_client.py (the pluggable seam) ───
+# Re-exported here for back-compat: `from iw_engine.runtime.live_planner import XaiClient`
+# keeps working. New code should import from `llm_client` directly. To plug in ANY LLM,
+# implement the `LLMClient` Protocol (a `complete_json(system,user)->dict` + a `.name`)
+# and pass it to LivePlanner / live_build_manager, or register it in `make_llm_client`.
+from .llm_client import (  # noqa: E402, F401
+    GeminiClient,
+    LLMClient,
+    XaiClient,
+    loads_salvage,
+    make_llm_client,
+    retry_delay,
+)
 
+# legacy underscore aliases (old imports `from live_planner import _loads_salvage`)
+_loads_salvage = loads_salvage
+_retry_delay = retry_delay
 
-class GeminiClient:
-    """OpenAI-compatible-ish JSON client for Google Gemini generateContent."""
-
-    def __init__(self, api_key: str, model: str = "gemini-2.5-flash-lite", *, temperature: float = 0.0,
-                 min_interval: float = 4.5):
-        self.api_key = api_key
-        self.model = model
-        self.temperature = temperature
-        self.name = f"gemini/{model}"
-        self.min_interval = min_interval   # RPM throttle (free tier ~15 rpm)
-        self._last = 0.0
-
-    def complete_json(self, system: str, user: str) -> dict:
-        gap = self.min_interval - (time.monotonic() - self._last)
-        if gap > 0:
-            time.sleep(gap)
-        self._last = time.monotonic()
-        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{self.model}:generateContent?key={self.api_key}")
-        body = {
-            "systemInstruction": {"parts": [{"text": system}]},
-            "contents": [{"role": "user", "parts": [{"text": user}]}],
-            "generationConfig": {"temperature": self.temperature,
-                                 "responseMimeType": "application/json",
-                                 "maxOutputTokens": 8192},
-        }
-        data = json.dumps(body).encode()
-        for attempt in range(6):
-            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-            try:
-                with urllib.request.urlopen(req, timeout=120) as r:
-                    d = json.load(r)
-            except urllib.error.HTTPError as e:
-                if e.code in (429, 500, 503) and attempt < 5:
-                    time.sleep(_retry_delay(e, fallback=4 * (2 ** attempt)))
-                    self._last = time.monotonic()
-                    continue
-                raise
-            parts = d.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-            text = "".join(p.get("text", "") for p in parts)
-            return _loads_salvage(text)   # do NOT re-call on parse error — conserve quota
-        raise RuntimeError("LLM call exhausted retries")
-
-
-class XaiClient:
-    """OpenAI-compatible client for xAI grok (chat/completions, JSON response)."""
-
-    def __init__(self, api_key: str, model: str = "grok-4.5", *, temperature: float = 0.0):
-        self.api_key = api_key
-        self.model = model
-        self.temperature = temperature
-        self.name = f"xai/{model}"
-
-    def complete_json(self, system: str, user: str) -> dict:
-        url = "https://api.x.ai/v1/chat/completions"
-        body = {
-            "model": self.model,
-            "temperature": self.temperature,
-            "response_format": {"type": "json_object"},
-            "messages": [{"role": "system", "content": system},
-                         {"role": "user", "content": user}],
-        }
-        data = json.dumps(body).encode()
-        for attempt in range(6):
-            req = urllib.request.Request(url, data=data, headers={
-                "Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"})
-            try:
-                with urllib.request.urlopen(req, timeout=120) as r:
-                    d = json.load(r)
-                return json.loads(d["choices"][0]["message"]["content"])
-            except urllib.error.HTTPError as e:
-                if e.code in (429, 500, 503) and attempt < 5:
-                    time.sleep(4 * (2 ** attempt))
-                    continue
-                raise
-        raise RuntimeError("LLM call exhausted retries")
 
 
 # ── the planner ───────────────────────────────────────────────────────────────
