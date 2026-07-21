@@ -86,6 +86,83 @@ def test_stub_client_drives_live_planner_one_phase():
     assert any(isinstance(op, AddNode) and op.type.value == "anomaly" for op in out.ops)
 
 
+# ── reject+repair on NON-DICT LLM payloads (INV-7; 2026-07-22 review, finding 5) ──
+def _ctx():
+    from iw_engine.domain.playbook import PhaseSpec
+    from iw_engine.domain.subject import SubjectRef
+    from iw_engine.runtime.planner import PlanContext
+    return PlanContext(
+        subject=SubjectRef(domain="app-incident", id="INC-1", kind="incident"),
+        phase=Phase.FRAME,
+        phase_spec=PhaseSpec(id=Phase.FRAME, goal="g", allowed_intents=[]),
+        goal="g", graph_view={}, hypotheses=[])
+
+
+def test_live_planner_repairs_non_dict_op_payloads():
+    """A string/list/None op or call entry — or a bare-string verdict — must be
+    dropped+recorded (reject+repair), never an AttributeError that kills the live
+    session. The repair branch itself used to crash on non-dict ops (finding 5)."""
+    payload = {
+        "reasoning": "adversarial",
+        "calls": ["prometheus"],                       # non-dict call entry
+        "ops": ["garbage", ["nested"], None,           # non-dict op payloads
+                {"op": "add_node", "type": "anomaly", "anomaly_id": "ANOM-1"}],
+        "narrative": "n",
+        "verdict": "advance",                          # bare-string verdict
+    }
+    planner = LivePlanner(_StubClient(payload), "catalog", "tools", set(), verbose=False)
+    out = planner.plan(_ctx())
+    from iw_engine.domain.operations import AddNode
+    assert [type(op) for op in out.ops] == [AddNode]   # the one valid op survived
+    assert out.calls == []
+    assert out.verdict.status.value == "advance"       # bare string coerced to a status
+    # one repair per dropped/coerced item: 1 call + 3 ops + 1 verdict
+    assert len(planner.repairs) == 5
+
+
+def test_live_planner_repairs_non_dict_top_level():
+    """A top-level JSON array / bare string / None from the model is repaired to an
+    EMPTY plan with a recorded repair — not an uncaught raw.get crash."""
+    for bad in (["not", "a", "plan"], "just prose", None):
+        planner = LivePlanner(_StubClient(bad), "catalog", "tools", set(), verbose=False)
+        out = planner.plan(_ctx())
+        assert out.ops == [] and out.calls == []
+        assert any("non-dict plan payload" in r for r in planner.repairs), bad
+
+
+# ── the Gemini key travels in a header, never the URL (2026-07-22 review, finding 6) ──
+class _Resp:
+    def __init__(self, payload: dict):
+        import json as _json
+        self._data = _json.dumps(payload).encode()
+
+    def read(self, *a):
+        return self._data
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_gemini_key_sent_in_header_not_url():
+    captured = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["req"] = req
+        return _Resp({"candidates": [{"content": {"parts": [{"text": '{"ok": 1}'}]}}]})
+
+    with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        c = GeminiClient("sk-secret", min_interval=0.0)
+        out = c.complete_json("system", "user")
+    assert out == {"ok": 1}
+    req = captured["req"]
+    assert "sk-secret" not in req.full_url          # the secret never appears in the URL
+    assert "key=" not in req.full_url               # no ?key= query param at all
+    assert req.get_header("X-goog-api-key") == "sk-secret"   # header auth instead
+
+
 # ── factory precedence + override (env-driven, monkey-patched) ─────────────────
 def test_factory_returns_none_when_no_key():
     """No XAI_API_KEY, no GEMINI_API_KEY, no key file -> None (caller falls back to mock)."""

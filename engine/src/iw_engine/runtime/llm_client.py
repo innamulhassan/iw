@@ -104,8 +104,11 @@ class GeminiClient:
         if gap > 0:
             time.sleep(gap)
         self._last = time.monotonic()
+        # the key travels in the x-goog-api-key header (Gemini's documented header auth),
+        # NEVER the URL query string — a URL-embedded key leaks into proxy/access logs and
+        # into HTTPError.url on any failure (2026-07-22 review, finding 6)
         url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{self.model}:generateContent?key={self.api_key}")
+               f"{self.model}:generateContent")
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -115,7 +118,8 @@ class GeminiClient:
         }
         data = json.dumps(body).encode()
         for attempt in range(6):
-            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+            req = urllib.request.Request(url, data=data, headers={
+                "Content-Type": "application/json", "x-goog-api-key": self.api_key})
             try:
                 with urllib.request.urlopen(req, timeout=120) as r:
                     d = json.load(r)

@@ -329,13 +329,26 @@ Plan this phase. Return ONLY the JSON object."""
     # ── map LLM JSON -> PlanOutput (reject + repair off-catalog) ───────────────
     def _to_plan_output(self, ctx: PlanContext, raw: dict) -> PlanOutput:
         phase = ctx.phase.value
+        # the LLM output is untrusted: a non-dict top level (JSON array, bare string) is
+        # repaired to an EMPTY plan — reject+repair, never a hard crash that would kill
+        # the whole live session (INV-7; 2026-07-22 review, finding 5)
+        if not isinstance(raw, dict):
+            msg = (f"[{phase}] repaired non-dict plan payload "
+                   f"({type(raw).__name__}: {str(raw)[:120]!r}) -> empty plan")
+            self.repairs.append(msg)
+            raw = {}
         trace = PhaseTrace(phase=phase, reasoning=str(raw.get("reasoning", "")),
                            narrative=str(raw.get("narrative", "")), verdict="", raw=raw)
 
-        # calls — drop any intent the layer cannot resolve
+        # calls — drop any intent the layer cannot resolve (non-dict entries included)
         calls: list[CapabilityCall] = []
         for c in raw.get("calls", []) or []:
-            intent = (c or {}).get("intent")
+            if not isinstance(c, dict):
+                msg = f"[{phase}] dropped non-dict call entry: {str(c)[:120]!r}"
+                trace.repairs.append(msg)
+                self.repairs.append(msg)
+                continue
+            intent = c.get("intent")
             if intent in self.tool_intents:
                 calls.append(CapabilityCall(intent=intent, params=(c.get("params") or {})))
                 trace.calls.append(intent)
@@ -361,7 +374,11 @@ Plan this phase. Return ONLY the JSON object."""
                 elif isinstance(op, AddEdge):
                     trace.edges.append(f"{op.type.value}:{op.src}->{op.dst}")
             else:
-                m = f"[{phase}] dropped op {o.get('op')!r}: {err}"
+                # o may be a non-dict (string/list/None) — the repair record itself must
+                # not crash on it (2026-07-22 review, finding 5: the guard's own o.get
+                # raised AttributeError and DoS'd the session it exists to protect)
+                label = o.get("op") if isinstance(o, dict) else o
+                m = f"[{phase}] dropped op {label!r}: {err}"
                 trace.repairs.append(m)
                 self.repairs.append(m)
 
@@ -374,7 +391,9 @@ Plan this phase. Return ONLY the JSON object."""
         return PlanOutput(phase=ctx.phase, calls=calls, ops=ops, narrative=narrative,
                           verdict=verdict, next_actions=[str(x) for x in (raw.get("next_actions") or [])])
 
-    def _parse_op(self, o: dict):
+    def _parse_op(self, o):
+        if not isinstance(o, dict):   # untrusted payload: repair, never raise (INV-7)
+            return None, f"non-dict op payload ({type(o).__name__})"
         try:
             kind = (o.get("op") or "").strip().lower()
             if kind == "add_node":
@@ -427,6 +446,14 @@ Plan this phase. Return ONLY the JSON object."""
             return None, f"{type(e).__name__}: {e}"
 
     def _parse_verdict(self, v: dict | None, narrative: str) -> PhaseVerdict:
+        if isinstance(v, str):
+            # a bare-string verdict ("advance") is a status, not an object — repair it
+            self.repairs.append(f"coerced bare-string verdict {v!r} -> {{status: ...}}")
+            v = {"status": v}
+        elif v is not None and not isinstance(v, dict):
+            self.repairs.append(
+                f"dropped non-dict verdict payload ({type(v).__name__}); using defaults")
+            v = None
         v = v or {}
         try:
             status = VerdictStatus(str(v.get("status", "advance")).strip().lower())
