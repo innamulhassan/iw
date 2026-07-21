@@ -1,7 +1,0 @@
-{
-  "note": "Drives the console's domain switcher + incident picker. Nothing in the top/left bar is hard-coded — it all reads from here (and from each incident's own JSON).",
-  "domains": [
-    { "id": "app-incident", "label": "Incident", "playbook": "playbook.json", "graph_schema": "graph-schema.json", "step_schema": "step-schema.json", "enabled": true }
-  ],
-  "incidents": ["INC-2290", "INC-3187", "INC-2207", "INC-2208"]
-}

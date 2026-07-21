@@ -1,8 +1,0 @@
-{
-  "include": ["src/lunasre", "tests"],
-  "exclude": ["**/__pycache__", ".venv"],
-  "pythonVersion": "3.12",
-  "typeCheckingMode": "basic",
-  "reportMissingImports": "error",
-  "extraPaths": ["src"]
-}

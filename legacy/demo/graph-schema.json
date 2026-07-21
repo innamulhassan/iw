@@ -1,8 +1,0 @@
-{
-  "note": "The graph TYPE SYSTEM. The engine/AI builds the investigation graph ONLY from these declared types — it is NOT free-form. A node's `kind` MUST be one of node_types; an edge's `type` MUST be one of edge_types; a node's `health` MUST be one of health_states. This travels with the playbook (the domain's type system). If a needed type is missing, UPDATE this schema + the playbook deliberately — never invent a type ad hoc; if the schema itself is the limitation, raise it for discussion.",
-  "domain": "app-incident",
-  "node_types": ["incident", "cluster", "app", "service", "database", "storage", "compute", "network", "external", "change", "alert"],
-  "edge_types": ["depends_on", "hosted_on", "runs_on", "routes_to", "located_in", "changed", "affects", "suspected_cause", "related_to", "member_of", "observed_on"],
-  "health_states": ["subject", "impacted", "degraded", "unhealthy", "healthy", "ruled_out", "related"],
-  "fact_state_keys": ["health", "latency", "error_rate", "impact_state"]
-}
