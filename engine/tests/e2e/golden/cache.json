@@ -1,0 +1,937 @@
+{
+  "graph": {
+    "edges": [
+      {
+        "confidence": null,
+        "dst": "service:product-api|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-1->service:product-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-1",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:product-api|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:alt-1->service:product-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:alt-1",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "change_event:chg-22",
+        "established": null,
+        "id": "edge:changed_by:service:product-api|prod->change_event:chg-22:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:product-api|prod",
+        "state": "active",
+        "type": "changed_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.6,
+        "dst": "change_event:chg-22",
+        "established": null,
+        "id": "edge:correlated_with:anomaly:anom-1->change_event:chg-22:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "anomaly:anom-1",
+        "state": "active",
+        "type": "correlated_with",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "cache:product-redis",
+        "established": null,
+        "id": "edge:reads_from:service:product-api|prod->cache:product-redis:declared",
+        "invalidated_by": null,
+        "origin": "declared",
+        "source": null,
+        "src": "service:product-api|prod",
+        "state": "active",
+        "type": "reads_from",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:product-api|prod",
+        "established": null,
+        "id": "edge:affects:incident:inc-5500->service:product-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "incident:inc-5500",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "api_endpoint:product-api|prod|get|-products-{id}",
+        "established": null,
+        "id": "edge:exposes:service:product-api|prod->api_endpoint:product-api|prod|get|-products-{id}:declared",
+        "invalidated_by": null,
+        "origin": "declared",
+        "source": null,
+        "src": "service:product-api|prod",
+        "state": "active",
+        "type": "exposes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "incident:inc-4210",
+        "established": null,
+        "id": "edge:similar_to:incident:inc-5500->incident:inc-4210:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "incident:inc-5500",
+        "state": "active",
+        "type": "similar_to",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "code_commit:9f8e7d6",
+        "established": null,
+        "id": "edge:introduced_by:change_event:chg-22->code_commit:9f8e7d6:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "change_event:chg-22",
+        "state": "active",
+        "type": "introduced_by",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "cache:product-redis",
+        "established": null,
+        "id": "edge:reads_from:service:product-api|prod->cache:product-redis:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:product-api|prod",
+        "state": "active",
+        "type": "reads_from",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "code_commit:9f8e7d6",
+        "established": null,
+        "id": "edge:caused_by:hyp:h1->code_commit:9f8e7d6:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "hyp:h1",
+        "state": "active",
+        "type": "caused_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.3,
+        "dst": "hyp:h2",
+        "established": null,
+        "id": "edge:refutes:service:product-api|prod->hyp:h2:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "service:product-api|prod",
+        "state": "active",
+        "type": "refutes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:cache:product-redis->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "cache:product-redis",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      }
+    ],
+    "events": [
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "entity": "service:product-api|prod",
+        "id": "evt:7d31c58555a3544f",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "entity": "alert:alt-1",
+        "id": "evt:c8488fec6346e53c",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T14:10:00+00:00",
+        "entity": "change_event:chg-22",
+        "id": "evt:f34ffdf18e63347b",
+        "invalidated_by": null,
+        "payload": {
+          "change": "deploy product-api v3.4.0"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "implemented"
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "entity": "incident:inc-5500",
+        "id": "evt:5f7354358edb22d1",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T13:10:00+00:00",
+        "entity": "incident:inc-4210",
+        "id": "evt:438f6297972cce96",
+        "invalidated_by": null,
+        "payload": {
+          "affected_ci": "search-api"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:56:00+00:00",
+        "entity": "service:product-api|prod",
+        "id": "evt:34e1825c6d112ef7",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T14:56:00+00:00",
+        "entity": "anomaly:anom-1",
+        "id": "evt:c45e3a794de8469a",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "cleared"
+      }
+    ],
+    "facts": [
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:057dad87ced71fb5",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "onset_value",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 6800,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:c55d6a440c6966c1",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "severity_score",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": null,
+        "valid_to": null,
+        "value": 2,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:4c2f7946e24563c7",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:product-api|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T14:56:00+00:00",
+        "value": true,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:34db49e4d172cbb9",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "superseded",
+        "subject": "service:product-api|prod",
+        "unit": "ms",
+        "valid_to": "2026-07-19T14:56:00+00:00",
+        "value": 6800,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:41b04e9c5b005246",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "red_latency_p50",
+        "source": "appd",
+        "state": "superseded",
+        "subject": "service:product-api|prod",
+        "unit": "ms",
+        "valid_to": "2026-07-19T14:31:00+00:00",
+        "value": 64,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:f171112575f53dda",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "red_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:product-api|prod",
+        "unit": "rpm",
+        "valid_to": null,
+        "value": 1400,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:c0b90cff39e21668",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "red_errors",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:product-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.002,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:20b8301b8ac8ad52",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:product-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "id": "fact:ea3b676fabe078ed",
+        "observed_at": "2026-07-19T14:16:00+00:00",
+        "predicate": "slo_target",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:product-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.999,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:31:00+00:00",
+        "id": "fact:51590443c48dcc98",
+        "observed_at": "2026-07-19T14:31:00+00:00",
+        "predicate": "hit_rate",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "cache:product-redis",
+        "unit": null,
+        "valid_to": "2026-07-19T14:56:00+00:00",
+        "value": 0.41,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:31:00+00:00",
+        "id": "fact:7abce9e1a24ac277",
+        "observed_at": "2026-07-19T14:31:00+00:00",
+        "predicate": "eviction_rate",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "cache:product-redis",
+        "unit": "per_min",
+        "valid_to": "2026-07-19T14:56:00+00:00",
+        "value": 420,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:31:00+00:00",
+        "id": "fact:2d13525f25782d60",
+        "observed_at": "2026-07-19T14:31:00+00:00",
+        "predicate": "mem_utilization",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "cache:product-redis",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.94,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:31:00+00:00",
+        "id": "fact:814574990eaa3ea6",
+        "observed_at": "2026-07-19T14:31:00+00:00",
+        "predicate": "red_latency_p50",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:product-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 67,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:56:00+00:00",
+        "id": "fact:2d2304e03c583b40",
+        "observed_at": "2026-07-19T14:56:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:product-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 140,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:56:00+00:00",
+        "id": "fact:8060f6093968dbc2",
+        "observed_at": "2026-07-19T14:56:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:product-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": false,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:56:00+00:00",
+        "id": "fact:025c66f2f3ec7569",
+        "observed_at": "2026-07-19T14:56:00+00:00",
+        "predicate": "hit_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "cache:product-redis",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.96,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:56:00+00:00",
+        "id": "fact:5224f3293727cc6d",
+        "observed_at": "2026-07-19T14:56:00+00:00",
+        "predicate": "eviction_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "cache:product-redis",
+        "unit": "per_min",
+        "valid_to": null,
+        "value": 4,
+        "where": null
+      }
+    ],
+    "nodes": [
+      {
+        "first_seen": "2026-07-19T14:16:00+00:00",
+        "first_source": "prometheus",
+        "id": "anomaly:anom-1",
+        "last_seen": "2026-07-19T14:56:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-1"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
+      },
+      {
+        "first_seen": "2026-07-19T14:16:00+00:00",
+        "first_source": "prometheus",
+        "id": "service:product-api|prod",
+        "last_seen": "2026-07-19T14:56:00+00:00",
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "service_name": "product-api"
+        },
+        "source": "prometheus",
+        "type": "service"
+      },
+      {
+        "first_seen": "2026-07-19T14:31:00+00:00",
+        "first_source": "prometheus",
+        "id": "cache:product-redis",
+        "last_seen": "2026-07-19T14:56:00+00:00",
+        "origin": false,
+        "props": {
+          "cache_id": "product-redis"
+        },
+        "source": "prometheus",
+        "type": "cache"
+      },
+      {
+        "first_seen": "2026-07-19T14:16:00+00:00",
+        "first_source": "prometheus",
+        "id": "alert:alt-1",
+        "last_seen": "2026-07-19T14:16:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "ALT-1"
+        },
+        "source": "prometheus",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-19T14:10:00+00:00",
+        "first_source": "servicenow",
+        "id": "change_event:chg-22",
+        "last_seen": "2026-07-19T14:10:00+00:00",
+        "origin": false,
+        "props": {
+          "change_id": "CHG-22"
+        },
+        "source": "servicenow",
+        "type": "change_event"
+      },
+      {
+        "first_seen": "2026-07-19T14:16:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-5500",
+        "last_seen": "2026-07-19T14:16:00+00:00",
+        "origin": true,
+        "props": {
+          "incident_id": "INC-5500"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "api_endpoint:product-api|prod|get|-products-{id}",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "method": "GET",
+          "route_template": "/products/{id}",
+          "service_name": "product-api"
+        },
+        "source": null,
+        "type": "api_endpoint"
+      },
+      {
+        "first_seen": "2026-07-19T13:10:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-4210",
+        "last_seen": "2026-07-19T13:10:00+00:00",
+        "origin": false,
+        "props": {
+          "commander": null,
+          "incident_id": "INC-4210",
+          "severity": "3 - Moderate"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "code_commit:9f8e7d6",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "diff_summary": "singleflight disabled in pkg/cache/client.go:88",
+          "sha": "9f8e7d6"
+        },
+        "source": null,
+        "type": "code_commit"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h1",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "v3.4.0 (commit 9f8e7d6) disabled client-side cache coalescing (singleflight), causing a read stampede into product-redis"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h2",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "application code regression in product-api v3.4.0 request handler"
+        },
+        "source": null,
+        "type": "hypothesis"
+      }
+    ]
+  },
+  "journal": [
+    {
+      "actor": "engine",
+      "narrative": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape.",
+      "phase": "frame",
+      "refs": {
+        "edges": [
+          "edge:affects:anomaly:anom-1->service:product-api|prod:discovered",
+          "edge:fired_on:alert:alt-1->service:product-api|prod:discovered",
+          "edge:changed_by:service:product-api|prod->change_event:chg-22:discovered",
+          "edge:correlated_with:anomaly:anom-1->change_event:chg-22:inferred",
+          "edge:reads_from:service:product-api|prod->cache:product-redis:declared"
+        ],
+        "events": [
+          "evt:7d31c58555a3544f",
+          "evt:c8488fec6346e53c",
+          "evt:f34ffdf18e63347b"
+        ],
+        "facts": [
+          "fact:057dad87ced71fb5",
+          "fact:c55d6a440c6966c1",
+          "fact:4c2f7946e24563c7",
+          "fact:34db49e4d172cbb9",
+          "fact:41b04e9c5b005246",
+          "fact:f171112575f53dda",
+          "fact:c0b90cff39e21668"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "anomaly:anom-1",
+          "service:product-api|prod",
+          "cache:product-redis",
+          "alert:alt-1",
+          "change_event:chg-22"
+        ]
+      },
+      "seq": 1
+    },
+    {
+      "actor": "engine",
+      "narrative": "Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
+      "phase": "triage",
+      "refs": {
+        "edges": [
+          "edge:affects:incident:inc-5500->service:product-api|prod:discovered",
+          "edge:exposes:service:product-api|prod->api_endpoint:product-api|prod|get|-products-{id}:declared"
+        ],
+        "events": [
+          "evt:5f7354358edb22d1"
+        ],
+        "facts": [
+          "fact:20b8301b8ac8ad52",
+          "fact:ea3b676fabe078ed"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "incident:inc-5500",
+          "api_endpoint:product-api|prod|get|-products-{id}"
+        ]
+      },
+      "seq": 2
+    },
+    {
+      "actor": "engine",
+      "narrative": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1.",
+      "phase": "hypothesize",
+      "refs": {
+        "edges": [
+          "edge:similar_to:incident:inc-5500->incident:inc-4210:inferred",
+          "edge:introduced_by:change_event:chg-22->code_commit:9f8e7d6:discovered",
+          "edge:similar_to:incident:inc-5500->incident:inc-4210:inferred"
+        ],
+        "events": [
+          "evt:438f6297972cce96"
+        ],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1",
+          "hyp:h2"
+        ],
+        "nodes": [
+          "incident:inc-4210",
+          "code_commit:9f8e7d6",
+          "incident:inc-4210",
+          "hyp:h1",
+          "hyp:h2"
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "actor": "engine",
+      "narrative": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight.",
+      "phase": "investigate",
+      "refs": {
+        "edges": [
+          "edge:reads_from:service:product-api|prod->cache:product-redis:discovered",
+          "edge:caused_by:hyp:h1->code_commit:9f8e7d6:inferred"
+        ],
+        "events": [],
+        "facts": [
+          "fact:51590443c48dcc98",
+          "fact:7abce9e1a24ac277",
+          "fact:2d13525f25782d60",
+          "fact:51590443c48dcc98",
+          "fact:7abce9e1a24ac277",
+          "fact:2d13525f25782d60",
+          "fact:814574990eaa3ea6"
+        ],
+        "hypotheses": [
+          "hyp:h2",
+          "hyp:h1"
+        ],
+        "nodes": [
+          "code_commit:9f8e7d6"
+        ]
+      },
+      "seq": 4
+    },
+    {
+      "actor": "engine",
+      "narrative": "Safest reversible fix: roll back to v3.3.2 (re-enable singleflight). Awaiting approval (gated).",
+      "phase": "remediate",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 5
+    },
+    {
+      "actor": "engine",
+      "narrative": "Post-rollback: p99 back to 140ms, hit-rate 96%, evictions down to 4/min. Root cause confirmed.",
+      "phase": "verify",
+      "refs": {
+        "edges": [],
+        "events": [
+          "evt:34e1825c6d112ef7",
+          "evt:c45e3a794de8469a"
+        ],
+        "facts": [
+          "fact:2d2304e03c583b40",
+          "fact:8060f6093968dbc2",
+          "fact:025c66f2f3ec7569",
+          "fact:5224f3293727cc6d"
+        ],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 6
+    },
+    {
+      "actor": "engine",
+      "narrative": "Postmortem: v3.4.0 (9f8e7d6) disabled singleflight in the cache client, causing a 50x read stampede into product-redis; rollback to v3.3.2 resolved it. Code regression ruled out.",
+      "phase": "close",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [],
+        "nodes": []
+      },
+      "seq": 7
+    }
+  ],
+  "ledger": [
+    {
+      "basis": "rollback restored singleflight: hit-rate back to 96%, evictions down to 4/min, p99 back to 140ms \u2014 recovery confirms the causal chain",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "code_commit:9f8e7d6",
+      "statement": "v3.4.0 (commit 9f8e7d6) disabled client-side cache coalescing (singleflight), causing a read stampede into product-redis",
+      "status": "confirmed",
+      "supporting": [
+        "fact:2d13525f25782d60",
+        "fact:51590443c48dcc98",
+        "fact:7abce9e1a24ac277"
+      ]
+    },
+    {
+      "basis": "application code regression in product-api v3.4.0 request handler",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:814574990eaa3ea6"
+      ],
+      "root_candidate": "code_commit:9f8e7d6",
+      "statement": "application code regression in product-api v3.4.0 request handler",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
+  "outcome": "resolved",
+  "phases": [
+    "frame",
+    "triage",
+    "hypothesize",
+    "investigate",
+    "remediate",
+    "verify",
+    "close"
+  ],
+  "postmortem": {
+    "contributing": [],
+    "narrative": [
+      {
+        "phase": "frame",
+        "seq": 1,
+        "text": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape."
+      },
+      {
+        "phase": "triage",
+        "seq": 2,
+        "text": "Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate."
+      },
+      {
+        "phase": "hypothesize",
+        "seq": 3,
+        "text": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1."
+      },
+      {
+        "phase": "investigate",
+        "seq": 4,
+        "text": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight."
+      },
+      {
+        "phase": "remediate",
+        "seq": 5,
+        "text": "Safest reversible fix: roll back to v3.3.2 (re-enable singleflight). Awaiting approval (gated)."
+      },
+      {
+        "phase": "verify",
+        "seq": 6,
+        "text": "Post-rollback: p99 back to 140ms, hit-rate 96%, evictions down to 4/min. Root cause confirmed."
+      },
+      {
+        "phase": "close",
+        "seq": 7,
+        "text": "Postmortem: v3.4.0 (9f8e7d6) disabled singleflight in the cache client, causing a 50x read stampede into product-redis; rollback to v3.3.2 resolved it. Code regression ruled out."
+      }
+    ],
+    "outcome": "resolved",
+    "root_cause": {
+      "chain": [],
+      "confidence": 0.9,
+      "root_candidate": "code_commit:9f8e7d6",
+      "statement": "v3.4.0 (commit 9f8e7d6) disabled client-side cache coalescing (singleflight), causing a read stampede into product-redis"
+    },
+    "ruled_out": [
+      {
+        "basis": "application code regression in product-api v3.4.0 request handler",
+        "statement": "application code regression in product-api v3.4.0 request handler"
+      }
+    ],
+    "subject": {
+      "domain": "app-incident",
+      "id": "INC-5500",
+      "kind": "incident"
+    },
+    "timeline": [
+      {
+        "at": "2026-07-19T13:10:00+00:00",
+        "entity": "incident:inc-4210",
+        "payload": {
+          "affected_ci": "search-api"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:10:00+00:00",
+        "entity": "change_event:chg-22",
+        "payload": {
+          "change": "deploy product-api v3.4.0"
+        },
+        "type": "implemented"
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "entity": "service:product-api|prod",
+        "payload": {},
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "entity": "alert:alt-1",
+        "payload": {},
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T14:16:00+00:00",
+        "entity": "incident:inc-5500",
+        "payload": {},
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:56:00+00:00",
+        "entity": "service:product-api|prod",
+        "payload": {},
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T14:56:00+00:00",
+        "entity": "anomaly:anom-1",
+        "payload": {},
+        "type": "cleared"
+      }
+    ]
+  },
+  "subject": {
+    "domain": "app-incident",
+    "id": "INC-5500",
+    "kind": "incident"
+  }
+}

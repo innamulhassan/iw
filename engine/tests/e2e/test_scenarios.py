@@ -14,7 +14,7 @@ from iw_engine.runtime.scenarios import build_manager, catalog
 from iw_engine.runtime.session import GateDecision, SessionState
 
 CATALOG_IDS = {"INC-4821", "INC-7731", "INC-9001", "INC-7734", "INC-7702", "INC-9100",
-               "INC-8801", "INC-8900"}
+               "INC-8801", "INC-8900", "INC-5500", "INC-5600", "INC-5700"}
 
 
 def test_catalog_lists_every_layer():
@@ -22,7 +22,8 @@ def test_catalog_lists_every_layer():
     assert {e["id"] for e in incidents} == CATALOG_IDS
     layers = {e["layer"] for e in incidents}
     assert layers == {"Application code", "Deployment", "Network", "Database",
-                      "Firewall / Security", "No-change / Saturation", "Messaging", "Infra"}
+                      "Firewall / Security", "No-change / Saturation", "Messaging", "Infra",
+                      "Caching", "Configuration / Flag", "TLS / Certificate"}
     for e in incidents:
         assert e["id"] and e["title"] and e["layer"] and e["domain"] == "app-incident"
 

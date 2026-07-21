@@ -1,0 +1,917 @@
+{
+  "graph": {
+    "edges": [
+      {
+        "confidence": null,
+        "dst": "service:auth-svc|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-1->service:auth-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-1",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:auth-svc|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:alt-1->service:auth-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:alt-1",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:auth-svc|prod",
+        "established": null,
+        "id": "edge:affects:incident:inc-5700->service:auth-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "incident:inc-5700",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "api_endpoint:auth-svc|prod|post|-oauth-token",
+        "established": null,
+        "id": "edge:exposes:service:auth-svc|prod->api_endpoint:auth-svc|prod|post|-oauth-token:declared",
+        "invalidated_by": null,
+        "origin": "declared",
+        "source": null,
+        "src": "service:auth-svc|prod",
+        "state": "active",
+        "type": "exposes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "incident:inc-3344",
+        "established": null,
+        "id": "edge:similar_to:incident:inc-5700->incident:inc-3344:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "incident:inc-5700",
+        "state": "active",
+        "type": "similar_to",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "error_signature:pkix-path-building-failed",
+        "established": null,
+        "id": "edge:emitted:service:auth-svc|prod->error_signature:pkix-path-building-failed:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:auth-svc|prod",
+        "state": "active",
+        "type": "emitted",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "certificate:auth-tls-intermediate",
+        "established": null,
+        "id": "edge:caused_by:hyp:h1->certificate:auth-tls-intermediate:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "hyp:h1",
+        "state": "active",
+        "type": "caused_by",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.3,
+        "dst": "hyp:h2",
+        "established": null,
+        "id": "edge:refutes:service:auth-svc|prod->hyp:h2:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "service:auth-svc|prod",
+        "state": "active",
+        "type": "refutes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:error_signature:pkix-path-building-failed->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "error_signature:pkix-path-building-failed",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:certificate:auth-tls-intermediate->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "certificate:auth-tls-intermediate",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      }
+    ],
+    "events": [
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "entity": "service:auth-svc|prod",
+        "id": "evt:de50908fad38e0d4",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "entity": "alert:alt-1",
+        "id": "evt:25f08b1f8f8be524",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "entity": "incident:inc-5700",
+        "id": "evt:770dd5c53baab48b",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2025-07-19T14:30:00+00:00",
+        "entity": "incident:inc-3344",
+        "id": "evt:73420df59c3bd821",
+        "invalidated_by": null,
+        "payload": {
+          "affected_ci": "billing-svc"
+        },
+        "source": "servicenow",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:00:00+00:00",
+        "entity": "certificate:auth-tls-intermediate",
+        "id": "evt:63e26493d7abf98d",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "artifactory",
+        "state": "active",
+        "type": "expired"
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "entity": "certificate:auth-tls-intermediate",
+        "id": "evt:b43b0d4316bb15ff",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "artifactory",
+        "state": "active",
+        "type": "renewed"
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "entity": "service:auth-svc|prod",
+        "id": "evt:35bceb9f392142c1",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "entity": "anomaly:anom-1",
+        "id": "evt:492fccef56faebf1",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "state": "active",
+        "type": "cleared"
+      }
+    ],
+    "facts": [
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:18bf033a3af52cce",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "onset_value",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.4,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:ba02bc4e8f45b152",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "severity_score",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": null,
+        "valid_to": null,
+        "value": 2,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:d68909398af41280",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:auth-svc|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T15:10:00+00:00",
+        "value": true,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:426c9c1da2d0c5b6",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "red_errors",
+        "source": "prometheus",
+        "state": "superseded",
+        "subject": "service:auth-svc|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T15:10:00+00:00",
+        "value": 0.4,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:866e50b76fb17c1f",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "red_rate",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:auth-svc|prod",
+        "unit": "rpm",
+        "valid_to": null,
+        "value": 1100,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:a568ae2b6a5cf407",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "red_latency_p50",
+        "source": "appd",
+        "state": "superseded",
+        "subject": "service:auth-svc|prod",
+        "unit": "ms",
+        "valid_to": "2026-07-19T14:45:00+00:00",
+        "value": 48,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:cb0f094604a8afe9",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "red_latency_p99",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:auth-svc|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 1900,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:84e63e65e1dcea01",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:auth-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:6a4567a9868117ce",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "slo_target",
+        "source": "servicenow",
+        "state": "active",
+        "subject": "service:auth-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.999,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:16e1f39820bc929d",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "days_to_expiry",
+        "source": "artifactory",
+        "state": "superseded",
+        "subject": "certificate:auth-tls-intermediate",
+        "unit": null,
+        "valid_to": "2026-07-19T14:45:00+00:00",
+        "value": 0,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "id": "fact:c5d30702de089191",
+        "observed_at": "2026-07-19T14:30:00+00:00",
+        "predicate": "status_code_dist",
+        "source": "appd",
+        "state": "active",
+        "subject": "api_endpoint:auth-svc|prod|post|-oauth-token",
+        "unit": null,
+        "valid_to": null,
+        "value": {
+          "200": 0.58,
+          "4xx": 0.02,
+          "500": 0.4
+        },
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:45:00+00:00",
+        "id": "fact:d5c6257a91e4a7a0",
+        "observed_at": "2026-07-19T14:45:00+00:00",
+        "predicate": "days_to_expiry",
+        "source": "artifactory",
+        "state": "superseded",
+        "subject": "certificate:auth-tls-intermediate",
+        "unit": null,
+        "valid_to": "2026-07-19T15:10:00+00:00",
+        "value": -1,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:45:00+00:00",
+        "id": "fact:89e4648ff8b96541",
+        "observed_at": "2026-07-19T14:45:00+00:00",
+        "predicate": "count",
+        "source": "splunk",
+        "state": "active",
+        "subject": "error_signature:pkix-path-building-failed",
+        "unit": null,
+        "valid_to": null,
+        "value": 8840,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:45:00+00:00",
+        "id": "fact:42f5eaba776009b0",
+        "observed_at": "2026-07-19T14:45:00+00:00",
+        "predicate": "last_seen",
+        "source": "splunk",
+        "state": "active",
+        "subject": "error_signature:pkix-path-building-failed",
+        "unit": null,
+        "valid_to": null,
+        "value": "2026-07-19T14:45:00+00:00",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T14:45:00+00:00",
+        "id": "fact:b1a8996a6a0c5e80",
+        "observed_at": "2026-07-19T14:45:00+00:00",
+        "predicate": "red_latency_p50",
+        "source": "appd",
+        "state": "active",
+        "subject": "service:auth-svc|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 51,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "id": "fact:012fab0f649fb056",
+        "observed_at": "2026-07-19T15:10:00+00:00",
+        "predicate": "days_to_expiry",
+        "source": "artifactory",
+        "state": "active",
+        "subject": "certificate:auth-tls-intermediate",
+        "unit": null,
+        "valid_to": null,
+        "value": 90,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "id": "fact:2e8dca2bf28d68fa",
+        "observed_at": "2026-07-19T15:10:00+00:00",
+        "predicate": "red_errors",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:auth-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.002,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "id": "fact:744d6ff5f34ae424",
+        "observed_at": "2026-07-19T15:10:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "state": "active",
+        "subject": "service:auth-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": false,
+        "where": null
+      }
+    ],
+    "nodes": [
+      {
+        "first_seen": "2026-07-19T14:30:00+00:00",
+        "first_source": "prometheus",
+        "id": "anomaly:anom-1",
+        "last_seen": "2026-07-19T15:10:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-1"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
+      },
+      {
+        "first_seen": "2026-07-19T14:30:00+00:00",
+        "first_source": "prometheus",
+        "id": "service:auth-svc|prod",
+        "last_seen": "2026-07-19T15:10:00+00:00",
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "service_name": "auth-svc"
+        },
+        "source": "prometheus",
+        "type": "service"
+      },
+      {
+        "first_seen": "2026-07-19T14:00:00+00:00",
+        "first_source": "artifactory",
+        "id": "certificate:auth-tls-intermediate",
+        "last_seen": "2026-07-19T15:10:00+00:00",
+        "origin": false,
+        "props": {
+          "cert_id": "auth-tls-intermediate",
+          "issuer": "Corp Intermediate CA",
+          "subject": "auth-svc.internal"
+        },
+        "source": "artifactory",
+        "type": "certificate"
+      },
+      {
+        "first_seen": "2026-07-19T14:30:00+00:00",
+        "first_source": "prometheus",
+        "id": "alert:alt-1",
+        "last_seen": "2026-07-19T14:30:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "ALT-1"
+        },
+        "source": "prometheus",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-19T14:30:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-5700",
+        "last_seen": "2026-07-19T14:30:00+00:00",
+        "origin": true,
+        "props": {
+          "incident_id": "INC-5700"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T14:30:00+00:00",
+        "first_source": "appd",
+        "id": "api_endpoint:auth-svc|prod|post|-oauth-token",
+        "last_seen": "2026-07-19T14:30:00+00:00",
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "method": "POST",
+          "route_template": "/oauth/token",
+          "service_name": "auth-svc"
+        },
+        "source": "appd",
+        "type": "api_endpoint"
+      },
+      {
+        "first_seen": "2025-07-19T14:30:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-3344",
+        "last_seen": "2025-07-19T14:30:00+00:00",
+        "origin": false,
+        "props": {
+          "commander": null,
+          "incident_id": "INC-3344",
+          "severity": "3 - Moderate"
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h1",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "the Corp Intermediate CA cert expired, breaking the TLS chain for clients that validate the intermediate (~40%)"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h2",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "auth-svc service-side outage (pod crash / resource exhaustion)"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": "2026-07-19T14:45:00+00:00",
+        "first_source": "splunk",
+        "id": "error_signature:pkix-path-building-failed",
+        "last_seen": "2026-07-19T14:45:00+00:00",
+        "origin": false,
+        "props": {
+          "exception_class": "SSLHandshakeException",
+          "file_line": "sun.security.validator.Validator",
+          "first_seen": "2026-07-19 14:00:00+00:00",
+          "signature_hash": "pkix-path-building-failed"
+        },
+        "source": "splunk",
+        "type": "error_signature"
+      }
+    ]
+  },
+  "journal": [
+    {
+      "actor": "engine",
+      "narrative": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage.",
+      "phase": "frame",
+      "refs": {
+        "edges": [
+          "edge:affects:anomaly:anom-1->service:auth-svc|prod:discovered",
+          "edge:fired_on:alert:alt-1->service:auth-svc|prod:discovered"
+        ],
+        "events": [
+          "evt:de50908fad38e0d4",
+          "evt:25f08b1f8f8be524"
+        ],
+        "facts": [
+          "fact:18bf033a3af52cce",
+          "fact:ba02bc4e8f45b152",
+          "fact:d68909398af41280",
+          "fact:426c9c1da2d0c5b6",
+          "fact:866e50b76fb17c1f",
+          "fact:a568ae2b6a5cf407",
+          "fact:cb0f094604a8afe9",
+          "fact:84e63e65e1dcea01",
+          "fact:6a4567a9868117ce",
+          "fact:16e1f39820bc929d"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "anomaly:anom-1",
+          "service:auth-svc|prod",
+          "certificate:auth-tls-intermediate",
+          "alert:alt-1"
+        ]
+      },
+      "seq": 1
+    },
+    {
+      "actor": "engine",
+      "narrative": "Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
+      "phase": "triage",
+      "refs": {
+        "edges": [
+          "edge:affects:incident:inc-5700->service:auth-svc|prod:discovered",
+          "edge:exposes:service:auth-svc|prod->api_endpoint:auth-svc|prod|post|-oauth-token:declared"
+        ],
+        "events": [
+          "evt:770dd5c53baab48b"
+        ],
+        "facts": [
+          "fact:c5d30702de089191"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "incident:inc-5700",
+          "api_endpoint:auth-svc|prod|post|-oauth-token"
+        ]
+      },
+      "seq": 2
+    },
+    {
+      "actor": "engine",
+      "narrative": "The cert (H1) is the prime suspect \u2014 0 days to expiry + partial failures on chain-validating clients. The outage hypothesis (H2) is weak: pods are Ready and ~58% of clients succeed. billing-svc filed the same intermediate-expiry shape last year \u2014 a related prior reinforcing H1.",
+      "phase": "hypothesize",
+      "refs": {
+        "edges": [
+          "edge:similar_to:incident:inc-5700->incident:inc-3344:inferred",
+          "edge:similar_to:incident:inc-5700->incident:inc-3344:inferred"
+        ],
+        "events": [
+          "evt:73420df59c3bd821"
+        ],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1",
+          "hyp:h2"
+        ],
+        "nodes": [
+          "incident:inc-3344",
+          "certificate:auth-tls-intermediate",
+          "incident:inc-3344",
+          "hyp:h1",
+          "hyp:h2"
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "actor": "engine",
+      "narrative": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed.",
+      "phase": "investigate",
+      "refs": {
+        "edges": [
+          "edge:similar_to:incident:inc-5700->incident:inc-3344:inferred",
+          "edge:emitted:service:auth-svc|prod->error_signature:pkix-path-building-failed:discovered",
+          "edge:caused_by:hyp:h1->certificate:auth-tls-intermediate:inferred"
+        ],
+        "events": [
+          "evt:73420df59c3bd821",
+          "evt:63e26493d7abf98d"
+        ],
+        "facts": [
+          "fact:d5c6257a91e4a7a0",
+          "fact:89e4648ff8b96541",
+          "fact:42f5eaba776009b0",
+          "fact:d5c6257a91e4a7a0",
+          "fact:b1a8996a6a0c5e80"
+        ],
+        "hypotheses": [
+          "hyp:h2",
+          "hyp:h1"
+        ],
+        "nodes": [
+          "incident:inc-3344",
+          "error_signature:pkix-path-building-failed"
+        ]
+      },
+      "seq": 4
+    },
+    {
+      "actor": "engine",
+      "narrative": "Safest reversible fix: renew the intermediate cert + re-push the auth-svc TLS secret. Awaiting approval (gated).",
+      "phase": "remediate",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 5
+    },
+    {
+      "actor": "engine",
+      "narrative": "Post-renewal: cert at 90 days, 5xx back to 0.2%. Root cause confirmed.",
+      "phase": "verify",
+      "refs": {
+        "edges": [],
+        "events": [
+          "evt:b43b0d4316bb15ff",
+          "evt:35bceb9f392142c1",
+          "evt:492fccef56faebf1"
+        ],
+        "facts": [
+          "fact:012fab0f649fb056",
+          "fact:2e8dca2bf28d68fa",
+          "fact:744d6ff5f34ae424"
+        ],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 6
+    },
+    {
+      "actor": "engine",
+      "narrative": "Postmortem: the Corp Intermediate CA cert expired at 14:00, breaking the TLS chain for chain-validating clients (~40%); renewing + re-pushing the cert resolved it. Service outage ruled out \u2014 the failure was partial and client-dependent, the cert-expiry signature.",
+      "phase": "close",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [],
+        "nodes": []
+      },
+      "seq": 7
+    }
+  ],
+  "ledger": [
+    {
+      "basis": "cert renewed (90 days to expiry), 5xx back to 0.2% \u2014 recovery confirms the expired intermediate as root cause",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "certificate:auth-tls-intermediate",
+      "statement": "the Corp Intermediate CA cert expired, breaking the TLS chain for clients that validate the intermediate (~40%)",
+      "status": "confirmed",
+      "supporting": [
+        "fact:89e4648ff8b96541",
+        "fact:d5c6257a91e4a7a0"
+      ]
+    },
+    {
+      "basis": "auth-svc service-side outage (pod crash / resource exhaustion)",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:b1a8996a6a0c5e80"
+      ],
+      "root_candidate": "service:auth-svc|prod",
+      "statement": "auth-svc service-side outage (pod crash / resource exhaustion)",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
+  "outcome": "resolved",
+  "phases": [
+    "frame",
+    "triage",
+    "hypothesize",
+    "investigate",
+    "remediate",
+    "verify",
+    "close"
+  ],
+  "postmortem": {
+    "contributing": [],
+    "narrative": [
+      {
+        "phase": "frame",
+        "seq": 1,
+        "text": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage."
+      },
+      {
+        "phase": "triage",
+        "seq": 2,
+        "text": "Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret."
+      },
+      {
+        "phase": "hypothesize",
+        "seq": 3,
+        "text": "The cert (H1) is the prime suspect \u2014 0 days to expiry + partial failures on chain-validating clients. The outage hypothesis (H2) is weak: pods are Ready and ~58% of clients succeed. billing-svc filed the same intermediate-expiry shape last year \u2014 a related prior reinforcing H1."
+      },
+      {
+        "phase": "investigate",
+        "seq": 4,
+        "text": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed."
+      },
+      {
+        "phase": "remediate",
+        "seq": 5,
+        "text": "Safest reversible fix: renew the intermediate cert + re-push the auth-svc TLS secret. Awaiting approval (gated)."
+      },
+      {
+        "phase": "verify",
+        "seq": 6,
+        "text": "Post-renewal: cert at 90 days, 5xx back to 0.2%. Root cause confirmed."
+      },
+      {
+        "phase": "close",
+        "seq": 7,
+        "text": "Postmortem: the Corp Intermediate CA cert expired at 14:00, breaking the TLS chain for chain-validating clients (~40%); renewing + re-pushing the cert resolved it. Service outage ruled out \u2014 the failure was partial and client-dependent, the cert-expiry signature."
+      }
+    ],
+    "outcome": "resolved",
+    "root_cause": {
+      "chain": [],
+      "confidence": 0.9,
+      "root_candidate": "certificate:auth-tls-intermediate",
+      "statement": "the Corp Intermediate CA cert expired, breaking the TLS chain for clients that validate the intermediate (~40%)"
+    },
+    "ruled_out": [
+      {
+        "basis": "auth-svc service-side outage (pod crash / resource exhaustion)",
+        "statement": "auth-svc service-side outage (pod crash / resource exhaustion)"
+      }
+    ],
+    "subject": {
+      "domain": "app-incident",
+      "id": "INC-5700",
+      "kind": "incident"
+    },
+    "timeline": [
+      {
+        "at": "2025-07-19T14:30:00+00:00",
+        "entity": "incident:inc-3344",
+        "payload": {
+          "affected_ci": "billing-svc"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:00:00+00:00",
+        "entity": "certificate:auth-tls-intermediate",
+        "payload": {},
+        "type": "expired"
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "entity": "service:auth-svc|prod",
+        "payload": {},
+        "type": "degraded_started"
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "entity": "alert:alt-1",
+        "payload": {},
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T14:30:00+00:00",
+        "entity": "incident:inc-5700",
+        "payload": {},
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "entity": "certificate:auth-tls-intermediate",
+        "payload": {},
+        "type": "renewed"
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "entity": "service:auth-svc|prod",
+        "payload": {},
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T15:10:00+00:00",
+        "entity": "anomaly:anom-1",
+        "payload": {},
+        "type": "cleared"
+      }
+    ]
+  },
+  "subject": {
+    "domain": "app-incident",
+    "id": "INC-5700",
+    "kind": "incident"
+  }
+}

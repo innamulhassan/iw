@@ -68,6 +68,15 @@ _CATALOG: list[dict] = [
     {"key": "infra", "id": "INC-8900", "domain": "app-incident",
      "title": "checkout-svc pod evicted — noisy-neighbor batch job", "layer": "Infra",
      "remediation": "Reschedule etl-nightly off the tier-1 node + cap its memory"},
+    {"key": "cache", "id": "INC-5500", "domain": "app-incident",
+     "title": "product-api latency after cache-client deploy (stampede)", "layer": "Caching",
+     "remediation": "Roll product-api back to v3.3.2 (re-enable singleflight)"},
+    {"key": "featureflag", "id": "INC-5600", "domain": "app-incident",
+     "title": "cart-api 5xx after feature-flag flip (CHG-77)", "layer": "Configuration / Flag",
+     "remediation": "Recycle the new-tax-engine flag to 0% rollout"},
+    {"key": "certificate", "id": "INC-5700", "domain": "app-incident",
+     "title": "auth-svc intermittent 503 — expiring intermediate cert", "layer": "TLS / Certificate",
+     "remediation": "Renew the Corp Intermediate CA cert + re-push the auth-svc TLS secret"},
 ]
 
 _BY_ID = {e["id"]: e for e in _CATALOG}

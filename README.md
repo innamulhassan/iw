@@ -20,7 +20,7 @@ engine change.
 | **`engine/`** | The Python core — the typed domain registry, the graph/journal/ledger projections, the thin phased engine, and 8 mockable capability adapters. See [`engine/docs/DESIGN.md`](engine/docs/DESIGN.md). |
 | **`workbench/`** | The React + TypeScript UI — renders an investigation's graph, hypothesis ledger, journal timeline, and phase/gate state. |
 | **`design/`** | Product design docs (the v2 PRD + data model). |
-| **`legacy/`** | Superseded generations kept for history — the original *LunaSRE* learning project and the earlier `implementation/`/`demo/` prototypes. Not maintained. |
+| **`iw.py`** | One cross-platform controller script — `init` / `start` / `stop` / `status` / `logs` for both services. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md). |
 
 ## The core ideas (what makes it right)
 
