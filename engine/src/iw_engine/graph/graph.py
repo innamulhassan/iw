@@ -45,8 +45,18 @@ class Graph:
     def add_fact(self, fact: Fact) -> Fact:
         if fact.supersedes and fact.supersedes in self.facts:
             old = self.facts[fact.supersedes]
+            # CLAMP, not reject: model_copy skips the Fact._window_ok validator, so a
+            # back-dated correction (new.valid_from < old.valid_from) would silently
+            # persist an inverted window (valid_to < valid_from). Clamping to
+            # old.valid_from yields a zero-length window — "no instant at which the old
+            # value was the truth" — the correct reading of a back-dated correction.
+            # Clamp is the safe choice because add_fact is the single mutation seam for
+            # BOTH live fold and journal replay: it has no rejection channel, and raising
+            # here could brick crash-resume replay of an already-written journal
+            # (2026-07-22 review, finding 18).
+            closed_at = max(fact.valid_from, old.valid_from)
             self.facts[fact.supersedes] = old.model_copy(
-                update={"valid_to": fact.valid_from, "state": FactState.SUPERSEDED})
+                update={"valid_to": closed_at, "state": FactState.SUPERSEDED})
         self.facts[fact.id] = fact
         return fact
 
@@ -106,9 +116,16 @@ class Graph:
         return [e.dst for e in self.out_edges(nid, etype)]
 
     def facts_valid_at(self, ts: datetime) -> list[Fact]:
-        """Point-in-time (principle 8): facts whose valid window contains ts."""
+        """Point-in-time (principle 8): facts whose valid window contains ts.
+
+        SUPERSEDED facts are INCLUDED — a superseded fact is still the truth for every
+        instant inside its (now-closed) window, and excluding it broke as-of-incident-start
+        reconstruction the moment any fact was superseded (INV-5; 2026-07-22 review,
+        finding 1). Only RETRACTED facts — observations disavowed as wrong, never true at
+        any instant — are excluded from history.
+        """
         return [f for f in self.facts.values()
-                if f.state == FactState.ACTIVE and f.valid_from <= ts
+                if f.state != FactState.RETRACTED and f.valid_from <= ts
                 and (f.valid_to is None or ts < f.valid_to)]
 
     def reachable_from(self, nid: str, *, max_hops: int = 4) -> set[str]:

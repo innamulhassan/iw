@@ -86,6 +86,50 @@ def test_point_in_time_query():
     assert at_late == {"f2"}
 
 
+def test_point_in_time_reconstructs_superseded_value():
+    """INV-5 regression (2026-07-22 review, finding 1): after a fact is superseded via the
+    REAL supersede path (g.add_fact with supersedes=..., not a manual valid_to), the
+    point-in-time query must still return the superseded fact for instants inside its
+    closed window — else the graph is no longer reconstructable as of incident-start."""
+    g = Graph()
+    sid = "service:payments-api|prod"
+    g.upsert_node(make_service())
+    g.add_fact(make_fact(sid, "red_errors", 0.02, ts=T0, fid="f1"))
+    f2 = make_fact(sid, "red_errors", 0.40, ts=T0 + timedelta(minutes=5), fid="f2")
+    g.add_fact(f2.model_copy(update={"supersedes": "f1"}))
+    assert {f.id for f in g.facts_valid_at(T0 + timedelta(minutes=1))} == {"f1"}
+    assert {f.id for f in g.facts_valid_at(T0 + timedelta(minutes=10))} == {"f2"}
+
+
+def test_point_in_time_excludes_retracted():
+    """RETRACTED facts (disavowed observations) stay excluded from point-in-time history."""
+    g = Graph()
+    sid = "service:payments-api|prod"
+    g.upsert_node(make_service())
+    g.add_fact(make_fact(sid, "red_errors", 0.02, ts=T0, fid="f1"))
+    g.retract_fact("f1")
+    assert g.facts_valid_at(T0 + timedelta(minutes=1)) == []
+
+
+def test_supersede_clamps_backdated_window():
+    """Finding 18: a back-dated correction (new.valid_from < old.valid_from) must not
+    persist an inverted window (valid_to < valid_from). The close is clamped to
+    old.valid_from — a zero-length window: no instant at which the old value was true."""
+    g = Graph()
+    sid = "service:payments-api|prod"
+    g.upsert_node(make_service())
+    g.add_fact(make_fact(sid, "degraded", True, ts=T0 + timedelta(minutes=5), fid="f1"))
+    corrected = make_fact(sid, "degraded", True, ts=T0, fid="f2").model_copy(
+        update={"supersedes": "f1"})
+    g.add_fact(corrected)
+    old = g.facts["f1"]
+    assert old.state == FactState.SUPERSEDED
+    assert old.valid_to == old.valid_from            # clamped, not inverted
+    assert old.valid_to >= old.valid_from            # the Fact window invariant holds
+    # the zero-length window means f1 is the truth at NO instant; f2 covers from T0 on
+    assert {f.id for f in g.facts_valid_at(T0 + timedelta(minutes=6))} == {"f2"}
+
+
 def test_edges_and_traversal():
     g = Graph()
     g.upsert_node(make_service("checkout"))
