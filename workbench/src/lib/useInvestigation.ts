@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import type { SessionEvent, Subject } from "../types";
+import type { SessionEvent, SessionState, Subject } from "../types";
 import { advance, createSession, decideGate, getSnapshot, sendMessage, streamUrl } from "./api";
 import type { GateDecision } from "./api";
 import { emptyState, reduce } from "./store";
@@ -17,6 +17,11 @@ const EVENT_TYPES: SessionEvent["type"][] = [
   "session_state",
 ];
 
+/** Backoff schedule for SSE re-subscribes: 1s, 2s, then 5s (capped) per attempt. */
+const RECONNECT_DELAYS_MS = [1000, 2000, 5000];
+/** Consecutive failed (re)connects tolerated before giving up with a visible error. */
+const MAX_RECONNECT_ATTEMPTS = 10;
+
 /** Owns ONE live investigation: cold-loads its snapshot, subscribes to the resumable SSE
  *  stream, folds every delta through the store reducer, and exposes the gate-decision action.
  *  The engine drives node-expansion; the human only answers the write-gate. */
@@ -27,8 +32,23 @@ export function useInvestigation() {
   const esRef = useRef<EventSource | null>(null);
   const idRef = useRef<string | null>(null);
   const answeredGates = useRef<Set<string>>(new Set()); // gate ids already submitted (dedupe)
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttempts = useRef(0); // consecutive failed (re)connects since the last healthy open
+  const lastSeqRef = useRef(0); // latest APPLIED seq — the resume cursor for reconnects
+  const sessionStateRef = useRef<SessionState | null>(null);
+
+  // Mirror the reducer's cursor + liveness into refs so the stable subscribe/reconnect
+  // callbacks always see the CURRENT values, not the ones captured at subscribe time.
+  useEffect(() => {
+    lastSeqRef.current = state.lastSeq;
+    sessionStateRef.current = state.state;
+  });
 
   const closeStream = useCallback(() => {
+    if (reconnectTimer.current !== null) {
+      clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = null;
+    }
     esRef.current?.close();
     esRef.current = null;
   }, []);
@@ -44,6 +64,9 @@ export function useInvestigation() {
       /* best-effort — the live deltas already carry ids + badges */
     }
   }, []);
+
+  // Self-reference so the reconnect timer can re-subscribe through the stable callback.
+  const subscribeRef = useRef<(id: string, after: number) => void>(() => {});
 
   const subscribe = useCallback(
     (id: string, after: number) => {
@@ -62,19 +85,48 @@ export function useInvestigation() {
       };
       for (const t of EVENT_TYPES) es.addEventListener(t, onEvent as EventListener);
       es.addEventListener("closed", () => closeStream());
+      es.onopen = () => {
+        reconnectAttempts.current = 0; // healthy again — a later drop starts backoff fresh
+      };
       es.onerror = () => {
-        // the stream naturally ends (server closes) once the session is CLOSED; only surface a
-        // persistent failure while we still expect events.
-        if (es.readyState === EventSource.CLOSED && esRef.current === es) esRef.current = null;
+        // EventSource auto-retries only from CONNECTING; CLOSED is terminal (e.g. the /api
+        // proxy answered 502 while the backend restarts, or the stream endpoint 404'd). The
+        // stream also naturally ends once the session is CLOSED — never reconnect then. While
+        // the session is still live, re-subscribe with capped exponential backoff, resuming
+        // from the LATEST applied seq — otherwise the investigation silently freezes with no
+        // error and no recovery short of a full reload.
+        if (es.readyState !== EventSource.CLOSED || esRef.current !== es) return;
+        es.close();
+        esRef.current = null;
+        if (sessionStateRef.current === "closed") return; // nothing more to stream
+        if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+          setError(
+            `Live stream lost — gave up after ${MAX_RECONNECT_ATTEMPTS} reconnect attempts. Reload to resume.`
+          );
+          return;
+        }
+        const delay =
+          RECONNECT_DELAYS_MS[Math.min(reconnectAttempts.current, RECONNECT_DELAYS_MS.length - 1)];
+        reconnectAttempts.current += 1;
+        reconnectTimer.current = setTimeout(() => {
+          reconnectTimer.current = null;
+          if (idRef.current !== id || sessionStateRef.current === "closed") return; // superseded
+          subscribeRef.current(id, lastSeqRef.current); // resume from the true cursor
+        }, delay);
       };
       esRef.current = es;
     },
     [closeStream, reconcile]
   );
 
+  useEffect(() => {
+    subscribeRef.current = subscribe;
+  }, [subscribe]);
+
   const load = useCallback(
     async (id: string, snapshotSeq: number) => {
       idRef.current = id;
+      reconnectAttempts.current = 0; // a fresh cold-load resets the backoff budget
       subscribe(id, snapshotSeq);
     },
     [subscribe]
@@ -85,6 +137,7 @@ export function useInvestigation() {
     async (subject: Subject) => {
       setBusy(true);
       setError(null);
+      closeStream(); // drop the previous stream + any pending reconnect before reseeding
       answeredGates.current.clear();
       dispatch({ kind: "reset" });
       try {
@@ -97,7 +150,7 @@ export function useInvestigation() {
         setBusy(false);
       }
     },
-    [load]
+    [closeStream, load]
   );
 
   /** Open an existing (possibly CLOSED) investigation by id — cold-load its full state. */
@@ -105,6 +158,7 @@ export function useInvestigation() {
     async (id: string) => {
       setBusy(true);
       setError(null);
+      closeStream(); // drop the previous stream + any pending reconnect before reseeding
       answeredGates.current.clear();
       dispatch({ kind: "reset" });
       try {
@@ -184,6 +238,7 @@ export function useInvestigation() {
   const reset = useCallback(() => {
     closeStream();
     idRef.current = null;
+    reconnectAttempts.current = 0;
     answeredGates.current.clear();
     dispatch({ kind: "reset" });
     setError(null);
