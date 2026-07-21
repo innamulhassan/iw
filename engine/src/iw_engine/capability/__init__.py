@@ -11,16 +11,19 @@ from .layer import (
     ScenarioSource,
     Source,
 )
+from .mapping import MappingSource, map_response
 
 __all__ = [
     "Adapter",
     "CapabilityCall",
     "CapabilityLayer",
     "Invocation",
+    "MappingSource",
     "McpSource",
     "MockSource",
     "RestSource",
     "RoutedSource",
     "ScenarioSource",
     "Source",
+    "map_response",
 ]
