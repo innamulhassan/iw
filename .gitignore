@@ -32,3 +32,6 @@ dist/
 
 # Runtime state (memory DB + LangGraph checkpoints — local, not committed)
 .lunasre/
+
+# iw.py controller runtime (pids + logs — local only)
+.iw/
