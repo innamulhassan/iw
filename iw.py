@@ -5,6 +5,13 @@ One script to bring the Investigation Workbench up and down. Backend (FastAPI/uv
 and frontend (Vite) are each a detached child, tracked in a tiny JSON pidfile in this
 repo so start/stop/status/logs survive the shell that launched them.
 
+PREREQS: `uv` (backend venv + deps) and `npm` (frontend deps). uv manages the engine's
+.venv itself — so there's no venv/pip to set up by hand, and the Windows pip `--user`
+trap can't happen. Install uv once:
+    macOS/Linux:  curl -LsSf https://astral.sh/uv/install.sh | sh
+    Windows:      powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+    (uv can also fetch its own Python 3.11+ — no system Python needed for the backend.)
+
 Works on macOS, Linux, and Windows. On Windows use:
 
     python iw.py init
@@ -16,7 +23,7 @@ Works on macOS, Linux, and Windows. On Windows use:
 On macOS/Linux you can also run it directly (./iw.py ...) since it has a shebang and the
 executable bit is committed.
 
-    iw.py init      install backend + frontend deps (intelligent; skips what's already done)
+    iw.py init      install backend (uv sync) + frontend (npm install) deps
     iw.py start     bring up both services (or one with --backend-only / --frontend-only)
     iw.py stop      stop both (or one)
     iw.py restart   stop then start
@@ -24,8 +31,8 @@ executable bit is committed.
     iw.py logs      tail logs for both (or one); -f to follow
 
 Defaults:
-    backend   uvicorn on 127.0.0.1:8099
-    frontend  vite   on 127.0.0.1:5173
+    backend   uv run uvicorn on 127.0.0.1:8099
+    frontend  vite          on 127.0.0.1:5173
 """
 from __future__ import annotations
 
@@ -39,7 +46,7 @@ import socket
 import subprocess
 import sys
 import time
-from typing import Optional
+from typing import NoReturn, Optional
 
 ROOT = pathlib.Path(__file__).resolve().parent
 ENGINE = ROOT / "engine"
@@ -87,18 +94,13 @@ def _warn(msg: str) -> None:
     print(f"  {_c('1;33', '!')} {msg}")
 
 
-def _die(msg: str, code: int = 1) -> "NoReturn":  # noqa: F821
+def _die(msg: str, code: int = 1) -> NoReturn:
     print(_c("1;31", f"✗ {msg}"), file=sys.stderr)
     sys.exit(code)
 
 
 def _venv_python(venv: pathlib.Path) -> pathlib.Path:
     return venv / _VENV_BIN / ("python.exe" if IS_WINDOWS else "python")
-
-
-def _venv_uvicorn(venv: pathlib.Path) -> pathlib.Path:
-    exe = "uvicorn.exe" if IS_WINDOWS else "uvicorn"
-    return venv / _VENV_BIN / exe
 
 
 def _npm_cmd() -> str:
@@ -172,48 +174,48 @@ def _wait_for_port(host: str, port: int, timeout: float = 20.0) -> bool:
 
 
 # ─── install ────────────────────────────────────────────────────────────────────
-def install_backend(force: bool = False) -> bool:
-    """Create engine/.venv and install the editable package + [server,dev] extras.
+def _uv() -> str:
+    """Resolve the uv binary. uv is a hard requirement for the backend — it manages the
+    engine venv + installs from uv.lock, sidestepping the pip `--user` trap entirely (uv
+    manages its own environment and never reads global pip.ini)."""
+    found = shutil.which("uv")
+    if found:
+        return found
+    # common install locations if not on PATH
+    for cand in (pathlib.Path.home() / ".local" / "bin" / "uv",
+                 pathlib.Path.home() / ".cargo" / "bin" / "uv"):
+        if cand.exists():
+            return str(cand)
+    _die("uv not found. Install it (one command, no admin):  "
+         "https://docs.astral.sh/uv/getting-started/installation/\n"
+         "  macOS/Linux:  curl -LsSf https://astral.sh/uv/install.sh | sh\n"
+         "  Windows:      powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\"")
 
-    Returns True if (re)installed. Idempotent: a valid venv with the package importable
-    is left alone unless `force`."""
+
+def install_backend(force: bool = False) -> bool:
+    """Create engine/.venv and install the backend deps via `uv sync` (the [server,dev]
+    extras). uv creates the venv, resolves the lockfile, and installs in one fast step —
+    and never touches global pip config, so the Windows pip `--user` error can't happen.
+
+    Returns True if (re)installed. Idempotent: a synced .venv is left alone unless `force`."""
+    uv = _uv()
     venv = ENGINE / ".venv"
     py = _venv_python(venv)
-    # Prefer python3; Windows installs it as just `python`.
-    py_launcher = "python" if IS_WINDOWS else "python3"
-    if shutil.which(py_launcher) is None:
-        # fall back to whatever is running us
-        py_launcher = sys.executable
-    _die_if_missing(py_launcher, "use a Python 3.11+ (https://www.python.org/downloads/)")
 
     if not force and venv.exists() and py.exists():
-        # probe: can we import the server? if so, the install is good.
+        # probe: can we import the server? if so, the install is good — skip the sync.
         r = subprocess.run([str(py), "-c", "import iw_engine.api.server"],
                            cwd=ENGINE, capture_output=True)
         if r.returncode == 0:
             _ok(f"backend deps already installed ({venv.relative_to(ROOT)})")
             return False
 
-    if venv.exists() and (force or not py.exists()):
+    if force and venv.exists():
         shutil.rmtree(venv)
 
-    _banner(f"creating python venv at {venv.relative_to(ROOT)}")
-    subprocess.run([py_launcher, "-m", "venv", str(venv)], check=True)
-    _ok("venv created")
-
-    # pip env: force installs INTO the venv. On Windows a global pip.ini with
-    # `user = true` (common with some Python installers / Microsoft Store Python)
-    # makes pip try --user, which is rejected inside a venv with
-    # "cannot perform a --user install". PIP_USER=0 overrides any such config.
-    pip_env = os.environ.copy()
-    pip_env["PIP_USER"] = "0"
-    pip_env["PIP_NO_INPUT"] = "1"
-
-    _banner("installing backend deps (pyproject.toml with [server,dev] extras)")
-    cmd = [str(py), "-m", "pip", "install", "--upgrade", "pip"]
-    subprocess.run(cmd, cwd=ENGINE, check=True, env=pip_env)
-    cmd = [str(py), "-m", "pip", "install", "--no-user", "-e", ".[server,dev]"]
-    subprocess.run(cmd, cwd=ENGINE, check=True, env=pip_env)
+    _banner("installing backend deps via uv sync (uv.lock, [server,dev] extras)")
+    # --extra installs the optional-dependency groups; uv sync is idempotent and fast.
+    subprocess.run([uv, "sync", "--extra", "server", "--extra", "dev"], cwd=ENGINE, check=True)
     _ok("backend deps installed")
     return True
 
@@ -305,17 +307,11 @@ def _kill_tree_hard(pid: int) -> None:
 
 # ─── start ──────────────────────────────────────────────────────────────────────
 def _start_backend(host: str, port: int) -> Optional[int]:
+    uv = _uv()
     venv = ENGINE / ".venv"
-    py = _venv_python(venv)
-    uv = _venv_uvicorn(venv)
-    if not py.exists():
+    if not venv.exists():
         _warn("backend venv missing — run `python iw.py init` first; skipping backend")
         return None
-    if not uv.exists():
-        # uvicorn not installed (or the .exe missing) — invoke via `python -m uvicorn`
-        launcher = [str(py), "-m", "uvicorn"]
-    else:
-        launcher = [str(uv)]
 
     if _port_in_use(host, port):
         _warn(f"port {port} already in use — backend assumed up")
@@ -325,8 +321,9 @@ def _start_backend(host: str, port: int) -> Optional[int]:
     log.parent.mkdir(parents=True, exist_ok=True)
     log_fd = log.open("ab")  # append so restarts keep a history
     env = os.environ.copy()
-    cmd = launcher + ["iw_engine.api.server:create_server", "--factory",
-                      "--host", host, "--port", str(port)]
+    # `uv run` resolves the .venv python automatically — no path juggling for uvicorn.exe.
+    cmd = [uv, "run", "uvicorn", "iw_engine.api.server:create_server", "--factory",
+           "--host", host, "--port", str(port)]
     pid = _popen_detached(cmd, ENGINE, log_fd, env)
     log_fd.close()
     return pid

@@ -113,34 +113,43 @@ python iw.py init
 
 ---
 
-## 2. "cannot perform a --user install"
+## 2. `uv not found` / install uv
 
-Error looks like:
-```
-ERROR: Cannot perform a '--user' install. User site-packages are not visible in this virtualenv.
-```
-
-**Already fixed in `iw.py`** (commit `58623c4`). If you still see it, you're on an
-old version — update:
+The backend is now driven by **`uv`** (it manages `engine/.venv` itself and installs from
+`uv.lock`). This is a deliberate change: uv never reads global `pip.ini`, so the Windows
+**"cannot perform a --user install" error is gone for good** — that pip trap can't happen
+anymore. If you still see that old pip error, you're on a pre-uv version:
 ```cmd
 git pull
 python iw.py init
 ```
 
-If it STILL appears after `git pull`, your global `pip.ini` is forcing `user = true`.
-Workaround:
+uv is a hard requirement now. Install it once (no admin needed):
 ```cmd
-type "%APPDATA%\pip\pip.ini"
+:: Windows (PowerShell)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+:: macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-If you see `user = true` in there, delete that line (or set `user = false`), then re-run.
+Then **open a new terminal** (so `uv` is on PATH) and re-run `python iw.py init`. uv can
+also fetch its own Python 3.11+ — you don't need a system Python for the backend.
+
+To pin/upgrade uv itself later: `uv self update`.
 
 ---
 
-## 3. `init` says venv created, then pip fails
+## 3. `init` fails during backend install (uv sync)
 
 Two usual causes:
-1. **Artifactory not configured** — see Section 1 above.
-2. **Half-installed venv from a failed run** — start clean:
+1. **Artifactory not configured** — see Section 1 above. uv respects `UV_INDEX_URL` /
+   `UV_DEFAULT_INDEX` env vars and a `[tool.uv]` section in pyproject.toml; the same
+   JFrog index you'd give pip applies. For a one-off:
+   ```cmd
+   set UV_DEFAULT_INDEX=https://YOURCOMPANY.jfrog.io/artifactory/api/pypi/pypi-virtual/simple
+   python iw.py init
+   ```
+2. **Half-installed .venv from a failed run** — start clean:
    ```cmd
    python iw.py init --force
    ```
@@ -214,9 +223,14 @@ When reporting an issue, include:
 ## Quick reference — the working setup on Windows
 
 ```cmd
+:: 1. install uv once (no admin)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+:: → open a NEW terminal so uv is on PATH
+
+:: 2. clone + run
 git clone https://github.com/innamulhassan/iw.git
 cd iw
-python iw.py init
+python iw.py init     :: uv sync (backend) + npm install (frontend)
 python iw.py start
 :: → open http://127.0.0.1:5173 in your browser
 python iw.py stop

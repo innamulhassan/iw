@@ -42,12 +42,22 @@ engine change.
 
 ## Run it
 
-**Engine (credential-free, fully mocked):**
+**Easiest — the `iw.py` controller (backend + frontend, one command):**
+```bash
+# install uv once:  https://docs.astral.sh/uv/getting-started/installation/
+python iw.py init     # uv sync (backend, from uv.lock) + npm install (frontend)
+python iw.py start    # backend on :8099, frontend on :5173 → open http://127.0.0.1:5173
+python iw.py stop
+```
+`uv` manages the engine's `.venv` itself — no venv/pip to set up by hand, and the
+Windows pip `--user` trap can't happen. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
+**Engine directly (credential-free, fully mocked):**
 ```bash
 cd engine
-python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest          # unit + end-to-end scenarios across 5 incident layers
-.venv/bin/ruff check
+uv sync --extra dev     # creates .venv + installs from uv.lock
+uv run pytest           # unit + end-to-end scenarios across 11 incident layers
+uv run ruff check
 ```
 
 **Workbench UI:**
@@ -55,10 +65,10 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 cd workbench
 npm install
 npm run build && npm test
-npm run dev               # renders the demo investigation bundle
+npm run dev             # renders the demo investigation bundle
 ```
 
 The demo bundle (`workbench/public/demo-code-regression.json`) is produced by a real engine run:
 ```bash
-cd engine && .venv/bin/python scripts/build_demo.py
+cd engine && uv run python scripts/build_demo.py
 ```
