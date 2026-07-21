@@ -103,12 +103,22 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 if ef.predicate == op.predicate and ef.is_open and ef.id != fid:
                     supersedes = ef.id
                     break
-            out.facts.append(Fact(
-                id=fid, subject_ref=op.subject, predicate=op.predicate, value=op.value,
-                unit=op.unit, valid_from=op.valid_from, valid_to=op.valid_to,
-                observed_at=op.observed_at, source=op.source, confidence=conf,
-                source_reliability=op.source_reliability, evidence=op.evidence,
-                supersedes=supersedes, created_by=seq))
+            try:
+                out.facts.append(Fact(
+                    id=fid, subject_ref=op.subject, predicate=op.predicate, value=op.value,
+                    unit=op.unit, valid_from=op.valid_from, valid_to=op.valid_to,
+                    observed_at=op.observed_at, source=op.source, confidence=conf,
+                    source_reliability=op.source_reliability, evidence=op.evidence,
+                    supersedes=supersedes, created_by=seq))
+            except (ValueError, AssertionError) as exc:
+                # The Fact model enforces its invariants by raising (e.g. R-C4 belief-channel:
+                # an inferred/llm fact must carry confidence, a measured fact must carry
+                # source_reliability). The LivePlanner pre-repairs these, but if one slips
+                # through we reject the op and continue — consistent with how the reducer
+                # already treats every other malformed op — instead of crashing the whole run.
+                # The model invariant itself stays intact (direct Fact() still raises).
+                out.rejections.append(Rejection(i, op.op.value, f"invalid fact: {exc}"))
+                continue
 
         elif isinstance(op, AddEvent):
             if not known(op.entity):

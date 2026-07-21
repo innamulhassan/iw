@@ -128,6 +128,35 @@ def test_fact_belief_channel_invariant():
              confidence=Confidence(value=0.7, basis="x"))
 
 
+def test_reducer_soft_rejects_belief_channel_violation():
+    """The Fact model still RAISES on a belief-channel violation (R-C4 invariant, tested above),
+    but the reducer must not crash the run when a malformed fact reaches it — it records a
+    Rejection and continues, exactly like every other malformed op. This is the engine's
+    resilience contract: a single bad op never kills the investigation."""
+    from iw_engine.domain.operations import AddFact, AddNode
+    from iw_engine.domain.playbook import Tunables
+    from iw_engine.graph.reducer import materialize
+
+    g = Graph()
+    sid = "service:payments-api|prod"
+    tun = Tunables()
+    # seed the service node so the fact's subject is known (passes the known() check)
+    seed = materialize([AddNode(type=NodeType.SERVICE,
+                                props={"service_name": "payments-api", "env": "prod"})],
+                       1, g, tun)
+    # apply the seed the way the engine does (fold adds nodes to the graph)
+    for n in seed.nodes:
+        g.upsert_node(n)
+
+    # a fact violating R-C4: a measured source (PROMETHEUS) carrying BOTH belief channels
+    bad = AddFact(subject=sid, predicate="red_errors", value=0.4, valid_from=T0, observed_at=T0,
+                  source=Source.PROMETHEUS, source_reliability=0.9, confidence_level="high")
+    mat = materialize([bad], 2, g, tun)
+    assert len(mat.facts) == 0                       # the bad fact did NOT land
+    assert len(mat.rejections) == 1                  # it was recorded instead
+    assert "invalid fact" in mat.rejections[0].reason
+
+
 def test_retract_edge_and_event_tombstone():
     """Edge + Event lifecycle (VALIDATION-VERDICT §B P0 #2): a refuted inferred edge and a
     wrong telemetry event are tombstoned (state=RETRACTED), never mutated/deleted — symmetric
