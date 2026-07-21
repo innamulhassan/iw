@@ -126,13 +126,28 @@ def main() -> None:
     client = make_client(args.model)
     if client is None:
         print("No LLM key found. Provide one of:\n"
-              "  ~/.secrets/stock/gemini-api-key.txt   (Gemini)\n"
-              "  export XAI_API_KEY=...                 (xAI)\n"
+              "  export XAI_API_KEY=...                  (xAI/Grok — default)\n"
+              "  export GEMINI_API_KEY=...               (Gemini)\n"
+              "  ~/.secrets/stock/gemini-api-key.txt     (Gemini, legacy file)\n"
+              "Optional: IW_LIVE_MODEL=<model>, IW_LIVE_PROVIDER=xai|gemini\n"
               "Then: .venv/bin/python scripts/run_live.py")
         return
 
     names = list(SCENARIOS) if args.scenario == "all" else [args.scenario]
-    results = [run_scenario(n, client, max_steps=args.max_steps) for n in names]
+    # Per-scenario isolation: a JSON-parse failure, a transient MCP error, or an LLM
+    # exhaustion in ONE scenario must not crash the whole batch. Catch, record as
+    # not-converged with the error, and continue — the summary still reports every
+    # scenario. (The interactive session backend has its own _drive_and_clear catch;
+    # this is the batch equivalent.)
+    results = []
+    for n in names:
+        try:
+            results.append(run_scenario(n, client, max_steps=args.max_steps))
+        except Exception as exc:   # batch runner must not die on one scenario
+            print(f"\n-- {n} FAILED --\n  {type(exc).__name__}: {exc}")
+            results.append({"name": n, "converged": False, "root": None,
+                            "golden": "", "rejections": 0, "refuted": [],
+                            "repairs": 0, "outcome": f"error: {type(exc).__name__}"})
 
     print(f"\n{'=' * 78}\nSUMMARY   model={client.name}\n{'=' * 78}")
     n_conv = sum(r["converged"] for r in results)
