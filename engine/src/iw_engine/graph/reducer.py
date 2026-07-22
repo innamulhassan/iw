@@ -42,6 +42,7 @@ from ..domain.phase_result import Rejection, Retraction
 from ..domain.playbook import Tunables
 from ..domain.shim import assertion_from_event, assertion_from_fact
 from . import graph as graph_mod
+from . import resolver
 
 __all__ = ["Materialized", "Rejection", "materialize"]   # Rejection re-exported (home: domain)
 
@@ -72,6 +73,26 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
     out = Materialized()
     batch_types: dict[str, NodeType] = {}
     batch_edges: set[str] = set()
+    batch_aliases: dict[str, str] = {}   # "scheme:id" → node id, claimed earlier in THIS batch
+
+    def alias_target(key: str) -> str | None:
+        """Current binding of an alias key — batch claims first, then the graph's index."""
+        return batch_aliases.get(key) or graph.alias_index.get(key)
+
+    def register_aliases(i: int, op_kind: str, aliases: dict[str, str], nid: str) -> None:
+        """Claim `aliases` for node `nid` (first binding wins). A claim already bound to a
+        DIFFERENT node is a journaled CONTRADICTION (DOMAIN-v3 §9.2: aliases append freely;
+        conflict = journaled contradiction surfaced to the planner, not silent overwrite) —
+        recorded on the rejections channel as a notice; the op itself still materializes."""
+        for scheme, val in aliases.items():
+            key = resolver.alias_key(scheme, val)
+            bound = alias_target(key)
+            if bound is None:
+                batch_aliases[key] = nid
+            elif bound != nid:
+                out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=
+                    f"alias contradiction: {key} already identifies {bound}; not rebound to "
+                    f"{nid} (first binding wins) — node materialized, alias claim recorded"))
 
     def type_of(nid: str) -> NodeType | None:
         if nid in batch_types:
@@ -190,8 +211,13 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                     "refusing a degenerate id"))
                 continue
             nid = registry.node_id(op.type, op.props)
-            out.nodes.append(Node(id=nid, type=op.type, props=op.props, created_by=seq))
+            # P5 (DOMAIN-v3 §2.1): lift the identity-backbone props into the entity's alias
+            # block — per-tool ids become identity surface the graph indexes, not inert cargo.
+            derived = resolver.aliases_from_props(op.type, op.props)
+            out.nodes.append(Node(id=nid, type=op.type, props=op.props, aliases=derived,
+                                  created_by=seq))
             batch_types[nid] = op.type
+            register_aliases(i, op.op.value, derived, nid)
         elif isinstance(op, ProposeHypothesis):
             hid = f"hyp:{op.hid}"
             out.nodes.append(Node(id=hid, type=NodeType.HYPOTHESIS,

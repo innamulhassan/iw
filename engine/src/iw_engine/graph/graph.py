@@ -17,6 +17,7 @@ from ..domain.enums import EdgeType, FactState, NodeType, Origin
 from ..domain.event import Event
 from ..domain.fact import Fact
 from ..domain.node import Node
+from . import resolver
 
 
 class Graph:
@@ -26,15 +27,25 @@ class Graph:
         self.edges: dict[str, Edge] = {}
         self.facts: dict[str, Fact] = {}
         self.events: dict[str, Event] = {}
+        # P5 identity layer (DOMAIN-v3 §2.1, R-J5's alias table): "scheme:id" → node id.
+        # Maintained here (upsert_node is fold-only) so journal replay rebuilds it exactly;
+        # first binding wins per key — a later conflicting claim never silently rebinds
+        # (§9.2: conflict = journaled contradiction, surfaced by the reducer).
+        self.alias_index: dict[str, str] = {}
 
     # ── mutation (only the fold calls these) ──────────────────────────────────
     def upsert_node(self, node: Node) -> Node:
         prior = self.nodes.get(node.id)
         if prior is not None:
             merged = {**prior.props, **{k: v for k, v in node.props.items() if v is not None}}
-            node = prior.model_copy(update={"props": merged})
+            # aliases are identity surface: union, PRIOR wins per scheme (write-once flavor —
+            # symmetric with the alias_index's first-binding-wins below).
+            aliases = {**node.aliases, **prior.aliases}
+            node = prior.model_copy(update={"props": merged, "aliases": aliases})
         self.nodes[node.id] = node
         self._g.add_node(node.id, type=node.type.value)
+        for scheme, val in node.aliases.items():
+            self.alias_index.setdefault(resolver.alias_key(scheme, val), node.id)
         return node
 
     def add_edge(self, edge: Edge) -> Edge:
