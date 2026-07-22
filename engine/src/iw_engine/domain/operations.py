@@ -154,8 +154,24 @@ class Retract(_Op):
     reason: str = ""                   # the narrative WHY (journaled with the delta)
 
 
+class Merge(_Op):
+    """Fold a PROVISIONAL entity into its canonical identity (P5 step 5 — R-J5 / DOMAIN-v3
+    §9.2 late alias binding). An observation keyed only by a tool credential mints a
+    provisional entity; when its canonical identity becomes known, Merge graduates it — every
+    reference re-homes via the remap subsystem, the provisional id stays resolvable in the
+    old→new table, aliases follow. provisional→canonical ONLY: canonical entities never merge
+    (the original 'never merge' survives where it matters). The reducer also auto-materializes
+    this fold when a canonical arrival's credential is already bound to a provisional twin —
+    this op is the explicit lane for the planner/engine."""
+
+    op: Literal[OpKind.MERGE] = OpKind.MERGE
+    provisional_id: str                # the provisional entity being folded in
+    canonical_id: str                  # the canonical entity absorbing it (alias forms resolve)
+    reason: str = ""                   # journaled WHY (which binding proved they are one)
+
+
 Operation = Annotated[
     AddNode | AddAssertion | AddFact | AddEvent | AddEdge | ProposeHypothesis | UpdateHypothesis
-    | NoEvidence | Retract,
+    | NoEvidence | Retract | Merge,
     Field(discriminator="op"),
 ]

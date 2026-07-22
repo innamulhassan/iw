@@ -23,7 +23,7 @@ from iw_engine.domain.enums import (
 from iw_engine.domain.event import Event
 from iw_engine.domain.fact import Fact
 from iw_engine.domain.node import Node
-from iw_engine.domain.operations import AddEdge, AddFact, AddNode
+from iw_engine.domain.operations import AddEdge, AddFact, AddNode, Merge
 from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict, Remap
 from iw_engine.domain.playbook import Tunables
 from iw_engine.domain.registry import edge_id, missing_identity_keys, node_id
@@ -149,6 +149,7 @@ def test_alias_upsert_unions_first_binding_wins():
 
 # ── step 3: entity resolution on ingest ────────────────────────────────────────
 def _fold_all(g: Graph, mat) -> None:
+    """Apply a Materialized the way the fold does (nodes → facts → events → edges → remaps)."""
     for n in mat.nodes:
         g.upsert_node(n)
     for f in mat.facts:
@@ -157,6 +158,8 @@ def _fold_all(g: Graph, mat) -> None:
         g.add_event(e)
     for e in mat.edges:
         g.add_edge(e)
+    for m in mat.remaps:
+        g.remap_id(m.old_id, m.new_id)
 
 
 def test_split_brain_unification_via_shared_tool_id():
@@ -373,8 +376,6 @@ def test_resolve_record_makes_the_redirect_permanent_across_phases():
     assert [(m.kind, m.old_id, m.new_id) for m in mat.remaps] == [("resolve", twin_id, SID)]
     assert "servicenow:sys_2fe9a1" in mat.remaps[0].reason
     _fold_all(g, mat)
-    for m in mat.remaps:
-        g.remap_id(m.old_id, m.new_id)
 
     mat3 = materialize([AddFact(subject=twin_id, predicate="degraded", value=True,
                                 valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
@@ -408,3 +409,122 @@ def test_alias_contradiction_between_canonical_entities_is_recorded_not_rebound(
     assert g.alias_index[alias_key("servicenow", "SYS-1")] == SID       # first binding kept
     # the contested claim is still visible on the claiming node (honest record), index unmoved
     assert g.nodes["service:checkout-api|prod"].aliases == {"servicenow": "SYS-1"}
+
+
+# ── step 5: Merge + late alias binding (R-J5 / §9.2) ───────────────────────────
+def _run_phase(g: Graph, store: HypothesisStore, jr: Journal, ops, phase=Phase.FRAME):
+    """Materialize + fold through a real PhaseResult (the engine's own delta shape), so these
+    flows are journaled exactly as production journals them — replay must reproduce them."""
+    seq = jr.reserve_seq()
+    mat = materialize(ops, seq, g, Tunables())
+    delta = PhaseResult(
+        phase_id=phase, goal_restated="g", facts_added=mat.facts, events_added=mat.events,
+        nodes_touched=mat.nodes, edges_added=mat.edges, hypotheses_updated=mat.hyp_deltas,
+        retractions=mat.retractions, remaps=mat.remaps, rejections=mat.rejections,
+        narrative="n",
+        verdict=PhaseVerdict(status=VerdictStatus.ADVANCE,
+                             confidence=Confidence(value=0.6, basis="t")))
+    fold(delta, seq, g, store, jr)
+    return mat
+
+
+PROV_ID = "service:~appd:apm-paymen"
+
+
+def test_provisional_mint_then_late_alias_binding_auto_merges():
+    """§9.2 end-to-end: (1) an observation keyed ONLY by a tool credential mints a PROVISIONAL
+    entity (quarantine-flagged, alias-indexed) and its facts attach; (2) when the canonical
+    identity arrives carrying the same credential, the reducer auto-materializes the Merge —
+    the provisional folds in, every reference re-homes, the provisional id stays resolvable;
+    (3) journal replay reproduces all of it bit-for-bit."""
+    clock = lambda: T0  # noqa: E731
+    g, store, jr = Graph(), HypothesisStore(), Journal(clock=clock)
+
+    m1 = _run_phase(g, store, jr, [
+        AddNode(type=NodeType.SERVICE, props={"app_id": "APM-PAYMEN", "note": "appd-only"}),
+        AddFact(subject="appd:APM-PAYMEN", predicate="degraded", value=True,
+                valid_from=T0, observed_at=T0, source=Source.APPD, source_reliability=0.9),
+    ])
+    assert m1.rejections == []
+    prov = g.nodes[PROV_ID]
+    assert prov.provisional is True and prov.aliases == {"appd": "APM-PAYMEN"}
+    fact_id_ = m1.facts[0].id
+    assert g.facts[fact_id_].subject_ref == PROV_ID
+    assert g.alias_index["appd:APM-PAYMEN"] == PROV_ID
+
+    m2 = _run_phase(g, store, jr, [AddNode(type=NodeType.SERVICE, props=dict(SVC_PROPS))],
+                    phase=Phase.TRIAGE)
+    assert [(m.kind, m.old_id, m.new_id) for m in m2.remaps] == [("merge", PROV_ID, SID)]
+    assert "appd:APM-PAYMEN" in m2.remaps[0].reason
+    assert PROV_ID not in g.nodes                       # graduated
+    assert g.nodes[SID].provisional is False
+    assert g.nodes[SID].props["note"] == "appd-only"    # provisional's knowledge survived
+    assert g.facts[fact_id_].subject_ref == SID         # evidence re-homed, id unmoved
+    assert g.alias_index["appd:APM-PAYMEN"] == SID
+    assert g.id_remaps[PROV_ID] == SID                  # the old id remains an alias
+
+    g2, _ = rebuild(jr)
+    assert g2.to_dict() == g.to_dict()
+    assert g2.id_remaps == g.id_remaps and g2.alias_index == g.alias_index
+
+
+def test_second_credential_only_observation_accumulates_on_the_provisional():
+    g, tun = Graph(), Tunables()
+    _fold_all(g, materialize([AddNode(type=NodeType.SERVICE,
+                                      props={"app_id": "APM-PAYMEN"})], 1, g, tun))
+    mat = materialize([AddNode(type=NodeType.SERVICE,
+                               props={"app_id": "APM-PAYMEN", "owner": "team-pay"})], 2, g, tun)
+    assert mat.rejections == [] and [n.id for n in mat.nodes] == [PROV_ID]
+    _fold_all(g, mat)
+    assert len(g.nodes) == 1 and g.nodes[PROV_ID].props["owner"] == "team-pay"
+    assert g.nodes[PROV_ID].provisional is True         # still awaiting its canonical identity
+
+
+def test_explicit_merge_op_graduates_a_provisional():
+    """The planner-facing lane: no shared credential on the canonical — a human/planner
+    asserts the identity explicitly; the same journaled remap machinery applies."""
+    clock = lambda: T0  # noqa: E731
+    g, store, jr = Graph(), HypothesisStore(), Journal(clock=clock)
+    _run_phase(g, store, jr, [
+        AddNode(type=NodeType.SERVICE, props={"app_id": "APM-PAYMEN"}),
+        AddNode(type=NodeType.SERVICE, props={"service_name": "payments-api", "env": "prod"}),
+    ])
+    m = _run_phase(g, store, jr, [
+        Merge(provisional_id=PROV_ID, canonical_id=SID, reason="operator confirmed identity"),
+        AddFact(subject=PROV_ID, predicate="degraded", value=True, valid_from=T0,
+                observed_at=T0, source=Source.APPD, source_reliability=0.9),
+    ], phase=Phase.TRIAGE)
+    assert m.rejections == []
+    assert PROV_ID not in g.nodes and g.id_remaps[PROV_ID] == SID
+    # the same-batch fact authored against the provisional id followed the graduation
+    assert g.facts[m.facts[0].id].subject_ref == SID
+    g2, _ = rebuild(jr)
+    assert g2.to_dict() == g.to_dict()
+
+
+def test_merge_validations_protect_canonical_identity():
+    g, tun = Graph(), Tunables()
+    _fold_all(g, materialize([
+        AddNode(type=NodeType.SERVICE, props={"service_name": "payments-api", "env": "prod"}),
+        AddNode(type=NodeType.SERVICE, props={"service_name": "checkout-api", "env": "prod"}),
+        AddNode(type=NodeType.SERVICE, props={"app_id": "APM-PAYMEN"}),
+    ], 1, g, tun))
+    g.upsert_node(Node(id="host:~x:h1", type=NodeType.HOST, provisional=True, created_by=1))
+
+    def _one_rejection(op):
+        mat = materialize([op], 2, g, tun)
+        assert mat.remaps == [] and len(mat.rejections) == 1
+        return mat.rejections[0].reason
+
+    # canonical → canonical: the original "never merge" survives where it matters
+    r = _one_rejection(Merge(provisional_id="service:checkout-api|prod", canonical_id=SID))
+    assert "canonical entities never merge" in r
+    # target must be canonical
+    r = _one_rejection(Merge(provisional_id="host:~x:h1", canonical_id=PROV_ID))
+    assert "itself provisional" in r or "cannot merge across types" in r
+    # cross-type never merges
+    r = _one_rejection(Merge(provisional_id="host:~x:h1", canonical_id=SID))
+    assert "cannot merge across types" in r
+    # unknown entities reject
+    r = _one_rejection(Merge(provisional_id="service:ghost|prod", canonical_id=SID))
+    assert "unknown merge entity" in r

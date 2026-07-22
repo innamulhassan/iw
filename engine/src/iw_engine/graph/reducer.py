@@ -32,6 +32,7 @@ from ..domain.operations import (
     AddEvent,
     AddFact,
     AddNode,
+    Merge,
     NoEvidence,
     Operation,
     ProposeHypothesis,
@@ -73,6 +74,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
     clean-empty read (the provider answered, nothing to fold) may become null evidence."""
     out = Materialized()
     batch_types: dict[str, NodeType] = {}
+    batch_nodes: dict[str, Node] = {}    # node records minted in THIS batch (first mint wins)
     batch_edges: set[str] = set()
     batch_aliases: dict[str, str] = {}   # "scheme:id" → node id, claimed earlier in THIS batch
     # would-be id → canonical id, for AddNodes RESOLVED away in THIS batch (P5 step 3): an
@@ -81,8 +83,31 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
     batch_redirects: dict[str, str] = {}
 
     def alias_target(key: str) -> str | None:
-        """Current binding of an alias key — batch claims first, then the graph's index."""
-        return batch_aliases.get(key) or graph.alias_index.get(key)
+        """Current binding of an alias key — batch claims first, then the graph's index; a
+        binding whose node graduated earlier in this batch follows the redirect."""
+        t = batch_aliases.get(key) or graph.alias_index.get(key)
+        return batch_redirects.get(t, t) if t is not None else None
+
+    def node_record(nid: str) -> Node | None:
+        """The graph's (pre-batch, authoritative) record, else this batch's mint."""
+        return graph.node(nid) or batch_nodes.get(nid)
+
+    def auto_merge(i: int, op_kind: str, prov_ids: list[str], target: str,
+                   derived: dict[str, str]) -> None:
+        """LATE ALIAS BINDING (P5 step 5 — DOMAIN-v3 §9.2): the canonical identity for one or
+        more provisional twins just arrived — fold each in via a journaled merge record; the
+        fold's remap re-homes their facts/events/edges deterministically."""
+        for p in sorted(prov_ids):
+            if p == target or p in batch_redirects:
+                continue
+            linked = sorted(k for k in (resolver.alias_key(s, v) for s, v in derived.items())
+                            if alias_target(k) == p)
+            out.remaps.append(Remap(kind="merge", old_id=p, new_id=target, reason=
+                              f"late alias binding via {', '.join(linked) or 'explicit merge'}"))
+            batch_redirects[p] = target
+            for k, v in batch_aliases.items():
+                if v == p:
+                    batch_aliases[k] = target
 
     def resolve_ref(ref: str) -> str:
         """P5 entity resolution for op references (assertion subject, edge endpoint, scope):
@@ -244,10 +269,15 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 t = alias_target(resolver.alias_key(scheme, val))
                 if t is not None and t not in hits and type_of(t) is op.type:
                     hits.append(t)
+            prov_hits = [t for t in hits
+                         if (n := node_record(t)) is not None and n.provisional]
+            canon_hits = [t for t in hits if t not in prov_hits]
+            provisional = False
             if cid is not None and (cid in batch_types or graph.node(cid) is not None):
                 target, props = cid, op.props                       # A: existing canonical
-            elif len(hits) == 1 and hits[0] != cid:
-                target = hits[0]                                    # B: resolve, don't twin
+                auto_merge(i, op.op.value, prov_hits, cid, derived)
+            elif len(canon_hits) == 1 and canon_hits[0] != cid:
+                target = canon_hits[0]                              # B: resolve, don't twin
                 keys = registry.node_spec(op.type).identity_keys
                 props = {k: v for k, v in op.props.items() if k not in keys}
                 if cid is not None and cid not in graph.id_remaps:
@@ -260,8 +290,22 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                                      if alias_target(k) == target)
                     out.remaps.append(Remap(kind="resolve", old_id=cid, new_id=target,
                                             reason=f"alias resolution via {', '.join(matched)}"))
+                auto_merge(i, op.op.value, prov_hits, target, derived)
             elif cid is not None:
                 target, props = cid, op.props                       # fresh mint (0/ambiguous)
+                if not canon_hits:
+                    # §9.2 LATE ALIAS BINDING: the canonical identity for provisional twin(s)
+                    # bound to this arrival's credentials just landed — fold them in.
+                    auto_merge(i, op.op.value, prov_hits, cid, derived)
+            elif not canon_hits and len(prov_hits) == 1:
+                target, props = prov_hits[0], op.props              # accumulate on the twin
+                provisional = True
+            elif not hits and derived:
+                # §9.2: canonical identity NOT yet known, but the observation carries a tool
+                # credential — mint a PROVISIONAL entity (quarantine-flagged) instead of
+                # rejecting; a later Merge (auto or explicit) graduates it.
+                target = resolver.provisional_node_id(op.type, derived)
+                props, provisional = op.props, True
             else:
                 why = (f"ambiguous alias resolution ({', '.join(sorted(hits))}) — " if hits
                        else "")
@@ -272,8 +316,9 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
             # lift the identity-backbone props into the entity's alias block — per-tool ids
             # become identity surface the graph indexes, not inert cargo.
             out.nodes.append(Node(id=target, type=op.type, props=props, aliases=derived,
-                                  created_by=seq))
+                                  provisional=provisional, created_by=seq))
             batch_types[target] = op.type
+            batch_nodes.setdefault(target, out.nodes[-1])
             register_aliases(i, op.op.value, derived, target)
         elif isinstance(op, ProposeHypothesis):
             hid = f"hyp:{op.hid}"
@@ -384,6 +429,36 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 continue
             out.retractions.append(Retraction(target=op.target, invalidated_by=op.invalidated_by,
                                               reason=op.reason))
+
+        elif isinstance(op, Merge):
+            # P5 step 5 (R-J5 / §9.2): the explicit graduation lane. provisional→canonical
+            # ONLY — canonical entities never merge; the fold's remap re-homes every reference.
+            old, new = resolve_ref(op.provisional_id), resolve_ref(op.canonical_id)
+            old_n, new_n = node_record(old), node_record(new)
+            if old_n is None or new_n is None:
+                miss = op.provisional_id if old_n is None else op.canonical_id
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value,
+                                                reason=f"unknown merge entity {miss}"))
+            elif old == new:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"merge source and target are already the same entity ({new})"))
+            elif not old_n.provisional:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"merge is provisional→canonical only — {old} is canonical and canonical "
+                    "entities never merge (R-J5/§9.2)"))
+            elif new_n.provisional:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"merge target {new} is itself provisional — graduate it first"))
+            elif old_n.type is not new_n.type:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"cannot merge across types ({old_n.type.value} → {new_n.type.value})"))
+            else:
+                out.remaps.append(Remap(kind="merge", old_id=old, new_id=new,
+                                        reason=op.reason))
+                batch_redirects[old] = new
+                for k, v in batch_aliases.items():
+                    if v == old:
+                        batch_aliases[k] = new
 
         elif isinstance(op, NoEvidence):
             if op.intent in no_weight_intents:

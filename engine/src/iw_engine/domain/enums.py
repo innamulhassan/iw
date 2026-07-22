@@ -280,3 +280,5 @@ class OpKind(StrEnum):
     UPDATE_HYPOTHESIS = "update_hypothesis"
     NO_EVIDENCE = "no_evidence"   # honest null-result sentinel (R-P2)
     RETRACT = "retract"           # tombstone a wrong fact/event/edge (R-J3 — P3 airlock step 6)
+    MERGE = "merge"               # fold a provisional entity into its canonical (R-J5 — P5 §9.2)
+    RETYPE = "retype"             # graduate generic_ci to a real type (P5 — DOMAIN-v3 §2.4/§9.2)
