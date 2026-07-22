@@ -99,10 +99,21 @@ class ServiceNowAdapter:
 
             release_tag = ch.get("u_release_tag")
             if release_tag:
-                rel_props = {"release_id": release_tag}
-                ops.append(AddNode(type=NodeType.RELEASE, props=rel_props))
-                ops.append(AddEdge(type=EdgeType.INTRODUCED_BY, src=ch_id,
-                                   dst=registry.node_id(NodeType.RELEASE, rel_props)))
+                if ch.get("type") == "feature-flag":
+                    # a feature-flag change's release tag names the FLAG ("<key>@<pct>"),
+                    # not a build artifact: discover the FeatureFlag node. It is edge-
+                    # isolated in the domain model (the causal link is the hypothesis's
+                    # root_candidate, never a typed edge) — but the NODE must exist or no
+                    # telemetry can land on it (live retest 2026-07-22: with no discovery
+                    # channel every prometheus flag fact rejected 'unknown subject').
+                    flag_props = {"flag_key": release_tag.rsplit("@", 1)[0],
+                                  "env": ch.get("env", inc_env)}
+                    ops.append(AddNode(type=NodeType.FEATURE_FLAG, props=flag_props))
+                else:
+                    rel_props = {"release_id": release_tag}
+                    ops.append(AddNode(type=NodeType.RELEASE, props=rel_props))
+                    ops.append(AddEdge(type=EdgeType.INTRODUCED_BY, src=ch_id,
+                                       dst=registry.node_id(NodeType.RELEASE, rel_props)))
 
             commit_sha = ch.get("u_commit_sha")
             if commit_sha:
