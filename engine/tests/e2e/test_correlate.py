@@ -70,7 +70,7 @@ def test_live_planner_renders_the_correlation_hint_with_rj2_discipline():
                           tool_intents=set(), verbose=False)
     ctx = PlanContext(
         subject=sdb.build()[0], phase=spec.id, phase_spec=spec, goal=spec.goal,
-        graph_view={}, tunables=pb.tunables,
+        tunables=pb.tunables,
         correlations=[
             {"event": "evt-1", "entity": sdb.CHG, "type": "implemented",
              "occurred_at": "2026-07-19T13:57:00+00:00", "source": "servicenow",
@@ -86,4 +86,4 @@ def test_live_planner_renders_the_correlation_hint_with_rj2_discipline():
     # and a phase with no candidates renders no section at all
     assert "TEMPORALLY-CORRELATED" not in planner._build_prompt(
         PlanContext(subject=sdb.build()[0], phase=spec.id, phase_spec=spec,
-                    goal=spec.goal, graph_view={}, tunables=pb.tunables))
+                    goal=spec.goal, tunables=pb.tunables))

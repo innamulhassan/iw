@@ -24,7 +24,10 @@ class PlanContext:
     phase: str                       # playbook-declared phase id (P7 phase-as-data)
     phase_spec: PhaseSpec
     goal: str
-    graph_view: dict
+    focus: dict = field(default_factory=dict)   # graph/tools.focus_slice — THE bounded reasoning
+    #                                  view (P7 projections-drive-reasoning): cause path + suspects
+    #                                  + frontier in full, healthy/ruled-out collapsed to counts.
+    #                                  Replaces the old flat render_slice full-graph-capped dump.
     entry_phase: str | None = None   # the playbook's entry-phase role binding, handed through so
     #                                  a planner can key entry-phase behaviour on DATA, never a name
     hypotheses: list[dict] = field(default_factory=list)   # ranked hypothesis store summary

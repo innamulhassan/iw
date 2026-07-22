@@ -130,3 +130,155 @@ def test_canon_matches_registry_slug():
 
 def test_git_adapter_binding_is_rest():
     assert GitAdapter().binding == Binding.REST
+
+
+# ── P7: projections drive reasoning — the focus slice + governed traversals in the prompt ──
+def _spine_graph():
+    """svc -> db structural spine; anomaly AFFECTS svc; chg touched db (CHANGED_BY,
+    discovered); one healthy far pod that must land in the collapsed count, plus a
+    hypothesis node (excluded from traversal by governance)."""
+    from iw_engine.domain.common import Confidence
+    from iw_engine.domain.edge import Edge
+    from iw_engine.domain.enums import EdgeType, NodeType, Origin
+    from iw_engine.domain.fact import Fact
+    from iw_engine.domain.node import Node
+    from iw_engine.domain.registry import edge_id
+    from iw_engine.graph.graph import Graph
+
+    g = Graph()
+    for nid, t in (("anomaly:anom-1", NodeType.ANOMALY),
+                   ("service:orders-api|prod", NodeType.SERVICE),
+                   ("database:orders-pg", NodeType.DATABASE),
+                   ("change_event:chg-9", NodeType.CHANGE_EVENT),
+                   ("pod:far-away", NodeType.POD),
+                   ("hyp:h1", NodeType.HYPOTHESIS)):
+        g.upsert_node(Node(id=nid, type=t, created_by=1))
+
+    def edge(et, src, dst, origin):
+        conf = Confidence(value=0.7, basis="t") if origin == Origin.INFERRED else None
+        g.add_edge(Edge(id=edge_id(et, src, dst, origin), type=et, src=src, dst=dst,
+                        origin=origin, confidence=conf, created_by=1))
+
+    edge(EdgeType.DEPENDS_ON, "service:orders-api|prod", "database:orders-pg", Origin.DECLARED)
+    edge(EdgeType.AFFECTS, "anomaly:anom-1", "service:orders-api|prod", Origin.DISCOVERED)
+    edge(EdgeType.CHANGED_BY, "database:orders-pg", "change_event:chg-9", Origin.DISCOVERED)
+    edge(EdgeType.CAUSED_BY, "hyp:h1", "change_event:chg-9", Origin.INFERRED)
+    g.add_fact(Fact(id="f1", subject_ref="anomaly:anom-1", predicate="onset_value", value=5200,
+                    unit="ms", valid_from=T, observed_at=T, source=Source.PROMETHEUS,
+                    source_reliability=0.97, created_by=1))
+    return g
+
+
+def _ctx_for(g, hypotheses=None):
+    import pathlib
+
+    import iw_engine
+    from iw_engine.graph.tools import focus_slice
+    from iw_engine.runtime.loader import load_playbook
+    from iw_engine.runtime.planner import PlanContext
+
+    pb = load_playbook(pathlib.Path(iw_engine.__file__).parent / "playbooks" / "incident.yaml")
+    spec = pb.phase(pb.phases[3].id)
+    return PlanContext(
+        subject=__import__("iw_engine.domain.subject", fromlist=["SubjectRef"]).SubjectRef(
+            domain="app-incident", id="INC-7734", kind="incident"),
+        phase=spec.id, phase_spec=spec, goal=spec.goal,
+        focus=focus_slice(g, "anomaly:anom-1", pb.tunables.focus_budget,
+                          max_facts_per_node=pb.tunables.focus_facts_per_node,
+                          frontier_hops=pb.tunables.focus_frontier_hops),
+        hypotheses=hypotheses or [], tunables=pb.tunables)
+
+
+def test_prompt_graph_view_is_the_focus_slice():
+    """The live prompt's graph section is the B9.3 focus slice (tiered, budgeted, ruled-out
+    surfaced) — the flat full-graph dump (render_graph_full) is gone."""
+    from iw_engine.runtime import live_planner as lp
+
+    assert not hasattr(lp, "render_graph_full")   # the fold-and-forget dump is deleted
+
+    g = _spine_graph()
+    planner = LivePlanner(client=None, catalog_text="# CAT", tools_text="# TOOLS",
+                          tool_intents=set(), verbose=False)
+    planner.graph = g
+    prompt = planner._build_prompt(_ctx_for(g))
+    assert "CURRENT GRAPH — FOCUS SLICE" in prompt
+    assert "FOCUS: anomaly:anom-1" in prompt
+    assert "[focus] anomaly:anom-1 (anomaly)" in prompt
+    assert "onset_value=5200ms" in prompt                     # the evidence card
+    # the healthy unimplicated pod is COLLAPSED to a count — it appears NOWHERE by id
+    assert "pod:far-away" not in prompt
+    assert "+ 1 collapsed" in prompt and "'pod': 1" in prompt
+
+
+def test_prompt_projections_target_the_ranked_hypotheses():
+    """blast_radius/path/walk render per ranked root (the P7 reasoning loop): the leader's
+    root connects to the symptom's affected service; a prose root gets the repair hint."""
+    g = _spine_graph()
+    planner = LivePlanner(client=None, catalog_text="# CAT", tools_text="# TOOLS",
+                          tool_intents=set(), verbose=False)
+    planner.graph = g
+    hyps = [{"id": "hyp:h1", "statement": "chg-9 dropped the index", "status": "proposed",
+             "confidence": 0.6, "root_candidate": "change_event:chg-9",
+             "supporting": 0, "refuting": 0},
+            {"id": "hyp:h2", "statement": "prose root", "status": "proposed",
+             "confidence": 0.3, "root_candidate": "the database is slow",
+             "supporting": 0, "refuting": 0}]
+    prompt = planner._build_prompt(_ctx_for(g, hyps))
+    assert "# GRAPH PROJECTIONS" in prompt
+    assert "symptom neighbourhood:" in prompt                       # neighbours(focus)
+    # path: chg-9 -> (CHANGED_BY, ridden backward) -> db -> (DEPENDS_ON) -> svc
+    assert "connection to the symptom's affected node: 2 hop(s): " \
+           "change_event:chg-9 -> database:orders-pg -> service:orders-api|prod" in prompt
+    # blast_radius: db's failure breaks svc; chg has no structural dependents
+    assert "no structural dependents recorded" in prompt
+    # walk from the leader root reaches the db@1 and svc@2
+    assert "leader evidence neighbourhood (walk <=2 hops from change_event:chg-9): " \
+           "database:orders-pg@1, service:orders-api|prod@2" in prompt
+    # the prose root is called out for repair, not crashed on
+    assert "hyp:h2 root='the database is slow': NOT a node in the graph" in prompt
+
+
+def test_prompt_projections_absent_without_a_graph_ref():
+    g = _spine_graph()
+    planner = LivePlanner(client=None, catalog_text="# CAT", tools_text="# TOOLS",
+                          tool_intents=set(), verbose=False)
+    planner.graph = None            # hermetic default: no live graph ref
+    prompt = planner._build_prompt(_ctx_for(g))
+    assert "# GRAPH PROJECTIONS" not in prompt
+    assert "CURRENT GRAPH — FOCUS SLICE" in prompt   # the slice still renders (engine-computed)
+
+
+def test_engine_hands_the_focus_slice_every_phase():
+    """The engine enriches EVERY PlanContext with the focus slice (B9.3 invariant held), and
+    binds the focus to the symptom node from the phase after FRAME onward."""
+    import pathlib
+
+    from e2e import scenario_database
+
+    import iw_engine
+    from iw_engine.capability import CapabilityLayer, MockSource
+    from iw_engine.capability.adapters import default_adapters
+    from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
+
+    class _Probe:
+        def __init__(self, inner):
+            self.inner, self.seen = inner, []
+
+        def plan(self, ctx):
+            self.seen.append((ctx.phase, ctx.focus))
+            return self.inner.plan(ctx)
+
+    subject, script, fixtures = scenario_database.build()
+    pb = load_playbook(pathlib.Path(iw_engine.__file__).parent / "playbooks" / "incident.yaml")
+    probe = _Probe(ScriptedPlanner(script))
+    layer = CapabilityLayer(default_adapters(), source=MockSource(fixtures))
+    res = Engine(pb, probe, clock=lambda: datetime(2026, 7, 19, tzinfo=UTC), layer=layer).run(subject)
+
+    assert res.close_outcome.value == "resolved"           # the probe changed nothing
+    assert [p for p, _ in probe.seen] == ["frame", "triage", "hypothesize", "investigate",
+                                          "remediate", "verify", "close"]
+    first = probe.seen[0][1]
+    assert first["total"] == 0 and first["focus"] is None  # before FRAME: empty, focus-less
+    for phase_id, sl in probe.seen[1:]:
+        assert sl["focus"] == "anomaly:anom-1", phase_id   # symptom bound from then on
+        assert len(sl["nodes"]) + len(sl["frontier"]) + sl["collapsed_count"] == sl["total"]

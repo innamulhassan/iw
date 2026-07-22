@@ -19,7 +19,7 @@ from ..domain.subject import SubjectRef
 from ..graph.fold import apply_delta
 from ..graph.graph import Graph
 from ..graph.reducer import Rejection, materialize
-from ..graph.render import render_slice
+from ..graph.tools import focus_slice
 from ..hypothesis import belief
 from ..hypothesis.store import HypothesisStore
 from ..journal.journal import Journal, JournalEntry
@@ -129,14 +129,25 @@ class Engine:
         correlations = (belief.correlate_timeline(self.graph, self.playbook.tunables,
                                                   anomaly_ref=self._anomaly_ref)
                         if "correlate_timeline" in spec.allowed_intents else [])
+        # P7 (projections drive reasoning): every plan receives the B9.3 focus slice — the
+        # bounded, tiered reasoning view (cause path + suspects + frontier in full, healthy
+        # collapsed to counts) — in place of the old flat full-graph-capped render_slice dump,
+        # paired with the ranked hypothesis summary (root + evidence counts, so a planner can
+        # target refutation) and the P4 correlations.
+        t = self.playbook.tunables
         ctx = PlanContext(
             subject=self.subject, phase=phase, phase_spec=spec, goal=spec.goal,
-            graph_view=render_slice(self.graph, self._anomaly_ref),
+            focus=focus_slice(self.graph, self._anomaly_ref, t.focus_budget,
+                              max_facts_per_node=t.focus_facts_per_node,
+                              frontier_hops=t.focus_frontier_hops),
             hypotheses=[{"id": h.id, "statement": h.statement, "status": h.status.value,
-                         "confidence": self.hypothesis_store.score(h)}
+                         "confidence": self.hypothesis_store.score(h),
+                         "root_candidate": h.root_candidate,
+                         "supporting": len(h.supporting_facts),
+                         "refuting": len(h.refuting_facts)}
                         for h in self.hypothesis_store.ranked()],
             entry_phase=self.playbook.entry_phase,
-            tunables=self.playbook.tunables, gate_feedback=self._gate_feedback,
+            tunables=t, gate_feedback=self._gate_feedback,
             rejections=list(self._last_rejections), correlations=correlations)
         plan = self.planner.plan(ctx)
         # JOURNAL v2 (part2 §1): the phase seq is CLAIMED here — after the planner returned,

@@ -70,7 +70,7 @@ def test_custom_doctrine_overrides_the_packaged_default():
     from iw_engine.domain.subject import SubjectRef
     ctx = PlanContext(subject=SubjectRef(domain="app-incident", id="INC-1", kind="incident"),
                       phase=pb.entry_phase, phase_spec=spec, goal=spec.goal,
-                      graph_view={}, tunables=pb.tunables)
+                      tunables=pb.tunables)
     # the per-turn progression prose is doctrine too (the TRIAGE/INVESTIGATE scope rule)
     assert "PROGRESSION RULE: advance the moment the ledger balances" in planner._build_prompt(ctx)
 

@@ -85,6 +85,13 @@ class Tunables(BaseModel):
     # still counts as a temporally-correlated candidate; both window edges are additionally
     # widened by the combined clock-skew bound (R-J2 — the join is a tolerance window).
     correlation_window_s: float = Field(default=3600.0, ge=0)
+    # ── P7 focus slice (graph/tools.focus_slice — the bounded reasoning view every plan
+    # receives). All three are INV-9 knobs of the B9.3 view: ~budget rendered nodes
+    # regardless of graph size, latest-per-predicate fact cards, and how far the structural
+    # frontier (the expansion surface) reaches beyond the full tier.
+    focus_budget: int = Field(default=40, gt=0)
+    focus_facts_per_node: int = Field(default=6, ge=0)
+    focus_frontier_hops: int = Field(default=1, ge=0)
 
 
 class Doctrine(BaseModel):

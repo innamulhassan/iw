@@ -26,6 +26,7 @@ from ..domain.common import Confidence
 from ..domain.enums import (
     ConfidenceLevel,
     EdgeType,
+    FactState,
     HypothesisStatus,
     NodeType,
     OpKind,
@@ -48,6 +49,7 @@ from ..domain.operations import (
 )
 from ..domain.phase_result import PhaseVerdict
 from ..domain.playbook import Doctrine
+from ..graph import tools as graph_tools
 from .planner import PlanContext, PlanOutput
 
 
@@ -64,35 +66,49 @@ _ID_KEYS = ("sha", "change_id", "segment_id", "db_id", "signature_hash", "alert_
             "incident_id", "anomaly_id", "service_name")
 
 
-def render_graph_full(graph, *, max_facts: int = 8) -> str:
-    """A compact, COMPLETE view of the live workbench graph — every node (id+type+distinguishing
-    props+key facts) and edge. The live planner holds a direct graph reference and renders it in
-    full here (uncapped, richer per-node formatting) as its primary evidence context, alongside
-    the engine's render_slice (which since GAP 5 also hands the full graph). A higher fact cap +
-    the props line surface the folded CONTENT (a diff's `DROP INDEX` line, a blame file:line, a
-    change_type) the planner must reason over. Engine behaviour is untouched; this is extra
-    planner context (live-only)."""
-    nlines = []
-    for n in graph.nodes.values():
-        facts = graph.facts_of(n.id)[:max_facts]
-        ftxt = ", ".join(
-            f"{f.predicate}={f.value}{('' + f.unit) if f.unit else ''}" for f in facts)
-        # surface the discriminating props (type/change_type/file_line/...) the id alone hides
-        props = {k: v for k, v in n.props.items()
-                 if v is not None and k not in _ID_KEYS and k != "statement"}
-        ptxt = ", ".join(f"{k}={v}" for k, v in props.items())
-        line = f"  {n.id} [{n.type.value}]"
+def _props_txt(props: dict) -> str:
+    """The discriminating props (change_type/file_line/...) the id alone hides — identity
+    keys (already in the id) and hypothesis statements (rendered elsewhere) are dropped."""
+    return ", ".join(f"{k}={v}" for k, v in props.items()
+                     if v is not None and k not in _ID_KEYS and k != "statement")
+
+
+def render_focus(slice_: dict) -> str:
+    """Render `graph/tools.focus_slice` as the live prompt's graph view (P7: the B9.3 tiered
+    reasoning view REPLACES the old flat full-graph dump `render_graph_full`). Full-tier nodes
+    get complete evidence cards (latest fact per predicate); the frontier is the structural
+    expansion surface; everything healthy/unimplicated is a count, never noise; refuted causal
+    claims render as RULED OUT so the planner does not re-suggest them."""
+    if not slice_ or not slice_.get("total"):
+        return "(graph is empty — nothing discovered yet)"
+    head = (f"FOCUS: {slice_.get('focus') or '(symptom node not framed yet)'}   "
+            f"total={slice_['total']} nodes = {len(slice_['nodes'])} full "
+            f"+ {len(slice_['frontier'])} frontier + {slice_['collapsed_count']} collapsed"
+            + (f" {slice_['collapsed_types']}" if slice_.get("collapsed_types") else ""))
+    lines = [head, "NODES (tiered by investigative relevance — full evidence cards):"]
+    for n in slice_["nodes"]:
+        line = f"  [{n['tier']}] {n['id']} ({n['type']})"
+        ptxt = _props_txt(n.get("props") or {})
         if ptxt:
             line += f"  props: {ptxt}"
+        ftxt = ", ".join(f"{f['predicate']}={f['value']}{f['unit'] or ''}"
+                         for f in n.get("facts") or [])
         if ftxt:
             line += f"  facts: {ftxt}"
-        nlines.append(line)
-    elines = [f"  {e.type.value}: {e.src} -> {e.dst}"
-              + (f" (conf={e.confidence.value})" if e.confidence else "")
-              for e in graph.edges.values()]
-    if not nlines:
-        return "(graph is empty — nothing discovered yet)"
-    return "NODES:\n" + "\n".join(nlines) + ("\nEDGES:\n" + "\n".join(elines) if elines else "")
+        lines.append(line)
+    if slice_.get("frontier"):
+        lines.append("FRONTIER (structural expansion surface — candidate evidence targets):")
+        lines += [f"  {n['id']} ({n['type']})  {n['hops']} hop(s) from "
+                  + (", ".join(n["attached_to"]) or "the full tier")
+                  for n in slice_["frontier"]]
+    if slice_.get("edges"):
+        lines.append("EDGES:")
+        lines += [f"  {e['type']}: {e['src']} -> {e['dst']} [{e['origin']}]"
+                  for e in slice_["edges"]]
+    if slice_.get("ruled_out"):
+        lines.append("RULED OUT (retracted causal claims — do NOT re-propose these):")
+        lines += [f"  {e['src']} -x-> {e['dst']} ({e['type']})" for e in slice_["ruled_out"]]
+    return "\n".join(lines)
 
 
 # ── LLM clients — implementation lives in llm_client.py (the pluggable seam) ───
@@ -370,13 +386,79 @@ produces_required (must be non-empty to advance): {spec.produces_required or '(n
 GATE to ADVANCE: {gate}{write_hint}{correlated}{steer}{dropped}{feedback}
 PROGRESSION RULE: {self.doctrine.progression}
 
-# CURRENT GRAPH (everything your prior tool calls have discovered — read it for evidence)
-{render_graph_full(self.graph) if self.graph is not None else json.dumps(ctx.graph_view, default=str, indent=1)}
+# CURRENT GRAPH — FOCUS SLICE (everything your prior tool calls have discovered, tiered by
+# relevance to the symptom: read the full cards for evidence, expand along the FRONTIER for
+# targeted evidence, and never re-propose a RULED OUT claim)
+{render_focus(ctx.focus)}
 
-# RANKED HYPOTHESES (the hypothesis store so far)
-{json.dumps(ctx.hypotheses, default=str, indent=1)}
+# RANKED HYPOTHESES (the hypothesis store so far — engine-earned confidence; `supporting`/
+# `refuting` are evidence COUNTS: a leader with refuting=0 has not been challenged yet)
+{json.dumps(ctx.hypotheses, default=str, indent=1)}{self._render_projections(ctx)}
 
 Plan this phase. Return ONLY the JSON object."""
+
+    # ── graph-projection reasoning (P7: projections drive reasoning, not fold-and-forget) ──
+    def _render_projections(self, ctx: PlanContext) -> str:
+        """Engine-computed GOVERNED traversals (graph/tools) targeted at the current
+        hypotheses — the planner-side half of the projection→reason→act loop. For the symptom:
+        its 1-hop neighbourhood. For each ranked hypothesis root: whether the root is a real
+        node, whether/how it connects to the symptom's affected surface (path over the
+        governed spine), who breaks if it fails (blast_radius — structural roots only), and
+        the leader's 2-hop evidence neighbourhood (walk). Pure reads of the live graph ref;
+        hermetic runs without one (self.graph is None) render nothing."""
+        g = self.graph
+        if g is None or not getattr(g, "nodes", None):
+            return ""
+        lines: list[str] = []
+        focus = ctx.focus.get("focus") if ctx.focus else None
+        affected: list[str] = []
+        if focus is not None:
+            affected = sorted({e.dst for e in g.edges.values()
+                               if e.src == focus and e.state == FactState.ACTIVE
+                               and e.type == EdgeType.AFFECTS and g.node(e.dst) is not None})
+            nb = graph_tools.neighbours(g, focus)
+            if nb["count"]:
+                lines.append("symptom neighbourhood: " + "; ".join(
+                    f"{v['id']} [{v['edge_type']}:{v['direction']}]"
+                    for v in nb["neighbours"][:8]))
+        ranked = [h for h in (ctx.hypotheses or []) if h.get("root_candidate")]
+        for h in ranked[:3]:
+            root = str(h["root_candidate"])
+            rid = g.id_remaps.get(root, root)
+            if g.node(rid) is None:
+                lines.append(f"{h.get('id')} root={root!r}: NOT a node in the graph — "
+                             "copy the exact id of a real node as root_candidate")
+                continue
+            entry = f"{h.get('id')} root={rid}:"
+            br = graph_tools.blast_radius(g, rid)
+            if br["count"]:
+                ids = ", ".join(v["id"] for v in br["impacted"][:8])
+                entry += f" if it fails, {br['count']} node(s) break [{ids}]"
+            else:
+                entry += (" no structural dependents recorded (for a change/commit root the"
+                          " impact flows through the entity it changed)")
+            lines.append(entry)
+            for a in affected[:1]:
+                if a == rid:
+                    continue
+                p = graph_tools.path(g, rid, a)
+                lines.append("   connection to the symptom's affected node: "
+                             + (f"{p['hops']} hop(s): " + " -> ".join(p["nodes"])
+                                if p["found"] else
+                                f"NO governed path {rid} -> {a} recorded yet"))
+        if ranked:
+            rid = g.id_remaps.get(str(ranked[0]["root_candidate"]), str(ranked[0]["root_candidate"]))
+            if g.node(rid) is not None:
+                w = graph_tools.walk(g, rid, max_hops=2, max_nodes=9)
+                near = ", ".join(f"{n['id']}@{n['hops']}" for n in w["nodes"] if n["id"] != rid)
+                if near:
+                    lines.append(f"leader evidence neighbourhood (walk <=2 hops from {rid}): {near}")
+        if not lines:
+            return ""
+        return ("\n\n# GRAPH PROJECTIONS (engine-computed governed traversals — REASON over"
+                "\n# them: target evidence where the leader's mechanism predicts it, refute a"
+                "\n# rival whose root cannot reach the symptom, expand along the frontier):\n"
+                + "\n".join("  " + line for line in lines))
 
     # ── map LLM JSON -> PlanOutput (reject + repair off-catalog) ───────────────
     def _to_plan_output(self, ctx: PlanContext, raw: dict) -> PlanOutput:

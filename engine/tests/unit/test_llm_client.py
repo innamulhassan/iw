@@ -80,10 +80,9 @@ def test_stub_client_drives_live_planner_one_phase():
         phase="frame",
         phase_spec=PhaseSpec(id="frame", goal="seed the symptom", allowed_intents=[]),
         goal="seed the symptom",
-        graph_view={},
         hypotheses=[],
     )
-    planner.graph = None   # bypass render_graph_full (uses the live graph ref)
+    planner.graph = None   # no live graph ref -> no graph projections (hermetic default)
     out = planner.plan(ctx)
     assert out.phase == "frame"
     assert out.narrative == "stub"
@@ -102,7 +101,7 @@ def _ctx():
         subject=SubjectRef(domain="app-incident", id="INC-1", kind="incident"),
         phase="frame",
         phase_spec=PhaseSpec(id="frame", goal="g", allowed_intents=[]),
-        goal="g", graph_view={}, hypotheses=[])
+        goal="g", hypotheses=[])
 
 
 def test_live_planner_repairs_non_dict_op_payloads():

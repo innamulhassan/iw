@@ -113,7 +113,7 @@ def test_live_planner_prompt_renders_dropped_ops():
     lp = LivePlanner(client=None, catalog_text="# CAT", tools_text="# TOOLS", tool_intents=set())
     spec = pb.phase(pb.entry_phase)
     ctx = PlanContext(subject=scenario_nochange.build()[0], phase=pb.entry_phase,
-                      phase_spec=spec, goal=spec.goal, graph_view={}, tunables=pb.tunables)
+                      phase_spec=spec, goal=spec.goal, tunables=pb.tunables)
     assert "OPS DROPPED LAST TURN" not in lp._build_prompt(ctx)     # absent when clean
 
     from iw_engine.domain.phase_result import Rejection
