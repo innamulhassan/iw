@@ -4,11 +4,13 @@
 // nothing here is invented, every node/fact/hypothesis is upserted from a delta the engine
 // emitted. Cold-load seeds full detail from the snapshot bundle; SSE deltas then grow it live.
 import type {
+  DiscoveryCounters,
   GateOpenedEvent,
   GraphEdge,
   GraphEvent,
   GraphFact,
   HypothesisItem,
+  RejectionItem,
   SessionEvent,
   SessionState,
   Snapshot,
@@ -34,6 +36,9 @@ export interface ToolCall {
   provider: string;
   effect: string;
   op_count: number;
+  /** Boundary honesty (P3): data · empty (clean no-data) · error (a FAILED call — not
+   *  "no data") · blocked. Absent only on pre-P3 recorded streams. */
+  outcome?: string;
   blocked: boolean;
   reason: string | null;
   kind?: string; // tool | workflow | llm (obs 9)
@@ -110,6 +115,11 @@ export interface LiveState {
   facts: Record<string, GraphFact>;
   events: Record<string, GraphEvent>;
   hypotheses: Record<string, HypothesisItem>;
+  /** Hypothesis ids in the ENGINE's ranked() order (from the bundle) — the UI renders THIS
+   *  order, never a client-side re-sort. Delta-born ids append until the next snapshot merge. */
+  hypothesisOrder: string[];
+  discovery: DiscoveryCounters; // airlock promotion counters ("unknown X keeps recurring")
+  rejections: RejectionItem[]; // evidence withheld this run (bounded-repair signal)
   turns: Turn[];
   messages: UserMsg[]; // operator chat turns (obs 2), interleaved with turns by seq
   gate: GateOpenedEvent | null; // the currently-open write-gate, or null
@@ -131,6 +141,9 @@ export function emptyState(): LiveState {
     facts: {},
     events: {},
     hypotheses: {},
+    hypothesisOrder: [],
+    discovery: { class_hints: {}, quarantined_names: {} },
+    rejections: [],
     turns: [],
     messages: [],
     gate: null,
@@ -189,6 +202,9 @@ function seed(snap: Snapshot): LiveState {
   for (const f of snap.graph.facts) s.facts[f.id] = f;
   for (const ev of snap.graph.events) s.events[ev.id] = ev;
   for (const h of snap.hypotheses) s.hypotheses[h.id] = h;
+  s.hypothesisOrder = snap.hypotheses.map((h) => h.id); // the ENGINE's ranked() order
+  s.discovery = snap.discovery ?? s.discovery;
+  s.rejections = snap.rejections ?? s.rejections;
   // replay the recorded event stream to build the chat, node badges, phase + open gate
   const grown = applyEvents(s, snap.events, /*fresh*/ true);
   return grown;
@@ -219,7 +235,21 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
   for (const ev of snap.graph.events) events[ev.id] = ev;
   const hypotheses = { ...state.hypotheses };
   for (const h of snap.hypotheses) hypotheses[h.id] = h;
-  return { ...state, nodes, edges, facts, events, hypotheses, outcome: snap.outcome };
+  // refresh the ENGINE ranked() order; keep any delta-born ids the snapshot hasn't caught up on
+  const ranked = snap.hypotheses.map((h) => h.id);
+  const hypothesisOrder = mergeIds(ranked, state.hypothesisOrder);
+  return {
+    ...state,
+    nodes,
+    edges,
+    facts,
+    events,
+    hypotheses,
+    hypothesisOrder,
+    discovery: snap.discovery ?? state.discovery,
+    rejections: snap.rejections ?? state.rejections,
+    outcome: snap.outcome,
+  };
 }
 
 // ── the event fold ──────────────────────────────────────────────────────────────
@@ -286,6 +316,7 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
         provider: ev.provider,
         effect: ev.effect,
         op_count: ev.op_count,
+        outcome: ev.outcome,
         blocked: ev.blocked,
         reason: ev.reason,
         kind: ev.kind,
@@ -336,6 +367,7 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
             valid_to: null,
             source: f.source ?? "", // obs 7: WHO — no longer blanked on the live stream
             state: "active",
+            ...(f.provisional ? { provisional: true } : {}),
           };
         }
       }
@@ -348,6 +380,7 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
             at: ev.ts,
             payload: {},
             source: "",
+            ...(gEv.provisional ? { provisional: true } : {}),
           };
         }
       }
@@ -365,7 +398,12 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
       break;
     }
     case "hypotheses_delta": {
-      for (const h of ev.hypotheses) {
+      // GHOST-CARD GUARD (audit §1.3): a delta can reference an id the engine's store never
+      // held (a silently-dropped update to an unknown hypothesis) — it arrives as a bare id
+      // with no statement and null status/confidence. Fabricating a "proposed / 0%" card from
+      // it would show a hypothesis the engine does not hold; skip it entirely.
+      const real = ev.hypotheses.filter((h) => Boolean(s.hypotheses[h.id]) || Boolean(h.statement));
+      for (const h of real) {
         const existing = s.hypotheses[h.id];
         s.hypotheses[h.id] = {
           id: h.id,
@@ -379,8 +417,9 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
           chain: existing?.chain ?? [],
         };
       }
+      s.hypothesisOrder = mergeIds(s.hypothesisOrder, real.map((h) => h.id));
       // the belief movements this phase produced (proposed / supported / refuted)
-      const moves: HypothesisMove[] = ev.hypotheses.map((h) => ({
+      const moves: HypothesisMove[] = real.map((h) => ({
         id: h.id,
         action: h.action,
         status: h.status,
@@ -483,8 +522,22 @@ export function relatedIncidents(s: LiveState): RelatedIncident[] {
     .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0) || a.node.id.localeCompare(b.node.id));
 }
 
+/** Hypotheses in the ENGINE's ranked() order (the bundle order, delta-born ids appended) —
+ *  the single ranking authority. No client-side re-sort (the audit's divergent-resort fix). */
 export function hypothesisList(s: LiveState): HypothesisItem[] {
-  return Object.values(s.hypotheses);
+  const out: HypothesisItem[] = [];
+  const seen = new Set<string>();
+  for (const id of s.hypothesisOrder) {
+    const h = s.hypotheses[id];
+    if (h && !seen.has(id)) {
+      seen.add(id);
+      out.push(h);
+    }
+  }
+  for (const h of Object.values(s.hypotheses)) {
+    if (!seen.has(h.id)) out.push(h); // defensive: never drop a held hypothesis
+  }
+  return out;
 }
 
 /** The phase whose turn is currently on screen (for the stepper highlight). */

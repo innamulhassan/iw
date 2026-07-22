@@ -44,6 +44,10 @@ export interface GraphEdge {
   confidence: number | null;
   source?: string | null; // WHO established the relation (obs 7)
   established?: string | null; // WHEN the relation was established
+  state?: string;
+  valid_to?: string | null;
+  invalidated_by?: number | null;
+  provisional?: boolean; // P3 airlock — emitted ONLY when true; renders as tentative
 }
 
 export type FactState = "active" | "superseded" | "retracted" | string;
@@ -59,7 +63,9 @@ export interface GraphFact {
   observed_at?: string | null; // WHEN we learned it (transaction time)
   valid_to: string | null;
   source: string;
+  source_native_name?: string | null; // the provider's own name for the field (P3 airlock)
   state: FactState;
+  provisional?: boolean; // P3 airlock — quarantined/open-vocabulary knowledge, tentative
 }
 
 export interface GraphEvent {
@@ -69,6 +75,10 @@ export interface GraphEvent {
   at: string;
   payload: Record<string, unknown>;
   source: string;
+  source_native_name?: string | null;
+  state?: string;
+  invalidated_by?: number | null;
+  provisional?: boolean; // P3 airlock — tentative until promoted
 }
 
 export interface Graph {
@@ -98,12 +108,31 @@ export interface HypothesisItem {
   id: string;
   statement: string;
   status: HypothesisStatus;
+  /** The ENGINE-EARNED weighted evidence score (P4) — the LLM's band survives only as the
+   *  prior inside it and as the `basis` text. */
   confidence: number;
   basis: string;
   root_candidate: string | null;
   supporting: string[];
   refuting: string[];
   chain: ChainLink[];
+}
+
+/** The airlock's promotion counters (P3 step 5) — the discovery signal telling a human WHICH
+ *  core-registry edit to make. Counted by the engine, surfaced here, never auto-applied. */
+export interface DiscoveryCounters {
+  class_hints: Record<string, number>;
+  quarantined_names: Record<string, number>;
+}
+
+/** One reducer rejection derived from the journaled deltas (P3 step 2 — bounded repair):
+ *  what evidence was WITHHELD, in which phase, and why. */
+export interface RejectionItem {
+  seq: number;
+  phase: string | null;
+  op_index: number;
+  op_kind: string;
+  reason: string;
 }
 
 export interface JournalRefs {
@@ -157,8 +186,11 @@ export interface InvestigationBundle {
   outcome: Outcome;
   phases: Phase[];
   graph: Graph;
+  /** In the ENGINE's ranked() order — the UI renders this order, never re-sorts. */
   hypotheses: HypothesisItem[];
   journal: JournalEntry[];
+  rejections?: RejectionItem[]; // evidence withheld this run ("ops dropped")
+  discovery?: DiscoveryCounters; // "the system keeps seeing unknown X"
   postmortem: Postmortem;
 }
 
@@ -226,12 +258,19 @@ export interface ReasoningEvent extends EventBase {
   phase: string;
   narrative: string;
 }
+/** The boundary-honesty outcome of an invocation (P3 step 1): `data` (ops folded) ·
+ *  `empty` (an HONEST clean no-data read) · `error` (the call FAILED — no evidentiary
+ *  weight, never "no data") · `blocked` (no approved gate). The UI must never infer
+ *  "clean" from op_count == 0 alone. */
+export type InvocationOutcome = "data" | "empty" | "error" | "blocked" | string;
+
 export interface CapabilityCallEvent extends EventBase {
   type: "capability_call";
   intent: string;
   provider: string;
   effect: string;
   op_count: number;
+  outcome?: InvocationOutcome;
   blocked: boolean;
   reason: string | null;
   kind?: string; // tool | workflow | llm (obs 9 — tool-vs-workflow)
@@ -254,6 +293,7 @@ export interface GraphDeltaEdge {
   origin: string;
   source?: string | null;
   established?: string | null;
+  provisional?: boolean;
 }
 export interface GraphDeltaFact {
   id: string;
@@ -265,11 +305,13 @@ export interface GraphDeltaFact {
   source?: string; // WHO (obs 7) — no longer blanked on the live stream
   observed_at?: string | null;
   at?: string;
+  provisional?: boolean;
 }
 export interface GraphDeltaEvent {
   id: string;
   entity: string;
   type: string;
+  provisional?: boolean;
 }
 export interface GraphDeltaEventMsg extends EventBase {
   type: "graph_delta";
