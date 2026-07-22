@@ -37,7 +37,7 @@ closed registry, DESIGN §2.1 R-G1)."""
 from __future__ import annotations
 
 from ...domain import registry
-from ...domain.enums import Binding, EdgeType, Effect, NodeType, Origin
+from ...domain.enums import Binding, EdgeType, Effect, NodeType, Origin, Source
 from ...domain.operations import AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
@@ -136,7 +136,12 @@ class CmdbAdapter:
             nid = registry.node_id(ntype, props)
             if nid not in seen:
                 seen.add(nid)
-                ops.append(AddNode(type=ntype, props=props))
+                # CMDB has no facts/events to re-author — it is the declared structural spine.
+                # Its P1b contribution is threading the mint source onto AddNode (step 1's "adapters
+                # that mint nodes pass their source"), the provenance P6 needs to turn node props
+                # into sourced assertions. The reducer's Node carries no source field yet, so this
+                # is inert for graph output — goldens stay byte-identical.
+                ops.append(AddNode(type=ntype, props=props, source=Source.CMDB))
             return nid, ntype
 
         # bare CI records (get_ci_class / find_ci_by_attr shape) — nodes only, no edges.
