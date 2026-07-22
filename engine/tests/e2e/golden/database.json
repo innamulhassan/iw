@@ -1268,6 +1268,7 @@
       }
     ]
   },
+  "rejections": [],
   "subject": {
     "domain": "app-incident",
     "id": "INC-7734",

@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..capability.layer import CapabilityCall
 from ..domain.enums import Phase
 from ..domain.operations import Operation
-from ..domain.phase_result import PhaseVerdict
+from ..domain.phase_result import PhaseVerdict, Rejection
 from ..domain.playbook import PhaseSpec, Tunables
 from ..domain.subject import SubjectRef
 
@@ -34,6 +34,10 @@ class PlanContext:
     messages: list[dict] = field(default_factory=list)   # operator steering (obs 2 two-way chat) —
     #                                    the session injects its chat buffer so the LIVE planner can
     #                                    be steered ("check the DB", "ignore CHG-9"); mock ignores it
+    rejections: list[Rejection] = field(default_factory=list)   # the reducer rejections from the
+    #                                    PREVIOUS step (P3 step 2 — the R-K2 bounded repair loop):
+    #                                    the planner is told WHY each dropped op was dropped, so a
+    #                                    live model repairs instead of re-emitting into silence
 
 
 class PlanOutput(BaseModel):

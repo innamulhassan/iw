@@ -52,6 +52,9 @@ class Engine:
         self.subject: SubjectRef | None = None
         self._anomaly_ref: str | None = None
         self._gate_feedback: str | None = None   # last failed-gate reason, fed to the next plan (GAP 3)
+        # last step's reducer rejections, fed to the NEXT plan (P3 step 2 — the bounded repair
+        # loop: the model learns WHY an op was dropped instead of seeing silent nothing)
+        self._last_rejections: list[Rejection] = []
         self.rejections: list[Rejection] = []
         self.invocations: list[Invocation] = []
         # P3 airlock step 1 — the engine CONSUMES the boundary outcome (part4-capability §4):
@@ -74,6 +77,7 @@ class Engine:
         self._max_steps = max_steps
         self._gate_feedback = None
         self._intent_outcomes = {}
+        self._last_rejections = []
 
     def done(self) -> bool:
         return self._phase is None or self._steps >= self._max_steps
@@ -120,7 +124,8 @@ class Engine:
             graph_view=render_slice(self.graph, self._anomaly_ref),
             hypotheses=[{"id": h.id, "statement": h.statement, "status": h.status.value,
                          "confidence": h.confidence.value} for h in self.hypothesis_store.ranked()],
-            tunables=self.playbook.tunables, gate_feedback=self._gate_feedback)
+            tunables=self.playbook.tunables, gate_feedback=self._gate_feedback,
+            rejections=list(self._last_rejections))
         plan = self.planner.plan(ctx)
 
         # capability calls -> data ops (the tool outputs fold into the graph); writes
@@ -159,6 +164,7 @@ class Engine:
         mat = materialize(ops, seq, self.graph, self.playbook.tunables,
                           anomaly_ref=self._anomaly_ref, no_weight_intents=no_weight)
         self.rejections.extend(mat.rejections)
+        self._last_rejections = list(mat.rejections)   # the NEXT plan is told what was dropped
 
         # capture the symptom node the first time it is created (domain role-binding)
         if self._anomaly_ref is None:
@@ -171,7 +177,8 @@ class Engine:
             phase_id=phase, goal_restated=spec.goal, facts_added=mat.facts,
             events_added=mat.events, nodes_touched=mat.nodes, edges_added=mat.edges,
             hypotheses_updated=mat.hyp_deltas, narrative=plan.narrative,
-            next_actions=plan.next_actions, verdict=plan.verdict)
+            next_actions=plan.next_actions, verdict=plan.verdict,
+            rejections=mat.rejections)   # journaled with the delta (P3 step 2 — never memory-only)
 
         # apply the delta via the single mutation seam FIRST, then gate against the updated store
         apply_delta(result, seq, self.graph, self.hypothesis_store)

@@ -278,6 +278,14 @@ class LivePlanner:
             steer = ("\n# OPERATOR STEERING (the human investigating with you said this — weigh it "
                      "heavily, it may redirect your hypothesis or tool choice):\n" + lines)
 
+        dropped = ""
+        if ctx.rejections:
+            # the bounded repair loop (P3 step 2): each dropped op's exact reason, so the model
+            # REPAIRS (fix the subject/name/edge pair) instead of re-emitting into silence.
+            lines = "\n".join(f"#   - [{r.op_kind}] {r.reason}" for r in ctx.rejections[-8:])
+            dropped = ("\n# OPS DROPPED LAST TURN (the engine rejected these — fix the cause, do "
+                       "not re-emit them unchanged):\n" + lines)
+
         attempt = self._attempts.get(ctx.phase.value, 1)
         feedback = ""
         if attempt > 1:
@@ -310,7 +318,7 @@ goal: {ctx.goal}
 allowed_intents this phase (ABSTRACT categories — fulfil them with the WIRED tools above, not by
   emitting these words as tool names): {spec.allowed_intents}
 produces_required (must be non-empty to advance): {spec.produces_required or '(none)'}
-GATE to ADVANCE: {gate}{remediate_hint}{steer}{feedback}
+GATE to ADVANCE: {gate}{remediate_hint}{steer}{dropped}{feedback}
 PROGRESSION RULE: set verdict=advance as soon as this phase's produces_required + gate are
   satisfied — do NOT loop re-gathering evidence. TRIAGE just decides mitigate-vs-investigate and
   names the suspect; DEEP evidence (diffs, traces, blame, refuting a rival) belongs in INVESTIGATE.

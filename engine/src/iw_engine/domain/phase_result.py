@@ -27,6 +27,19 @@ class PhaseVerdict(BaseModel):
     #                                  the next plan so a live planner learns why it stalled (GAP 3)
 
 
+class Rejection(BaseModel):
+    """One reducer rejection — WHY an op was dropped (P3 airlock step 2 / DOMAIN-v3 §2.4 row 3,
+    the R-K2 'bounded repair loop' promise). No longer memory-only: carried on the PhaseResult
+    delta, so it is journaled with the phase, survives replay, surfaces in the bundle, and feeds
+    the next plan — the model learns why instead of seeing silent nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    op_index: int
+    op_kind: str
+    reason: str
+
+
 class PhaseResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -40,6 +53,10 @@ class PhaseResult(BaseModel):
     narrative: str                                                 # -> JOURNAL (the ONLY prose field)
     next_actions: list[str] = Field(default_factory=list)          # -> CONTROLLER (advisory)
     verdict: PhaseVerdict                                          # -> CONTROLLER (authoritative)
+    # -> JOURNAL + BUNDLE + next PlanContext (P3 step 2): what the reducer DROPPED this phase
+    # and why. Pure record — applies to no projection (replay-inert), never counted by
+    # is_empty_delta or any gate floor.
+    rejections: list[Rejection] = Field(default_factory=list)
 
     def is_empty_delta(self) -> bool:
         return not (self.facts_added or self.events_added or self.nodes_touched

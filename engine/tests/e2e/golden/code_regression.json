@@ -994,6 +994,7 @@
       }
     ]
   },
+  "rejections": [],
   "subject": {
     "domain": "app-incident",
     "id": "INC-4821",

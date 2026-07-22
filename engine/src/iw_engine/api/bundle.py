@@ -95,5 +95,12 @@ def export_bundle(res: RunResult) -> dict:
         # A batch run produces no step entries, so its journal is unchanged.
         "journal": [_journal_entry(e) for e in sorted(jr.entries, key=lambda e: e.seq)
                     if (e.kind == "phase" and e.delta is not None) or e.kind == "step"],
+        # every reducer rejection, derived from the JOURNALED deltas (P3 step 2 — R-K2's
+        # bounded repair loop): what was dropped, in which phase, and WHY. Never memory-only,
+        # so a reopened/replayed investigation shows the same list.
+        "rejections": [
+            {"seq": e.seq, "phase": e.phase_id.value if e.phase_id else None,
+             "op_index": r.op_index, "op_kind": r.op_kind, "reason": r.reason}
+            for e in jr.phase_entries() for r in e.delta.rejections],
         "postmortem": render_postmortem(res.subject, g, store, jr, res.close_outcome),
     }

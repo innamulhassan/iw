@@ -816,6 +816,7 @@
       }
     ]
   },
+  "rejections": [],
   "subject": {
     "domain": "app-incident",
     "id": "INC-9001",

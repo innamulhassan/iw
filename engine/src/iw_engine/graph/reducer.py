@@ -29,16 +29,12 @@ from ..domain.operations import (
     ProposeHypothesis,
     UpdateHypothesis,
 )
+from ..domain.phase_result import Rejection
 from ..domain.playbook import Tunables
 from ..domain.shim import assertion_from_event, assertion_from_fact
 from . import graph as graph_mod
 
-
-@dataclass
-class Rejection:
-    op_index: int
-    op_kind: str
-    reason: str
+__all__ = ["Materialized", "Rejection", "materialize"]   # Rejection re-exported (home: domain)
 
 
 @dataclass
@@ -97,18 +93,18 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         is_event = op.species is Species.EVENT
         subj_word, name_word = ("entity", "event") if is_event else ("subject", "predicate")
         if not known(op.subject):
-            out.rejections.append(Rejection(i, op_kind, f"unknown {subj_word} {op.subject}"))
+            out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=f"unknown {subj_word} {op.subject}"))
             return
         nt = type_of(op.subject)
         native = op.source_native_name or op.name
         canonical = dictionary.resolve(op.source, op.name, op.unit)
         if canonical is None:
-            out.rejections.append(Rejection(i, op_kind, f"unknown {name_word} '{op.name}'"))
+            out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=f"unknown {name_word} '{op.name}'"))
             return
         # applies_to on nodes; edge subjects carry no NodeType (nt is None) so edge-borne
         # assertions bypass the type check (edge-predicate legality is §C2 / a later phase).
         if nt is not None and not dictionary.applies_to_ok(canonical, nt):
-            out.rejections.append(Rejection(i, op_kind,
+            out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=
                                             f"{name_word} '{canonical}' not allowed on {nt.value}"))
             return
         if is_event:
@@ -145,7 +141,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
             # The Fact model enforces its invariants by raising (R-C4 belief-channel). The
             # LivePlanner pre-repairs these, but if one slips through we reject the op and
             # continue — consistent with every other malformed op — instead of crashing the run.
-            out.rejections.append(Rejection(i, op_kind, f"invalid fact: {exc}"))
+            out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=f"invalid fact: {exc}"))
 
     # ── pass 1: nodes (so facts/edges in the same batch can reference them) ────
     # A Hypothesis is BOTH a hypothesis store entry and a graph node (NodeType.HYPOTHESIS) so causal
@@ -179,17 +175,17 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
 
         elif isinstance(op, AddEdge):
             if registry.edge_spec(op.type).derived:
-                out.rejections.append(Rejection(i, op.op.value,
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
                     f"{op.type.value} is a derived evidence edge — attach the fact via "
                     "add_supporting/add_refuting on the hypothesis, not a direct edge"))
                 continue
             if not known(op.src) or not known(op.dst):
-                out.rejections.append(Rejection(i, op.op.value,
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
                                                 f"edge endpoint not in graph ({op.src}->{op.dst})"))
                 continue
             st, dt = type_of(op.src), type_of(op.dst)
             if st and dt and not registry.edge_allowed(op.type, st, dt):
-                out.rejections.append(Rejection(i, op.op.value,
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
                                                 f"illegal edge {st.value}-{op.type.value}->{dt.value}"))
                 continue
             spec = registry.edge_spec(op.type)
@@ -198,7 +194,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
             if op.confidence_level is not None:
                 conf = _level_conf(op.confidence_level, tunables, f"{op.type.value} edge")
             elif spec.requires_confidence:
-                out.rejections.append(Rejection(i, op.op.value,
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
                                                 f"edge {op.type.value} requires confidence"))
                 continue
             eid = registry.edge_id(op.type, op.src, op.dst, origin)
@@ -236,14 +232,15 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
 
         elif isinstance(op, NoEvidence):
             if op.intent in no_weight_intents:
-                out.rejections.append(Rejection(i, op.op.value,
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
                     f"no_evidence '{op.intent}' rejected — that capability call errored or was "
                     "blocked (an error carries no evidentiary weight; only a clean-empty read "
                     "can become null evidence)"))
                 continue
             subj = op.scope if known(op.scope) else anomaly_ref
             if subj is None:
-                out.rejections.append(Rejection(i, op.op.value, "no scope/anomaly to attach null-result"))
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value,
+                                                reason="no scope/anomaly to attach null-result"))
                 continue
             pred = f"no_evidence:{op.intent}"     # reserved meta-predicate (bypasses catalog check)
             fid = registry.fact_id(subj, pred, op.at)
