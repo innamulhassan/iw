@@ -133,6 +133,13 @@ doctrine:
       traffic is cleanly DENIED — roots at the POLICY CHANGE that tightened it (or the FIREWALL_RULE
       it modified), NEVER the healthy segment the denied traffic merely crosses. Distinguish the two
       by the link's health: degraded link → segment; clean denials on a healthy link → the policy.
+      A fault GATED BEHIND A FEATURE FLAG — the defective branch was dormant until a flag flip
+      enabled it (error first_seen AT the flip; the commit that shipped the branch predates it,
+      often by days) — roots at the FEATURE_FLAG (the actionable revert is flipping it OFF; the
+      old commit is the mechanism the flip armed, and the flip's change ticket is the vehicle).
+      A LIFECYCLE EXPIRY — a certificate/credential lapses (days_to_expiry hits 0, handshake
+      errors first_seen at the expiry instant, NO change in the window) — roots at the
+      CERTIFICATE itself (the fix is renewal/rotation).
       Copy that node's exact id from the graph as root_candidate.
   investigate_advance: |-
     - Advance only when the phase's GATE is satisfied. In investigate you must reach a

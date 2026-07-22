@@ -925,7 +925,8 @@ def certificate() -> tuple[SubjectRef, dict, str]:
         "artifactory": {"*": {
             "artifacts": [{"sha256": "cert-auth-tls-intermediate",
                            "repo": "tls-secrets", "created": t_exp,
-                           "properties": {"cn": "auth-svc.internal",
+                           "properties": {"cert_id": "auth-tls-intermediate",
+                                          "cn": "auth-svc.internal",
                                           "issuer": "Corp Intermediate CA",
                                           "not_after": t_exp.isoformat()}}]}},
     }

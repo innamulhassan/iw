@@ -34,6 +34,22 @@ class ArtifactoryAdapter:
             digest = art.get("sha256") or art.get("digest")
             if not digest:
                 continue
+            properties = art.get("properties", {})
+            if "not_after" in properties:
+                # a TLS-secret record IS a Certificate, not a build artifact: fold the
+                # CERTIFICATE node (identity = cert_id; cn/issuer ride as props) so expiry
+                # telemetry has a subject to land on (live retest 2026-07-22: without this
+                # fold no tool created the cert node and every days_to_expiry fact
+                # rejected 'unknown subject').
+                cert_props = {"cert_id": properties.get("cert_id") or art.get("name") or digest}
+                if properties.get("cn"):
+                    cert_props["subject"] = properties["cn"]
+                if properties.get("issuer"):
+                    cert_props["issuer"] = properties["issuer"]
+                if properties.get("not_after"):
+                    cert_props["not_after"] = str(properties["not_after"])
+                ops.append(AddNode(type=NodeType.CERTIFICATE, props=cert_props))
+                continue
             props = {"digest": digest}
             if art.get("repo"):
                 props["repo"] = art["repo"]
