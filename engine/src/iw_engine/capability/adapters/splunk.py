@@ -8,9 +8,10 @@ into a `deny_count` fact on the `FirewallRule` node they hit.
 from __future__ import annotations
 
 from ...domain import registry
+from ...domain.assertion import Window
 from ...domain.common import EvidenceRef
-from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source
-from ...domain.operations import AddEdge, AddFact, AddNode, Operation
+from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source, Species, Stat
+from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
 
@@ -69,12 +70,18 @@ class SplunkAdapter:
             at = err["_time"]
             reliability = err.get("reliability")   # None -> reducer fills tunables default
             evidence = [EvidenceRef(kind="trace_id", ref=err["trace_id"])] if err.get("trace_id") else []
-            ops.append(AddFact(subject=sig_id, predicate="count", value=err["count"],
-                               valid_from=at, observed_at=at, source=Source.SPLUNK,
-                               source_reliability=reliability, evidence=evidence))
-            ops.append(AddFact(subject=sig_id, predicate="last_seen", value=err.get("last_seen", at),
-                               valid_from=at, observed_at=at, source=Source.SPLUNK,
-                               source_reliability=reliability))
+            # the deduped occurrence count is a measured READING (stat=count, point window at the
+            # observation time); last_seen is a timestamp DESCRIPTOR (the §9.1 content/identity-
+            # adjacent set — the P1a shim classified it so). Both fold to a byte-identical Fact.
+            ops.append(AddAssertion(subject=sig_id, name="count", value=err["count"],
+                                    species=Species.READING, stat=Stat.COUNT, window=Window(at=at),
+                                    valid_from=at, observed_at=at, source=Source.SPLUNK,
+                                    source_reliability=reliability, evidence=evidence,
+                                    source_native_name="count"))
+            ops.append(AddAssertion(subject=sig_id, name="last_seen",
+                                    value=err.get("last_seen", at), species=Species.DESCRIPTOR,
+                                    valid_from=at, observed_at=at, source=Source.SPLUNK,
+                                    source_reliability=reliability, source_native_name="last_seen"))
 
             if src_id:
                 ops.append(AddEdge(type=EdgeType.EMITTED, src=src_id, dst=sig_id))
@@ -93,7 +100,10 @@ class SplunkAdapter:
             }))
             rule_id = registry.node_id(NodeType.FIREWALL_RULE, rule_key)
             at = deny["_time"]
-            ops.append(AddFact(subject=rule_id, predicate="deny_count", value=deny.get("deny_count", 1),
-                               valid_from=at, observed_at=at, source=Source.SPLUNK,
-                               source_reliability=deny.get("reliability")))
+            ops.append(AddAssertion(subject=rule_id, name="deny_count",
+                                    value=deny.get("deny_count", 1), species=Species.READING,
+                                    stat=Stat.COUNT, window=Window(at=at), valid_from=at,
+                                    observed_at=at, source=Source.SPLUNK,
+                                    source_reliability=deny.get("reliability"),
+                                    source_native_name="deny_count"))
         return ops
