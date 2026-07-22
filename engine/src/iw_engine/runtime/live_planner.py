@@ -273,6 +273,21 @@ class LivePlanner:
                 "fix>', reversible:true}}]. This WRITE opens the human approval gate; do NOT just "
                 "describe the fix in prose or you will skip the human-in-the-loop approval.")
 
+        correlated = ""
+        if ctx.correlations:
+            # P4: the engine-computed skew-tolerant change→onset correlation — the
+            # executable home of the abstract `correlate_timeline` intent. Ordering is
+            # only ever asserted OUTSIDE the combined clock-skew bound (R-J2).
+            lines = []
+            for c in ctx.correlations[:8]:
+                order = ("preceded onset" if c.get("ordering_certain")
+                         else "within the clock-skew bound of onset — do NOT assert it came first")
+                lines.append(f"#   - {c.get('type')} on {c.get('entity')} at "
+                             f"{c.get('occurred_at')} (lead {c.get('lead_s')}s; {order})")
+            correlated = ("\n# TEMPORALLY-CORRELATED CHANGE EVENTS (engine-computed, "
+                          "clock-skew-tolerant; candidates for the change-first hypothesis):\n"
+                          + "\n".join(lines))
+
         steer = ""
         if ctx.messages:
             # operator steering from the two-way chat (obs 2) — the human in the loop. Recent last.
@@ -320,7 +335,7 @@ goal: {ctx.goal}
 allowed_intents this phase (ABSTRACT categories — fulfil them with the WIRED tools above, not by
   emitting these words as tool names): {spec.allowed_intents}
 produces_required (must be non-empty to advance): {spec.produces_required or '(none)'}
-GATE to ADVANCE: {gate}{remediate_hint}{steer}{dropped}{feedback}
+GATE to ADVANCE: {gate}{remediate_hint}{correlated}{steer}{dropped}{feedback}
 PROGRESSION RULE: set verdict=advance as soon as this phase's produces_required + gate are
   satisfied — do NOT loop re-gathering evidence. TRIAGE just decides mitigate-vs-investigate and
   names the suspect; DEEP evidence (diffs, traces, blame, refuting a rival) belongs in INVESTIGATE.

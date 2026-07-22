@@ -35,6 +35,7 @@ from ..domain.enums import FactState, NodeType, Source
 from ..domain.fact import Fact
 from ..domain.hypothesis import Hypothesis
 from ..domain.playbook import Tunables
+from ..domain.registry import node_spec
 
 if TYPE_CHECKING:   # annotation-only: a runtime import would cycle graph.fold ↔ this package
     from ..graph.graph import Graph
@@ -168,3 +169,56 @@ def weighted_score(h: Hypothesis, graph: Graph, tunables: Tunables,
     if denom <= 0.0:
         return h.confidence.value
     return round((tunables.prior_weight * h.confidence.value + s_for) / denom, 4)
+
+
+# ── correlate_timeline — the executable home (DOMAIN-v3 §2.5 / R-J2) ──────────
+def correlate_timeline(graph: Graph, tunables: Tunables,
+                       *, anomaly_ref: str | None = None) -> list[dict]:
+    """The skew-tolerant change→onset correlation the playbook's abstract
+    `correlate_timeline` intent names — until P4 it resolved to NO code (the weaker live
+    model emitted the words as a tool call and stalled). Now the ENGINE computes it and
+    hands the result to the planner as evidence context (a hint, never a graph mutation —
+    deterministic, replay-invisible).
+
+    A candidate is an ACTIVE Event on a change-tier entity (the registry's L5 change &
+    supply-chain tier: change_event/code_commit/release/feature_flag/certificate/...)
+    whose `occurred_at` falls inside the correlation window around symptom onset:
+
+        [onset - correlation_window_s - skew,  onset + skew]
+
+    where `skew` is the COMBINED clock-skew bound of the event's source and the onset's
+    source — R-J2: the join is a tolerance window, both edges widened by what the two
+    clocks cannot distinguish. `ordering_certain` is True ONLY when the event precedes
+    onset by MORE than the combined bound — the one case where "the change came first"
+    may be asserted; inside the bound the correlation is surfaced with the claim
+    explicitly withheld (never assert ordering tighter than the skew window).
+
+    Deterministic: sorted by (occurred_at, event id). Returns [] until an onset is framed
+    — a correlation without an anchor would be a guess."""
+    anchor = anomaly_ref if anomaly_ref is not None else find_anomaly(graph)
+    ons = onset_of(graph, anchor)
+    if ons is None:
+        return []
+    onset, onset_source = ons
+    out: list[dict] = []
+    for ev in graph.events.values():
+        if ev.state != FactState.ACTIVE:
+            continue
+        entity = graph.node(ev.entity_ref)
+        if entity is None or node_spec(entity.type).tier != "L5":
+            continue
+        skew = combined_skew_s(ev.source, onset_source, tunables)
+        try:
+            lead_s = (onset - ev.occurred_at).total_seconds()   # >0 ⇒ change BEFORE onset
+        except TypeError:
+            continue   # naive/aware mix — never crash the engine loop (INV-7)
+        if lead_s > tunables.correlation_window_s + skew or lead_s < -skew:
+            continue
+        out.append({
+            "event": ev.id, "entity": ev.entity_ref, "type": ev.type,
+            "occurred_at": ev.occurred_at.isoformat(), "source": ev.source.value,
+            "lead_s": round(lead_s, 3), "skew_bound_s": skew,
+            "ordering_certain": lead_s > skew,
+        })
+    out.sort(key=lambda c: (c["occurred_at"], c["event"]))
+    return out

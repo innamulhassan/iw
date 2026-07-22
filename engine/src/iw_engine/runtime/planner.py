@@ -38,6 +38,12 @@ class PlanContext:
     #                                    PREVIOUS step (P3 step 2 — the R-K2 bounded repair loop):
     #                                    the planner is told WHY each dropped op was dropped, so a
     #                                    live model repairs instead of re-emitting into silence
+    correlations: list[dict] = field(default_factory=list)   # P4 — the ENGINE-computed skew-tolerant
+    #                                    change→onset correlation (belief.correlate_timeline), handed
+    #                                    to every phase whose playbook allowed_intents declare
+    #                                    `correlate_timeline`: a deterministic evidence HINT (never a
+    #                                    graph mutation); `ordering_certain=False` items sit inside
+    #                                    the combined clock-skew bound (R-J2 — ordering not asserted)
 
 
 class PlanOutput(BaseModel):

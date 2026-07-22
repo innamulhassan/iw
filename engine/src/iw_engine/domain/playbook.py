@@ -67,6 +67,10 @@ class Tunables(BaseModel):
     # resolvable evidence scores exactly its band; evidence mass beyond this pulls the
     # score toward the for/against split.
     prior_weight: float = Field(default=1.0, gt=0)
+    # correlate_timeline lookback (seconds): how far BEFORE symptom onset a change event
+    # still counts as a temporally-correlated candidate; both window edges are additionally
+    # widened by the combined clock-skew bound (R-J2 — the join is a tolerance window).
+    correlation_window_s: float = Field(default=3600.0, ge=0)
 
 
 class GateSpec(BaseModel):

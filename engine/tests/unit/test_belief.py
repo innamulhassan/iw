@@ -289,3 +289,80 @@ def test_promotion_rival_block_still_holds_under_weighted_scoring():
     store.apply([HypDelta(action=HypAction.REFUTE, hypothesis_id="hyp:h2",
                           new_status=HypothesisStatus.REFUTED)], seq=2)
     assert store.promotion_ok(tun) is True         # only refutation clears the field
+
+
+# ── correlate_timeline — the executable home (P4 step 4, R-J2) ────────────────
+def _event(eid, entity, etype, at, *, source=Source.SERVICENOW, state=None):
+    from iw_engine.domain.event import Event
+    ev = Event(id=eid, entity_ref=entity, type=etype, occurred_at=at, observed_at=at,
+               source=source, created_by=1)
+    return ev.model_copy(update={"state": state}) if state is not None else ev
+
+
+def _skew(a: Source, b: Source, tun: Tunables) -> float:
+    return belief.combined_skew_s(a, b, tun)
+
+
+def test_correlate_timeline_finds_the_change_inside_the_window():
+    """A change Event before onset, inside [onset - window - skew, onset + skew], is a
+    temporally-correlated candidate; one beyond the lookback is not; ordering is only
+    asserted OUTSIDE the combined skew bound (R-J2)."""
+    g = graph_fixture()
+    tun = Tunables()
+    skew = _skew(Source.SERVICENOW, Source.PROMETHEUS, tun)   # 300 + 30
+    g.add_event(_event("evt-chg", CHG, "implemented", T0 - timedelta(seconds=480)))
+    g.add_event(_event("evt-old", CHG, "implemented",
+                       T0 - timedelta(seconds=tun.correlation_window_s + skew + 1)))
+    out = belief.correlate_timeline(g, tun, anomaly_ref=ANOM)
+    assert [c["event"] for c in out] == ["evt-chg"]
+    c = out[0]
+    assert c["entity"] == CHG and c["lead_s"] == 480.0 and c["skew_bound_s"] == skew
+    assert c["ordering_certain"] is True            # 480s lead > 330s combined bound
+
+
+def test_correlate_timeline_never_asserts_ordering_inside_the_skew_bound():
+    """A change stamped 100s AFTER onset still correlates (the clocks cannot exclude it)
+    but with ordering_certain=False — R-J2's 'never tighter than the skew window' made
+    executable. One stamped beyond the after-onset skew edge does not correlate at all."""
+    g = graph_fixture()
+    tun = Tunables()
+    skew = _skew(Source.SERVICENOW, Source.PROMETHEUS, tun)
+    g.add_event(_event("evt-after", CHG, "implemented", T0 + timedelta(seconds=100)))
+    g.add_event(_event("evt-way-after", CHG, "implemented", T0 + timedelta(seconds=skew + 1)))
+    g.add_event(_event("evt-near", CHG, "implemented", T0 - timedelta(seconds=skew - 1)))
+    out = belief.correlate_timeline(g, tun, anomaly_ref=ANOM)
+    assert [c["event"] for c in out] == ["evt-near", "evt-after"]   # (occurred_at, id) order
+    assert all(c["ordering_certain"] is False for c in out)
+
+
+def test_correlate_timeline_only_change_tier_entities_and_needs_an_onset():
+    """Only Events on registry L5 (change & supply-chain) entities are candidates — a
+    service's degraded_started at the same instant is a symptom, not a change. Without a
+    framed onset the correlation returns [] (a hint is never a guess), and retracted
+    change events stop correlating."""
+    g = graph_fixture()
+    tun = Tunables()
+    g.add_event(_event("evt-sym", SVC, "degraded_started", T0 - timedelta(seconds=60),
+                       source=Source.PROMETHEUS))
+    g.add_event(_event("evt-chg", CHG, "implemented", T0 - timedelta(seconds=480)))
+    out = belief.correlate_timeline(g, tun, anomaly_ref=ANOM)
+    assert [c["event"] for c in out] == ["evt-chg"]
+    # retracted → gone
+    g.retract_event("evt-chg", invalidated_by="test")
+    assert belief.correlate_timeline(g, tun, anomaly_ref=ANOM) == []
+    # no onset framed (fresh graph without the anomaly onset fact) → []
+    g2 = Graph()
+    g2.upsert_node(node(CHG, NodeType.CHANGE_EVENT))
+    g2.add_event(_event("evt-chg", CHG, "implemented", T0))
+    assert belief.correlate_timeline(g2, tun) == []
+
+
+def test_correlation_window_is_a_tunable():
+    g = graph_fixture()
+    g.add_event(_event("evt-chg", CHG, "implemented", T0 - timedelta(seconds=480)))
+    wide = belief.correlate_timeline(g, Tunables(), anomaly_ref=ANOM)
+    narrow = belief.correlate_timeline(
+        g, Tunables(correlation_window_s=0.0,
+                    clock_skew_bound_s={"default": 0.0}), anomaly_ref=ANOM)
+    assert [c["event"] for c in wide] == ["evt-chg"]
+    assert narrow == []                            # window shrunk → the candidate drops

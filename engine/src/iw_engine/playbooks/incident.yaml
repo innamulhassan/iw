@@ -69,3 +69,4 @@ tunables:
   specificity_decay: 0.8          # per structural hop from the anomaly
   specificity_floor: 0.25         # subjects unreachable over the structural spine
   prior_weight: 1.0               # the LLM band's pseudo-evidence mass in the blend
+  correlation_window_s: 3600      # correlate_timeline lookback before onset (skew-widened)

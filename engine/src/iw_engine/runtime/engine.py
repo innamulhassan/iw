@@ -20,6 +20,7 @@ from ..graph.fold import apply_delta
 from ..graph.graph import Graph
 from ..graph.reducer import Rejection, materialize
 from ..graph.render import render_slice
+from ..hypothesis import belief
 from ..hypothesis.store import HypothesisStore
 from ..journal.journal import Journal, JournalEntry
 from .controller import check_gate, next_phase
@@ -123,6 +124,12 @@ class Engine:
     # ── one phase ─────────────────────────────────────────────────────────────
     def _run_phase(self, phase: Phase, spec) -> PhaseResult:
         seq = self.journal.reserve_seq()
+        # P4: the abstract `correlate_timeline` intent resolves to ENGINE code — every
+        # phase whose playbook declares it (hypothesize/investigate in the core playbook)
+        # receives the deterministic skew-tolerant change→onset candidates as a plan hint.
+        correlations = (belief.correlate_timeline(self.graph, self.playbook.tunables,
+                                                  anomaly_ref=self._anomaly_ref)
+                        if "correlate_timeline" in spec.allowed_intents else [])
         ctx = PlanContext(
             subject=self.subject, phase=phase, phase_spec=spec, goal=spec.goal,
             graph_view=render_slice(self.graph, self._anomaly_ref),
@@ -130,7 +137,7 @@ class Engine:
                          "confidence": self.hypothesis_store.score(h)}
                         for h in self.hypothesis_store.ranked()],
             tunables=self.playbook.tunables, gate_feedback=self._gate_feedback,
-            rejections=list(self._last_rejections))
+            rejections=list(self._last_rejections), correlations=correlations)
         plan = self.planner.plan(ctx)
 
         # capability calls -> data ops (the tool outputs fold into the graph); writes
