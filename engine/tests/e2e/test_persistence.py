@@ -8,6 +8,7 @@ golden suite drives in batch), so this exercises the production write/reopen wir
 """
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 from iw_engine.domain.subject import SubjectRef
@@ -109,3 +110,90 @@ def test_append_only_journal_grows_without_rewriting_the_header(tmp_path):
     assert len([ln for ln in text.splitlines() if ln.strip()]) > 1
     # and it re-parses through the existing loader
     assert Journal.from_ndjson(text).entries
+
+
+# ── P6 step 4: journal-authoritative hardening ─────────────────────────────────
+def _driven_store(tmp_path):
+    """A completed run on disk + its live bundle, via the production write path."""
+    root = tmp_path / "investigations"
+    mgr = build_manager(store=InvestigationStore(root))
+    session = mgr.create(_subject())
+    session.answer_gate(GateDecision.APPROVE)
+    return root, session.snapshot()
+
+
+def test_graph_cache_carries_the_journal_watermark(tmp_path):
+    root, _ = _driven_store(tmp_path)
+    d = root / safe_key(KEY)
+    cache = json.loads((d / "graph.json").read_text())
+    journal = Journal.from_ndjson((d / "journal.ndjsonl").read_text())
+    head = max(e.seq for e in journal.entries)
+    assert cache["journal_seq"] == head, "the cache must be stamped with the head it projects"
+
+
+def test_stale_cache_is_ignored_and_healed(tmp_path):
+    """R-J4's disagreement check: a cache whose watermark disagrees with the journal head is
+    NEVER served — the reopen equals the journal truth, and the cache is rewritten."""
+    root, live = _driven_store(tmp_path)
+    d = root / safe_key(KEY)
+    cache = json.loads((d / "graph.json").read_text())
+    poisoned = {**cache, "journal_seq": cache["journal_seq"] - 1,
+                "nodes": [], "assertions": [], "edges": []}   # stale AND gutted
+    (d / "graph.json").write_text(json.dumps(poisoned))
+
+    fresh = build_manager(store=InvestigationStore(root))
+    reopened = fresh.reopen(KEY)
+    assert reopened is not None
+    for f in _BUNDLE_FIELDS:
+        assert _canon(reopened[f]) == _canon(live[f]), \
+            f"a stale cache poisoned the reopened {f!r}"
+    healed = json.loads((d / "graph.json").read_text())
+    assert healed["journal_seq"] == cache["journal_seq"] and healed["nodes"], \
+        "the stale cache must be rewritten from the journal (self-heal)"
+
+
+def test_corrupt_cache_never_poisons_reopen(tmp_path):
+    root, live = _driven_store(tmp_path)
+    d = root / safe_key(KEY)
+    (d / "graph.json").write_text("{ not json at all")
+    fresh = build_manager(store=InvestigationStore(root))
+    reopened = fresh.reopen(KEY)
+    assert reopened is not None
+    for f in _BUNDLE_FIELDS:
+        assert _canon(reopened[f]) == _canon(live[f])
+    assert json.loads((d / "graph.json").read_text())["nodes"], "cache healed"
+
+
+def test_fresh_cache_hit_equals_journal_rebuild(tmp_path):
+    """Both load paths — watermark-hit (cache) and miss (rebuild) — must serve the SAME
+    bundle: the cache is an optimization, never an alternate truth."""
+    root, _ = _driven_store(tmp_path)
+    d = root / safe_key(KEY)
+    via_cache = build_manager(store=InvestigationStore(root)).reopen(KEY)
+    (d / "graph.json").unlink()                                # force the rebuild path
+    via_journal = build_manager(store=InvestigationStore(root)).reopen(KEY)
+    for f in _BUNDLE_FIELDS:
+        assert _canon(via_cache[f]) == _canon(via_journal[f])
+
+
+def test_journal_appends_are_fsynced(tmp_path, monkeypatch):
+    import os as _os
+    calls = []
+    real = _os.fsync
+    monkeypatch.setattr("os.fsync", lambda fd: (calls.append(fd), real(fd))[1])
+    _driven_store(tmp_path)
+    assert calls, "every journal append (and atomic rewrite) must fsync before returning"
+
+
+def test_partial_tail_journal_still_reopens(tmp_path):
+    """A crash mid-append leaves a truncated last line — the reopen tolerates it (the
+    surviving complete entries ARE the record)."""
+    root, _ = _driven_store(tmp_path)
+    d = root / safe_key(KEY)
+    with (d / "journal.ndjsonl").open("a") as f:
+        f.write('{"seq": 999, "ts": "2026-07-')                # the torn tail
+    (d / "graph.json").unlink()                                # and no cache to lean on
+    fresh = build_manager(store=InvestigationStore(root))
+    reopened = fresh.reopen(KEY)
+    assert reopened is not None and reopened["read_only"] is True
+    assert reopened["graph"]["nodes"], "the surviving journal entries still serve the reopen"

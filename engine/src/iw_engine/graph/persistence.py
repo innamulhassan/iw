@@ -17,12 +17,21 @@ GRAPH_SCHEMA_VERSION = 2   # 2: the P6 store-flip — one "assertions" list repl
 def _atomic_write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text)
+    with tmp.open("w") as f:                # write + fsync BEFORE the rename (P6 step 4):
+        f.write(text)                       # a crash between write and rename must never
+        f.flush()                           # leave the rename pointing at unflushed data
+        os.fsync(f.fileno())
     os.replace(tmp, path)          # atomic on POSIX
 
 
-def save_graph(graph: Graph, path: str | Path) -> None:
-    data = {"schema_version": GRAPH_SCHEMA_VERSION, **graph.to_dict()}
+def save_graph(graph: Graph, path: str | Path, *, journal_seq: int | None = None) -> None:
+    """Write the graph cache. `journal_seq` (P6 step 4, part2 §3) stamps the cache with the
+    journal head seq it was projected from — the WATERMARK the loader compares against the
+    journal to detect a stale/foreign cache (R-J4's disagreement check)."""
+    data: dict = {"schema_version": GRAPH_SCHEMA_VERSION}
+    if journal_seq is not None:
+        data["journal_seq"] = journal_seq
+    data.update(graph.to_dict())
     _atomic_write(Path(path), json.dumps(data, indent=2, default=str))
 
 

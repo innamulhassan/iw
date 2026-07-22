@@ -1,12 +1,21 @@
-"""InvestigationStore — file-backed durability so a live investigation survives a backend
-restart (the demo requirement). The engine already treats the journal as the DURABLE source of
-truth (`rebuild(journal) -> graph + hypothesis store`); this layer just lands that journal on disk as the
-session drives, and reads it back into a read-only reopen after a restart.
+"""InvestigationStore — the ONE data-layer module (P6 step 4, part2 §3/§3b). A SIMPLE
+CONCRETE file store, per the owner's directive: NO pluggable StorageBackend, no Protocol, no
+second implementation — files, no DB. The only structural rule: every byte of investigation
+disk I/O lives behind THIS module's small surface (save = `persist`/`reset`, load = `load_result`,
+reopen = `load_bundle`, list = `list_disk`/`has`), so a later DB swap is a one-module change.
+
+JOURNAL-AUTHORITATIVE, CACHE-VERIFIED (R-J4's disagreement check, finally real):
+  - journal.ndjsonl is THE record — append-only, fsync'd per append, partial-tail-tolerant;
+  - graph.json is a projection cache — atomic write-temp-rename on every persist, stamped
+    with the journal-head WATERMARK it was projected from. On load, watermark ≠ journal head
+    (or an unreadable cache) ⇒ the graph is REBUILT from the journal and the cache rewritten
+    (self-heal). A stale or corrupt cache can never poison a reopen.
+  - meta.json — subject, state, outcome, tunables, timestamps (atomic rewrite).
 
 Layout — one directory per investigation, keyed by a sanitized `subject.key`:
 
     <root>/<safe-key>/journal.ndjsonl   append-only NDJSON — the durable truth
-    <root>/<safe-key>/graph.json        atomic write-temp-rename cache (rebuildable)
+    <root>/<safe-key>/graph.json        watermarked projection cache (always rebuildable)
     <root>/<safe-key>/meta.json         subject, state, outcome, timestamps
 
 `<root>` defaults to `engine/data/investigations/` (resolved from the package location, so it is
@@ -17,9 +26,12 @@ this module adds no new serialization, only the on-disk layout + the append/reop
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+
+from pydantic import ValidationError
 
 import iw_engine
 
@@ -27,7 +39,9 @@ from ..domain.enums import CloseOutcome
 from ..domain.playbook import Tunables
 from ..domain.subject import SubjectRef
 from ..graph.fold import rebuild
+from ..graph.graph import Graph
 from ..graph.persistence import _atomic_write, save_graph
+from ..hypothesis.store import HypothesisStore
 from ..journal.journal import SCHEMA_VERSION, Journal
 from .engine import RunResult
 
@@ -77,7 +91,10 @@ class InvestigationStore:
     def _append_journal(self, key: str, journal: Journal, prior: int) -> int:
         """Append journal entries beyond index `prior` to journal.ndjsonl (append-only). The
         NDJSON schema-version header is written once, when the file is first created; from then on
-        only the new entries are appended (no full rewrite). Returns the new persisted count."""
+        only the new entries are appended (no full rewrite). Every append is FSYNC'd (P6 step 4:
+        the journal is THE record — a crash after persist() returns must never lose an entry;
+        a crash mid-append leaves at most one partial tail line, which the loader tolerates).
+        Returns the new persisted count."""
         d = self.dir_for(key)
         d.mkdir(parents=True, exist_ok=True)
         p = d / "journal.ndjsonl"
@@ -88,21 +105,25 @@ class InvestigationStore:
             if lines:
                 with p.open("a") as f:
                     f.write("\n".join(lines) + "\n")
+                    f.flush()
+                    os.fsync(f.fileno())
         else:
-            # first write for this run — header + everything so far (atomic, crash-safe).
+            # first write for this run — header + everything so far (atomic + fsync'd).
             lines = [json.dumps({"schema_version": SCHEMA_VERSION})]
             lines += [e.model_dump_json() for e in entries]
             _atomic_write(p, "\n".join(lines) + "\n")
         return len(entries)
 
     def persist(self, subject: SubjectRef, engine, *, prior: int, state: str) -> int:
-        """Land the current session state on disk: append the journal, atomically rewrite the
-        graph cache + meta. Returns the new persisted-journal count (feed it back as `prior`)."""
+        """Land the current session state on disk: append the journal (fsync'd), atomically
+        rewrite the graph cache — stamped with the journal-head watermark it projects — + meta.
+        Returns the new persisted-journal count (feed it back as `prior`)."""
         key = subject.key
         d = self.dir_for(key)
         d.mkdir(parents=True, exist_ok=True)
         n = self._append_journal(key, engine.journal, prior)
-        save_graph(engine.graph, d / "graph.json")
+        head = max((e.seq for e in engine.journal.entries), default=0)
+        save_graph(engine.graph, d / "graph.json", journal_seq=head)
         res = engine.result()
         created = self._existing_created_at(d)
         meta = {
@@ -133,10 +154,34 @@ class InvestigationStore:
             return None
 
     # ── REOPEN (read-only, from disk) ────────────────────────────────────────
+    def _cached_graph(self, d: Path, head: int) -> Graph | None:
+        """The graph cache — served ONLY when its watermark equals the journal head (R-J4's
+        disagreement check, part2 §3). A missing, unreadable, foreign-schema or STALE cache
+        returns None: the caller rebuilds from the journal (the truth) and rewrites the cache.
+        The watermark verifies freshness; for any deeper doubt the journal remains the
+        authority — delete graph.json and it is reprojected."""
+        p = d / "graph.json"
+        if not p.exists():
+            return None
+        try:
+            data = json.loads(p.read_text())
+        except (json.JSONDecodeError, OSError):
+            return None                        # unreadable cache — never trusted, never fatal
+        if data.get("journal_seq") != head:
+            return None                        # stale (or pre-watermark) — rebuild from truth
+        try:
+            return Graph.from_dict(data)
+        except (ValidationError, KeyError, TypeError):
+            return None                        # a cache from a different schema era
+
     def load_result(self, key: str) -> RunResult | None:
-        """Read journal.ndjsonl + meta.json and `rebuild(journal) -> graph + hypothesis store`,
-        returning a RunResult reconstructed purely from the durable journal (the graph.json cache
-        is not consulted — the journal is the source of truth)."""
+        """Reopen from disk, JOURNAL-AUTHORITATIVE: the journal is always read and is the
+        truth; the graph cache is consulted only through the watermark check (`_cached_graph`).
+        On a stale/corrupt cache the graph is rebuilt from the journal and the cache REWRITTEN
+        (self-heal), so a bad cache can never poison a reopen — R-J4's two crash models unify
+        (journal = append-crash-tolerant; cache = atomic-rewrite, disagreement-checked).
+        The hypothesis store is always replayed from the journal's phase deltas (it is small;
+        `HypothesisStore.apply` is graph-independent — scoring binds the graph at query time)."""
         d = self.dir_for(key)
         jp, mp = d / "journal.ndjsonl", d / "meta.json"
         if not jp.exists() or not mp.exists():
@@ -148,7 +193,16 @@ class InvestigationStore:
         # metas without the key fall back to the model defaults).
         tun = (Tunables.model_validate(meta["tunables"]) if meta.get("tunables")
                else Tunables())
-        graph, store = rebuild(journal, tunables=tun)
+        head = max((e.seq for e in journal.entries), default=0)
+        graph = self._cached_graph(d, head)
+        if graph is not None:
+            store = HypothesisStore()
+            for entry in journal.phase_entries():
+                store.apply(entry.delta.hypotheses_updated, entry.seq)
+            store.bind_scoring(graph, tun)
+        else:
+            graph, store = rebuild(journal, tunables=tun)
+            save_graph(graph, d / "graph.json", journal_seq=head)   # self-heal the cache
         co = meta.get("close_outcome")
         close_outcome = CloseOutcome(co) if co else None
         phases_run = [e.phase_id for e in journal.phase_entries() if e.phase_id]
