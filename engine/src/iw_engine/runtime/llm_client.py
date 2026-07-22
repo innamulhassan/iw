@@ -90,7 +90,7 @@ def retry_delay(err: urllib.error.HTTPError, *, fallback: float, cap: float = 90
 class GeminiClient:
     """Google Gemini generateContent JSON client."""
 
-    def __init__(self, api_key: str, model: str = "gemini-2.5-flash-lite", *, temperature: float = 0.0,
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash", *, temperature: float = 0.0,
                  min_interval: float = 4.5):
         self.api_key = api_key
         self.model = model
@@ -175,7 +175,9 @@ class XaiClient:
 # entry here. The cascade tries each in order; first present key wins.
 _PROVIDERS: list[tuple[str, type, str]] = [
     ("XAI_API_KEY", XaiClient, "grok-4.5"),
-    ("GEMINI_API_KEY", GeminiClient, "gemini-2.5-flash-lite"),
+    # gemini-2.5-flash-lite was RETIRED by Google for new users (404 "no longer available",
+    # observed 2026-07-22) — gemini-2.5-flash is the current low-cost generateContent default.
+    ("GEMINI_API_KEY", GeminiClient, "gemini-2.5-flash"),
 ]
 # legacy fallback path for the Gemini key (kept so existing setups keep working)
 _GEMINI_KEY_FILE = pathlib.Path.home() / ".secrets" / "stock" / "gemini-api-key.txt"
@@ -224,6 +226,6 @@ def make_llm_client(model: str | None = None) -> LLMClient | None:
         except OSError:
             key = ""
         if key:
-            return GeminiClient(key, model=pinned or "gemini-2.5-flash-lite")
+            return GeminiClient(key, model=pinned or "gemini-2.5-flash")
 
     return None
