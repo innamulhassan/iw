@@ -1,0 +1,1096 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — 02 · Data Model</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a21;--panel2:#1c212b;--border:#2a3140;--text:#e6e9ef;--muted:#9aa4b2;
+    --faint:#6b7482;--accent:#5b8cff;--accent-soft:#1a2540;--green:#4ade80;--amber:#fbbf24;
+    --red:#f87171;--violet:#a78bfa;--teal:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:light){:root{--bg:#f6f8fb;--panel:#fff;--panel2:#eef2f8;
+    --border:#dde3ec;--text:#1c2128;--muted:#54606f;--faint:#8a94a6;--accent:#2f6fed;
+    --accent-soft:#e9f0ff;--green:#15803d;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65;font-size:15.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  header.masthead{padding:56px 0 26px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:36px;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:66ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  nav.docnav a{font-size:13px;padding:6px 13px;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;background:var(--panel)}
+  nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  nav.docnav a:hover{color:var(--text)}
+  h2{font-size:25px;margin:54px 0 4px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:15px;margin-right:10px}
+  h3{font-size:17px;margin:28px 0 6px}
+  p{margin:12px 0} .lead{font-size:16.5px;color:var(--muted);max-width:70ch}
+  code{font-family:var(--mono);font-size:.87em;background:var(--panel2);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
+  pre code{background:none;border:none;padding:0}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:18px 0}
+  .grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:720px){.grid.two,.grid.three{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15px}.card p{margin:4px 0;font-size:14px;color:var(--muted)}
+  .plain{border-left:3px solid var(--teal);background:rgba(45,212,191,.07);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+  .plain b{color:var(--teal)}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14.5px}
+  .muted{color:var(--muted)}.faint{color:var(--faint)}
+  ul.tight{margin:8px 0;padding-left:22px}ul.tight li{margin:5px 0}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+  /* ── diagram primitives (self-contained, responsive) ── */
+  .diagram{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;margin:22px 0}
+  .diagram .cap{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:14px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .layer{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 16px;background:var(--panel2)}
+  .layer .tag{flex:0 0 130px;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  .layer .body{flex:1;font-size:14px}
+  .layer.eng{border-color:var(--accent);background:var(--accent-soft)}
+  .layer.eng .tag{color:var(--accent)}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+  .box{border:1px solid var(--border);border-radius:10px;padding:9px 13px;background:var(--panel);font-size:13px;text-align:center}
+  .box b{display:block;font-size:13.5px} .box small{color:var(--faint);font-size:11px;font-family:var(--mono)}
+  .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+  .box.write{border-color:var(--amber);background:rgba(251,191,36,.08)}
+  .arrow{color:var(--faint);font-size:18px;line-height:1}
+  .down{align-self:center;color:var(--faint);font-size:18px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* ── docs-set addition (2026-07-22 rewrite): tables — the code map etc. ── */
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);text-align:left}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Investigation Workbench · Engine Docs</div>
+  <h1>02 · Data Model</h1>
+  <p class="sub">The <b>Entity-Assertion model</b>, at class level: one <code>Assertion</code> atom
+  with five temporal species and channel-keyed belief; facts, events and node props as read
+  <em>views</em> over a single store; the semantic dictionary and closed registry that make the
+  vocabulary governable; the hypothesis record whose belief is earned, never asserted; and the
+  airlock that admits the unknown without ever erasing it. Every field name, signature and id
+  format on this page is copied from the tree — open the source and find it.</p>
+  <nav class="docnav">
+    <a href="index.html">Index</a>
+    <a href="01-design-architecture.html">01 · Design &amp; Architecture</a>
+    <a class="here" href="02-data-model.html">02 · Data Model</a>
+    <a href="03-projections-and-data.html">03 · Projections &amp; Data</a>
+    <a href="04-incident-use-cases.html">04 · Incident Use-Cases</a>
+    <a href="05-capability-integration.html">05 · Capability Integration</a>
+  </nav>
+</header>
+
+<!-- ═══════════════════════════ 01 · ONE RECORD, ONE MAP ═══════════════════════════ -->
+<h2 id="map"><span class="n">01</span>One record, one map</h2>
+<p class="lead">The old model gave every kind of knowledge its own container — node properties,
+facts, events — and each container leaked: props had no source, metric names encoded their units,
+the same observation lived in three shapes. The v3 ruling collapses all of it into <b>one
+record</b>: everything the run learns is a typed <code>Assertion</code> about an entity or an
+edge, and everything else — the facts view, the events view, node props, evidence edges — is
+<em>derived</em> from that one collection. Entities and edges come from a closed registry; names
+come from a semantic dictionary; belief comes from arithmetic the engine owns.</p>
+
+<div class="diagram">
+  <div class="cap">The Entity-Assertion model — relationship map (domain/ · graph/ · hypothesis/)</div>
+  <div class="stack">
+    <div class="pipe">
+      <div class="box" style="flex:1;text-align:left"><b>Node</b>
+        <small>43 NodeTypes · id = <code>type:slug|slug</code> from identity_keys · props = a view over
+        DECLARED assertions · aliases <code>{scheme: id}</code> · provisional flag</small></div>
+      <span class="arrow">⟷</span>
+      <div class="box" style="flex:1;text-align:left"><b>Edge</b>
+        <small>36 EdgeTypes · id = <code>edge:type:src-&gt;dst:origin</code> · origin declared / discovered /
+        inferred · confidence on the causal layer · state + invalidated_by</small></div>
+    </div>
+    <div class="down">↑ subject_ref — an assertion is <em>about</em> a node OR an edge (edge-borne RED is legal)</div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)">
+      <span class="tag" style="color:var(--amber)">The atom</span>
+      <span class="body"><b><code>Assertion</code></b> (<code>domain/assertion.py</code>) — five species
+      <code>identity · descriptor · state · reading · event</code> on one provenance envelope, belief keyed on
+      <code>channel</code>. Stored once: <code>Graph.assertions: dict[str, Assertion]</code>
+      (<code>graph/graph.py</code>) — facts, events and node-prop declarations all live here;
+      <code>to_dict()</code> persists only this list. <code>created_by</code> = the journal seq that minted it.</span>
+    </div>
+    <div class="down">↓ derived on read (cached per mutation generation <code>_rev</code>)</div>
+    <div class="pipe">
+      <div class="box hl" style="flex:1"><b>facts view</b><small>species ≠ event ∧ channel ≠ declared</small></div>
+      <div class="box hl" style="flex:1"><b>events view</b><small>species = event</small></div>
+      <div class="box hl" style="flex:1"><b>props view</b><small>channel = declared</small></div>
+    </div>
+    <div class="layer">
+      <span class="tag" style="color:var(--violet)">Hypothesis</span>
+      <span class="body"><b><code>Hypothesis</code></b> (<code>hypothesis/store.py</code>) — a store record
+      <em>and</em> a graph node <code>hyp:&lt;hid&gt;</code>. Its <code>supporting_facts</code> /
+      <code>refuting_facts</code> are <b>FactId lists</b> — the one addressable evidence unit; the
+      <code>SUPPORTS</code>/<code>REFUTES</code> edges in the graph are fold-derived projections of those lists,
+      never planner-emitted.</span>
+    </div>
+    <div class="layer eng">
+      <span class="tag">Journal</span>
+      <span class="body">Every mutation above rides a <code>PhaseResult</code> delta through
+      <b><code>graph/fold.py&nbsp;apply_delta()</code></b> — the single mutation seam — and is journaled in
+      full, so <code>rebuild(journal)</code> reproduces nodes, edges, assertions, hypotheses and the derived
+      evidence edges bit-for-bit (R-J1). Depth: doc 03.</span>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--amber)"></i>the one store</span>
+    <span><i class="dot" style="background:var(--accent)"></i>derived views</span>
+    <span><i class="dot" style="background:var(--violet)"></i>theories over evidence</span>
+  </div>
+</div>
+
+<p>Where each piece lives — the code map for this page:</p>
+<table>
+  <thead><tr><th>Module (engine/src/iw_engine/)</th><th>What lives there</th></tr></thead>
+  <tbody>
+    <tr><td><code>domain/assertion.py</code></td><td>The atom: <code>Assertion</code>, <code>AssertionValue</code>, <code>Window</code>, <code>channel_for_source()</code>, the three model validators.</td></tr>
+    <tr><td><code>domain/common.py</code></td><td><code>Confidence{value, basis}</code> (frozen, basis mandatory), <code>EvidenceRef{kind, ref, label}</code>, id aliases, <code>Seq</code>.</td></tr>
+    <tr><td><code>domain/enums.py</code></td><td>The closed vocabularies: <code>Source</code>&nbsp;(12) · <code>Species</code>&nbsp;(5) · <code>Channel</code>&nbsp;(4) · <code>Stat</code>&nbsp;(9) · <code>FactState</code>&nbsp;(3) · <code>Origin</code>&nbsp;(3) · <code>NodeType</code>&nbsp;(43) · <code>EdgeType</code>&nbsp;(36) · <code>OpKind</code>&nbsp;(11).</td></tr>
+    <tr><td><code>domain/dictionary.py</code></td><td><code>DictEntry</code> + 60 hand-authored fact entries + derived event entries; <code>resolve()</code>, <code>quarantine_name()</code>, <code>shape_violation()</code>, <code>applies_to_ok()</code>.</td></tr>
+    <tr><td><code>domain/registry.py</code> + <code>nodes/*</code> + <code>edges/*</code></td><td><code>NodeSpec</code>/<code>EdgeSpec</code> catalogs, the import-time closure check (R-G1), deterministic id helpers, <code>edge_allowed()</code> + the generic-CI airlock.</td></tr>
+    <tr><td><code>domain/operations.py</code></td><td>The 11-op discriminated union — the planner's only write channel.</td></tr>
+    <tr><td><code>domain/shim.py</code></td><td>The Descriptor-vs-State boundary test as data + the exact-inverse Fact/Event ⇄ Assertion converters.</td></tr>
+    <tr><td><code>domain/fact.py · event.py · node.py · edge.py</code></td><td>The view records (<code>Fact</code>, <code>Event</code>) and the <code>Node</code>/<code>Edge</code> entities.</td></tr>
+    <tr><td><code>domain/hypothesis.py</code></td><td><code>Hypothesis</code> · <code>ChainLink</code> · <code>Prediction</code> · <code>HypDelta</code> · <code>HypAction</code>.</td></tr>
+    <tr><td><code>domain/playbook.py</code></td><td><code>Tunables</code> — every knob in one place (INV-9), <code>extra="forbid"</code>.</td></tr>
+    <tr><td><code>graph/graph.py · reducer.py · resolver.py</code></td><td>The one assertion store + views + alias index; <code>materialize()</code> — canonicalization, identity lanes, airlock; the alias schemes.</td></tr>
+    <tr><td><code>hypothesis/store.py · belief.py</code></td><td>The ranked store, <code>promotion_ok()</code> (INV-8), and the earned-belief arithmetic (P4).</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════ 02 · ENTITY ═══════════════════════════ -->
+<h2 id="entity"><span class="n">02</span>Entity — classification, identity keys, aliases</h2>
+<p class="lead">An entity is a <code>Node</code> whose type comes from the closed catalog and whose
+id is a pure function of its identity keys. There is no bespoke Python subclass per type — each
+type is a declarative <code>NodeSpec</code>, one source of truth for the LLM's allowed-types schema
+<em>and</em> the reducer's validation, so the two can never drift.</p>
+
+<pre><code># domain/spec.py
+@dataclass(frozen=True)
+class NodeSpec:
+    type: NodeType
+    tier: str                                  # "L0".."L6" | "signal"
+    identity_keys: tuple[str, ...]             # props that form the upsert identity
+    static_props: tuple[str, ...] = ()         # allowed IMMUTABLE/identity props (time-varying → Fact)
+    fact_predicates: tuple[str, ...] = ()      # legacy — dictionary applies_to is the live authority
+    event_types: tuple[str, ...] = ()          # feeds the dictionary's derived event entries
+    discriminator: str = ""                    # rule to pick this type vs siblings (LLM-facing)</code></pre>
+
+<p>Three real specs, verbatim from the tier catalogs:</p>
+<table>
+  <thead><tr><th>Type</th><th>Tier</th><th>identity_keys</th><th>static_props</th><th>event_types</th></tr></thead>
+  <tbody>
+    <tr><td><code>service</code></td><td>L0</td><td><code>(service_name, env)</code></td>
+      <td><code>service_name, env, repo, language, app_id, sys_id, k8s_workload</code></td>
+      <td><code>alert_fired, deployed, scaled, degraded_started, degraded_cleared</code></td></tr>
+    <tr><td><code>anomaly</code></td><td>L6</td><td><code>(anomaly_id,)</code></td>
+      <td><code>anomaly_id, metric, onset_ref</code></td><td><code>detected, cleared</code></td></tr>
+    <tr><td><code>generic_ci</code></td><td>signal</td><td><code>(ci_id,)</code></td>
+      <td><code>ci_id, class_hint, name</code></td><td><span class="faint">()</span></td></tr>
+  </tbody>
+</table>
+
+<p>Note the <code>service</code> row: <code>repo</code>, <code>app_id</code>, <code>sys_id</code>
+and <code>k8s_workload</code> are the <b>identity backbone</b> — the per-tool foreign keys the
+ServiceNow adapter resolves off the incident's CMDB CI. They are not inert cargo: the resolver
+lifts them into an <code>aliases {scheme: id}</code> block and the graph indexes them, which is
+what kills split-brain twins (§11). The rule that keeps props honest is R-G5: a static prop is
+<em>identity or immutable only</em>; anything time-varying (<code>image</code>, replica counts,
+<code>tier</code>) is a windowed assertion, never a prop.</p>
+
+<h3>Deterministic identity — and rejection over degeneracy</h3>
+<pre><code># domain/registry.py
+def _slug(v: object) -> str:
+    # P5 identity hardening: `_` collapses like space/`/`, so
+    # `payments_api` == `payments-api` == "Payments API" — cross-tool
+    # spellings of one name stop minting split-brain twins.
+    return str(v).strip().replace(" ", "-").replace("/", "-").replace("_", "-").lower()
+
+def node_id(ntype: NodeType, props: dict) -> str:
+    """Idempotent identity — same type + identity_keys → same id (upsert key)."""
+    spec = NODE_SPECS[ntype]
+    keys = spec.identity_keys or tuple(sorted(props.keys()))
+    parts = [_slug(props.get(k, "")) for k in keys]
+    return f"{ntype.value}:" + "|".join(parts)
+
+def missing_identity_keys(ntype: NodeType, props: dict) -> tuple[str, ...]:
+    """Non-empty ⇒ node_id would mint a degenerate id (`service:|prod`) —
+    the reducer REJECTS such an AddNode instead."""</code></pre>
+
+<p>Run for real: <code>node_id(SERVICE, {"service_name": "payments_api", "env": "prod"})</code>
+returns <code>service:payments-api|prod</code> — the underscore spelling and the hyphen spelling
+converge on one entity. A missing identity key is a journaled <code>Rejection</code>
+(<i>“refusing a degenerate id”</i>), never a guessed or empty id — unless the arrival carries a
+backbone credential, in which case the provisional-identity lane opens (§11).</p>
+
+<div class="callout"><b>A Node record's real fields</b> (seen at every mint site):
+<code>id · type · props · aliases · provisional · source · created_by</code>. Since the P6
+store-flip, <code>props</code> is a <em>materialized read view</em>: every prop is a
+DECLARED-channel assertion in the one store, and the dict on the record is rebuilt from those
+assertions on each upsert (§04). <code>source</code> rides the record so each prop's declaration
+is attributed to the adapter that supplied it — per-prop provenance is real, not inferred.</div>
+
+<!-- ═══════════════════════════ 03 · THE ASSERTION ATOM ═══════════════════════════ -->
+<h2 id="atom"><span class="n">03</span>The Assertion atom — five species, one envelope</h2>
+<p class="lead">One record answers five different questions, distinguished only by their time
+shape: what <em>is</em> this (identity) · what do we know <em>about</em> it (descriptor) · what is
+<em>true over time</em> (state) · what did we <em>measure</em> (reading) · what
+<em>happened</em> (event). Everything else — provenance, belief, lifecycle — is one shared
+envelope. This kills the Fact-era trichotomy that made props unsourced and forced
+<code>red_rate</code> to encode rpm-vs-baseline in its name: window and stat are now
+<b>fields</b>, not name fragments.</p>
+
+<div class="diagram">
+  <div class="cap">domain/assertion.py — class Assertion(BaseModel) · extra="forbid" · the full envelope</div>
+  <div class="grid two">
+    <div class="card"><h4>Subject &amp; semantics</h4>
+      <ul class="tight">
+        <li><code>id: str</code> — <code>fact:</code>/<code>evt:</code>/<code>prop:</code> namespaces (§06)</li>
+        <li><code>subject_ref: str</code> — a <b>NodeId or EdgeId</b> (edge-borne RED is reachable)</li>
+        <li><code>name: str</code> — dictionary-canonical spelling (§05)</li>
+        <li><code>value: AssertionValue</code> = <code>bool | int | float | str | dict | list | datetime | None</code></li>
+        <li><code>unit: str | None</code> · <code>where: str | None</code></li>
+      </ul></div>
+    <div class="card"><h4>Time — the species axis</h4>
+      <ul class="tight">
+        <li><code>species: Species</code> — the five below</li>
+        <li><code>valid_from / valid_to: datetime | None</code> — the truth window; <code>valid_to=None</code> = still true</li>
+        <li><code>observed_at: datetime | None</code> — transaction time (when we learned it)</li>
+        <li><code>occurred_at: datetime | None</code> — <b>EVENT only</b>: when it happened in the world</li>
+        <li><code>stat: Stat | None</code> + <code>window: Window | None</code> — <b>READING only</b></li>
+      </ul></div>
+    <div class="card"><h4>Provenance</h4>
+      <ul class="tight">
+        <li><code>source: Source</code> — one of 12 (prometheus … bigpanda, llm, human, engine)</li>
+        <li><code>source_native_name: str | None</code> — the vendor's own spelling, surviving canonicalization</li>
+        <li><code>evidence: list[EvidenceRef]</code> — <code>{kind, ref, label}</code>: metric_query · trace_id · log_link · snapshot · diff · blame · ci_record · url</li>
+        <li><code>created_by: int</code> — the journal seq that minted it (lineage)</li>
+      </ul></div>
+    <div class="card"><h4>Belief — keyed on channel, not source</h4>
+      <ul class="tight">
+        <li><code>channel: Channel</code> — <code>measured · inferred · declared · engine</code></li>
+        <li><code>confidence: Confidence | None</code> — <b>INFERRED</b> channel only; value + mandatory basis</li>
+        <li><code>source_reliability: float | None</code> (ge=0, le=1) — <b>MEASURED / DECLARED / ENGINE</b></li>
+        <li>exactly one is meaningful; <em>which</em> is fixed by the channel (R-C4)</li>
+      </ul></div>
+    <div class="card"><h4>Lifecycle</h4>
+      <ul class="tight">
+        <li><code>state: FactState</code> — <code>active · superseded · retracted</code></li>
+        <li><code>supersedes: str | None</code> — the id this replaces (never mutate — supersede)</li>
+        <li><code>invalidated_by: str | None</code> — what proved a retracted record wrong</li>
+        <li><code>is_open</code> property — <code>valid_to is None and state == ACTIVE</code> (the supersession-scan predicate)</li>
+      </ul></div>
+    <div class="card"><h4>The airlock flag</h4>
+      <ul class="tight">
+        <li><code>provisional: bool = False</code> — True for knowledge the airlock admitted rather than the closed vocabulary: a quarantined name or an off-shape reading (§10)</li>
+        <li>rendered dimly, counted toward promotion, never silently erased</li>
+      </ul></div>
+  </div>
+  <div class="stack" style="margin-top:14px">
+    <div class="layer eng"><span class="tag">_window_ok</span><span class="body">
+      <code>valid_to &lt; valid_from</code> (both set) raises — no inverted truth window can exist.</span></div>
+    <div class="layer eng"><span class="tag">_time_shape</span><span class="body">
+      <b>identity</b>: no <code>observed_at</code>, no validity window (write-once, timeless) ·
+      every other species <b>requires</b> <code>observed_at</code> — <em>except</em> a DECLARED
+      descriptor (a node-prop declaration is asserted configuration truth, minted with no
+      wall-clock stamp so journal replay stays deterministic) · <b>reading</b> requires both
+      <code>stat</code> and <code>window</code> · <b>event</b> requires <code>occurred_at</code>,
+      and <code>occurred_at</code> is EVENT-only.</span></div>
+    <div class="layer eng"><span class="tag">_belief_channel</span><span class="body">
+      <b>identity</b> carries neither belief field (asserted truth, not belief) · <b>event</b>
+      carries at most one (P1a-lenient) · <b>inferred</b> must carry <code>confidence</code> and
+      never a reliability · <b>measured / declared / engine</b> must carry
+      <code>source_reliability</code> and never a confidence.</span></div>
+  </div>
+</div>
+
+<p>The three guards in the panel above are real <code>model_validator(mode="after")</code>
+methods — <code>_window_ok</code>, <code>_time_shape</code>, <code>_belief_channel</code> — and
+they raise at construction time. On the planner path the reducer catches the raise into a
+journaled <code>Rejection</code> (<code>"invalid fact: …"</code>) instead of crashing the run
+(INV-7); on the adapter path a violating emission never leaves <code>normalize()</code>.</p>
+
+<h3>The five species — what each answers, and its time shape</h3>
+<table>
+  <thead><tr><th>Species</th><th>Answers</th><th>Time shape (enforced)</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><code>identity</code></td><td>what IS this</td><td>no <code>observed_at</code>, no window — write-once</td><td><code>service_name = "payments-api"</code> (an identity-key prop)</td></tr>
+    <tr><td><code>descriptor</code></td><td>what do we know ABOUT it</td><td><code>observed_at</code> (omitted only on the DECLARED channel)</td><td><code>repo</code>, <code>node_name</code>, <code>diff_summary</code>, <code>blame_line</code></td></tr>
+    <tr><td><code>state</code></td><td>what is TRUE over time</td><td><code>observed_at</code> + <code>[valid_from, valid_to)</code> window</td><td><code>degraded = true</code>, <code>image</code>, <code>max_connections</code></td></tr>
+    <tr><td><code>reading</code></td><td>what did we MEASURE</td><td><code>observed_at</code> + mandatory <code>stat</code> + <code>window</code></td><td><code>error_rate</code> (ratio), <code>latency_p99</code> (percentile)</td></tr>
+    <tr><td><code>event</code></td><td>what HAPPENED</td><td>mandatory <code>occurred_at</code> (EVENT-only field)</td><td><code>deployed</code>, <code>OOMKilled</code>, <code>fired</code></td></tr>
+  </tbody>
+</table>
+
+<p>A reading's <code>Window</code> is itself validated: a point <code>at</code> <em>xor</em> a
+range <code>start</code>+<code>end</code> (both required, <code>end ≥ start</code>) — so a
+reading's evidential window is never ambiguous. And <code>Confidence</code> can never be a naked
+float:</p>
+
+<pre><code># domain/common.py
+class Confidence(BaseModel):
+    """A belief with a MANDATORY basis — never a naked float (principle 10)."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    value: float = Field(ge=0.0, le=1.0)
+    basis: str = Field(min_length=1)</code></pre>
+
+<h3>Channel-keyed belief</h3>
+<p>Belief used to hang off <code>Source.LLM</code> as an identity special-case. The atom moves it
+onto an explicit <code>channel</code>, chosen so the Fact-era discipline round-trips exactly —
+<code>channel == INFERRED</code> iff the source is the reasoning model:</p>
+
+<pre><code># domain/assertion.py
+_SOURCE_CHANNEL: dict[Source, Channel] = {
+    Source.LLM: Channel.INFERRED,
+    Source.ENGINE: Channel.ENGINE,
+}
+def channel_for_source(source: Source) -> Channel:
+    """LLM → inferred (confidence); engine → engine;
+    every directly-observing tool/human → measured (reliability)."""
+    return _SOURCE_CHANNEL.get(source, Channel.MEASURED)</code></pre>
+
+<p><code>Channel.DECLARED</code> is deliberately absent from that map: it is minted in exactly one
+place — <code>Graph._declare_prop</code>, the node-prop seam (§04) — so a converted Fact can never
+leak into the props view. The LLM never emits a numeric belief at all: it emits the coarse
+<code>ConfidenceLevel</code> rubric (<code>low / med / high</code>), which the reducer maps
+through the playbook's <code>confidence_band</code> tunable (defaults 0.3 / 0.6 / 0.9) into a
+cited <code>Confidence</code> — the R-C4 discipline that kills “0.9 everywhere”.</p>
+
+<h3>A real assertion, wire-exact</h3>
+<p>Both dumps below were generated by the actual models in this tree
+(<code>model_dump_json()</code>), not hand-written. First, a measured metric as the store holds it
+after the reducer canonicalized the Prometheus-native spelling <code>red_errors</code> to
+<code>error_rate</code> (§05) and filled the INV-9 per-source reliability:</p>
+
+<pre><code>{
+  "id": "fact:a0a0fa5f6ac224e0",            // fact_id(subject, NATIVE name, valid_from) — sha1[:16]
+  "subject_ref": "service:payments-api|prod",
+  "name": "error_rate",                     // dictionary-canonical …
+  "value": 0.42,
+  "unit": "ratio",
+  "where": null,
+  "species": "state",                       // see the caveat below
+  "channel": "measured",
+  "valid_from": "2026-07-19T14:02:00Z",
+  "valid_to": null,                         // still true — the open window
+  "observed_at": "2026-07-19T14:02:05Z",
+  "occurred_at": null,
+  "stat": null, "window": null,
+  "source": "prometheus",
+  "source_native_name": "red_errors",       // … the vendor's own spelling survives
+  "confidence": null,
+  "source_reliability": 0.97,               // INV-9: filled from tunables.source_reliability
+  "evidence": [],
+  "supersedes": null,
+  "state": "active",
+  "invalidated_by": null,
+  "provisional": false,
+  "created_by": 3                           // the journal seq that minted it
+}</code></pre>
+
+<p>And a node-prop declaration — the P6 shape that finally gives props real provenance:</p>
+
+<pre><code>{
+  "id": "prop:service:payments-api|prod:repo",   // re-declaration replaces in place (props are static, R-G5)
+  "subject_ref": "service:payments-api|prod",
+  "name": "repo",
+  "value": "git.example.com/payments/payments-api",
+  "species": "descriptor",                       // identity-key props mint species=identity instead
+  "channel": "declared",
+  "valid_from": null, "valid_to": null,
+  "observed_at": null,                           // timeless by rule — replay never stamps a wall clock
+  "source": "servicenow",                        // WHO declared it — per-prop attribution is real
+  "source_reliability": 1.0,                     // identity-key props carry no belief at all
+  "state": "active", "provisional": false, "created_by": 2
+}</code></pre>
+
+<div class="callout"><b>Op-boundary vs store — an honest caveat.</b> Adapters emit the atom op
+with the full reading shape — <code>species=reading</code>, <code>stat=gauge</code>,
+<code>window={at: …}</code> — and the validators demand that shape at the op boundary
+(<code>shape_violation</code> checks it, §05). But today's reducer materializes non-event
+assertions as <code>Fact</code> records, and the store seam
+(<code>shim.assertion_of_fact</code>) re-derives species from the predicate with no reading shape
+available — so <em>stored</em> assertions carry species <code>identity / descriptor / state /
+event</code> only, and <code>stat</code>/<code>window</code> live at the op level. The shim
+docstring owns the choice: the species is “never surfaced in any rendered view, so a
+reclassification cannot move a byte in the bundle.” When in doubt the boundary test says
+<code>state</code> — the cheap direction: a window you never query costs nothing.</div>
+
+<!-- ═══════════════════════════ 04 · VIEWS ═══════════════════════════ -->
+<h2 id="views"><span class="n">04</span>Facts, events, props — read views over one store</h2>
+<p class="lead">The P6 store-flip: <code>Graph</code> keeps <b>one</b> assertion collection, and
+the three legacy containers become cached read views over it. There is no dual write left to
+drift — <code>to_dict()</code> persists <code>{"nodes", "edges", "assertions", "remaps"}</code>
+and nothing else (<code>GRAPH_SCHEMA_VERSION = 2</code>). The flip landed with goldens
+byte-identical because the shim converters are exact inverses.</p>
+
+<div class="diagram">
+  <div class="cap">graph/graph.py — one collection, three views (P6 store-flip, decision 2's discriminator)</div>
+  <div class="stack">
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)">
+      <span class="tag" style="color:var(--amber)">Store</span>
+      <span class="body"><code>self.assertions: dict[str, Assertion]</code> — facts, events and node-prop
+      declarations in ONE collection. Mutation is method-only and fold-driven; every write bumps
+      <code>self._rev</code>, the mutation generation that invalidates the view caches.</span></div>
+    <div class="down">↓ derived on read — cached per <code>_rev</code>, so reads between folds return the same objects</div>
+    <div class="pipe">
+      <div class="box hl" style="flex:1"><b>facts</b><small>species is not EVENT ∧ channel is not DECLARED<br>→ fact_of_assertion (name → predicate)</small></div>
+      <div class="box hl" style="flex:1"><b>events</b><small>species is EVENT<br>→ event_of_assertion (name → type, value → payload)</small></div>
+      <div class="box hl" style="flex:1"><b>props / declared_of</b><small>channel is DECLARED ∧ subject_ref == nid<br>→ {name: value} · un-flattened with provenance</small></div>
+    </div>
+    <div class="layer"><span class="tag">No leaks</span><span class="body">
+      <code>channel_for_source()</code> never returns DECLARED, so a converted Fact can never appear in the
+      props view; the props channel is minted only by <code>_declare_prop</code>. The converters
+      (<code>domain/shim.py</code>) are an exact-inverse pair — every field round-trips byte-identically.</span></div>
+  </div>
+</div>
+
+<h3>Node props are DECLARED assertions</h3>
+<p><code>upsert_node</code> turns every arriving prop into one assertion via
+<code>_declare_prop(nid, ntype, key, value, source, seq)</code>, then rebuilds the record's
+<code>props</code> dict from the view — never dual-authored. The rules, exactly as coded:</p>
+<ul class="tight">
+  <li>Assertion id <code>prop:&lt;node&gt;:&lt;key&gt;</code> — a re-declaration <b>replaces in
+    place</b>: props are static per R-G5, so a changed value is a correction, not history
+    (time-varying values belong in windowed assertions).</li>
+  <li>Identity-key props mint <code>species=identity</code> with <b>no belief field</b>; all others
+    mint <code>species=descriptor</code> with <code>source_reliability=1.0</code>. Channel is
+    always <code>declared</code>; source defaults to <code>engine</code> for unsourced arrivals.</li>
+  <li><b>No <code>observed_at</code></b> — the <code>_time_shape</code> carve-out: replay must
+    never stamp a wall clock, so prop declarations are timeless and journal replay stays
+    deterministic.</li>
+  <li>Merge semantics from the dict era survive: a first mint lands every key (None included); a
+    later upsert's non-None values win, its None values never override; an <b>unchanged value is a
+    no-op</b>, so the first declarer's provenance survives (write-once flavor, symmetric with the
+    alias index).</li>
+</ul>
+
+<h3>Never mutate — supersede or retract</h3>
+<pre><code># graph/graph.py — add_fact: the supersession seam (and its clamp)
+if fact.supersedes and fact.supersedes in self.assertions:
+    old = self.assertions[fact.supersedes]
+    # CLAMP, not reject: a back-dated correction (new.valid_from &lt; old.valid_from)
+    # would otherwise persist an inverted window. Clamping to old.valid_from yields
+    # a zero-length window — "no instant at which the old value was the truth".
+    # add_fact is the single mutation seam for BOTH live fold and journal replay:
+    # it has no rejection channel, and raising could brick crash-resume replay.
+    closed_at = (max(fact.valid_from, old.valid_from)
+                 if old.valid_from is not None else fact.valid_from)
+    self.assertions[fact.supersedes] = old.model_copy(
+        update={"valid_to": closed_at, "state": FactState.SUPERSEDED})
+self.assertions[fact.id] = assertion_of_fact(fact)</code></pre>
+
+<p>Retraction is the other lifecycle exit: <code>retract_fact</code> /
+<code>retract_event</code> / <code>retract_edge</code> flip <code>state=retracted</code> — a
+tombstone for an observation that was <em>wrong</em>, distinct from superseded (<em>was true, then
+replaced</em>). Nothing is ever deleted. One asymmetry worth knowing: <code>retract_fact</code>
+takes no <code>invalidated_by</code> (the Fact record has no such field — the cause lives in the
+journaled <code>Retraction</code> record), while events and edges carry it on the record.</p>
+
+<h3>Point-in-time truth — INV-5</h3>
+<pre><code># graph/graph.py — facts_valid_at (principle 8)
+return [f for f in self.facts.values()
+        if f.state != FactState.RETRACTED and f.valid_from &lt;= ts
+        and (f.valid_to is None or ts &lt; f.valid_to)]   # half-open [valid_from, valid_to)</code></pre>
+<p>SUPERSEDED facts are <b>included</b> — a superseded fact is still the truth for every instant
+inside its now-closed window. Excluding them broke as-of-incident-start reconstruction the moment
+any fact was superseded (the finding that named INV-5). Only RETRACTED — never true at any
+instant — is excluded from history.</p>
+
+<!-- ═══════════════════════════ 05 · THE SEMANTIC DICTIONARY ═══════════════════════════ -->
+<h2 id="dictionary"><span class="n">05</span>The semantic dictionary — the single name authority</h2>
+<p class="lead">Seven tools spell “error rate” seven ways. The dictionary
+(<code>domain/dictionary.py</code>) is ONE table keyed by canonical name — the authority the
+reducer canonicalizes and validates against. The vendor's spelling is never lost: it survives on
+every assertion's <code>source_native_name</code>, and — crucially — fact identity is keyed on the
+<b>native</b> name, so a vocabulary rename never moves an id.</p>
+
+<pre><code># domain/dictionary.py
+@dataclass(frozen=True)
+class DictEntry:
+    name: str
+    species: Species
+    applies_to: tuple[NodeType, ...]   # ENFORCED — replaces the per-type membership lists
+    value_type: str = "float"          # float|int|bool|str|dict|content   ┐ declarative metadata:
+    unit: str | None = None            #                                   │ the catalog renders them;
+    direction_of_bad: str | None = None  # up|down|None                    │ shape enforcement is the
+    aliases: tuple[str, ...] = ()      # native spellings merging here     │ P3 airlock, not P2
+    stat: Stat | None = None           #                                   ┘
+
+# one real entry — the merge target for six native spellings:
+DictEntry("error_rate", Species.READING,
+          (SERVICE, API_ENDPOINT, EXTERNAL_SERVICE), "float", "ratio", "up",
+          aliases=("red_errors", "5xx_rate", "upstream_5xx_rate",
+                   "edge_5xx_rate", "origin_5xx_rate", "call_error_rate"),
+          stat=Stat.RATIO)</code></pre>
+
+<p><b>Contents:</b> 60 hand-authored fact entries — 32 <code>reading</code>, 17
+<code>state</code>, 11 <code>descriptor</code> — plus event entries <em>derived</em> from the
+registry: event <code>E</code> applies to type <code>T</code> iff <code>E ∈
+node_spec(T).event_types</code> (one explicit extra keeps <code>trace_captured</code> legal on
+BusinessTransaction + Service). Three mechanically-distinct resolution classes:</p>
+
+<table>
+  <thead><tr><th>Class</th><th>Mechanism</th><th>Real examples</th></tr></thead>
+  <tbody>
+    <tr><td><b>identity</b></td><td>the emitted name IS canonical — returned as-is</td>
+      <td><code>degraded</code>, <code>consumer_lag</code>, <code>days_to_expiry</code></td></tr>
+    <tr><td><b>merge</b> (N→1)</td><td><code>_MERGE_ALIASES</code> — 12 alias rows, name-keyed
+      (native spellings are source-stable, so the design's per-source alias column collapsed)</td>
+      <td><code>red_errors → error_rate</code> · <code>p99_latency → latency_p99</code> · <code>call_rate → request_rate</code></td></tr>
+    <tr><td><b>split</b> (1→N)</td><td><code>_SPLIT_BY_UNIT</code> — keyed on <code>(name, unit)</code>;
+      an unmapped unit falls back to <code>_SPLIT_DEFAULT</code>, never rejects</td>
+      <td><code>slo_target</code>: ms → <code>slo_latency_target</code>, s → <code>slo_freshness_target</code>,
+      ratio/%/pct → <code>slo_availability_target</code> · <code>red_rate</code>: rpm → <code>request_rate</code>,
+      x_baseline → <code>request_rate_x_baseline</code> · <code>epm</code> → <code>errors_per_min</code> / <code>calls_per_min</code></td></tr>
+  </tbody>
+</table>
+
+<pre><code>def resolve(source: Source | None, name: str, unit: str | None = None) -> str | None:
+    if name in _SPLIT_BY_UNIT:
+        return _SPLIT_BY_UNIT[name].get(unit, _SPLIT_DEFAULT[name])
+    if name in DICTIONARY:
+        return name
+    return _MERGE_ALIASES.get(name)          # None = unknown → the airlock (§10)</code></pre>
+
+<div class="diagram">
+  <div class="cap">graph/reducer.py — emit_assertion: every assertion op flows through one canonicalization pipeline</div>
+  <div class="pipe">
+    <div class="box"><b>resolve subject</b><small>resolve_ref: aliases · remaps · batch redirects<br>unknown ⇒ Rejection (integrity never relaxed)</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>native name</b><small>native = source_native_name or name</small></div>
+    <span class="arrow">→</span>
+    <div class="box hl"><b>dictionary.resolve(source, name, unit)</b><small>split by unit → exact canonical → merge alias</small></div>
+  </div>
+  <div class="pipe">
+    <div class="box" style="flex:1"><b>known name</b><small>applies_to_ok(canonical, node type) — violation ⇒ Rejection<br>then shape_violation: unit mismatch / reading w/o stat+window ⇒ lands provisional + journaled notice</small></div>
+    <div class="box write" style="flex:1"><b>unknown name — quarantine, don't erase</b><small>canonical = x.&lt;source&gt;.&lt;native&gt; · provisional=true<br>applies_to skipped (no constraints until a human promotes it)</small></div>
+  </div>
+  <div class="stack" style="margin-top:8px">
+    <div class="layer eng"><span class="tag">land</span><span class="body">
+      Fact id = <code>fact_id(subject, <b>NATIVE</b> name, valid_from)</code> — a dictionary relabel never
+      moves an id, so provenance ordering, supersession chains and the hypothesis store's fact-id refs stay
+      byte-stable. Then the INV-9 fill (a measured assertion with no stated reliability gets
+      <code>tunables.source_reliability[source]</code>) and the supersession scan (the first same-canonical
+      <code>is_open</code> fact on the subject gets its window closed).</span></div>
+  </div>
+</div>
+
+<p>The shape lane, precisely (<code>shape_violation</code>): a unit mismatch fires only when
+<em>both</em> the op and the entry declare a unit and they differ — “a twin's None/omitted unit
+never drops a fact”; a claimed reading without <code>stat</code>+<code>window</code> fires; a
+<b>stat mismatch is deliberately unchecked</b> today, because the P1a/P1b adapters stamp
+<code>stat=gauge</code> as a compat default on metrics whose entries declare
+rate/ratio/percentile — it becomes checkable when adapters emit true stats. Events return None
+from the shape check (they carry no reading shape); unknown names go to the name lane instead.</p>
+
+<div class="callout"><b>One verified sharp edge.</b> The dictionary assembly comment says “fact
+names win any (nonexistent) collision” — but the collision exists: <code>degraded</code> is both a
+STATE fact on <code>service</code> and a declared CLUSTER event type
+(<code>nodes/platform.py</code>, <code>event_types=("upgraded", "degraded")</code>).
+<code>setdefault</code> keeps the fact entry, so a cluster <code>degraded</code> <em>event</em>
+fails <code>applies_to_ok</code> and is rejected despite the registry declaring it legal. Known
+divergence; the code is the behavior described here.</div>
+
+<!-- ═══════════════════════════ 06 · THE CLOSED REGISTRY ═══════════════════════════ -->
+<h2 id="registry"><span class="n">06</span>The closed registry — classify, never invent</h2>
+<p class="lead">Principle 4: the LLM picks a member of a closed vocabulary; it never mints a
+label. <code>NodeType.GENERIC_CI</code> is the single escape hatch. The registry
+(<code>domain/registry.py</code>) binds the enums to their specs and refuses to import if any
+member lacks one — the closure guarantee R-G1, checked in <em>three</em> places
+(<code>registry.py</code>, <code>nodes/__init__.py</code>, <code>edges/__init__.py</code>) so an
+incomplete tier module fails loudly at the source:</p>
+
+<pre><code># domain/registry.py — evaluated at import
+_missing_nodes = [t.value for t in NodeType if t not in NODE_SPECS]
+_missing_edges = [t.value for t in EdgeType if t not in EDGE_SPECS]
+if _missing_nodes:
+    raise RuntimeError(f"registry incomplete — NodeTypes without a spec: {_missing_nodes}")
+if _missing_edges:
+    raise RuntimeError(f"registry incomplete — EdgeTypes without a spec: {_missing_edges}")</code></pre>
+
+<p>Because the LLM-facing catalog is <em>rendered from</em> these same specs (plus
+<code>dictionary.fact_names_for</code>), an off-catalog op is by construction exactly an op the
+reducer will reject — the schema the model sees and the validation it hits cannot drift apart.</p>
+
+<h3>43 node types, tiered L0–L6 + one escape hatch</h3>
+<table>
+  <thead><tr><th>Tier</th><th>Count</th><th>Members</th></tr></thead>
+  <tbody>
+    <tr><td>L0 logical / business</td><td>5</td><td><code>application · service · component · api_endpoint · team</code></td></tr>
+    <tr><td>L1 workload / runtime</td><td>6</td><td><code>deployment · replicaset · pod · container · process · batch_job</code></td></tr>
+    <tr><td>L2 platform</td><td>4</td><td><code>namespace · cluster · host · config_item</code></td></tr>
+    <tr><td>L3 data &amp; messaging</td><td>4</td><td><code>database · schema · message_queue · cache</code></td></tr>
+    <tr><td>L4 network / edge</td><td>9</td><td><code>load_balancer · route · network_segment · firewall_rule · dns · proxy · api_gateway · cdn · waf</code></td></tr>
+    <tr><td>L5 change &amp; supply chain</td><td>8</td><td><code>code_commit · build_artifact · release · change_event · pull_request</code> + the change-adjacent R-G6 trio <code>certificate · feature_flag · external_service</code></td></tr>
+    <tr><td>L6 signals / investigation</td><td>6</td><td><code>alert · incident · anomaly · error_signature · business_transaction · hypothesis</code></td></tr>
+    <tr><td>escape hatch</td><td>1</td><td><code>generic_ci</code> — mirrors ServiceNow's base <code>cmdb_ci</code>; the only place “unknown” is allowed to live</td></tr>
+  </tbody>
+</table>
+
+<h3>Deterministic ids — the shared arithmetic of identity</h3>
+<pre><code># domain/registry.py — planner, reducer and scenario authors share these
+def fact_id(subject, predicate, valid_from):  # "fact:" + sha1(f"{subject}|{predicate}|{valid_from}")[:16]
+def event_id(entity, etype, occurred_at):     # "evt:"  + sha1(f"{entity}|{etype}|{occurred_at}")[:16]
+def edge_id(etype, src, dst, origin):         # f"edge:{etype.value}:{src}->{dst}:{origin.value}"
+
+# run for real against this tree:
+node_id(SERVICE, {"service_name": "payments_api", "env": "prod"})
+                                  == "service:payments-api|prod"
+fact_id("service:payments-api|prod", "red_errors", 2026-07-19T14:02Z)
+                                  == "fact:a0a0fa5f6ac224e0"
+edge_id(DEPENDS_ON, "service:payments-api|prod", "database:orders-db", DECLARED)
+        == "edge:depends_on:service:payments-api|prod->database:orders-db:declared"</code></pre>
+
+<p>Three consequences worth naming: <code>add_edge</code> is idempotent by id (type + endpoints +
+origin are the id); a remap can re-mint edge ids deterministically because endpoints are embedded
+in them; and the id namespaces (<code>fact:</code> sha1-16, <code>evt:</code> sha1-16,
+<code>edge:…</code>, <code>prop:…</code>, <code>hyp:…</code>) are disjoint, which is what lets the
+fold dispatch a retraction by store membership without ambiguity.</p>
+
+<!-- ═══════════════════════════ 07 · THE OP GRAMMAR ═══════════════════════════ -->
+<h2 id="ops"><span class="n">07</span>The op grammar — eleven typed ops, one write channel</h2>
+<p class="lead">The planner mutates the world only through <code>domain/operations.py</code> — a
+discriminated union of eleven op classes, every one <code>extra="forbid"</code>, so an unknown
+field is a hard parse error and prose can never become state (“prose is a field, not the
+medium”).</p>
+
+<pre><code>Operation = Annotated[
+    AddNode | AddAssertion | AddFact | AddEvent | AddEdge
+    | ProposeHypothesis | UpdateHypothesis
+    | NoEvidence | Retract | Merge | Retype,
+    Field(discriminator="op")]</code></pre>
+
+<table>
+  <thead><tr><th>Op</th><th>What it does</th><th>Notes from the code</th></tr></thead>
+  <tbody>
+    <tr><td><code>add_node</code></td><td>declare/observe an entity</td><td><code>type, props, source</code> — source is P6 groundwork: the fold attributes each DECLARED prop to it</td></tr>
+    <tr><td><code>add_assertion</code></td><td><b>the atom op</b> — any species</td><td>superset of AddFact: <code>species, stat, window, occurred_at, channel</code>; belief stays unresolved (rubric / raw reliability) — the reducer resolves it</td></tr>
+    <tr><td><code>add_fact</code> · <code>add_event</code></td><td>deprecated compat shims</td><td>retained solely as the live planner's model-JSON parse targets + compat tests; routed through <code>domain/shim.py</code> onto AddAssertion — all three flow through <code>emit_assertion</code> to identical graph output</td></tr>
+    <tr><td><code>add_edge</code></td><td>relate two entities</td><td><code>type, src, dst, origin?, confidence_level?, evidence</code>; origin defaults from the spec</td></tr>
+    <tr><td><code>propose_hypothesis</code></td><td>mint a theory</td><td><code>hid, statement, root_candidate, causal_chain, supporting/refuting</code> (FactIds), <code>predictions</code>; also mints the <code>hyp:&lt;hid&gt;</code> graph node (R-G2)</td></tr>
+    <tr><td><code>update_hypothesis</code></td><td>move belief, with a basis</td><td><code>new_status, confidence_level, add_supporting/add_refuting, add_chain, basis</code></td></tr>
+    <tr><td><code>no_evidence</code></td><td>the honest null result (R-P2)</td><td><code>intent, scope, basis, at</code> — “we looked and it was clean” is itself timestamped evidence; satisfies gate floors AND refutes hypotheses</td></tr>
+    <tr><td><code>retract</code></td><td>tombstone a wrong fact/event/edge (R-J3)</td><td>target must exist; hypotheses are never retracted — refutation is their lifecycle</td></tr>
+    <tr><td><code>merge</code></td><td>graduate a provisional entity</td><td>provisional → canonical ONLY; canonical entities never merge (§11)</td></tr>
+    <tr><td><code>retype</code></td><td>graduate the escape hatch</td><td>generic_ci only; “a retype is an alias graduation, not an identity edit” (§10)</td></tr>
+  </tbody>
+</table>
+
+<p class="muted">One deliberate asymmetry: the live planner's derived valid-op list excludes
+<code>add_assertion</code> — the atom op is the <em>adapters'</em> native channel; the model still
+speaks <code>add_fact</code>/<code>add_event</code>, which the shim maps onto the atom. Deleting
+the shims once the planner emits the atom natively is recorded future work.</p>
+
+<!-- ═══════════════════════════ 08 · EDGES ═══════════════════════════ -->
+<h2 id="edges"><span class="n">08</span>Edges — declared spine, inferred causality</h2>
+<p class="lead">Causation is a separate, refutable layer — never mixed into structure. Every edge
+declares <code>origin ∈ {declared, discovered, inferred}</code> (R-G8): declared = CMDB/IaC,
+treated as truth; discovered = telemetry, an observation; inferred = a hypothesis's claim,
+confidence + evidence mandatory. The graph is a MultiDiGraph, so a structural
+<code>depends_on</code> and an inferred <code>caused_by</code> between the same pair coexist under
+distinct ids.</p>
+
+<pre><code># domain/spec.py
+@dataclass(frozen=True)
+class EdgeSpec:
+    type: EdgeType
+    allowed: tuple[tuple[NodeType, NodeType], ...]   # legal (src_type, dst_type) pairs
+    default_origin: Origin = Origin.DISCOVERED
+    symmetric: bool = False
+    requires_confidence: bool = False   # the causal layer: confidence + evidence mandatory
+    derived: bool = False               # fold-recomputed projection — the planner may NOT emit it
+    fact_predicates: tuple[str, ...] = ()   # edge-borne RED (a discovered CALLS carrying rates)
+    semantics: str = ""</code></pre>
+
+<div class="diagram">
+  <div class="cap">domain/edges/{structural, supply, causal}.py — 36 edge types in four groups</div>
+  <div class="stack">
+    <div class="layer"><span class="tag" style="color:var(--teal)">Structural · 17</span><span class="body">
+      <code>depends_on · calls · realizes · instance_of · runs_on · hosted_on · deployed_to · contains ·
+      member_of · exposes · routes_to · connects_to · reads_from · writes_to · produces_to · consumes_from ·
+      secured_by</code> — the spine. <code>STRUCTURAL_EDGE_TYPES</code> is <em>derived</em> from this module's
+      specs, so the airlock layer can never drift from the catalog. The ONLY layer where
+      <code>generic_ci</code> may substitute for an endpoint (§10).</span></div>
+    <div class="layer"><span class="tag" style="color:var(--teal)">Supply · 6</span><span class="body">
+      <code>owns · built_from · released_as · runs_version · deployed_as · introduced_by</code> — ownership and
+      the change/supply chain (artifact-by-digest joins, release lineage).</span></div>
+    <div class="layer"><span class="tag" style="color:var(--violet)">Signal / causal · 11</span><span class="body">
+      <code>fired_on · emitted · affects · triggered_by · impacts · changed_by · correlated_with</code> + the
+      related-incident pair <code>similar_to · recurrence_of</code> + <b><code>caused_by</code></b>
+      (38 allowed pairs, <code>requires_confidence=True</code>, origin inferred — including
+      <code>hypothesis → generic_ci</code> and <code>anomaly → generic_ci</code>: an unknown CI is finally
+      <em>blamable</em>) + <code>remediated_by</code> (6 pairs, hypothesis → change record, origin declared, no
+      confidence — R-G2: the root cause IS a confirmed Hypothesis; remediation is this edge / a store record,
+      never a node. Registry-legal today; no runtime path emits it yet).</span></div>
+    <div class="layer eng"><span class="tag">Derived · 2</span><span class="body">
+      <b><code>supports · refutes</code></b> — <code>derived=True</code>, allowed pairs = every non-hypothesis
+      type → <code>hypothesis</code> (42 pairs). The canonical evidence record is the hypothesis's fact-id
+      lists; the fold recomputes these edges from them (retracting stale ones first), and the reducer rejects a
+      planner-emitted one: <i>“attach the fact via add_supporting/add_refuting on the hypothesis, not a direct
+      edge.”</i> The graph view can never disagree with the store.</span></div>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--teal)"></i>observed structure — the governed traversal spine</span>
+    <span><i class="dot" style="background:var(--violet)"></i>refutable claims — confidence mandatory</span>
+    <span><i class="dot" style="background:var(--accent)"></i>fold-owned projections</span>
+  </div>
+</div>
+
+<p><b>Why the spine is “governed”:</b> every belief-relevant traversal —
+<code>Graph.structural_distances</code>, and the P7 tool surface built on it — crosses only ACTIVE
+edges whose origin is <em>not</em> inferred, and never enters a hypothesis node. Topological
+specificity must come from observed structure, so a hypothesis's own causal claims can never
+shorten the distance of its own evidence — the anti-bootstrapping rule the earned-belief
+arithmetic (§09) depends on. Edge records carry the same lifecycle as facts
+(<code>state</code>, <code>invalidated_by</code>, <code>valid_to</code> on retraction): a refuted
+<code>caused_by</code> tombstones exactly as a wrong fact does. And because the reducer's
+<code>known()</code> learns edge ids, an assertion may take an <em>edge</em> as its subject — a
+discovered <code>calls</code> edge can carry its own RED readings.</p>
+
+<!-- ═══════════════════════════ 09 · THE HYPOTHESIS RECORD ═══════════════════════════ -->
+<h2 id="hypothesis"><span class="n">09</span>The Hypothesis record — belief is earned</h2>
+<p class="lead">A hypothesis is never a floating string: it is a typed record holding BOTH
+supporting and refuting fact-id lists (anti-confirmation-bias, principle 10) and a typed causal
+chain. It lives twice on purpose — a store record ranked by earned belief, and a graph node
+<code>hyp:&lt;hid&gt;</code> so causal edges can reference it. The naming is deliberate: the
+append-only <em>journal</em> is the ledger of record; this is a <b>hypothesis store</b>
+(<code>hypothesis/store.py</code> — owner directive 2026-07-22: “remove ledger, that is what
+journal is for”). The bundle exports it under the key <code>hypotheses</code>; the session streams
+<code>hypotheses_delta</code> events.</p>
+
+<pre><code># domain/hypothesis.py
+class Hypothesis(BaseModel):        # extra="forbid"
+    id: str                         # "hyp:&lt;hid&gt;"
+    statement: str
+    causal_chain: list[ChainLink]   # {kind: event|fact|change, ref, ts, role: cause|condition|effect, note}
+    root_candidate: str | None      # NodeId — the chain head (initiating change/fault)
+    status: HypothesisStatus = PROPOSED   # proposed·investigating·supported·confirmed·refuted·superseded
+    confidence: Confidence          # the banded prior + its basis — never a naked float
+    supporting_facts: list[str]     # FactIds → the derived SUPPORTS edges
+    refuting_facts: list[str]       # FactIds → the derived REFUTES edges
+    predictions: list[Prediction]   # "if true we'd also see X" — drives the next INVESTIGATE
+    created_by: int                 # journal seq
+    updated_by: list[int]           # every seq that touched it</code></pre>
+
+<p>Store semantics that make a live planner safe: a re-CREATE of a hid whose status is terminal
+(<code>refuted / confirmed / superseded</code> — <code>_TERMINAL</code>) is a <b>silent no-op</b>:
+a reached verdict is indestructible evidence and can never be reset to <code>proposed</code> by a
+model re-proposing the same id. A re-CREATE of a <em>live</em> hid is a merge, never an
+overwrite: status and <code>created_by</code> preserved, evidence lists grow by sorted set-union,
+the chain appends. (Precision the docstrings don't volunteer: indestructibility covers the CREATE
+path — an update delta can still move any status; there is no engine transition table. That is
+exactly why the promotion gate below, not the store, is the authority that matters.)</p>
+
+<div class="diagram">
+  <div class="cap">hypothesis/belief.py — the earned score (P4), and the gate it feeds (INV-8)</div>
+  <div class="pipe">
+    <div class="box"><b>evidence fact</b><small>materialized, non-RETRACTED — else weighs 0</small></div>
+    <span class="arrow">→</span>
+    <div class="box hl"><b>reliability</b><small>source_reliability | confidence.value<br>(exactly one exists — R-C4)</small></div>
+    <span class="arrow">×</span>
+    <div class="box hl"><b>temporal proximity</b><small>1.0 inside the COMBINED clock-skew bound (R-J2)<br>beyond: 0.5^(excess / 1800 s halflife)</small></div>
+    <span class="arrow">×</span>
+    <div class="box hl"><b>topological specificity</b><small>max(0.25 floor, 0.8^hops) — hops over the<br>governed structural spine only</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>w</b><small>this fact's weight</small></div>
+  </div>
+  <div class="stack" style="margin-top:8px">
+    <div class="layer"><span class="tag">The blend</span><span class="body">
+      <code>score = round((prior_weight·band + Σ w_sup) / (prior_weight + Σ w_sup + Σ w_ref), 4)</code> —
+      the LLM's band enters as a pseudo-observation of mass <code>prior_weight</code> (1.0); supporting
+      evidence pulls toward 1, refuting toward 0. <b>No resolvable evidence ⇒ exactly the band.</b></span></div>
+    <div class="layer eng"><span class="tag">INV-8 gate</span><span class="body">
+      <code>promotion_ok</code>: earned <code>score(lead) ≥ confidence_gate 0.8</code> ∧ <b>zero alive
+      unrefuted rivals</b> (any band — Popperian: rivals must be <em>refuted</em>, not out-scored; an
+      unrefuted 0.75 rival under a 0.8 gate still blocks) ∧ the <code>delta 0.15</code> floor. Promotion is the
+      ENGINE's decision — an LLM-set <code>confirmed</code> status grants no bypass.</span></div>
+  </div>
+</div>
+
+<pre><code># hypothesis/store.py — promotion_ok, verbatim
+alive = self.alive()
+if not alive:
+    return False
+lead = alive[0]
+if self.score(lead) &lt; tunables.confidence_gate:
+    return False
+rivals = alive[1:]   # ALL alive unrefuted rivals block — no band filter
+if rivals:
+    return False
+runner = self.score(alive[1]) if len(alive) &gt; 1 else 0.0
+return (self.score(lead) - runner) &gt;= tunables.delta</code></pre>
+
+<p class="muted">Read the code, not the docstring's “beats the runner-up by delta”: because ANY
+rival returns <code>False</code> first, the runner-up expression only executes when the leader is
+alone — <code>runner</code> is always <code>0.0</code>, so under the strengthened rival rule
+<code>delta</code> acts as a second absolute floor on a sole survivor, not a live margin race.</p>
+
+<p>Every number in that arithmetic is a playbook tunable (INV-9), <code>extra="forbid"</code> so a
+stale YAML key is a loud load error:</p>
+<table>
+  <thead><tr><th>Knob (domain/playbook.py Tunables)</th><th>Default</th><th>Read by</th></tr></thead>
+  <tbody>
+    <tr><td><code>confidence_gate</code> / <code>delta</code></td><td>0.8 / 0.15</td><td><code>promotion_ok</code></td></tr>
+    <tr><td><code>confidence_band</code></td><td>low 0.3 · med 0.6 · high 0.9</td><td>the reducer's rubric→numeric map</td></tr>
+    <tr><td><code>source_reliability</code></td><td>prometheus .97 · ocp/git .99 · splunk/appd .95 · servicenow/cmdb/artifactory/bigpanda/human .8 · llm .9 · engine 1.0</td><td>the reducer's INV-9 fill for measured assertions</td></tr>
+    <tr><td><code>clock_skew_bound_s</code></td><td>prometheus/ocp 30 · appd/splunk/bigpanda 60 · git/artifactory 120 · servicenow/cmdb/human 300 · llm/engine 0 · default 300</td><td>proximity + <code>correlate_timeline</code> (R-J2)</td></tr>
+    <tr><td><code>proximity_halflife_s</code></td><td>1800</td><td>decay beyond the skew window</td></tr>
+    <tr><td><code>specificity_decay</code> / <code>specificity_floor</code></td><td>0.8 / 0.25</td><td>per-hop decay; “evidence about an unplaced entity still weighs, dimly”</td></tr>
+    <tr><td><code>prior_weight</code></td><td>1.0</td><td>the band's pseudo-evidence mass</td></tr>
+    <tr><td><code>discovery_penalty</code></td><td>0.75</td><td>the airlock's multiplicative confidence penalty (§10)</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════ 10 · THE AIRLOCK ═══════════════════════════ -->
+<h2 id="airlock"><span class="n">10</span>The airlock — nothing observed is erased</h2>
+<p class="lead">The audits' worst finding about the old reducer: rejected observations were
+erased — “they never existed.” The airlock replaces reject-and-erase with
+quarantine-and-record: unknowns land <em>provisional</em>, dimmed and counted, never silent, never
+gone. Four lanes, each with an exact mechanism:</p>
+
+<div class="diagram">
+  <div class="cap">The four airlock lanes (graph/reducer.py · domain/dictionary.py · domain/registry.py)</div>
+  <div class="stack">
+    <div class="layer"><span class="tag" style="color:var(--amber)">1 · name</span><span class="body">
+      Unknown name → lands under <code>quarantine_name(source, native)</code> =
+      <b><code>x.&lt;source&gt;.&lt;native&gt;</code></b>, <code>provisional=True</code>, <code>applies_to</code>
+      skipped. Deterministic — repeats COUNT toward promotion; collision-free — no canonical starts with
+      <code>x.</code> and the reserved <code>no_evidence:</code> engine prefix cannot be spoofed through it.
+      Promotion is a human core-registry edit. Referential integrity is NOT relaxed: an unknown
+      <em>subject</em> still rejects.</span></div>
+    <div class="layer"><span class="tag" style="color:var(--amber)">2 · shape</span><span class="body">
+      Known name, invalid shape (unit mismatch; a claimed reading without stat+window) → lands
+      <code>provisional=True</code> <b>plus</b> a journaled <code>Rejection</code> notice:
+      <i>“shape quarantine '&lt;name&gt;': … — landed provisional.”</i> Never silently accepted (the mismatch is on
+      record, feeding the planner) and never erased (the observation survives, dimmed).</span></div>
+    <div class="layer"><span class="tag" style="color:var(--amber)">3 · structure</span><span class="body">
+      <code>generic_ci</code> becomes <b>placeable</b>: <code>edge_airlocked()</code> lets it substitute for
+      either endpoint of a STRUCTURAL edge iff the non-generic endpoint is already legal on its side
+      (both-generic allowed) — it stands in for half of an existing pair, never mints new pair semantics.
+      And <b>blamable</b>: <code>caused_by → generic_ci</code> is a declared pair. Every airlocked edge is
+      provisional; origin is FORCED to <code>discovered</code> (except <code>caused_by</code>, which stays
+      inferred per spec); its confidence is multiplied by <code>discovery_penalty 0.75</code> with the basis
+      suffix <code>[provisional: generic_ci endpoint]</code> — admitted, never at full weight.</span></div>
+    <div class="layer"><span class="tag" style="color:var(--amber)">4 · null result</span><span class="body">
+      <code>NoEvidence</code> (R-P2) — but <b>error ≠ evidence</b>: an op naming an intent whose last boundary
+      outcome was <code>error</code> or <code>blocked</code> is REJECTED — <i>“an error carries no evidentiary
+      weight; only a clean-empty read can become null evidence.”</i> An accepted one materializes as an engine
+      fact: predicate <code>no_evidence:&lt;intent&gt;</code>, <code>source=engine</code>,
+      <code>source_reliability=1.0</code>, subject = the resolved scope else the anomaly node.</span></div>
+  </div>
+  <div class="legend">
+    <span>capability boundary outcomes: <code>data · empty · error · blocked</code> — the code literal is
+    <code>"empty"</code> (the honest clean-empty), and <code>error ≠ empty</code> is the honesty line
+    (depth: doc 05)</span>
+  </div>
+</div>
+
+<h3>The grammar of correction — Retract, Merge, Retype</h3>
+<div class="grid three">
+  <div class="card"><h4><code>retract</code> — R-J3</h4><p>Target must EXIST (graph or earlier in
+    this batch) else rejection. Becomes a <code>Retraction</code> record on the delta; the fold
+    applies retractions <em>after</em> additions, dispatching by id namespace. State flips to
+    <code>retracted</code>; the record survives as evidence of what was once believed.</p></div>
+  <div class="card"><h4><code>merge</code> — R-J5</h4><p>Provisional → canonical <b>only</b>.
+    Rejected if: either id unknown · already the same entity · the source is canonical
+    (“canonical entities never merge”) · the target is itself provisional (“graduate it
+    first”) · cross-type. Success = a journaled <code>Remap(kind="merge")</code>; the fold's
+    <code>remap_id</code> re-homes every reference.</p></div>
+  <div class="card"><h4><code>retype</code> — the hatch graduates</h4><p><code>generic_ci</code>
+    only — “typed identity never re-keys.” Never to <code>generic_ci</code>/<code>hypothesis</code>;
+    must supply the new type's identity keys; the minted id must not already exist (“retype mints,
+    it does not fold”). <code>ci_id</code>/<code>class_hint</code> survive as provenance; the old
+    id stays resolvable forever.</p></div>
+</div>
+
+<!-- ═══════════════════════════ 11 · IDENTITY ═══════════════════════════ -->
+<h2 id="identity"><span class="n">11</span>Identity — resolve, don't twin</h2>
+<p class="lead">Cross-tool identity used to be display-name string luck: ServiceNow says
+“Payments API”, AppD says <code>PAY-SVC-01</code>, and the graph minted two services. The P5
+identity layer makes per-tool ids first-class: <code>graph/resolver.py</code> lifts the backbone
+props into <code>aliases {scheme: id}</code>, the graph maintains an alias index
+(<code>"scheme:id" → node id</code>, first binding wins), and the reducer consults it before ever
+minting.</p>
+
+<pre><code># graph/resolver.py — the identity backbone (type-scoped: BACKBONE_TYPES = {SERVICE})
+ALIAS_SCHEMES = {"sys_id": "servicenow", "app_id": "appd",
+                 "repo": "git", "k8s_workload": "k8s"}
+def alias_key(scheme, value) -> str:   # "scheme:id", e.g. "servicenow:sys_2fe9"
+def provisional_node_id(ntype, aliases) -> str:
+    # "{type}:~{scheme}:{slug}" — the ~ sigil cannot arise from natural-key
+    # slugging, so provisional ids never collide with canonical ones.</code></pre>
+
+<div class="diagram">
+  <div class="cap">graph/reducer.py — the AddNode resolution lanes, in branch order (pass 1)</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">A · upsert</span><span class="body">The computed id
+      already exists (graph or batch) → plain upsert; provisional twins bound to this arrival's
+      credentials auto-merge in (late alias binding).</span></div>
+    <div class="layer eng"><span class="tag">B · resolve</span><span class="body"><b>The split-brain
+      kill:</b> exactly ONE same-type canonical entity is bound to one of the arrival's credentials →
+      fold onto it, never mint a twin. The arrival's identity-key props are DROPPED (“identity is
+      write-once on the canonical; the alias, not the key, is what unified them”); a journaled
+      <code>Remap(kind="resolve")</code> makes the redirect permanent, so a later phase citing the
+      would-be twin id still lands on the canonical after any replay.</span></div>
+    <div class="layer"><span class="tag">C · mint</span><span class="body">Id computable, zero or
+      ≥2 canonical hits → fresh mint. Two hits are never guessed between — ambiguity rejects
+      instead (below).</span></div>
+    <div class="layer"><span class="tag">D · accumulate</span><span class="body">No computable id,
+      exactly one provisional twin holds the credential → observations accumulate on the twin
+      (still provisional).</span></div>
+    <div class="layer"><span class="tag">E · provisional</span><span class="body">No id, no hits,
+      but a credential exists → mint <code>{type}:~{scheme}:{slug}</code>,
+      <code>provisional=True</code> — instead of rejecting; a later Merge (auto or explicit)
+      graduates it.</span></div>
+    <div class="layer" style="border-color:var(--red);background:rgba(248,113,113,.07)">
+      <span class="tag" style="color:var(--red)">reject</span><span class="body">Missing identity
+      key(s) and no credential — <i>“refusing a degenerate id”</i>; or ≥2 same-type alias hits —
+      <i>“ambiguous alias resolution”</i>. Never a degenerate <code>type:</code> id, never a
+      guess.</span></div>
+  </div>
+</div>
+
+<p>Two guarantees hold the index honest. <b>First binding wins:</b> the graph binds an alias key
+with <code>setdefault</code>; a later claim for a different node is a journaled
+<b>contradiction</b> on the rejections channel (<i>“alias contradiction: … first binding wins —
+node materialized, alias claim recorded”</i>) — never a silent rebind that would re-attribute
+every future observation. <b>Old ids live forever:</b> a merge/retype/resolve applies through
+<code>Graph.remap_id</code>, which chain-compresses the <code>id_remaps</code> table (the old id
+becomes an alias, resolvable forever), re-keys <code>prop:</code> and <code>edge:</code> ids
+(their ids embed the node id; identical-edge collisions collapse first-writer-wins), and rewrites
+<code>subject_ref</code> in one pass — <b>fact and event ids are minted once and never move</b>,
+so provenance ordering, supersession chains and the hypothesis store's fact-id refs stay
+byte-stable through any identity graduation.</p>
+
+<!-- ═══════════════════════════ 12 · INVARIANTS ═══════════════════════════ -->
+<h2 id="invariants"><span class="n">12</span>Invariants — what must hold, and what breaks</h2>
+<p class="lead">Four numbered invariants are named in code comments at their exact enforcement
+points (<code>INV-5, INV-7, INV-8, INV-9</code> — grep the tree); three more are design ids whose
+enforcement now exists in code (INV-1, INV-2, INV-11). Alongside them stand the standing design
+rules (R-G*, R-C*, R-J*, R-P*, R-K*) from <code>engine/docs/DESIGN.md</code>. Each row: the rule,
+what it guarantees, and what breaks the day it is violated.</p>
+
+<table>
+  <thead><tr><th>Id</th><th>The invariant</th><th>Guarantees</th><th>If violated</th></tr></thead>
+  <tbody>
+    <tr><td><code>INV-1</code></td><td><b>Writes are human-gated.</b> A write-effect capability
+      executes only under an approved gate; the layer blocks it before any fetch
+      (gate-first <code>serve()</code> — depth: doc 05).</td>
+      <td>No side effect on a live system ever precedes consent; the journal proves the question
+      and the answer.</td>
+      <td>Silent production writes on a model's say-so.</td></tr>
+    <tr><td><code>INV-2</code></td><td><b>Journal-authoritative, cache-verified</b> (with R-J4).
+      <code>graph.json</code> is served only when its <code>journal_seq</code> watermark equals the
+      journal head; otherwise rebuild-from-journal + self-heal (depth: doc 03).</td>
+      <td>The cache is an optimization, never an alternate truth.</td>
+      <td>A stale or corrupt cache poisons a reopen with fiction.</td></tr>
+    <tr><td><code>INV-5</code></td><td><b>Point-in-time truth.</b> <code>facts_valid_at(ts)</code>
+      includes SUPERSEDED facts whose closed window contains <code>ts</code>; excludes only
+      RETRACTED; half-open window test.</td>
+      <td>“Reconstruct the graph as of incident start” stays answerable forever.</td>
+      <td>As-of-onset reconstruction breaks the moment any fact is superseded.</td></tr>
+    <tr><td><code>INV-7</code></td><td><b>Never crash on untrusted input.</b> Belief degrades a
+      naive/aware datetime mix to a neutral factor; the reducer soft-rejects an invalid Fact
+      (<code>"invalid fact: …"</code>) instead of raising; the live parser repairs.</td>
+      <td>One malformed model op or bad timestamp degrades one factor, not the run.</td>
+      <td>A single bad LLM emission kills a live investigation.</td></tr>
+    <tr><td><code>INV-8</code></td><td><b>Promotion is the engine's decision.</b>
+      <code>promotion_ok</code> = earned score ≥ gate 0.8 ∧ zero alive unrefuted rivals ∧ the 0.15
+      floor; an LLM-set <code>confirmed</code> grants no gate bypass.</td>
+      <td>Confirmation is earned from evidence, Popperian — rivals must be refuted, not
+      out-scored.</td>
+      <td>A rival-contested or below-gate theory advances: wrong-but-confident convergence.</td></tr>
+    <tr><td><code>INV-9</code></td><td><b>Zero engine tuning constants.</b> Every knob lives in
+      <code>Tunables</code> (<code>extra="forbid"</code>); the reducer fills a measured assertion's
+      missing reliability from the per-source map; belief's only literals are mathematical
+      identities.</td>
+      <td>Retuning is a playbook edit; adapters carry no hardcoded trust.</td>
+      <td>Tuning drifts into engine/adapters; behavior can't change per playbook.</td></tr>
+    <tr><td><code>INV-11</code></td><td><b>Nothing observed is silently accepted, rejected, or
+      erased</b> — the airlock (§10): name + shape quarantine, provisional flags, journaled
+      rejections, penalized generic-CI participation.</td>
+      <td>The vocabulary stays closed <em>and</em> discovery survives, dimmed and on record.</td>
+      <td>Either garbage enters the closed vocabulary, or observations vanish without a trace
+      (the audited defect).</td></tr>
+  </tbody>
+</table>
+
+<table>
+  <thead><tr><th>Rule</th><th>The rule</th><th>Guarantees / if violated</th></tr></thead>
+  <tbody>
+    <tr><td><code>R-G1</code></td><td><b>The registry is truly closed</b> — every NodeType/EdgeType
+      has a spec, checked at import (RuntimeError), in three places.</td>
+      <td>The LLM catalog, the reducer's validation and the enums can never drift apart. Violated:
+      a type exists that can be named but not validated.</td></tr>
+    <tr><td><code>R-G5</code></td><td><b>Facts are never mutated</b> — a newer value supersedes
+      (closes <code>valid_to</code>); a wrong one is retracted; props are identity/immutable
+      only.</td>
+      <td>Bi-temporal history is real. Violated: point-in-time queries become lies.</td></tr>
+    <tr><td><code>R-C4</code></td><td><b>Belief is cited and channel-keyed</b> —
+      <code>Confidence = value + mandatory basis</code>, never a naked float; exactly one belief
+      field per record, fixed by channel; the LLM emits only the low/med/high rubric.</td>
+      <td>Trust arithmetic reads the right field with a recorded why. Violated: “0.9 everywhere”
+      returns and an unfounded inferred fact masquerades as a measurement.</td></tr>
+    <tr><td><code>R-J1</code></td><td><b>The journal is the source of truth</b> — every phase entry
+      carries its full delta; <code>rebuild(journal)</code> reproduces graph + hypothesis store
+      bit-for-bit (depth: doc 03).</td>
+      <td>Projections are disposable caches. Violated: replay diverges from the live run and the
+      record stops being a record.</td></tr>
+    <tr><td><code>R-J2</code></td><td><b>Clock-skew honesty</b> — no temporal claim tighter than
+      the COMBINED per-source skew bound; proximity is flat inside the window;
+      <code>correlate_timeline</code> asserts “the change came first” only beyond it.</td>
+      <td>Ordering claims two clocks cannot support are never made. Violated: fabricated causal
+      precedence.</td></tr>
+    <tr><td><code>R-J3</code></td><td><b>Retraction reaches the record</b> — wrong observations
+      tombstone (<code>state=retracted</code>) via the op grammar; retracted facts stop weighing in
+      belief; the record survives.</td>
+      <td>Wrongness is auditable. Violated: history is silently rewritten.</td></tr>
+    <tr><td><code>R-J5</code></td><td><b>Write-once identity + aliases</b> — first-binding-wins
+      index; merge is provisional→canonical only; retype is generic-CI-only; old ids stay
+      resolvable via <code>id_remaps</code>; fact/event ids never move.</td>
+      <td>History re-homes, nothing orphans. Violated: identity edits sever provenance and evidence
+      refs dangle.</td></tr>
+    <tr><td><code>R-P2</code></td><td><b>Honest NoEvidence</b> — a clean-empty read becomes a
+      first-class engine fact (<code>no_evidence:&lt;intent&gt;</code>, reliability 1.0) that
+      satisfies gate floors and refutes hypotheses; an errored/blocked intent may NOT.</td>
+      <td>Absence of evidence is evidence — only when we really looked. Violated: fabricated
+      negatives drive false convergence.</td></tr>
+    <tr><td><code>R-K2</code></td><td><b>Bounded repair loop</b> — partial-accept: illegal ops
+      become typed <code>Rejection</code>s riding the delta (replay-inert, excluded from
+      <code>is_empty_delta</code> and every gate floor), journaled and fed to the next
+      <code>PlanContext</code>.</td>
+      <td>The planner is told what was dropped and why. Violated: it re-emits into silence, or
+      bookkeeping inflates progress.</td></tr>
+    <tr><td><code>R-C1</code></td><td><b>The controller is the routing authority</b> — the
+      planner's verdict is a proposal; only <code>check_gate</code> honours an ADVANCE and
+      <code>next_actions</code> never routes (depth: doc 01/03).</td>
+      <td>Evidence floors bind. Violated: the model self-routes past them.</td></tr>
+  </tbody>
+</table>
+
+<div class="plain"><p style="margin:0"><b>The one-sentence summary.</b> One typed assertion atom,
+validated at the boundary, canonicalized by a dictionary, attached to entities from a closed
+registry, folded through a single seam into views the whole system shares — with belief earned by
+arithmetic, unknowns quarantined instead of erased, and every rule above enforceable because there
+is exactly one place to enforce it.</p></div>
+
+<footer>
+  Next: <a href="03-projections-and-data.html" style="color:var(--accent)">03 · Projections &amp;
+  Data</a> — Graph · Journal · Hypothesis, the single mutation seam, journal schema v2, replay
+  equivalence, and the file store. · Rewritten 2026-07-22 against the live tree.
+</footer>
+</div>
+</body>
+</html>

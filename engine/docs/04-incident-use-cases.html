@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — 04 · Incident Use-Cases</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a21;--panel2:#1c212b;--border:#2a3140;--text:#e6e9ef;--muted:#9aa4b2;
+    --faint:#6b7482;--accent:#5b8cff;--accent-soft:#1a2540;--green:#4ade80;--amber:#fbbf24;
+    --red:#f87171;--violet:#a78bfa;--teal:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:light){:root{--bg:#f6f8fb;--panel:#fff;--panel2:#eef2f8;
+    --border:#dde3ec;--text:#1c2128;--muted:#54606f;--faint:#8a94a6;--accent:#2f6fed;
+    --accent-soft:#e9f0ff;--green:#15803d;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65;font-size:15.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  header.masthead{padding:56px 0 26px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:36px;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:66ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  nav.docnav a{font-size:13px;padding:6px 13px;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;background:var(--panel)}
+  nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  nav.docnav a:hover{color:var(--text)}
+  h2{font-size:25px;margin:54px 0 4px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:15px;margin-right:10px}
+  h3{font-size:17px;margin:28px 0 6px}
+  p{margin:12px 0} .lead{font-size:16.5px;color:var(--muted);max-width:70ch}
+  code{font-family:var(--mono);font-size:.87em;background:var(--panel2);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
+  pre code{background:none;border:none;padding:0}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:18px 0}
+  .grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:720px){.grid.two,.grid.three{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15px}.card p{margin:4px 0;font-size:14px;color:var(--muted)}
+  .plain{border-left:3px solid var(--teal);background:rgba(45,212,191,.07);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+  .plain b{color:var(--teal)}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14.5px}
+  .muted{color:var(--muted)}.faint{color:var(--faint)}
+  ul.tight{margin:8px 0;padding-left:22px}ul.tight li{margin:5px 0}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+  /* ── diagram primitives (self-contained, responsive) ── */
+  .diagram{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;margin:22px 0}
+  .diagram .cap{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:14px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .layer{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 16px;background:var(--panel2)}
+  .layer .tag{flex:0 0 130px;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  .layer .body{flex:1;font-size:14px}
+  .layer.eng{border-color:var(--accent);background:var(--accent-soft)}
+  .layer.eng .tag{color:var(--accent)}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+  .box{border:1px solid var(--border);border-radius:10px;padding:9px 13px;background:var(--panel);font-size:13px;text-align:center}
+  .box b{display:block;font-size:13.5px} .box small{color:var(--faint);font-size:11px;font-family:var(--mono)}
+  .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+  .box.write{border-color:var(--amber);background:rgba(251,191,36,.08)}
+  .arrow{color:var(--faint);font-size:18px;line-height:1}
+  .down{align-self:center;color:var(--faint);font-size:18px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* ── docs-set addition (2026-07-22 rewrite): tables — the code map etc. ── */
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);text-align:left}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Investigation Workbench · Engine Docs</div>
+  <h1>04 · Incident Use-Cases</h1>
+  <p class="sub">One packaged incident — <b>INC-4821</b>, payments-api 5xx after the v4.12.0
+  deploy — walked end-to-end through the current model: frame, the investigate-loop, earned
+  belief moving, a rival refuted, the promotion gate opening, a human-gated ACT, verify, close.
+  Then the other ten incident shapes the same engine handles, and a clearly-fenced ideas section.
+  Every number on this page came from <em>executing</em> the packaged run, not from prose.</p>
+  <nav class="docnav">
+    <a href="index.html">Index</a>
+    <a href="01-design-architecture.html">01 · Design &amp; Architecture</a>
+    <a href="02-data-model.html">02 · Data Model</a>
+    <a href="03-projections-and-data.html">03 · Projections &amp; Data</a>
+    <a class="here" href="04-incident-use-cases.html">04 · Incident Use-Cases</a>
+    <a href="05-capability-integration.html">05 · Capability Integration</a>
+  </nav>
+</header>
+
+<h2 id="what"><span class="n">01</span>What this page walks through</h2>
+<p class="lead">Docs 01–03 describe the machine; this page shows it running. The subject is the
+first packaged incident, <code>INC-4821</code> — a code regression — driven by its deterministic
+scenario twin through the real engine, the real reducer, the real belief arithmetic, the real
+write gate, and the real journal. The twin is the same script the golden suite replays in CI, so
+everything below is reproducible to the byte.</p>
+
+<div class="plain">
+  <p style="margin:0"><b>Plain version.</b> A payments service starts throwing errors thirteen
+  minutes after a deploy. The investigation frames the symptom, puts up two competing explanations
+  — <em>the deploy shipped a bug</em> vs <em>the database is drowning</em> — and then goes looking
+  for evidence that could kill each one. The database turns out to be healthy (rival refuted); the
+  error traces to one line of the deployed commit (leader earns its confidence). Only then does the
+  engine let the run propose a fix — and the fix stops at a human, who sees the action, the theory,
+  and the evidence before approving. After the rollback the symptom clears, the theory is
+  confirmed, and the whole story — every step, question, answer and rejection — is one append-only
+  journal you can replay.</p>
+</div>
+
+<div class="callout"><b>Provenance of every number.</b> The scores (0.6 → 0.933), the weights
+(0.4921), the seq numbers (1–10), the gate payload, the quarantine spellings — all were produced
+by running <code>tests/e2e/scenario_code_regression.py</code> through
+<code>Engine.run()</code> / <code>SessionManager.create()</code> against
+<code>playbooks/incident.yaml</code> on this tree, plus one reducer probe for the airlock section
+(§05). Nothing is invented; where the walk says a fact id, that id is what
+<code>registry.fact_id()</code> minted.</div>
+
+<h2 id="cast"><span class="n">02</span>The cast — one incident, three artifacts</h2>
+<p class="lead">A runnable incident is three pieces of data, no code: a <b>catalog entry</b>
+(what the start selector shows, plus the remediation the gate will propose), a <b>scenario twin</b>
+(the deterministic script + fixtures), and the <b>playbook</b> every incident shares. The registry
+that binds them is <code>runtime/scenarios.py</code>.</p>
+
+<pre><code># runtime/scenarios.py — _CATALOG (the INC-4821 row, verbatim)
+{"key": "code_regression", "id": "INC-4821", "domain": "app-incident",
+ "title": "payments-api 5xx after v4.12.0 deploy", "layer": "Application code",
+ "remediation": "Roll payments-api back to v4.11.3 (revert commit abc123)"}
+
+# tests/e2e/scenario_code_regression.py — the twin
+def build(refuted_variant: bool = False):
+    subject = SubjectRef(domain="app-incident", id="INC-4821", kind="incident")
+    ...
+    return subject, [frame, triage, hypothesize, investigate, remediate, verify, close]</code></pre>
+
+<ul class="tight">
+  <li><b>The subject is the identity.</b> <code>SubjectRef{domain, id, kind}</code>;
+    <code>subject.key</code> = <code>"app-incident:INC-4821"</code> is the session id and (via
+    <code>safe_key</code>) the on-disk folder name. Deliberately never a bare incident id.</li>
+  <li><b>The twin is a list of <code>PlanOutput</code>s</b> authored with the terse helpers in
+    <code>tests/e2e/_helpers.py</code> — <code>node() · fact() · event() · edge() · propose() ·
+    update() · no_evidence() · phase()</code>. <code>fact()</code> emits the native
+    <code>AddAssertion</code> atom (species inferred by the same §9.1 classifier the reducer
+    uses), so the scripted path exercises exactly the grammar a live model emits.</li>
+  <li><b>Two planners, one engine.</b> The same incident runs under
+    <code>ScriptedPlanner</code> (this page’s numbers, and CI’s) or under the real-LLM
+    <code>LivePlanner</code> with the richer <code>runtime/live_fixtures.py</code> blobs
+    (<code>golden_root = "code_commit:abc123"</code> — the convergence check, never shown to the
+    model). Engine, reducer, hypothesis store and journal are identical either way; only the
+    judgment author changes.</li>
+  <li><b>The gate is injected, not scripted.</b> <code>_with_gate(script, remediation)</code>
+    adds an <code>apply_remediation</code> WRITE call to every REMEDIATE step <em>for interactive
+    sessions only</em> — so the operator gets an Approve / Refine / Deny card. The batch/golden
+    path never sees it and only <em>proposes</em> the fix (§04, ACT).</li>
+</ul>
+
+<div class="diagram">
+  <div class="cap">What actually happened in the world — before any investigation</div>
+  <div class="pipe">
+    <div class="box write"><b>13:47 — deploy</b><small>CHG-1 · payments-api v4.12.0 · commit abc123</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>14:00 — onset</b><small>red_errors 0.40 · alert ALT-1 fires · p99 → 4200 ms</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>14:12 — reads</b><small>DB pool 28% · NPE ×152 at TaxCalculator.java:88</small></div>
+    <span class="arrow">→</span>
+    <div class="box hl"><b>14:27 — rollback</b><small>red_errors 0.01 · degraded=false · anomaly cleared</small></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">The ground truth the fixtures encode. The
+  bug: <code>return calc.rate(order.getRegion().getCode());&nbsp;// v4.12.0: getRegion() is null
+  for intl orders -&gt; NPE</code> — the live git-blame fixture carries that exact snippet, so a
+  live model reads real content, not a summary.</p>
+</div>
+
+<h2 id="shape"><span class="n">03</span>The shape of the run</h2>
+<p class="lead">The model is five stages; the loop in the middle does the intellectual work, and
+the only write sits behind a flag. Inside every stage, one phase-pass is the same six steps
+(<a href="01-design-architecture.html" style="color:var(--accent)">01 §04</a> covers each in
+depth).</p>
+
+<div class="diagram">
+  <div class="cap">The investigation shape — and the pass every phase runs</div>
+  <div class="pipe">
+    <div class="box"><b>Frame</b><small>symptom · topology · changes</small></div><span class="arrow">→</span>
+    <div class="box hl"><b>Investigate — the loop</b><small>hypothesize ⇄ evidence ⇄ refute</small></div><span class="arrow">→</span>
+    <div class="box write"><b>ACT ⚑</b><small>human-gated write</small></div><span class="arrow">→</span>
+    <div class="box"><b>Verify</b><small>symptom cleared? chain holds?</small></div><span class="arrow">→</span>
+    <div class="box"><b>Close</b><small>postmortem from the journal</small></div>
+  </div>
+  <div class="pipe" style="margin-top:14px">
+    <div class="box"><b>plan</b><small>planner.plan(ctx)</small></div><span class="arrow">→</span>
+    <div class="box"><b>reduce</b><small>materialize()</small></div><span class="arrow">→</span>
+    <div class="box write"><b>fold</b><small>apply_delta() ×1</small></div><span class="arrow">→</span>
+    <div class="box"><b>gate</b><small>check_gate()</small></div><span class="arrow">→</span>
+    <div class="box"><b>journal</b><small>append_phase()</small></div><span class="arrow">→</span>
+    <div class="box"><b>route</b><small>next_phase()</small></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">The loop exits only through the evidence
+  gate: <code>require_confidence_gate</code> + <code>require_refutation</code> ⇒
+  <code>promotion_ok</code> (INV-8). The fold runs <em>before</em> the gate, so the gate judges the
+  updated hypothesis store.</p>
+</div>
+
+<div class="callout"><b>Today in code.</b> The shipped <code>playbooks/incident.yaml</code> still
+declares seven phase ids — frame, triage, hypothesize, investigate, remediate, verify, close — and
+<code>Phase</code> is still an engine enum. They collapse onto the shape above: triage dissolves
+into frame and the loop’s first turns; remediate <em>is</em> the gated ACT (the only
+<code>writes_allowed: true</code> phase). The enum leaving the engine — phases fully
+playbook-declared — is the P7 step now settling. The timeline below annotates each seq with its
+yaml id, but read the five-stage strip as the model.</div>
+
+<div style="overflow-x:auto">
+<table>
+  <thead><tr><th>yaml phase (today)</th><th>model stage</th><th>gate on advance</th><th>routes (<code>on_verdict</code>)</th></tr></thead>
+  <tbody>
+    <tr><td><code>frame</code></td><td>Frame</td><td><code>produces_required: [nodes_touched, facts_added]</code> · <code>min_facts: 1</code></td><td>advance → triage · repeat → frame</td></tr>
+    <tr><td><code>triage</code></td><td>the loop (opening turn)</td><td><code>produces_required: [facts_added]</code></td><td>advance → hypothesize · backtrack → frame</td></tr>
+    <tr><td><code>hypothesize</code></td><td>the loop</td><td><code>produces_required: [hypotheses_updated]</code></td><td>advance → investigate</td></tr>
+    <tr><td><code>investigate</code></td><td>the loop (exit gate)</td><td><code>require_confidence_gate</code> + <code>require_refutation</code></td><td>advance → remediate · backtrack → hypothesize</td></tr>
+    <tr><td><code>remediate</code></td><td><b>ACT ⚑</b></td><td><code>produces_required: [hypotheses_updated]</code> · <code>writes_allowed: true</code></td><td>advance → verify</td></tr>
+    <tr><td><code>verify</code></td><td>Verify</td><td><code>produces_required: [facts_added]</code></td><td>advance → close · backtrack → hypothesize</td></tr>
+    <tr><td><code>close</code></td><td>Close</td><td><em>none</em></td><td>done → run ends</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="run"><span class="n">04</span>The worked run — INC-4821, seq by seq</h2>
+<p class="lead">Seq numbers below are the <em>interactive session’s</em> journal — ten entries,
+gap-free, including the gate. (The batch/golden run of the same twin journals seven
+<code>phase</code> entries, seqs 1–7, and never opens a gate.) Each layer names what folded and
+what the gate decided; the deep dives follow the diagram.</p>
+
+<div class="diagram">
+  <div class="cap">INC-4821 — the run, seq by seq (executed; yaml ids annotated per §03’s caveat)</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">seq 1 · frame</span><span class="body">
+      <div class="pipe">
+        <div class="box"><b>4 nodes</b><small>service · anomaly ANOM-1 · alert ALT-1 · change CHG-1</small></div>
+        <div class="box"><b>8 facts</b><small>onset_value 0.40 · severity_score 2 · red_errors 0.40 · red_rate 820 rpm …</small></div>
+        <div class="box"><b>3 events</b><small>degraded_started · fired · implemented</small></div>
+        <div class="box"><b>4 edges</b><small>affects · fired_on · changed_by · correlated_with</small></div>
+        <div class="box hl"><b>gate PASS</b><small>min_facts 1 → ADVANCE</small></div>
+      </div>
+      Symptom captured: first node of type <code>playbook.symptom_node</code> ⇒
+      <code>anomaly_ref = "anomaly:anom-1"</code>.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">seq 2 · loop <span style="color:var(--faint)">(yaml triage)</span></span><span class="body">
+      <div class="pipe">
+        <div class="box"><b>+ incident · database</b><small>INC-4821 declared · payments-ora, depends_on (declared)</small></div>
+        <div class="box"><b>+ 1 fact</b><small>red_latency_p99 4200 ms</small></div>
+        <div class="box hl"><b>ADVANCE</b><small>“still bleeding — investigate, don’t blind-mitigate”</small></div>
+      </div></span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">seq 3 · loop / hypothesize</span><span class="body">
+      <div class="pipe">
+        <div class="box hl"><b>h1 · proposed 0.6</b><small>NPE shipped by commit abc123 (med band)</small></div>
+        <div class="box"><b>h2 · proposed 0.3</b><small>payments-ora pool exhaustion (low band)</small></div>
+        <div class="box"><b>+ priors</b><small>INC-4788 · INC-4790 similar_to (same NPE, sibling services)</small></div>
+      </div>
+      <code>promotion_ok = False</code> — two alive rivals. Scores are exactly the bands: no
+      evidence attached yet.</span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">seq 4 · loop / evidence ⇄ refute <span style="color:var(--faint)">(yaml investigate)</span></span><span class="body">
+      <div class="pipe">
+        <div class="box"><b>+ 7 facts</b><small>DB: pool 0.28 · 56/200 conns · repl 0.2 s — healthy · errsig count 152</small></div>
+        <div class="box"><b>h2 → REFUTED</b><small>add_refuting=[conn_pool_util] · earned 0.2012</small></div>
+        <div class="box hl"><b>h1 → SUPPORTED</b><small>add_supporting=[count] · earned 0.933</small></div>
+        <div class="box hl"><b>gate PASS</b><small>promotion_ok ∧ refuted rival → ADVANCE</small></div>
+      </div>
+      Fold projects the derived evidence edges: <code>supports
+      error_signature:npe-taxcalc → hyp:h1</code>, <code>refutes database:payments-ora →
+      hyp:h2</code>.</span></div>
+    <div class="down">↓</div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">seq 5–6 · ACT ⚑ gate</span><span class="body">
+      <div class="pipe">
+        <div class="box write"><b>seq 5 · gate_opened</b><small>apply_remediation — “Roll payments-api back to v4.11.3”</small></div>
+        <span class="arrow">→</span>
+        <div class="box write"><b>SUSPENDED</b><small>_GateSuspend — nothing folded, no seq burned</small></div>
+        <span class="arrow">→</span>
+        <div class="box"><b>seq 6 · gate_decision</b><small>approve · actor oncall-sre · source human</small></div>
+      </div></span></div>
+    <div class="down">↓</div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">seq 7 · ACT ⚑ executed <span style="color:var(--faint)">(yaml remediate)</span></span><span class="body">
+      <div class="pipe">
+        <div class="box write"><b>invocation @ seq 7</b><small>remediation.apply_remediation → outcome "empty"</small></div>
+        <div class="box"><b>phase @ seq 7</b><small>h1 basis: “proposed fix: roll back to v4.11.3 (revert abc123)”</small></div>
+      </div>
+      The invocation entry <em>shares</em> the phase’s seq — an annotation, not a numbered
+      step.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">seq 8 · verify</span><span class="body">
+      <div class="pipe">
+        <div class="box"><b>+ 2 facts · 2 events</b><small>red_errors 0.01 · degraded=false · degraded_cleared · cleared</small></div>
+        <div class="box hl"><b>h1 → CONFIRMED</b><small>“rollback cleared 5xx to 1% — recovery confirms the causal chain”</small></div>
+      </div></span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">seq 9–10 · close</span><span class="body">
+      <div class="pipe">
+        <div class="box"><b>seq 9 · phase close</b><small>verdict done → run ends</small></div>
+        <div class="box"><b>seq 10 · lifecycle</b><small>“closed” · outcome resolved</small></div>
+        <div class="box hl"><b>close_outcome</b><small>RESOLVED — terminal phase ran ∧ store.confirmed()</small></div>
+      </div></span></div>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--accent)"></span> the investigate-loop (hypothesize ⇄ evidence ⇄ refute)</span>
+    <span><span class="dot" style="background:var(--amber)"></span> the one human-gated write</span>
+  </div>
+</div>
+
+<h3>Frame — seed the symptom, the topology, the candidate change</h3>
+<p>The frame turn lands the anomaly node (<code>onset_value 0.40</code>, <code>severity_score
+2</code>), the service’s RED snapshot (<code>red_errors 0.40</code>, <code>red_rate 820 rpm</code>,
+<code>red_latency_p50 58 ms</code> — throughput holding, p50 sane: a code-fault shape, not a
+saturation one), and the candidate change with a <code>correlated_with</code> edge at
+<code>med</code>. In the live path the same shapes arrive through adapters instead of direct ops —
+and the ServiceNow blob carries the piece that makes a <em>cross-tool</em> investigation possible,
+the identity backbone:</p>
+
+<pre><code># runtime/live_fixtures.py — code_regression(), the ServiceNow fixture (trimmed)
+"incident": {"number": "INC-4821", "opened_at": t_on, "priority": "2 - High",
+             "cmdb_ci": {"display_value": "payments-api",
+                         "app_id":       "APM-PAYMEN",          # ← query AppD by THIS
+                         "sys_id":       "sn_paymentsapi01",    # ← ServiceNow’s own id
+                         "repo":         "payments-api",        # ← query git by THIS
+                         "k8s_workload": "prod/payments-api"},  # ← query OCP by THIS
+             "env": "prod"},
+"changes": [{"number": "CHG-1", "type": "deployment", "u_commit_sha": "abc123", ...}]</code></pre>
+
+<p>The adapter copies those per-tool identifiers onto the SERVICE node’s props, so every later
+tool can be asked in <em>its own</em> vocabulary — and the reducer’s alias backbone
+(<code>sys_id→servicenow · app_id→appd · repo→git · k8s_workload→k8s</code>) resolves any
+re-arrival of the same entity under a different display name onto one node instead of minting a
+twin.</p>
+
+<p>Because <code>correlate_timeline</code> is in this playbook’s allowed intents, the engine also
+hands the planner a computed hint — deterministic, replay-invisible, never a graph mutation:</p>
+
+<pre><code># belief.correlate_timeline(graph, tunables, anomaly_ref="anomaly:anom-1") — executed
+{"event": "evt:f11f7436dca6c5f8", "entity": "change_event:chg-1", "type": "implemented",
+ "occurred_at": "2026-07-19T13:47:00+00:00", "source": "servicenow",
+ "lead_s": 780.0, "skew_bound_s": 330.0, "ordering_certain": True}</code></pre>
+
+<p class="muted" style="font-size:14.5px">R-J2 in action: the change led onset by 780 s; the
+combined clock-skew bound of the two sources involved (servicenow 300 + prometheus 30) is 330 s.
+Only because 780 &gt; 330 may “the change came first” be asserted — inside the bound the
+correlation would surface with the ordering claim explicitly withheld.</p>
+
+<h3>The loop — two rivals, then evidence that can kill one</h3>
+<p>Hypothesize puts up a genuine differential, not one idea (the doctrine requires a rival rooted
+at a <em>different</em> node):</p>
+
+<pre><code># the twin, verbatim (helpers: propose/update from tests/e2e/_helpers.py)
+propose("h1", "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator",
+        "med", root=COMMIT)                       # band 0.6 · root_candidate=code_commit:abc123
+propose("h2", "payments-ora connection-pool exhaustion", "low", root=DB)   # band 0.3</code></pre>
+
+<p>Each <code>ProposeHypothesis</code> mints <em>both</em> a store record and a graph node
+(<code>hyp:h1</code>, <code>hyp:h2</code> — R-G2: causal edges need a node to attach to). The
+investigate turn then gathers evidence against <b>both</b> theories, and updates them through the
+only channel belief moves on — a delta with a basis:</p>
+
+<pre><code>db_fact  = fid(DB, "conn_pool_util", T_INV)       # fact ids are deterministic: sha1(subject|predicate|valid_from)
+err_fact = fid(ERRSIG, "count", T_INV)
+
+update("h2", status="refuted",   add_refuting=[db_fact],
+       basis="pool util 28%, 56/200 connections, replication current — DB healthy, not the cause")
+update("h1", status="supported", level="high", add_supporting=[err_fact],
+       basis="NPE stack traces to TaxCalculator.java:88, only present in v4.12.0; 152 occurrences since onset")</code></pre>
+
+<h3>Earned belief — the three factors, executed</h3>
+<p>The LLM band survives only as the prior; the score the gate reads is computed from the graph
+(<code>hypothesis/belief.py</code>). Each evidence fact weighs
+<code>w = reliability × temporal_proximity × topological_specificity</code>:</p>
+
+<div style="overflow-x:auto">
+<table>
+  <thead><tr><th>fact (real id)</th><th>subject</th><th>reliability</th><th>proximity</th><th>specificity</th><th>w</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>fact:da70219d53e3f4c5</code><br><span class="faint">count = 152 (supports h1)</span></td>
+      <td><code>error_signature:npe-taxcalc</code></td>
+      <td>0.98 <span class="faint">(splunk)</span></td>
+      <td>0.7846</td>
+      <td>0.64 <span class="faint">(2 hops → 0.8²)</span></td>
+      <td><b>0.4921</b></td>
+    </tr>
+    <tr>
+      <td><code>fact:f09f2c94be57f5d3</code><br><span class="faint">conn_pool_util = 0.28 (refutes h2)</span></td>
+      <td><code>database:payments-ora</code></td>
+      <td>0.99 <span class="faint">(prometheus)</span></td>
+      <td>0.7756</td>
+      <td>0.64 <span class="faint">(2 hops → 0.8²)</span></td>
+      <td><b>0.4914</b></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<ul class="tight">
+  <li><b>Reliability</b> is the fact’s own belief channel — a measured fact’s
+    <code>source_reliability</code>, filled by the reducer from the playbook’s per-source map when
+    the adapter states none (INV-9: adapters carry no constants).</li>
+  <li><b>Proximity</b> is skew-tolerant (R-J2): the reads are at 14:12, onset at 14:00 — 720 s
+    apart. Subtract the combined skew bound first (splunk 60 + prometheus 30 = 90 s for the count
+    fact), then decay the 630 s excess: <code>0.5^(630/1800) = 0.7846</code>. Inside the bound the
+    factor is exactly 1.0 — never a false-precision penalty.</li>
+  <li><b>Specificity</b> decays per structural hop from the anomaly
+    (<code>0.8^hops</code>, floor 0.25) — and hops are counted over <em>observed</em> structure
+    only: the BFS never crosses an inferred edge and never enters a hypothesis node, so a theory’s
+    own causal claims can never shorten the distance of its own evidence.</li>
+</ul>
+
+<pre><code># hypothesis/belief.py weighted_score — the blend, with this run’s numbers
+score = round((prior_weight·band + Σw_sup) / (prior_weight + Σw_sup + Σw_ref), 4)
+
+h1 = round((1.0·0.9 + 0.4921) / (1.0 + 0.4921 + 0), 4) = 0.933    # band 0.9 (high), 1 supporting fact
+h2 = round((1.0·0.3 + 0)      / (1.0 + 0 + 0.4914), 4) = 0.2012   # band 0.3 (low),  1 refuting fact</code></pre>
+
+<p>Note the asymmetry doing its job: supporting evidence pulls the score toward 1, refuting
+evidence sits only in the denominator and drags it toward 0 — h2 ends <em>below</em> its own band.
+And a hypothesis with no resolvable evidence scores exactly its band: at seq 3 both rivals scored
+0.6 and 0.3, nothing more.</p>
+
+<h3>The promotion gate — INV-8, the engine’s decision</h3>
+<p>The investigate exit is the strictest gate in the playbook:
+<code>require_confidence_gate</code> + <code>require_refutation</code>. After the fold (fold runs
+<em>before</em> the gate) the controller checks
+<code>store.promotion_ok(tunables)</code>:</p>
+
+<div class="diagram">
+  <div class="cap">promotion_ok — executed at seq 4</div>
+  <div class="pipe">
+    <div class="box hl"><b>earned ≥ gate</b><small>0.933 ≥ confidence_gate 0.8 ✓</small></div>
+    <span class="arrow">∧</span>
+    <div class="box hl"><b>zero alive rivals</b><small>h2 is REFUTED — out of alive() ✓</small></div>
+    <span class="arrow">∧</span>
+    <div class="box hl"><b>delta floor</b><small>margin ≥ delta 0.15 ✓ (sole survivor)</small></div>
+    <span class="arrow">→</span>
+    <div class="box write"><b>ADVANCE honoured</b><small>route: investigate → remediate</small></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">Plus <code>require_refutation</code>: a
+  REFUTED rival exists (h2) — genuine differential work, not one theory re-supported in a loop.</p>
+</div>
+
+<div class="callout"><b>What breaks without it.</b> Rivals must be <em>refuted</em>, not merely
+out-scored: an unrefuted rival at 0.75 under a 0.8 gate still blocks — at any band. And an LLM-set
+<code>CONFIRMED</code> status grants no bypass; the gate reads only the engine-earned score. On
+failure the verdict downgrades to REPEAT carrying the exact reason —
+<code>"confidence gate not met (lead below gate, margin &lt; delta, or an unrefuted rival is
+still alive)"</code> — which is fed to the next plan as <code>gate_feedback</code>, and the repeat
+cap (<code>max_retries: 2</code>) keeps a stalling planner from looping the phase forever. The twin
+even ships the other path: <code>build(refuted_variant=True)</code> has investigate refute
+<em>h1</em> (“the NPE predates v4.12.0”), verdict <code>backtrack</code>, and the run re-enters
+hypothesize — proving the reasoning path, not just the answer.</div>
+
+<h3>ACT ⚑ — the write stops for a human</h3>
+<p>In the interactive session, remediate is where the machine stops being autonomous. The wrapped
+planner peeks at the plan: the phase is <code>writes_allowed</code> and the plan carries a call
+whose per-intent effect is WRITE (<code>layer.effect_for</code>) — so the session opens a gate
+<em>before the write exists</em> and raises <code>_GateSuspend</code> out of
+<code>plan()</code>. Nothing is claimed, folded or journaled for the phase yet; the question
+itself is durable:</p>
+
+<pre><code># the real gate payload (session.pending_gate, executed run — trimmed)
+{"gate_id": "app-incident:INC-4821:gate:1", "phase": "remediate",
+ "reasoning": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).",
+ "actions": [{"intent": "apply_remediation", "provider": "remediation", "effect": "write",
+              "params": {"action": "Roll payments-api back to v4.11.3 (revert commit abc123)",
+                         "reversible": true}}],
+ "hypothesis": {"id": "hyp:h1", "status": "supported", "confidence": 0.933,   # ← the EARNED score
+                "statement": "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator",
+                "root_candidate": "code_commit:abc123"},
+ "evidence": [ …the supporting fact views (1 here: the errsig count fact)… ]}</code></pre>
+
+<p>The operator sees action + theory + evidence together, and answers one of three ways —
+each a durable <code>gate_decision</code> journal entry (<code>source: human</code>, actor
+recorded):</p>
+
+<div class="grid three">
+  <div class="card"><h4>approve</h4><p>The cached plan resumes intact; the layer serves the write
+    under <code>allow_write=spec.writes_allowed</code>. The planner is never re-called — no second
+    LLM round-trip, and a scripted cursor stays consistent.</p></div>
+  <div class="card"><h4>refine</h4><p>Operator params merge into the write call
+    (<code>{**call.params, **decision.params}</code>); narrative gains
+    <code>" [params refined by operator]"</code>. Same plan, adjusted blast radius.</p></div>
+  <div class="card"><h4>deny</h4><p>Write calls are stripped; an
+    <code>UpdateHypothesis(basis="operator DENIED the proposed remediation: …")</code> is appended
+    so the denial lands on the store and the next plan re-plans — a genuinely divergent
+    journal.</p></div>
+</div>
+
+<p>This run approved. The journal — the actual ten entries — shows the whole consent story,
+gap-free:</p>
+
+<div style="overflow-x:auto">
+<table>
+  <thead><tr><th>seq</th><th>kind</th><th>phase</th><th>actor</th><th>notes</th></tr></thead>
+  <tbody>
+    <tr><td>1–4</td><td><code>phase</code> ×4</td><td>frame → investigate</td><td>engine</td><td>each entry carries its <b>full PhaseResult delta</b> (R-J1)</td></tr>
+    <tr><td>5</td><td><code>gate_opened</code></td><td>remediate</td><td>engine</td><td>what the human was <em>asked</em>: gate_id, actions, hypothesis, evidence</td></tr>
+    <tr><td>6</td><td><code>gate_decision</code></td><td>remediate</td><td><b>oncall-sre</b></td><td><code>decision=approve</code>, <code>source=human</code></td></tr>
+    <tr><td>7</td><td><code>invocation</code> + <code>phase</code></td><td>remediate</td><td>engine</td><td>the served write <b>shares seq 7</b> with its phase — annotation, not a step</td></tr>
+    <tr><td>8</td><td><code>phase</code></td><td>verify</td><td>engine</td><td>recovery facts fold; h1 → confirmed</td></tr>
+    <tr><td>9</td><td><code>phase</code></td><td>close</td><td>engine</td><td>verdict <code>done</code> ends the run</td></tr>
+    <tr><td>10</td><td><code>lifecycle</code></td><td>—</td><td>engine</td><td><code>"closed"</code>, outcome <code>resolved</code> — terminals die diagnosable</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p class="muted" style="font-size:14.5px">Two disciplines are visible in the numbering. The phase
+seq is claimed only <em>after</em> <code>plan()</code> returns — past the suspension point — so
+the suspended gate burned nothing: seqs run 1…10 with no gap. And the served write’s invocation
+entry landed <code>outcome="empty"</code> — the mock transport echoes no <code>applied</code>
+block, so <code>RemediationAdapter.normalize</code> folds zero ops. The journal proves
+<em>consent and the boundary outcome</em> (<code>data · empty · error · blocked</code>); it never
+fabricates an execution effect. The recovery evidence arrives in verify, from the world.</p>
+
+<h3>Verify, close — and the proof</h3>
+<p>Verify is a fresh read of the world, not a victory lap: the live transport is phase-scoped
+(<code>ScenarioSource</code> fixtures key <code>provider → {phase|"*": blob}</code>, and the drive
+loop sets <code>source.phase</code> before each step), so prometheus’s <code>verify</code> blob
+returns the <em>post-rollback</em> state — <code>red_errors 0.01</code>,
+<code>degraded=false</code>. Only then does the leader go <code>confirmed</code>. Close routes
+<code>done</code>; <code>close_outcome = RESOLVED</code> because the terminal phase ran <em>and</em>
+<code>store.confirmed()</code> is non-None (a run that ends without a confirmed theory closes
+MITIGATED — R-P4 keeps “fixed” and “made quieter” distinct).</p>
+
+<div class="grid two">
+  <div class="card"><h4>What the run left behind</h4><p>Graph: <b>12 nodes · 13 edges · 44
+    assertions</b> (facts, events and node props are read views over the one assertion store).
+    Hypothesis store: h1 confirmed @ 0.933 earned, h2 refuted @ 0.2012 — refuted records are kept,
+    ranked; they are evidence. Journal: 10 entries. Postmortem
+    (<code>runtime/postmortem.py</code>): root_cause = h1’s statement + <code>root_candidate
+    code_commit:abc123</code> + the earned score; ruled_out = h2 with its refutation basis —
+    <em>folded</em> from journal + store, never authored separately.</p></div>
+  <div class="card"><h4>The replay proof (R-J1)</h4><p>Every e2e run asserts
+    <code>assert_replay_equivalent</code>: <code>rebuild(journal)</code> must reproduce the graph
+    <b>byte-for-byte</b> (<code>g2.to_dict() == graph.to_dict()</code>) and the hypothesis store
+    record-for-record. The projections are caches; the journal is the truth. Eleven golden bundles
+    (<code>tests/e2e/golden/*.json</code>) pin the whole output byte-stable across
+    refactors.</p></div>
+</div>
+
+<h2 id="airlock"><span class="n">05</span>Mid-run unknown — the airlock</h2>
+<p class="lead">Real incidents do not stay inside the catalog. Suppose, mid-INC-4821, a discovery
+pass returns a CI ServiceNow can <em>name</em> but not <em>classify</em> — a legacy ESB bridge —
+plus a vendor metric the dictionary has never seen. The closed vocabulary must not silently accept
+garbage; the old failure was worse — rejected observations were erased as if they never existed.
+The airlock is the third way: <b>everything lands, nothing lands at full trust, everything is
+journaled</b>. Below is a real reducer run against the INC-4821 graph (the packaged twins are
+authored inside the catalog, so this lane is pinned by the unit suite —
+<code>test_quarantine.py</code>, <code>test_type_airlock.py</code> — and exercised live whenever a
+model or tool emits an off-catalog spelling).</p>
+
+<div class="diagram">
+  <div class="cap">The airlock — three lanes in, one graduation out (all values executed)</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">unknown NAME</span><span class="body">
+      <code>esb_queue_depth_max</code> resolves to nothing →
+      <div class="pipe">
+        <div class="box write"><b>quarantined</b><small style="overflow-wrap:anywhere">x.splunk.esb_queue_depth_max · provisional=True</small></div>
+        <div class="box"><b>native survives</b><small style="overflow-wrap:anywhere">source_native_name="esb_queue_depth_max"</small></div>
+        <div class="box"><b>deterministic</b><small>repeats COUNT toward promotion</small></div>
+      </div>
+      Promotion is a human dictionary edit — add the <code>DictEntry</code>/alias; the
+      <code>x.</code> namespace can never collide with a canonical or spoof the reserved
+      <code>no_evidence:</code> engine prefix.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">known name, wrong SHAPE</span><span class="body">
+      <code>latency_p99</code> arrives in seconds; the dictionary declares ms →
+      <div class="pipe">
+        <div class="box write"><b>lands provisional</b><small>the observation survives, dimmed</small></div>
+        <div class="box"><b>+ journaled notice</b><small>"shape quarantine 'latency_p99': unit mismatch: got 's', dictionary declares 'ms' — landed provisional"</small></div>
+      </div></span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">unknown TYPE</span><span class="body">
+      <code>AddNode(GENERIC_CI, {ci_id: "sn-ci-90211", class_hint: "u_cmdb_ci_legacy_mq", name:
+      "legacy-esb-bridge"})</code> — the single escape hatch →
+      <div class="pipe">
+        <div class="box"><b>placeable</b><small>structural spine only — depends_on edge admitted</small></div>
+        <div class="box write"><b>origin FORCED</b><small>edge:depends_on:…:discovered · provisional=True</small></div>
+        <div class="box write"><b>blamable, penalized</b><small>caused_by conf 0.9 × 0.75 = 0.675</small></div>
+      </div></span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">graduation</span><span class="body">
+      Identified later as a message queue → <code>Retype(target="generic_ci:sn-ci-90211",
+      new_type=MESSAGE_QUEUE, props={topic_id: "legacy-esb-bridge"})</code> →
+      <div class="pipe">
+        <div class="box hl"><b>Remap kind="retype"</b><small>generic_ci:sn-ci-90211 → message_queue:legacy-esb-bridge</small></div>
+        <div class="box"><b>old id resolvable forever</b><small>graph.id_remaps — write-once identity</small></div>
+        <div class="box"><b>history re-homes</b><small>edges re-key · quarantined fact follows, its id unchanged</small></div>
+      </div></span></div>
+  </div>
+</div>
+
+<pre><code># graph/reducer.py materialize() against the INC-4821 graph — actual outputs
+node:  generic_ci:sn-ci-90211                       # typed node; the EDGES are what get airlocked
+edge:  edge:depends_on:service:payments-api|prod-&gt;generic_ci:sn-ci-90211:discovered
+       origin=discovered (FORCED)  provisional=True
+fact:  fact:6c3615953176bd1a  pred=x.splunk.esb_queue_depth_max  provisional=True
+edge:  edge:caused_by:hyp:h3-&gt;generic_ci:sn-ci-90211:inferred    # blame keeps origin=inferred
+       confidence=0.675  basis="caused_by edge [provisional: generic_ci endpoint]"
+
+# and what does NOT bend — referential integrity is never relaxed by any quarantine:
+REJECTION: add_edge → "edge endpoint not in graph (hyp:h3-&gt;generic_ci:sn-ci-90211)"
+           # (emitted when hyp:h3 was named before being proposed — fix the cause, then it lands)
+
+# after Retype (fold applies remaps LAST):
+id_remaps: {"generic_ci:sn-ci-90211": "message_queue:legacy-esb-bridge"}
+graduated node props: {ci_id, class_hint, name, topic_id}   # provenance survives the graduation
+quarantined fact now on: message_queue:legacy-esb-bridge    # same fact id — ids never move</code></pre>
+
+<div class="callout"><b>Why three lanes and a penalty, not a dumpster or a wall.</b> Silent
+acceptance opens the closed vocabulary to vendor drift (garbage in). Silent rejection erases
+discovery — the audit finding that motivated this design was exactly that rejected observations
+left <em>no trace</em>. So: unknown names land under a deterministic quarantine spelling
+(<code>x.&lt;source&gt;.&lt;native&gt;</code>) so repetition itself becomes the promotion signal;
+off-shape values land provisional <em>plus</em> a journaled rejection notice; an unclassified CI
+participates in structure and can even be blamed (<code>caused_by</code>), but its evidence is
+multiplied by <code>discovery_penalty 0.75</code> — provisional knowledge is admitted, never at
+full weight. Every rejection rides <code>PhaseResult.rejections</code> into the journal <em>and</em>
+into the next <code>PlanContext</code> (R-K2) — the planner is told exactly what dropped and why,
+instead of re-emitting into silence.</div>
+
+<h2 id="gallery"><span class="n">06</span>The gallery — eleven incident shapes, one engine</h2>
+<p class="lead">Same engine, same playbook, same grammar — eleven packaged incidents
+(<code>runtime/scenarios.py _CATALOG</code> → <code>tests/e2e/scenario_*.py</code>), each chosen to
+force a <em>different</em> discriminator: the fact pattern that separates the true root from its
+most tempting rival. Each card names the rival that gets refuted and the action the ACT gate
+proposes.</p>
+
+<div class="grid three">
+  <div class="card"><h4>INC-4821 · Application code</h4>
+    <p><b>payments-api 5xx after v4.12.0 deploy.</b> Discriminator: pods Ready but throwing; p50
+    sane, error tail huge. Rival refuted: the healthy database. Root: <code>code_commit:abc123</code>
+    via error signature → change → commit.</p>
+    <p class="faint">Gate proposes: roll back to v4.11.3 (revert abc123).</p></div>
+  <div class="card"><h4>INC-7731 · Deployment</h4>
+    <p><b>checkout-api CrashLoopBackOff after rev43.</b> The deploy dropped ConfigMap key
+    <code>DB_HOST</code>; the pod <em>never</em> reaches Ready — a downstream-dependency rival
+    would flap intermittently instead. Blame → PR #482 → commit 9f2a1e0.</p>
+    <p class="faint">Gate proposes: roll the Deployment back rev43 → rev42.</p></div>
+  <div class="card"><h4>INC-9001 · Network</h4>
+    <p><b>checkout-svc → pricing-svc timeouts after an MTU change.</b> Retransmits spike <em>on the
+    segment</em> (SEG-EDGE-12) while the callee’s health check comes back clean — a transport
+    fault, so the segment’s change is the root, not either endpoint.</p>
+    <p class="faint">Gate proposes: revert the MTU/uplink change (CHG-77).</p></div>
+  <div class="card"><h4>INC-7734 · Database</h4>
+    <p><b>orders-api p99 after CHG-9 dropped an index.</b> The slow exit call is JDBC-classified
+    while the service’s own p50 stays flat; the git diff carries the literal
+    <code>DROP INDEX</code> line. Roots at the CHANGE_EVENT, not the pool it saturates.</p>
+    <p class="faint">Gate proposes: re-create the index on orders.order_items.</p></div>
+  <div class="card"><h4>INC-7702 · Firewall / Security</h4>
+    <p><b>fraud-scoring egress blocked after CHG-3311.</b> The link is <em>healthy</em>
+    (packet_loss 0.0, no retransmits) yet traffic is cleanly DENIED on FW-EGR-118 — so the root is
+    the policy change, never the healthy segment the denied traffic crosses.</p>
+    <p class="faint">Gate proposes: revert CHG-3311 (restore the prior ACL).</p></div>
+  <div class="card"><h4>INC-9100 · No-change / Saturation</h4>
+    <p><b>checkout-api pool saturation with an EMPTY change log.</b> The change-first method must
+    fall back honestly: the twin emits <code>no_evidence("find_recent_changes", …)</code>, which
+    materializes the engine fact <code>no_evidence:find_recent_changes</code> — an honest null that
+    satisfies gates (R-P2). Root: organic 3.4× traffic vs a fixed pool limit.</p>
+    <p class="faint">Gate proposes: scale the pool + add a read replica.</p></div>
+  <div class="card"><h4>INC-8801 · Messaging</h4>
+    <p><b>order-processor consumer lag after CHG-55.</b> consumer_lag climbs while dlq_depth and
+    producer throughput stay flat — a consumer-side slowdown, not a broker rebalance or poison
+    messages.</p>
+    <p class="faint">Gate proposes: roll the consumer deploy back.</p></div>
+  <div class="card"><h4>INC-8900 · Infra / noisy neighbor</h4>
+    <p><b>checkout-svc pod evicted.</b> HOST memory is pegged while the victim pod’s <em>own</em>
+    memory was moderate — a co-tenancy fault (the unbounded etl-nightly batch job), not an app
+    leak.</p>
+    <p class="faint">Gate proposes: reschedule etl-nightly + cap its memory.</p></div>
+  <div class="card"><h4>INC-5500 · Caching</h4>
+    <p><b>product-api latency after a cache-client deploy.</b> The diff is config-only but it
+    disabled singleflight: one hot key fans out ~50× into Redis. Slow calls are cache-bound; p50
+    flat — a hot-path shape, not a code-compute regression.</p>
+    <p class="faint">Gate proposes: roll back to v3.3.2 (re-enable singleflight).</p></div>
+  <div class="card"><h4>INC-5600 · Feature flag</h4>
+    <p><b>cart-api 5xx after a flag flip 5% → 100%.</b> No deploy in the window — the correlated
+    change is a <em>configuration</em> change, and the error signature exists only in the
+    flag-gated branch. “Not every correlated change is a deploy.”</p>
+    <p class="faint">Gate proposes: recycle the flag to 0% rollout.</p></div>
+  <div class="card"><h4>INC-5700 · TLS / Certificate</h4>
+    <p><b>auth-svc intermittent 503.</b> Partial failure (~40% of clients — those validating the
+    expiring intermediate), no change, no deploy, pods Ready. The rival “service outage” dies on
+    the partiality of the failure.</p>
+    <p class="faint">Gate proposes: renew the intermediate + re-push the TLS secret.</p></div>
+  <div class="card" style="border-style:dashed"><h4>…and the pattern</h4>
+    <p>Every scenario is a differential: <em>the obvious suspect</em> vs <em>the actual root</em>,
+    separated by one discriminating fact pattern the evidence turn must find. That is the doctrine
+    (“confirmation is Popperian, not vibes”) made executable — and each run ends with
+    <code>assert_replay_equivalent</code> and a byte-stable golden bundle.</p></div>
+</div>
+
+<p class="muted" style="font-size:14.5px">One nuance worth knowing: in the <em>batch</em> twins a
+security-sensitive fix (e.g. the firewall revert) is only ever <em>proposed</em> as a hypothesis
+update — the packaged batch scripts execute no writes. The interactive registry injects the
+matching <code>apply_remediation</code> WRITE call (<code>_with_gate</code>), so in a session every
+one of the eleven stops at the Approve / Refine / Deny card. The write path exists only where a
+human is present to answer for it.</p>
+
+<h2 id="ideas"><span class="n">07</span>UI actions &amp; future ideas — <span style="color:var(--amber)">ideation, not built</span></h2>
+<p class="lead">Everything above this section is executed, shipping behavior. Everything
+<em>below</em> is parked ideas — examples of where the substrate could go. None of it exists in
+the tree; where an idea leans on real machinery, the hook is named honestly, including whether that
+hook is wired today.</p>
+
+<div class="callout" style="border-left-color:var(--amber);background:rgba(251,191,36,.08)">
+<b>The line, drawn precisely — built today:</b> the Approve / Refine / Deny gate card
+(<code>gate_opened</code> payload: actions + hypothesis + evidence; decisions durable);
+the typed SSE event stream (<code>phase_started · reasoning · capability_call</code> — whose
+<code>outcome</code> field is the honesty axis — <code>graph_delta · hypotheses_delta ·
+gate_opened · gate_decision · session_state</code>); operator steer messages
+(<code>add_message</code> → journaled, fed into the next plan); durable persistence after every
+step and <b>read-only</b> reopen after a restart; the postmortem folded from the journal.
+<b>Not built:</b> everything carded below.</div>
+
+<div class="grid two">
+  <div class="card"><h4>💡 Blast-radius preview on the gate card</h4>
+    <p>Before approving, show “who breaks if this action goes wrong” — the impact set of the
+    target node. <b>Hook:</b> <code>graph/tools.py blast_radius()</code> is built and tested but
+    <em>not wired</em> to any production surface yet (P7 substrate); the gate payload would gain a
+    derived, read-only section.</p></div>
+  <div class="card"><h4>💡 Journal time-travel scrubber</h4>
+    <p>Drag a slider across seqs 1…N and watch the graph and ranked hypotheses at each instant.
+    <b>Hook:</b> <code>rebuild(journal)</code> already reproduces state from any phase-entry
+    prefix deterministically — the UI affordance is the missing piece.</p></div>
+  <div class="card"><h4>💡 Quarantine review queue</h4>
+    <p>A workbench view of every <code>x.&lt;source&gt;.&lt;native&gt;</code> spelling with its
+    repeat count, one click away from drafting the <code>DictEntry</code>/alias a human would add.
+    <b>Hook:</b> quarantine spellings are deterministic precisely so repeats count toward
+    promotion; today promotion is a hand edit of <code>domain/dictionary.py</code>.</p></div>
+  <div class="card"><h4>💡 What-if rerank sandbox</h4>
+    <p>Toggle a piece of evidence off (or a tunable up) and preview how the ranking would move —
+    without touching the run. <b>Hook:</b> belief scoring is a pure query-time function of
+    (record, graph, tunables); a sandboxed re-score writes nothing.</p></div>
+  <div class="card"><h4>💡 Refine templates per action</h4>
+    <p>Structured param forms on the gate card (e.g. target revision picker for a rollback)
+    instead of free-form param JSON. <b>Hook:</b> REFINE already merges operator params into the
+    write call; the schema for each action’s params is the unbuilt part.</p></div>
+  <div class="card"><h4>💡 Per-call approval tokens</h4>
+    <p>Bind one approval to exactly one write invocation (a <code>gate_id</code> → invocation
+    linkage), instead of one approve releasing every write call in the plan. <b>Hook:</b>
+    explicitly deferred engine work — the capability registry’s SCOPE NOTE names it; the journal
+    already records both sides.</p></div>
+  <div class="card"><h4>💡 Rival auto-suggest from priors</h4>
+    <p>When <code>similar_to</code> / <code>recurrence_of</code> edges land (as INC-4788/4790 did
+    here), surface “last time, the root was X” as a <em>candidate rival</em> for the planner —
+    a prior, never a verdict. <b>Hook:</b> the related-incident edges and the hypothesis grammar
+    exist; the suggestion surface does not.</p></div>
+  <div class="card"><h4>💡 Operator-authored evidence</h4>
+    <p>Let the human attach an observation (“I can see the queue is drained”) as a first-class
+    fact with <code>source=human</code> — weighed by the same arithmetic (reliability 0.8 by the
+    default map), never as an out-of-band note. <b>Hook:</b> the grammar and the per-source
+    reliability tunable already exist; today operator input reaches the run only as steer
+    messages.</p></div>
+</div>
+
+<footer>
+  Rewritten 2026-07-22 against the live tree (P0–P6 + P8 landed; P7 substrate begun). Continue:
+  <a href="05-capability-integration.html" style="color:var(--accent)">05 · Capability
+  Integration</a> — the gate-first boundary, ten adapters, transports, and outcome honesty.
+</footer>
+</div>
+</body>
+</html>

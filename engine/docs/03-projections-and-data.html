@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — 03 · Projections &amp; Data</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a21;--panel2:#1c212b;--border:#2a3140;--text:#e6e9ef;--muted:#9aa4b2;
+    --faint:#6b7482;--accent:#5b8cff;--accent-soft:#1a2540;--green:#4ade80;--amber:#fbbf24;
+    --red:#f87171;--violet:#a78bfa;--teal:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:light){:root{--bg:#f6f8fb;--panel:#fff;--panel2:#eef2f8;
+    --border:#dde3ec;--text:#1c2128;--muted:#54606f;--faint:#8a94a6;--accent:#2f6fed;
+    --accent-soft:#e9f0ff;--green:#15803d;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65;font-size:15.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  header.masthead{padding:56px 0 26px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:36px;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:66ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  nav.docnav a{font-size:13px;padding:6px 13px;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;background:var(--panel)}
+  nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  nav.docnav a:hover{color:var(--text)}
+  h2{font-size:25px;margin:54px 0 4px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:15px;margin-right:10px}
+  h3{font-size:17px;margin:28px 0 6px}
+  p{margin:12px 0} .lead{font-size:16.5px;color:var(--muted);max-width:70ch}
+  code{font-family:var(--mono);font-size:.87em;background:var(--panel2);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
+  pre code{background:none;border:none;padding:0}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:18px 0}
+  .grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:720px){.grid.two,.grid.three{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15px}.card p{margin:4px 0;font-size:14px;color:var(--muted)}
+  .plain{border-left:3px solid var(--teal);background:rgba(45,212,191,.07);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+  .plain b{color:var(--teal)}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14.5px}
+  .muted{color:var(--muted)}.faint{color:var(--faint)}
+  ul.tight{margin:8px 0;padding-left:22px}ul.tight li{margin:5px 0}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+  /* ── diagram primitives (self-contained, responsive) ── */
+  .diagram{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;margin:22px 0}
+  .diagram .cap{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:14px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .layer{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 16px;background:var(--panel2)}
+  .layer .tag{flex:0 0 130px;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  .layer .body{flex:1;font-size:14px}
+  .layer.eng{border-color:var(--accent);background:var(--accent-soft)}
+  .layer.eng .tag{color:var(--accent)}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+  .box{border:1px solid var(--border);border-radius:10px;padding:9px 13px;background:var(--panel);font-size:13px;text-align:center}
+  .box b{display:block;font-size:13.5px} .box small{color:var(--faint);font-size:11px;font-family:var(--mono)}
+  .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+  .box.write{border-color:var(--amber);background:rgba(251,191,36,.08)}
+  .arrow{color:var(--faint);font-size:18px;line-height:1}
+  .down{align-self:center;color:var(--faint);font-size:18px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* ── docs-set addition (2026-07-22 rewrite): tables — the code map etc. ── */
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);text-align:left}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Investigation Workbench · Engine Docs</div>
+  <h1>03 · Projections &amp; Data</h1>
+  <p class="sub">The three projections — <b>Graph · Journal · Hypothesis</b> — the single fold that
+  writes them, the one sequence space that orders them, replay as the proof of truth, and the
+  file-backed data layer that makes an investigation durable. Every signature, field and file name
+  on this page is real; open the source under <code>engine/src/iw_engine/</code> and find it.</p>
+  <nav class="docnav">
+    <a href="index.html">Index</a>
+    <a href="01-design-architecture.html">01 · Design &amp; Architecture</a>
+    <a href="02-data-model.html">02 · Data Model</a>
+    <a class="here" href="03-projections-and-data.html">03 · Projections &amp; Data</a>
+    <a href="04-incident-use-cases.html">04 · Incident Use-Cases</a>
+    <a href="05-capability-integration.html">05 · Capability Integration</a>
+  </nav>
+</header>
+
+<h2 id="plane"><span class="n">01</span>The data plane at a glance</h2>
+<p class="lead">Everything a run learns flows through one seam into three stores. The <b>Journal</b>
+(<code>journal/journal.py</code>) is the append-only, typed event log — the source of truth. The
+<b>Graph</b> (<code>graph/graph.py</code>) and the <b>Hypothesis</b> store
+(<code>hypothesis/store.py</code>) are <em>projections</em>: rebuildable caches of the journal,
+written only by <code>graph/fold.py&nbsp;apply_delta()</code>. That asymmetry is the whole design:
+if the projections burned down, <code>rebuild(journal)</code> reproduces them bit-for-bit
+(R-J1) — so nothing anywhere is allowed to depend on state the journal doesn’t carry.</p>
+
+<div class="plain">
+  <p style="margin:0"><b>Plain version.</b> The journal is the save file; the graph and the
+  hypothesis store are the loaded game. One function writes the loaded game, every write it makes
+  is recorded in the save file first-class, and reloading the save file always produces the same
+  game — byte for byte. Everything else on this page is the discipline that keeps that sentence
+  true.</p>
+</div>
+
+<div class="diagram">
+  <div class="cap">The data plane — one write seam, three projections, a derived read side</div>
+  <div class="pipe">
+    <div class="box"><b>Planner ops</b><small>PlanOutput.ops · 11-op grammar</small></div>
+    <div class="box"><b>Tool data ops</b><small>layer.serve() → AddAssertion</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>materialize()</b><small>graph/reducer.py · validate + canonicalize</small></div>
+    <span class="arrow">→</span>
+    <div class="box hl"><b>PhaseResult</b><small>the delta — 7 mutating lists + record fields</small></div>
+  </div>
+  <div class="down">↓</div>
+  <div class="pipe">
+    <div class="box write"><b>apply_delta() ×1</b><small>graph/fold.py · the ONLY writer</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>Graph</b><small>typed · bi-temporal</small></div>
+    <div class="box"><b>Hypothesis</b><small>earned belief · one ranked order</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>check_gate()</b><small>verdict gated on the updated store</small></div>
+    <span class="arrow">→</span>
+    <div class="box write"><b>append_phase()</b><small>full delta, one lock, one seq space</small></div>
+    <span class="arrow">→</span>
+    <div class="box hl"><b>Journal</b><small>append-only · SOURCE OF TRUTH</small></div>
+  </div>
+  <div class="down">↓</div>
+  <div class="pipe">
+    <div class="box"><b>PlanContext</b><small>render_slice() + ranked() w/ earned scores</small></div>
+    <div class="box"><b>export_bundle</b><small>"graph" · "hypotheses" · "journal"</small></div>
+    <div class="box"><b>SSE events</b><small>graph_delta · hypotheses_delta</small></div>
+    <div class="box"><b>postmortem</b><small>folded from journal + store</small></div>
+    <div class="box hl"><b>rebuild(journal)</b><small>the same projections, bit-for-bit</small></div>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--amber)"></span> a write path (fold / journal append)</span>
+    <span><span class="dot" style="background:var(--accent)"></span> the delta and the truth it lands in</span>
+    <span><span class="dot" style="background:var(--panel2);border:1px solid var(--border)"></span> derived read side — computed, never authored</span>
+  </div>
+</div>
+
+<div class="callout"><b>On the name “Ledger.”</b> The hypothesis store was renamed from
+<code>ledger/</code> (owner directive, 2026-07-22: <em>“remove ledger, that is what journal is
+for”</em>). The append-only <b>journal is the ledger of record</b>; the hypothesis store is a
+mutable key→state projection beside the graph. The bundle key is <code>"hypotheses"</code>, the
+SSE event is <code>hypotheses_delta</code>, and “Ledger” as a projection name is retired — the
+three projections are <b>Graph · Journal · Hypothesis</b>, always.</div>
+
+<h2 id="graph"><span class="n">02</span>Graph — the typed, bi-temporal projection</h2>
+<p class="lead">The graph is the model of the system under investigation: typed nodes and edges
+from the closed registry (43 node types · 36 edge types — see
+<a href="02-data-model.html" style="color:var(--accent)">02 · Data Model</a>), carrying
+assertions in the <b>Entity-Assertion model</b>. Since the P6 store-flip there is exactly
+<b>one</b> assertion collection; facts, events and node props are read <em>views</em> over it.</p>
+
+<pre><code># graph/graph.py — the store, verbatim fields
+class Graph:
+    def __init__(self) -&gt; None:
+        self._g = nx.MultiDiGraph()               # traversal spine (node ids + edge keys)
+        self.nodes: dict[str, Node] = {}
+        self.edges: dict[str, Edge] = {}
+        # THE one assertion collection (P6 store-flip) — facts, events and node-prop
+        # declarations all live here; `facts`/`events` are cached read views over it.
+        self.assertions: dict[str, Assertion] = {}
+        self._rev = 0                             # mutation generation — invalidates the views
+        self._facts_cache:  tuple[int, dict[str, Fact]]  = (-1, {})
+        self._events_cache: tuple[int, dict[str, Event]] = (-1, {})
+        self.alias_index: dict[str, str] = {}     # "scheme:id" → node id — first binding wins
+        self.id_remaps:   dict[str, str] = {}     # old id → canonical — chain-compressed, persisted</code></pre>
+
+<div class="diagram">
+  <div class="cap">One collection, three views — and the write rail that feeds it</div>
+  <div class="pipe">
+    <div class="box hl"><b>Graph.assertions</b><small>dict[str, Assertion] · the ONE collection</small></div>
+  </div>
+  <div class="down">↓ &nbsp;read views, cached per <code>_rev</code> mutation generation</div>
+  <div class="pipe">
+    <div class="box"><b>facts view</b><small>species ≠ EVENT ∧ channel ≠ DECLARED</small></div>
+    <div class="box"><b>events view</b><small>species = EVENT</small></div>
+    <div class="box"><b>props view</b><small>channel = DECLARED · id prop:&lt;node&gt;:&lt;key&gt;</small></div>
+  </div>
+  <div class="pipe">
+    <div class="box"><b>shim converters</b><small>assertion_of_fact ⇄ fact_of_assertion · assertion_of_event ⇄ event_of_assertion — exact inverses (domain/shim.py)</small></div>
+  </div>
+  <div class="down">↑ &nbsp;writes</div>
+  <div class="pipe">
+    <div class="box write"><b>mutators</b><small>upsert_node · _declare_prop · add_fact · add_event · add_edge · retract_fact/event/edge · remap_id</small></div>
+    <span class="arrow">←</span>
+    <div class="box write"><b>callers: graph/fold.py only</b><small>zero callers elsewhere in src/ — grep-verified</small></div>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--accent)"></span> persisted state (<code>to_dict</code> stores only nodes · edges · assertions · remaps)</span>
+    <span><span class="dot" style="background:var(--amber)"></span> fold-only write surface</span>
+  </div>
+</div>
+
+<p>The view discriminator is two predicates, not two stores: the <b>facts</b> property returns
+every assertion with <code>species is not Species.EVENT and channel is not Channel.DECLARED</code>
+(observed knowledge), <b>events</b> returns <code>species is Species.EVENT</code> (occurrences),
+and a node’s props are its <code>channel = DECLARED</code> assertions flattened to
+<code>{name: value}</code> — <code>Node.props</code> is a materialized read view rebuilt on every
+upsert, never dual-authored. Because <code>channel_for_source()</code> never returns DECLARED, a
+converted fact can never leak into the props view. <code>to_dict()</code> persists only the
+<code>assertions</code> list — <em>“no dual write to drift”</em> — and the shim pairs are exact
+inverses, which is why the goldens stayed byte-identical across the store-flip.</p>
+
+<h3>Bi-temporal, and never mutated</h3>
+<div class="grid two">
+  <div class="card"><h4>Two time axes</h4><p><b>Valid time</b>: <code>valid_from / valid_to</code>
+    — the window a state was true (open window = still true). <b>Observation time</b>:
+    <code>observed_at</code> — when a source reported it (<code>occurred_at</code> for events).
+    The species fix the shape: identity carries no time, readings carry
+    <code>stat + window</code>, events carry <code>occurred_at</code>
+    (<code>domain/assertion.py&nbsp;_time_shape</code>).</p></div>
+  <div class="card"><h4>Supersede, don’t overwrite (R-G5)</h4><p>A newer value closes the prior
+    open fact: <code>add_fact</code> sets the old assertion’s <code>valid_to</code> and state
+    <code>SUPERSEDED</code>. A back-dated correction is <b>clamped</b> —
+    <code>closed_at = max(new.valid_from, old.valid_from)</code>, a zero-length window — never
+    rejected, because <code>add_fact</code> is the shared live-fold <em>and</em> replay seam with
+    no rejection channel: raising here could brick crash-resume replay of a journal already
+    written.</p></div>
+  <div class="card"><h4>Retract, don’t delete (R-J3)</h4><p><code>retract_fact(fact_id)</code>
+    flips state to <code>RETRACTED</code> — a tombstone, the record survives. The Fact model
+    carries no <code>invalidated_by</code>; the cause of a fact’s retraction lives in the
+    journaled <code>Retraction</code> record. <code>retract_event</code> /
+    <code>retract_edge</code> do carry <code>invalidated_by</code> (and the edge closes its
+    window).</p></div>
+  <div class="card"><h4>Point-in-time (INV-5)</h4><p><code>facts_valid_at(ts)</code> answers
+    “what was true at <em>ts</em>” with a half-open window test
+    <code>valid_from ≤ ts &lt; valid_to</code>. SUPERSEDED facts are <b>included</b> — a
+    superseded fact is still the truth for every instant inside its now-closed window; only
+    RETRACTED is excluded. Excluding superseded facts broke as-of-incident-start reconstruction
+    the moment anything was superseded (2026-07-22 review, finding 1).</p></div>
+</div>
+
+<h3>The governed spine, and identity that never re-keys</h3>
+<p><code>structural_distances(anchor)</code> is the graph’s one belief-facing traversal: an
+<b>undirected, level-order BFS over ACTIVE edges whose origin is not INFERRED, never entering a
+HYPOTHESIS node</b>. Topological specificity (§04) must come from <em>observed</em> structure —
+a hypothesis’s own CAUSED_BY claims can never shorten the distance of its own evidence. Level
+order makes hop counts independent of iteration order, so replay reproduces them exactly.</p>
+<p>Identity is write-once. When the reducer graduates an id (a provisional twin merges, a
+<code>generic_ci</code> retypes, an alias resolves), the fold applies <code>remap_id(old,
+new)</code>: the old id enters the chain-compressed <code>id_remaps</code> table
+(<em>resolvable forever</em>), DECLARED prop assertions re-key, one pass rewrites
+<code>subject_ref</code> — <b>fact and event ids never move</b>, so provenance ordering,
+supersession chains and hypothesis fact-id references stay byte-stable — edges are re-minted
+(their ids embed endpoints) with identical-edge collisions collapsing first-writer-wins, and the
+alias index rebinds. History re-homes; nothing orphans.</p>
+
+<h2 id="journal"><span class="n">03</span>Journal — the typed, append-only source of truth</h2>
+<p class="lead">One class, one file: <code>journal/journal.py</code>, <code>SCHEMA_VERSION = 2</code>.
+Everything that happens in a run — phases, tool calls, gate questions, human answers, operator
+messages, terminal outcomes — is one typed event log. Phase entries carry the <b>full
+<code>PhaseResult</code></b> as their <code>delta</code>; that is what makes replay possible and
+the journal the truth (R-J1).</p>
+
+<pre><code># journal/journal.py — the wire/record shape
+SCHEMA_VERSION = 2      # typed entry kinds + append-at-event one-seq (v1 read-only supported)
+
+class JournalEntry(BaseModel):
+    model_config = ConfigDict(extra="ignore")   # tolerant-additive: unknown FIELDS load;
+                                                # an unknown KIND still fails the Literal
+    seq: int = 0                      # 0 = unassigned — Journal.append stamps it
+    ts: datetime
+    kind: Literal["phase", "step", "invocation", "gate_opened", "gate_decision",
+                  "message", "rejection", "repair", "lifecycle"] = "phase"
+    phase_id: Phase | None = None
+    actor: str = "engine"             # WHO produced this entry (engine, or a human approver)
+    source: Source | None = None      # Source.HUMAN on a gate answer / operator message
+    intent: str | None = None
+    reasoning: str | None = None      # the narrative / thought
+    delta: PhaseResult | None = None  # FULL delta (phase entries) — enables replay
+    action: dict | None = None
+    observation: dict | None = None
+    decision: str | None = None
+    refs: dict = Field(default_factory=dict)  # derived index: {nodes, edges, facts, events, hypotheses}</code></pre>
+
+<p>Tolerance is <em>envelope-only</em>: <code>extra="ignore"</code> means an additive field on a
+future v2 line still loads, but the nested <code>delta</code> is a <code>PhaseResult</code> with
+<code>extra="forbid"</code> — a delta-shape change requires a <code>schema_version</code> bump,
+by design. “Additive means fields, never semantics.”</p>
+
+<h3>The nine typed kinds</h3>
+<div style="overflow-x:auto">
+<table>
+  <thead><tr><th>kind</th><th>what it records</th><th>producer (the only construction sites)</th><th>replay</th></tr></thead>
+  <tbody>
+  <tr><td><code>phase</code></td><td>the full <code>PhaseResult</code> delta + narrative + a derived
+      <code>refs</code> id index</td><td><code>Journal.append_phase</code> ←
+      <code>Engine._run_phase</code> (and <code>fold()</code>)</td>
+      <td><b style="color:var(--accent)">STATE</b> — replayed</td></tr>
+  <tr><td><code>invocation</code></td><td>one capability call’s boundary outcome —
+      <code>data · empty · error · blocked</code> — with full params, effect, op_count;
+      <b>shares its phase’s seq</b> (an annotation, not a numbered step)</td>
+      <td>raw <code>JournalEntry(...)</code> in <code>Engine._journal_invocation</code></td>
+      <td>record</td></tr>
+  <tr><td><code>gate_opened</code></td><td>what the human was <em>asked</em>: gate_id, proposed
+      actions, the serving hypothesis + its evidence fact ids</td>
+      <td><code>append_gate_opened</code> ← <code>InvestigationSession._open_gate</code></td>
+      <td>record</td></tr>
+  <tr><td><code>gate_decision</code></td><td>the consent record: approve · refine · deny, actor,
+      <code>source=human</code></td>
+      <td><code>append_gate_decision</code> ← <code>_record_gate_decision</code></td>
+      <td>record</td></tr>
+  <tr><td><code>message</code></td><td>an operator steer/answer
+      (<code>action.kind ∈ steer|answer</code>)</td>
+      <td><code>append_message</code> ← <code>InvestigationSession.add_message</code></td>
+      <td>record</td></tr>
+  <tr><td><code>lifecycle</code></td><td>how the run stopped. Writers exist for exactly
+      <code>closed</code> · <code>max_steps_exhausted</code> · <code>error</code>
+      (the docstring also names started/resumed — no writer yet)</td>
+      <td><code>append_lifecycle</code> ← session <code>_close</code> / <code>_exhaust</code> /
+      dead-drive path</td><td>record</td></tr>
+  <tr><td><code>rejection</code></td><td>declared for a rejection <em>outside</em> a phase delta —
+      <b>no writer today</b>; in-delta rejections ride <code>PhaseResult.rejections</code>
+      (derived, not duplicated)</td><td>—</td><td>record</td></tr>
+  <tr><td><code>repair</code></td><td>declared for planner repairs — <b>no writer today</b>; live
+      repairs stay memory-only on <code>LivePlanner.repairs</code></td><td>—</td><td>record</td></tr>
+  <tr><td><code>step</code></td><td>the v1 union of gate_decision + message — accepted
+      read-only</td><td>v1 files only</td><td>record</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>One seq space, append-at-event</h3>
+<pre><code>def reserve_seq(self) -&gt; int:            # the engine claims its phase seq HERE — after
+    with self._lock:                     # plan() returned, past the suspension point,
+        self._seq += 1                   # because materialized records stamp created_by
+        return self._seq                 # before the phase entry can be appended
+
+def append(self, entry: JournalEntry) -&gt; JournalEntry:
+    with self._lock:
+        if entry.seq &lt;= 0:               # append-at-event: unassigned entries are numbered
+            self._seq += 1               # here, under the ONE lock (the background-drive
+            entry.seq = self._seq        # duplicate-seq race closes)
+        else:                            # a claimed seq — a phase, or its shared-seq
+            self._seq = max(self._seq, entry.seq)   # invocation annotations — is accepted
+        self.entries.append(entry)                  # as-is and advances the watermark
+    return entry</code></pre>
+
+<div class="diagram">
+  <div class="cap">One seq space through a write gate — the suspension burns nothing</div>
+  <div class="pipe">
+    <div class="box"><b>seq 12 · invocation</b><small>bt_health → data · shares its phase’s seq</small></div>
+    <div class="box hl"><b>seq 12 · phase</b><small>investigate · FULL delta — STATE</small></div>
+    <div class="box"><b>seq 13 · gate_opened</b><small>proposed apply_remediation + evidence</small></div>
+    <div class="box" style="border-style:dashed"><b>… suspended …</b><small>_GateSuspend — NO seq claimed, nothing applied</small></div>
+    <div class="box"><b>seq 14 · gate_decision</b><small>approve · actor=operator · source=human</small></div>
+    <div class="box write"><b>seq 15 · invocation</b><small>apply_remediation → data · the executed write</small></div>
+    <div class="box hl"><b>seq 15 · phase</b><small>remediate · FULL delta — STATE</small></div>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--accent)"></span> STATE — replayed by <code>rebuild()</code></span>
+    <span><span class="dot" style="background:var(--panel2);border:1px solid var(--border)"></span> record — durable, replay-inert</span>
+    <span><span class="dot" style="background:var(--amber)"></span> the approved write’s durable trace</span>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">Append order, not seq order: an
+  invocation annotation with seq N precedes its phase entry with the same N (the bundle sorts by
+  seq when it needs seq order). The sequence 12·13·14·15 is gap-free — question, answer,
+  execution — proven by <code>test_gate_flow_burns_no_seq</code>: “the journal proves consent
+  <em>and</em> execution.”</p>
+</div>
+
+<div class="callout"><b>Today in code — the phase ids above.</b> The shipped
+<code>playbooks/incident.yaml</code> still declares seven phase ids — frame, triage, hypothesize,
+investigate, remediate, verify, close — and <code>Phase</code> is still an engine enum. They
+collapse onto the model in <a href="01-design-architecture.html" style="color:var(--accent)">01</a>:
+frame → the investigate-loop (hypothesize ⇄ evidence ⇄ refute) → gated ACT → verify → close;
+triage dissolves into frame and the loop’s first turns, and remediate <em>is</em> the gated ACT
+(the only <code>writes_allowed: true</code> phase). The <code>Phase</code> enum leaving the engine
+is the P7 step now settling — examples on this page use today’s declared ids.</div>
+
+<h3>The wire — NDJSON, versioned, crash-shaped</h3>
+<pre><code>{"schema_version": 2}
+{"seq": 1, "ts": "2026-07-19T14:00:05+00:00", "kind": "phase", "phase_id": "frame",
+ "actor": "engine", "reasoning": "Anchored the anomaly…", "delta": { …full PhaseResult… },
+ "refs": {"nodes": ["anomaly:a-4821", …], "edges": […], "facts": […], "events": […], "hypotheses": []}}
+{"seq": 4, "ts": "…", "kind": "invocation", "phase_id": "investigate", "intent": "bt_health",
+ "action": {"capability": "bt_health", "provider": "appd", "params": {…}, "effect": "read"},
+ "observation": {"outcome": "data", "reason": null, "blocked": false, "op_count": 9},
+ "decision": "data"}
+<span class="faint"># abridged for width — real lines are complete model_dump_json dumps (None fields included)</span></code></pre>
+
+<ul class="tight">
+  <li><b>Header validated on load.</b> <code>from_ndjson</code> refuses a non-int or
+    <em>future</em> <code>schema_version</code> loudly — “misreading a future journal would
+    corrupt the source of truth.” Version 1 loads read-only; a headerless file is accepted.</li>
+  <li><b>Tail-only tolerance.</b> An unparseable line is skipped only when it is the trailing
+    line (a crash mid-append leaves at most one torn tail — appends are fsync’d);
+    <b>mid-file corruption raises</b> — silently dropping an interior entry would corrupt the
+    truth.</li>
+  <li><b>Watermark restore.</b> After load, <code>_seq = max(surviving seqs)</code>: a truncated
+    tail entry’s seq is re-issued, a clean roundtrip resumes after the last entry, and v1
+    reserve-era gaps are preserved, never compacted.</li>
+  <li><b>Who reads what.</b> <code>rebuild()</code> consumes <code>phase_entries()</code> only.
+    The bundle’s <code>"journal"</code> view (<code>api/bundle.py</code>) is seq-sorted and
+    filtered to phase entries plus <code>step · gate_decision · message</code> — invocation,
+    gate_opened and lifecycle are record kinds excluded from that view so batch goldens stay
+    byte-stable. The postmortem narrative is <code>phase_entries()</code>’ seq + phase +
+    reasoning.</li>
+  <li><b>Code over design.</b> <code>kind</code> still defaults to <code>"phase"</code> (the
+    design said “kind never defaults”); <code>refs</code> and the narrative duplication are still
+    <em>stored</em> (the design wanted them recomputed on read); <code>rejection</code> /
+    <code>repair</code> have no writers. The code is the truth; these pages follow it.</li>
+</ul>
+
+<h2 id="hypothesis"><span class="n">04</span>Hypothesis — earned belief, ranked once</h2>
+<p class="lead">The hypothesis store is a projection of the
+<code>PhaseResult.hypotheses_updated</code> stream: competing causal explanations, each carrying
+its <em>own</em> refuting evidence (anti-confirmation-bias), ranked in exactly one order that the
+planner and the UI both consume. Belief is <b>earned</b>: the number the engine ranks and promotes
+on is computed from graph evidence — the model’s band survives only as the prior and as the
+<code>Confidence.basis</code> text.</p>
+
+<pre><code># hypothesis/store.py — the ranking key and the terminal wall
+_STATUS_RANK = {CONFIRMED: 5, SUPPORTED: 4, INVESTIGATING: 3, PROPOSED: 2, REFUTED: 0, SUPERSEDED: -1}
+_TERMINAL   = frozenset({REFUTED, CONFIRMED, SUPERSEDED})   # a reached verdict is indestructible
+
+def _key(self, h):  return (_STATUS_RANK.get(h.status, 1), self.score(h))
+def ranked(self):   return sorted(self.hypotheses.values(), key=self._key, reverse=True)
+def score(self, h): # unbound → the raw LLM band; bound → belief.weighted_score(h, graph, tunables)</code></pre>
+
+<div class="grid two">
+  <div class="card"><h4>apply() — CREATE never destroys</h4><p>First CREATE of a hid inserts
+    (stamping <code>created_by=seq</code>). Re-CREATE of a <b>live</b> hid is a merge-update:
+    statement/confidence refresh, evidence lists grow by sorted set-union, the chain appends,
+    status and <code>created_by</code> are preserved. Re-CREATE of a <b>terminal</b> hid
+    (REFUTED / CONFIRMED / SUPERSEDED) is a silent no-op — a live planner re-proposing the same
+    id in a repeat loop can never silently resurrect a refuted rival (Track-4 #1).</p></div>
+  <div class="card"><h4>One ranked order, two consumers</h4><p><code>ranked()</code> — status
+    rank, then earned score, insertion-stable — feeds exactly two places:
+    <code>PlanContext.hypotheses</code> (the planner sees <code>confidence:
+    store.score(h)</code>, the engine-earned number, not its own band) and
+    <code>export_bundle</code>’s <code>"hypotheses"</code> array. Refuted hypotheses stay
+    ranked-but-kept — they are evidence; the store has no deletion path at all.</p></div>
+</div>
+
+<h3>The belief arithmetic — <code>hypothesis/belief.py</code></h3>
+<pre><code>w(fact)  =  reliability × temporal_proximity × topological_specificity
+
+score(h) =  round(  (prior_weight·band + Σ w(supporting))
+                    ─────────────────────────────────────────────  , 4)
+                    prior_weight + Σ w(supporting) + Σ w(refuting)</code></pre>
+
+<div class="diagram">
+  <div class="cap">Earned belief — three factors into the blend, the blend into the gate</div>
+  <div class="pipe">
+    <div class="box"><b>Fact</b><small>one addressable evidence unit</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>reliability</b><small>its own channel: source_reliability | confidence.value</small></div>
+    <div class="box"><b>× temporal proximity</b><small>flat 1.0 inside the combined skew window (R-J2) · 0.5^(excess/halflife) beyond</small></div>
+    <div class="box"><b>× topological specificity</b><small>decay^hops over the governed spine · floor 0.25 · no anchor yet ⇒ neutral</small></div>
+    <span class="arrow">→</span>
+    <div class="box hl"><b>w</b><small>RETRACTED ⇒ 0 · SUPERSEDED still weighs</small></div>
+  </div>
+  <div class="down">↓</div>
+  <div class="pipe">
+    <div class="box hl"><b>weighted_score()</b><small>band enters as a prior of mass prior_weight = 1.0 · no evidence ⇒ exactly the band</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>promotion_ok(tunables)</b><small>INV-8 — the ENGINE’s decision</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>earned ≥ confidence_gate 0.8</b><small>∧ zero alive unrefuted rivals ∧ delta 0.15 floor</small></div>
+    <span class="arrow">→</span>
+    <div class="box write"><b>ADVANCE honored</b><small>else downgraded to REPEAT + gate_reason</small></div>
+  </div>
+</div>
+
+<pre><code># hypothesis/store.py — promotion, verbatim shape (INV-8)
+def promotion_ok(self, tunables: Tunables) -&gt; bool:
+    alive = self.alive()                    # ranked, minus REFUTED + SUPERSEDED
+    if not alive:
+        return False
+    lead = alive[0]
+    if self.score(lead) &lt; tunables.confidence_gate:   # the EARNED score, never the band
+        return False
+    rivals = alive[1:]                      # ALL alive unrefuted rivals block — no band filter
+    if rivals:
+        return False
+    runner = self.score(alive[1]) if len(alive) &gt; 1 else 0.0
+    return (self.score(lead) - runner) &gt;= tunables.delta</code></pre>
+
+<p>Read the code truth precisely: because <em>any</em> alive rival already returns False, the
+runner-up expression only ever executes when the leader stands alone — <code>runner</code> is
+always <code>0.0</code>, so <code>delta</code> acts as a second absolute <b>floor</b> on a sole
+leader, not a live margin race (the docstring’s “beats the runner-up” phrasing predates the
+strengthened rival rule). This is Popperian on purpose: an unrefuted 0.75 rival under a 0.8 gate
+still blocks — rivals must be <em>refuted</em>, not out-scored. Enforcement lives in
+<code>runtime/controller.py&nbsp;check_gate</code>: only a proposed ADVANCE is gated,
+<code>require_confidence_gate ⇒ store.promotion_ok(tunables)</code>, and an LLM-set CONFIRMED
+status grants no bypass. Both directions are pinned by tests: a 0.9-band leader dragged under the
+gate by refuting evidence stays blocked; a 0.6-band leader with strong support earns its way
+over.</p>
+
+<div class="callout"><b>Evidence edges are derived, only.</b> The canonical evidence record is
+<code>Hypothesis.supporting_facts / refuting_facts</code> — fact-id lists. The graph’s
+SUPPORTS/REFUTES edges are a projection recomputed inside the fold
+(<code>_project_evidence_edges</code>): stale edges whose backing fact left the list are
+tombstoned <em>first</em> (sorted edge-id order, <code>invalidated_by=h.id</code>), then backed
+edges are re-asserted idempotently — a previously retracted edge revives if its fact returns. The
+reducer independently rejects planner-emitted SUPPORTS/REFUTES (<code>EdgeSpec.derived=True</code>),
+so the graph view can never disagree with the store.</div>
+
+<h2 id="fold"><span class="n">05</span>The fold — <code>apply_delta</code>, the one writer</h2>
+<p class="lead">One function owns every mutation of Graph + Hypothesis. Its in-delta order is not
+style — it is the replay contract: the same journal must always produce the same projections.</p>
+
+<pre><code># graph/fold.py — THE single graph+hypothesis-store mutation seam
+def apply_delta(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore) -&gt; None:
+    _apply_to_graph(result, graph)              # nodes → facts → events → edges →
+                                                #   retractions → remaps LAST
+    store.apply(result.hypotheses_updated, seq)
+    touched: list[str] = []                     # dedup in delta order — never a set:
+    for d in result.hypotheses_updated:         # iteration order must be deterministic
+        hid = d.hypothesis.id if d.hypothesis else d.hypothesis_id
+        if hid and hid not in touched:
+            touched.append(hid)
+    for hid in touched:
+        h = store.hypotheses.get(hid)
+        if h is not None:
+            _project_evidence_edges(h, seq, graph)   # SUPPORTS/REFUTES, fully reconciled
+
+def fold(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore,
+         journal: Journal) -&gt; None:
+    apply_delta(result, seq, graph, store)
+    journal.append_phase(seq, result)</code></pre>
+
+<div class="diagram">
+  <div class="cap">Inside apply_delta — the fixed order, and why each step sits where it does</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">1 · nodes</span><span class="body"><code>graph.upsert_node(n)</code>
+      — nodes first: facts and edges reference node ids. Every prop lands as a DECLARED assertion
+      (<code>prop:&lt;node&gt;:&lt;key&gt;</code>) with no wall-clock stamp, so replay mints
+      byte-identical declarations.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">2 · facts</span><span class="body"><code>graph.add_fact(f)</code>
+      — supersession closes the prior open same-name fact (clamped window, §02); the new
+      assertion enters the one collection.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">3 · events</span><span class="body"><code>graph.add_event(e)</code>
+      — occurrences, including reducer-derived transition events riding the same delta.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">4 · edges</span><span class="body"><code>graph.add_edge(e)</code>
+      — idempotent by id (edge ids embed type, endpoints, origin).</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">5 · retract</span><span class="body">retractions apply
+      <em>after</em> additions — a tombstone names the id its author saw. Dispatch is by view
+      membership (<code>graph.facts</code> / <code>.events</code> / <code>.edges</code> — the id
+      namespaces are disjoint); an id in no store is a <b>no-op</b>: the reducer validated it, and
+      replay must never crash on a shape it already accepted.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">6 · remaps LAST</span><span class="body"><code>graph.remap_id(old,
+      new)</code> — identity graduations rewrite references over the delta’s now-applied additions
+      <em>and</em> retractions: ops were authored against pre-batch ids, hence
+      retract-then-remap.</span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">7 · store</span><span class="body"><code>store.apply(result.hypotheses_updated,
+      seq)</code> — CREATE-merge / terminal-indestructible semantics (§04); every record stamps
+      <code>created_by</code>/<code>updated_by</code> with this seq — lineage.</span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">8 · project</span><span class="body"><code>_project_evidence_edges(h,
+      seq, graph)</code> per touched hypothesis, deduped in delta order — retract-stale-first in
+      sorted-edge-id order, then re-assert. Runs <em>inside</em> the seam so replay reproduces it
+      bit-for-bit.</span></div>
+  </div>
+</div>
+
+<p><b>The monopoly is verifiable, not aspirational:</b> no caller of <code>upsert_node / add_fact /
+add_event / add_edge / retract_* / remap_id</code> exists outside <code>graph/graph.py</code> +
+<code>graph/fold.py</code> anywhere in <code>src/iw_engine</code> (grep-verified, 2026-07-22).
+<code>HypothesisStore.apply</code> has exactly two callers: <code>fold.apply_delta</code> and one
+sanctioned side door — <code>InvestigationStore.load_result</code>’s cache-hit branch, which
+replays hypothesis deltas directly while the graph is served from the watermark-verified cache
+(§08); the graph is untouched on that branch.</p>
+
+<p><b>Why <code>fold()</code> exists but the engine doesn’t call it:</b> journaling is kept
+separate from applying so an interactive write-gate can hold a computed-but-unapplied delta
+pending human approval. The production engine inlines the pair around the gate —
+<code>apply_delta(…)</code>, then <code>check_gate</code> + the repeat cap, then swaps only the
+verdict via <code>model_copy</code>, then <code>journal.append_phase(seq, result)</code> — so the
+<em>journaled</em> verdict is the <em>gated</em> one. Replay equivalence holds because the verdict
+is a controller field that folds into no projection.</p>
+
+<h2 id="sequence"><span class="n">06</span>One phase through the data plane</h2>
+<p class="lead">Every phase — batch or interactive, scripted or live — runs the same six-verb
+loop. Doc <a href="01-design-architecture.html" style="color:var(--accent)">01</a> traces the
+orchestration; here is the same pass seen from the data plane: what is claimed, what is written,
+and when.</p>
+
+<div class="diagram">
+  <div class="cap">The canonical order (real names)</div>
+  <div class="pipe">
+    <div class="box hl"><b>plan</b><small>planner.plan(PlanContext)</small></div><span class="arrow">→</span>
+    <div class="box"><b>reduce</b><small>materialize(…)</small></div><span class="arrow">→</span>
+    <div class="box write"><b>fold</b><small>apply_delta(…) ×1</small></div><span class="arrow">→</span>
+    <div class="box"><b>gate</b><small>check_gate(…)</small></div><span class="arrow">→</span>
+    <div class="box write"><b>journal</b><small>append_phase(seq, result)</small></div><span class="arrow">→</span>
+    <div class="box"><b>route</b><small>next_phase(spec, gated)</small></div>
+  </div>
+</div>
+
+<div class="diagram">
+  <div class="cap">Sequence of one phase — runtime/engine.py _run_phase, data-plane lens</div>
+  <div class="stack">
+    <div class="layer eng"><span class="tag">plan</span><span class="body">
+      <code>plan = planner.plan(PlanContext(subject, phase, phase_spec, goal,
+      graph_view=render_slice(graph, anomaly_ref), hypotheses=ranked()+scores, tunables,
+      gate_feedback, rejections, correlations))</code> → <code>PlanOutput</code>. The <b>only
+      suspension point</b>: in a session, <code>_GatePlanner</code> raises
+      <code>_GateSuspend</code> from inside <code>plan()</code>. Journal so far: <b>nothing</b>.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">claim</span><span class="body">
+      <code>seq = journal.reserve_seq()</code> — claimed <em>after</em> <code>plan()</code>
+      returned (a suspended gate burns nothing), <em>before</em> materialization (every record
+      stamps <code>created_by=seq</code>).</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">expand</span><span class="body">per call:
+      <code>ops_i, inv = layer.serve(call, allow_write=spec.writes_allowed)</code> — gate-first;
+      a blocked write returns before any fetch. <b>Every</b> call is journaled as
+      <code>kind="invocation"</code> <em>sharing this seq</em>, outcome
+      <code>data · empty · error · blocked</code>; the engine keeps the <em>last</em> outcome per
+      intent, and intents whose last call errored/was blocked feed
+      <code>no_weight_intents</code>.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">reduce</span><span class="body">
+      <code>ops = (data_ops + plan.ops)[:op_ceiling]</code> — tool ops first, planner ops after
+      (a large tool payload can evict trailing planner ops; flagged, deliberate). Then
+      <code>mat = materialize(ops, seq, graph, tunables, anomaly_ref=…,
+      no_weight_intents=…)</code>: canonicalize, validate, quarantine — partial-accept, each
+      illegal op a <code>Rejection</code>. A <code>NoEvidence</code> op naming a no-weight intent
+      is rejected — an error observed nothing; only a clean-empty read becomes the honest null
+      fact <code>no_evidence:&lt;intent&gt;</code> (R-P2). First node of type
+      <code>playbook.symptom_node</code> is captured as <code>anomaly_ref</code>.</span></div>
+    <div class="down">↓</div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">fold ×1</span><span class="body">
+      <code>result = PhaseResult(facts_added=mat.facts, …, retractions=mat.retractions,
+      remaps=mat.remaps, rejections=mat.rejections)</code> →
+      <code>apply_delta(result, seq, graph, hypothesis_store)</code> — <b>fold before gate</b>,
+      so the gate judges the <em>updated</em> store (this phase’s own hypothesis deltas count
+      toward promotion and refutation).</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">gate</span><span class="body">
+      <code>gated = check_gate(spec, result, store, tunables)</code> — only ADVANCE is gated;
+      first failure wins (<code>produces_required</code> → <code>min_facts</code> →
+      <code>promotion_ok</code> (INV-8) → <code>require_refutation</code>), downgrading to REPEAT
+      with the exact <code>gate_reason</code>. The repeat cap
+      (<code>tunables.max_retries</code>) then forces ADVANCE after too many consecutive REPEATs
+      when an advance route exists — reason suffixed
+      “[repeat cap reached — forced advance]”.</span></div>
+    <div class="down">↓</div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">journal</span><span class="body">
+      <code>result = result.model_copy(update={"verdict": gated})</code>;
+      <code>gate_feedback = gated.gate_reason</code> (fed to the next plan — R-K2’s bounded
+      repair loop, with <code>rejections</code>); <code>journal.append_phase(seq, result)</code>
+      — the <b>journaled delta equals the applied delta</b>, verdict included.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">route</span><span class="body">back in
+      <code>step()</code>: <code>next_phase(spec, result.verdict)</code> maps the <em>gated</em>
+      verdict through the playbook’s <code>on_verdict</code> table — the controller is the
+      routing authority (R-C1); <code>next_actions</code> is journaled advice, it never routes.
+      DONE → <code>None</code> ends the run; an unmapped REPEAT re-enters the same phase.</span></div>
+  </div>
+</div>
+
+<div class="grid two">
+  <div class="card"><h4>If the gate suspends (interactive)</h4><p>On a
+    <code>writes_allowed</code> phase whose plan carries a WRITE-effect call (per-intent:
+    <code>layer.effect_for(adapter, intent)</code>), <code>_GatePlanner</code> stashes the plan,
+    journals <code>gate_opened</code> — gate_id, proposed actions, the serving hypothesis and its
+    evidence fact ids: what the human was <em>asked</em>, durably — and raises
+    <code>_GateSuspend</code>. The step unwinds with <b>nothing</b>: no seq, no ops, no delta, no
+    phase entry.</p></div>
+  <div class="card"><h4>When the human answers</h4><p><code>answer_gate(approve | refine |
+    deny)</code> journals <code>gate_decision</code> (<code>source=human</code>, actor,
+    decision), then re-drives. The resume step gets the <em>cached decided plan</em> — the model
+    is never re-called: APPROVE serves the plan intact; REFINE merges operator params into the
+    write calls; DENY strips the writes and appends an <code>UpdateHypothesis</code> whose
+    <code>basis</code> records the denial — a genuinely divergent journal
+    (<code>test_session_deny_diverges</code>).</p></div>
+</div>
+
+<h2 id="replay"><span class="n">07</span>Replay — <code>rebuild()</code> and what counts as state</h2>
+<p class="lead">Replay is not a debugging trick; it is the load path, the crash-recovery path and
+the proof that the journal is the truth. One rule decides everything: <b>state is
+<code>kind == "phase"</code> entries with a delta; every other kind is record.</b></p>
+
+<pre><code># graph/fold.py — replay, verbatim
+def rebuild(journal: Journal, *, tunables=None) -&gt; tuple[Graph, HypothesisStore]:
+    """Replay the journal → (graph, hypothesis store). Must equal the live projections."""
+    graph, store = Graph(), HypothesisStore()
+    for entry in journal.phase_entries():        # kind == "phase" and delta is not None
+        apply_delta(entry.delta, entry.seq, graph, store)
+    if tunables is not None:
+        store.bind_scoring(graph, tunables)      # a replayed store RANKS as the live one did —
+    return graph, store                          # scoring is a pure query-time projection</code></pre>
+
+<div class="diagram">
+  <div class="cap">Replay — the same seam, driven from disk</div>
+  <div class="pipe">
+    <div class="box"><b>journal.ndjsonl</b><small>Journal.from_ndjson — versioned, tail-tolerant</small></div>
+    <span class="arrow">→</span>
+    <div class="box hl"><b>phase_entries()</b><small>STATE — the 8 other kinds are skipped</small></div>
+    <span class="arrow">→</span>
+    <div class="box write"><b>apply_delta × N</b><small>same seam, same order, same seqs</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>(Graph, HypothesisStore)</b><small>+ bind_scoring(tunables) → identical ranking</small></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">Equivalence is pinned end-to-end:
+  <code>test_fold_and_replay_equivalence</code> (<code>g2.to_dict() == g.to_dict()</code> +
+  store equality), the session approve <em>and</em> deny branches each replay to their own
+  journal’s graph, <code>test_rejections</code> (a rejection mutates no projection — rebuild
+  still equals live), and e2e <code>test_persistence</code> (the on-disk journal replays to the
+  live graph + ranked hypotheses).</p>
+</div>
+
+<h3>The determinism ledger — what keeps replay bit-for-bit</h3>
+<ul class="tight">
+  <li><b>Everything mutating rides the delta</b>: retractions, identity remaps, reducer-derived
+    transition events, rejections-as-record — nothing depends on engine memory.</li>
+  <li><b>Fixed fold order</b> (§05) — violate it and the same journal produces a different
+    graph.</li>
+  <li><b>Rejections are record, not state</b>: excluded from <code>is_empty_delta()</code> and
+    every gate floor; journaled with the phase; fed to the next plan. Counted as state, they
+    would inflate progress and move gates on replay-inert data.</li>
+  <li><b>List-dedup, never sets</b> for touched hypothesis ids; evidence lists stored sorted;
+    stale-edge retraction in sorted-id order; level-order BFS everywhere hop counts matter.</li>
+  <li><b>No wall clocks in state</b>: DECLARED prop declarations carry no
+    <code>observed_at</code>; invocation timing (<code>started_at / duration_ms</code>) lives
+    only on the in-memory <code>Invocation</code>, never in the journal or bundle — goldens stay
+    byte-deterministic.</li>
+  <li><b>Scores round to 4 decimals</b> and belief never crashes on untrusted time
+    (INV-7: a naive/aware datetime mix degrades a factor to neutral, never kills the fold).</li>
+</ul>
+<p>What breaks if the rule breaks: a record kind that mutated projections would double-apply on
+replay; a fold that read engine memory would make crash-resume diverge from the live run; either
+way R-J1 — “the journal is the source of truth” — becomes a lie, and every consumer built on it
+(reopen, bundle, postmortem, goldens) inherits the lie.</p>
+
+<h2 id="datalayer"><span class="n">08</span>The data layer — <code>InvestigationStore</code></h2>
+<p class="lead">One module owns every byte of investigation disk I/O:
+<code>runtime/store.py</code>. By owner directive it is a <b>simple, concrete file store</b> — no
+<code>StorageBackend</code> Protocol, no second implementation, files not a DB. The engine is
+pluggable exactly where pluggability pays — planner, tools, domain — and storage is deliberately
+not one of those seams. It is <em>contained</em> instead: save is <code>persist</code> /
+<code>reset</code>, load is <code>load_result</code>, reopen is <code>load_bundle</code>, list is
+<code>list_disk</code> / <code>has</code> — so a later DB swap is a one-module change.</p>
+
+<pre><code># the on-disk investigation — one directory per subject key
+engine/data/investigations/&lt;safe-key&gt;/        safe_key: [^A-Za-z0-9._-] → "_"
+│                                             ("app-incident:INC-4821" → app-incident_INC-4821)
+├── journal.ndjsonl    append-only NDJSON — THE durable truth
+│                      header {"schema_version": 2} written once; every append fsync'd;
+│                      a crash mid-append leaves at most ONE torn tail line (loader tolerates)
+├── graph.json         projection cache — atomic write→flush→fsync→os.replace, stamped
+│                      {"schema_version": 2, "journal_seq": &lt;head&gt;}   ← the WATERMARK
+└── meta.json          schema_version 1 · key · subject · state · outcome · close_outcome ·
+                       phases_run · tunables (the exact knobs the run scored under) ·
+                       created_at · updated_at                        (atomic rewrite)</code></pre>
+
+<pre><code># runtime/store.py — the whole public surface
+class InvestigationStore:
+    def has(self, key: str) -&gt; bool
+    def reset(self, key: str) -&gt; None                  # fresh session never appends onto a stale journal
+    def persist(self, subject: SubjectRef, engine, *, prior: int, state: str) -&gt; int
+    def load_result(self, key: str) -&gt; RunResult | None   # journal-authoritative reopen
+    def load_bundle(self, key: str) -&gt; dict | None        # export_bundle + read_only envelope
+    def list_disk(self) -&gt; list[dict]</code></pre>
+
+<p><code>persist()</code> runs after every fold/step, at gate open, on every operator message and
+at every terminal (the session’s <code>_persist()</code> cadence) — so disk is never more than
+one in-flight step behind. It appends <code>journal.entries[prior:]</code> with
+<code>flush + os.fsync</code>, computes <code>head = max(e.seq)</code>, writes
+<code>graph.json</code> stamped with that watermark, and atomically rewrites
+<code>meta.json</code>. <b>Why tunables ride in meta</b>: a disk reopen re-binds the rebuilt
+store’s belief arithmetic with <em>exactly</em> the knobs the run scored under, so the reopened
+bundle’s earned confidences equal the live ones field-for-field. The two crash models unify
+(R-J4): the journal is append-crash-tolerant; the caches are atomic-rewrite,
+disagreement-checked on load.</p>
+
+<div class="diagram">
+  <div class="cap">Reopen — journal-authoritative, cache-verified (load_result)</div>
+  <div class="pipe">
+    <div class="box hl"><b>read journal.ndjsonl</b><small>always — from_ndjson; a FUTURE schema_version refuses loudly</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>head = max(e.seq)</b><small>the journal’s watermark</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>graph.json journal_seq == head ?</b><small>missing · unreadable · stale · foreign-schema ⇒ no</small></div>
+  </div>
+  <div class="grid two" style="margin-top:12px">
+    <div class="card"><h4>Cache hit</h4><p>Serve the cached <code>Graph</code>; the hypothesis
+      store is <em>still</em> replayed from the journal’s phase deltas
+      (<code>store.apply(entry.delta.hypotheses_updated, entry.seq)</code> — graph-independent),
+      then <code>bind_scoring(graph, tunables-from-meta)</code>. The cache is an optimization,
+      never an alternate truth.</p></div>
+    <div class="card"><h4>Miss / stale / corrupt</h4><p><code>graph, store = rebuild(journal,
+      tunables)</code> — the §07 path — and the cache is <b>rewritten</b> (self-heal). A stale or
+      gutted <code>graph.json</code> can never poison a reopen; for any deeper doubt, delete it
+      and it is reprojected.</p></div>
+  </div>
+</div>
+
+<div class="grid two">
+  <div class="card"><h4>Restart-resume is a read, by design</h4><p>After a backend restart,
+    <code>SessionManager.reopen(id)</code> lazy-hydrates: memory hit → the live snapshot; miss →
+    <code>store.load_bundle(id)</code> — <code>export_bundle</code> of the disk-rebuilt run plus
+    <code>{read_only: true}</code>. Only <code>GET /sessions/{id}</code> uses it; advance / gate
+    / messages / events / stream go through memory-only <code>get()</code> and 404 — reopened
+    runs are served durably, not re-driven (continue-driving is out of scope). On reopen,
+    <code>RunResult.rejections / invocations</code> rehydrate empty as objects — the bundle
+    derives its rejections from the <em>journaled</em> deltas, so the list survives
+    anyway.</p></div>
+  <div class="card"><h4>No zombies — every stop is diagnosable</h4><p>Every terminal path writes
+    a <code>lifecycle</code> entry before the final persist: <code>closed</code> (with the
+    outcome), <code>max_steps_exhausted</code> (the P6 zombie fix — exhaustion used to leave
+    RUNNING forever with no trace), or <code>error</code> (a dead background drive). The session
+    closes, the SSE stream terminates, and the run stays reopenable read-only from disk. A fresh
+    session of the same id calls <code>reset()</code> first — a journal file never interleaves
+    two runs.</p></div>
+</div>
+
+<h2 id="p7loop"><span class="n">09</span>The reasoning loop — projections drive the planner (P7)</h2>
+<p class="lead">The owner’s P7 directive: <em>“projections drive reasoning, not
+fold-and-forget.”</em> The projections stop being write-only archives and become the planner’s
+working memory: a bounded, tiered view of the graph plus the ranked hypotheses decide the next
+probe; the probe expands the graph; the fold re-projects; repeat — until the evidence gate opens
+the human-gated ACT.</p>
+
+<div class="diagram">
+  <div class="cap">The loop — project → plan → expand → fold → project</div>
+  <div class="pipe">
+    <div class="box hl"><b>PROJECT</b><small>focus_slice(graph, anomaly_ref, budget) + ranked() + correlations</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>PLAN</b><small>next probe / hypothesis op — typed, 11-op grammar</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>EXPAND</b><small>layer.serve() → AddAssertion data ops · materialize()</small></div>
+    <span class="arrow">→</span>
+    <div class="box write"><b>FOLD</b><small>apply_delta() ×1 — projections update</small></div>
+    <span class="arrow">→</span>
+    <div class="box"><b>⟲ project again</b><small>until promotion_ok — then ACT ⚑ (human-gated) → verify → close</small></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">The loop is the middle of the phase
+  model — frame → investigate-loop (hypothesize ⇄ evidence ⇄ refute) → ACT ⚑ → verify → close;
+  today’s seven declared phase ids collapse onto it (see the caveat in §03).</p>
+</div>
+
+<h3>Today’s view vs the built substrate</h3>
+<p>What the engine feeds the planner <b>today</b> is
+<code>render_slice(graph, focus=None, *, max_nodes=40, max_facts_per_node=6)</code>
+(<code>graph/render.py</code>): the full graph capped at 40 nodes, the symptom ordered first so
+the cap can never drop it, <code>focus</code> a <b>highlight, never a filter</b> — collapsing to
+the focus neighbourhood starved the planner whenever the symptom was topologically isolated.
+Honest cap, no judgment.</p>
+<p>The P7 substrate is already in the tree — <b>built and tested, not yet wired</b>:
+<code>graph/tools.py</code> is consumed only by <code>tests/unit/test_graph_tools.py</code>, is
+absent from <code>graph/__init__.py</code> exports, and the engine still calls
+<code>render_slice</code>. Wiring it into <code>PlanContext</code> is the open P7 work.</p>
+
+<div style="overflow-x:auto">
+<table>
+  <thead><tr><th>tool</th><th>question it answers</th><th>discipline</th></tr></thead>
+  <tbody>
+  <tr><td><code>neighbours(graph, node_id, edge_types, direction)</code></td>
+      <td>who touches this node — one entry <em>per edge</em> (a declared DEPENDS_ON and a
+      discovered CALLS are both information)</td>
+      <td>sorted by (id, edge_type, direction); unknown id raises <code>KeyError</code></td></tr>
+  <tr><td><code>walk(graph, start, max_hops, …, max_nodes)</code></td>
+      <td>the bounded neighbourhood</td>
+      <td>level-order BFS, canonical tie-breaks, <code>truncated</code> flag on refusal</td></tr>
+  <tr><td><code>blast_radius(graph, node_id, …)</code></td>
+      <td>who breaks if it fails</td>
+      <td>direction-aware: dependency edges climb dst→src, containment (CONTAINS · EXPOSES)
+      descends src→dst — a node’s own providers are never in its blast radius</td></tr>
+  <tr><td><code>path(graph, src, dst, …)</code></td>
+      <td>how two nodes connect</td>
+      <td>shortest; id-ordered among equals; <code>found=False</code>, never an exception</td></tr>
+  <tr><td><code>focus_slice(graph, anomaly_ref, budget, *, max_facts_per_node=6,
+      frontier_hops=1)</code></td>
+      <td>the bounded reasoning view</td>
+      <td>tiered by investigative relevance; ~<code>budget</code> nodes regardless of graph
+      size; alone among the tools it degrades (focus-less) instead of raising — the view must
+      render before the symptom exists</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>All five share one uniform discipline: pure, read-only, deterministic (every list explicitly
+sorted — byte-stable under replay); they traverse only the <b>governed spine</b> — ACTIVE edges,
+origin ≠ INFERRED, never a HYPOTHESIS endpoint — the same rule as
+<code>structural_distances</code>, so a hypothesis can never walk its own claims; ids resolve
+through <code>graph.id_remaps</code>; and every cap is a <em>parameter</em> with catalog-derived
+defaults (INV-9 — no constants in engine code).</p>
+
+<div class="diagram">
+  <div class="cap">focus_slice — tiers under budget pressure</div>
+  <div class="pipe">
+    <div class="box hl"><b>focus</b><small>the symptom — never dropped while it exists</small></div>
+    <div class="box"><b>cause_path</b><small>ACTIVE inferred CAUSED_BY closure — the believed chain</small></div>
+    <div class="box"><b>suspect</b><small>every other inferred-layer endpoint, by structural distance</small></div>
+    <div class="box"><b>frontier</b><small>governed BFS, frontier_hops out — “what next”</small></div>
+    <div class="box"><b>collapsed</b><small>count + per-type histogram, never node-by-node</small></div>
+    <div class="box"><b>ruled_out</b><small>RETRACTED inferred edges — don’t re-suggest the eliminated</small></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">Budget pressure drops frontier before
+  suspects before cause-path — never the focus — and anything dropped is <em>counted</em>, so the
+  test-asserted invariant holds under any budget:
+  <code>len(nodes) + len(frontier) + collapsed_count == total</code>. Full-tier cards carry
+  latest-per-predicate facts (the flooding fix), frontier cards carry hops + their anchor.</p>
+</div>
+
+<p class="muted">Status, precisely: this tree is <b>P0–P6 + P8 landed; P7 substrate begun</b> —
+the traversal surface and the tiered slice exist and are pinned by tests; the reasoning loop that
+consumes them (and the <code>Phase</code> enum leaving the engine) is the work now settling.
+Where the loop already peeks through today: the ranked, engine-scored hypotheses in every
+<code>PlanContext</code>, the engine-computed <code>correlate_timeline</code> hints, gate
+feedback and rejections fed to the next plan — the projections already argue back.</p>
+
+<footer>
+  Rewritten 2026-07-22 against the live tree (P0–P6 + P8 landed; P7 substrate begun). Continue:
+  <a href="04-incident-use-cases.html" style="color:var(--accent)">04 · Incident Use-Cases</a> —
+  the eleven packaged incidents, the write gate in action, and the postmortem folded from the
+  journal.
+</footer>
+</div>
+</body>
+</html>

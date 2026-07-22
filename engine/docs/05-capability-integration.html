@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — 05 · Capability Integration</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a21;--panel2:#1c212b;--border:#2a3140;--text:#e6e9ef;--muted:#9aa4b2;
+    --faint:#6b7482;--accent:#5b8cff;--accent-soft:#1a2540;--green:#4ade80;--amber:#fbbf24;
+    --red:#f87171;--violet:#a78bfa;--teal:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:light){:root{--bg:#f6f8fb;--panel:#fff;--panel2:#eef2f8;
+    --border:#dde3ec;--text:#1c2128;--muted:#54606f;--faint:#8a94a6;--accent:#2f6fed;
+    --accent-soft:#e9f0ff;--green:#15803d;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65;font-size:15.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  header.masthead{padding:56px 0 26px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:36px;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:66ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  nav.docnav a{font-size:13px;padding:6px 13px;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;background:var(--panel)}
+  nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  nav.docnav a:hover{color:var(--text)}
+  h2{font-size:25px;margin:54px 0 4px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:15px;margin-right:10px}
+  h3{font-size:17px;margin:28px 0 6px}
+  p{margin:12px 0} .lead{font-size:16.5px;color:var(--muted);max-width:70ch}
+  code{font-family:var(--mono);font-size:.87em;background:var(--panel2);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
+  pre code{background:none;border:none;padding:0}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:18px 0}
+  .grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:720px){.grid.two,.grid.three{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15px}.card p{margin:4px 0;font-size:14px;color:var(--muted)}
+  .plain{border-left:3px solid var(--teal);background:rgba(45,212,191,.07);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+  .plain b{color:var(--teal)}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14.5px}
+  .muted{color:var(--muted)}.faint{color:var(--faint)}
+  ul.tight{margin:8px 0;padding-left:22px}ul.tight li{margin:5px 0}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+  /* ── diagram primitives (self-contained, responsive) ── */
+  .diagram{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;margin:22px 0}
+  .diagram .cap{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:14px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .layer{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 16px;background:var(--panel2)}
+  .layer .tag{flex:0 0 130px;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  .layer .body{flex:1;font-size:14px}
+  .layer.eng{border-color:var(--accent);background:var(--accent-soft)}
+  .layer.eng .tag{color:var(--accent)}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+  .box{border:1px solid var(--border);border-radius:10px;padding:9px 13px;background:var(--panel);font-size:13px;text-align:center}
+  .box b{display:block;font-size:13.5px} .box small{color:var(--faint);font-size:11px;font-family:var(--mono)}
+  .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+  .box.write{border-color:var(--amber);background:rgba(251,191,36,.08)}
+  .arrow{color:var(--faint);font-size:18px;line-height:1}
+  .down{align-self:center;color:var(--faint);font-size:18px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* ── docs-set addition (2026-07-22 rewrite): tables — the code map etc. ── */
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);text-align:left}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Investigation Workbench · Engine Docs</div>
+  <h1>05 · Capability Integration</h1>
+  <p class="sub">The tool boundary in depth: how an abstract verb becomes a vendor call — adapters,
+  the one fetch seam, the transports, the allow / ask / deny gate — and how the boundary stays
+  honest: <code>data · empty · error · blocked</code>, so an outage can never masquerade as
+  evidence. Every name on this page is real; open <code>capability/</code> and find it.</p>
+  <nav class="docnav">
+    <a href="index.html">Index</a>
+    <a href="01-design-architecture.html">01 · Design &amp; Architecture</a>
+    <a href="02-data-model.html">02 · Data Model</a>
+    <a href="03-projections-and-data.html">03 · Projections &amp; Data</a>
+    <a href="04-incident-use-cases.html">04 · Incident Use-Cases</a>
+    <a class="here" href="05-capability-integration.html">05 · Capability Integration</a>
+  </nav>
+</header>
+
+<h2 id="glance"><span class="n">01</span>The boundary at a glance</h2>
+<p class="lead">The capability layer is the only place the engine touches the outside world, and it
+is built around one idea (<code>capability/layer.py</code>, module docstring): <em>an Adapter is a
+pure pair</em> — a deterministic <code>normalize(raw)&nbsp;→&nbsp;Operation[]</code> plus data
+descriptors — while <em>the live fetch is the ONE side-effecting seam</em>, behind
+<code>Source.fetch()</code>. Everything else in the engine is deterministic; this seam is where
+non-determinism is quarantined.</p>
+
+<div class="plain">
+  <p style="margin:0"><b>Plain version.</b> The planner says <em>“check the error logs for
+  payments-api.”</em> The layer looks up which tool owns that verb, checks whether the call is even
+  allowed (writes need an approved human gate), fetches the vendor’s raw JSON through one transport
+  seam, and hands it to that tool’s adapter — a pure function that folds vendor fields into typed
+  <code>AddAssertion</code>/<code>AddNode</code>/<code>AddEdge</code> ops the reducer then validates
+  like any other ops. Swap the transport and nothing else changes; that is why a fixture-driven test
+  run and a live MCP run exercise <em>identical</em> adapter and engine code.</p>
+</div>
+
+<div class="diagram">
+  <div class="cap">Where the boundary sits — one call, top to bottom (all names real)</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">Judgment</span><span class="body">The planner emits
+      <code>PlanOutput.calls: list[CapabilityCall]</code> — <code>CapabilityCall{intent, params}</code>
+      (<code>extra="forbid"</code>). It chooses <em>which</em> verb and <em>what</em> to ask;
+      it never touches a vendor API.</span></div>
+    <div class="down">↓ <span class="faint" style="font-size:12px">Engine._run_phase: <code>layer.serve(call, allow_write=spec.writes_allowed)</code></span></div>
+    <div class="layer eng"><span class="tag">Gate</span><span class="body">
+      <b><code>CapabilityLayer.serve()</code></b> — <b>gate-first</b>: resolve → policy
+      (allow/ask/deny, opt-in registry) → read/write gate. A blocked write returns
+      <em>before any fetch</em> — no side effect ever precedes consent (§04).</span></div>
+    <div class="down">↓</div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">The one side effect</span><span class="body">
+      <b><code>Source.fetch(binding, intent, params) → dict</code></b> — the single transport
+      contract (<code>sources.py</code>). Fixtures (<code>MockSource</code>,
+      <code>ScenarioSource</code>) or live wire (<code>McpSource</code>, <code>RestSource</code>)
+      — the adapter cannot tell which served it (§06).</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">Pure fold</span><span class="body">
+      <b><code>Adapter.normalize(raw) → list[Operation]</code></b> — deterministic,
+      binding-agnostic: vendor field names in, typed ops out. All ten adapters emit the
+      <b>Assertion atom</b> natively (<code>AddAssertion</code> with <code>species</code> +
+      <code>source_native_name</code>) — never the deprecated <code>AddFact</code>/<code>AddEvent</code>
+      shims (§08).</span></div>
+    <div class="down">↓ <span class="faint" style="font-size:12px">ops ride into <code>materialize(...)</code> ahead of the planner’s own ops, truncated by <code>op_ceiling</code></span></div>
+    <div class="layer eng"><span class="tag">Reducer</span><span class="body">
+      <code>graph/reducer.py&nbsp;materialize()</code> validates tool ops exactly like planner ops —
+      dictionary canonicalization, quarantine, edge legality. The adapter pre-empts rejections it can
+      see coming (CMDB drops illegal relationships); the reducer remains the authority.</span></div>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--accent)"></span> deterministic governance</span>
+    <span><span class="dot" style="background:var(--amber)"></span> the one side-effecting seam</span>
+    <span><span class="dot" style="background:var(--panel2);border:1px solid var(--border)"></span> pure / swappable</span>
+  </div>
+</div>
+
+<p>This page’s slice of the code — four modules plus the adapter roster, all under
+<code>engine/src/iw_engine/capability/</code>:</p>
+
+<table>
+  <thead><tr><th>File</th><th>Key names</th><th>Role</th></tr></thead>
+  <tbody>
+  <tr><td><code>layer.py</code> <span class="faint">(253 lines)</span></td>
+      <td><code>Adapter</code> Protocol · <code>CapabilityMeta</code> · <code>CapabilityCall</code> ·
+      <code>Invocation</code> · <code>CapabilityLayer</code> (<code>resolve</code> /
+      <code>effect_for</code> / <code>_gate</code> / <code>_fold</code> / <code>invoke</code> /
+      <code>serve</code>)</td>
+      <td>The governed boundary: per-intent effect resolution, the gate, the truthful audit record
+      per call.</td></tr>
+  <tr><td><code>sources.py</code> <span class="faint">(292 lines)</span></td>
+      <td><code>Source</code> Protocol · <code>MockSource</code> · <code>McpSource</code> ·
+      <code>RestSource</code> · <code>RoutedSource</code> · <code>ProviderRoutedSource</code> ·
+      <code>ScenarioSource</code> · <code>provider_config</code> ·
+      <code>build_provider_transports</code> · <code>_mcp_result</code> / <code>_parse_sse_or_json</code></td>
+      <td>The one fetch seam and its six transports; tolerant MCP/SSE envelope parsing; env-based
+      live config.</td></tr>
+  <tr><td><code>mapping.py</code> <span class="faint">(230 lines)</span></td>
+      <td><code>@register(provider, intent="*")</code> · <code>map_response</code> ·
+      <code>MappingSource</code> · translators for prometheus / servicenow / splunk / git</td>
+      <td>Response-side translation: real vendor envelopes → the documented raw shape the adapters
+      expect. 4 of 10 providers covered; the rest pass through by design.</td></tr>
+  <tr><td><code>registry.py</code> <span class="faint">(102 lines)</span></td>
+      <td><code>Policy</code> (allow/ask/deny) · <code>CapabilitySpec</code> ·
+      <code>CapabilityRegistry</code> (<code>from_adapters</code> / <code>spec_for</code> /
+      <code>effect_for</code> / <code>set_policy</code>)</td>
+      <td>Governance as data — the tool-vocabulary twin of the domain dictionary. Built and tested;
+      <b>opt-in, not yet wired by any production construction</b>.</td></tr>
+  <tr><td><code>adapters/</code> <span class="faint">(10 classes)</span></td>
+      <td><code>prometheus · splunk · appd · servicenow · cmdb · ocp · artifactory · git ·
+      bigpanda</code> (= <code>ALL_ADAPTERS</code>, 9) + <code>remediation</code></td>
+      <td>One adapter per tool. <code>default_adapters()</code> wires the nine readers;
+      <code>RemediationAdapter</code> (the write) is deliberately excluded and wired only by the
+      scenario registry, so the read-only golden path never grows a write surface.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout"><b>Where this sits in the pluggability story.</b> The engine is pluggable in
+exactly three places — planner, <b>tools</b>, domain. This page is the tools seam: an
+<code>Adapter</code> is a pure fold, the transport is one injectable <code>Source</code>, and
+adding or replacing a tool touches <em>only its adapter</em> (plus a fixture, or two env vars for a
+live endpoint). Nothing else — not the engine, not the prompt, not the reducer — changes.</div>
+
+<h2 id="verbs"><span class="n">02</span>Verbs, intents, and the identity backbone</h2>
+<p class="lead">There are three vocabularies in play, and being precise about them explains half the
+design. <b>Abstract verbs</b> — a playbook phase’s <code>allowed_intents</code>
+(“<code>correlate_timeline</code>”, “<code>fetch_metrics</code>” as a category) — are
+prompt-advisory: the engine consults them for exactly one thing (whether to compute the
+<code>correlate_timeline</code> hint); they are not enforced at resolve time. <b>Concrete
+intents</b> — <code>bt_health</code>, <code>search_errors</code>, <code>ocp__restart</code> — are
+what the planner actually emits and what <code>CapabilityLayer.resolve()</code> maps to an adapter.
+<b>Vendor tool names</b> are the third vocabulary: today <code>McpSource</code> sends the concrete
+intent <em>verbatim</em> as the MCP tool name — a registry-driven intent→vendor-name mapping is
+design work, not code (§11).</p>
+
+<p>The planner learns the concrete vocabulary from a catalogue <em>rendered from adapter
+metadata</em> — nothing tool-specific is hardcoded in the engine or the prompt.
+<code>domain/catalog.py&nbsp;render_tools()</code> walks each adapter’s <code>meta</code>
+(a <code>CapabilityMeta</code>) and prints its summary, its intents, and — the load-bearing field —
+<b><code>queries_by</code></b>: the identifier that tool needs. Write intents render under a
+<code>[WRITE — human-gated]</code> block, and only when <code>include_writes</code> (so a live
+planner can propose a remediation); <code>tool_intents()</code> is the same walk used to reject
+off-catalog calls. Adding a capability makes the reasoner aware of it with zero prompt edits.</p>
+
+<div class="diagram">
+  <div class="cap">The identity backbone — queries_by as data (why a cross-tool investigation joins at all)</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">1 · the CI record</span><span class="body">
+      <code>servicenow.get_incident</code> returns the incident’s
+      <code>cmdb_ci&nbsp;{display_value, app_id, sys_id, repo, k8s_workload}</code> — the CI’s
+      per-tool identifiers.</span></div>
+    <div class="down">↓ <span class="faint" style="font-size:12px">ServiceNowAdapter copies them onto the Service node: <code>**{k: ci[k] for k in ("app_id","sys_id","repo","k8s_workload") if ci.get(k)}</code></span></div>
+    <div class="layer eng"><span class="tag">2 · one entity</span><span class="body">
+      The <b>Service</b> node now carries every tool’s credential for the same real-world thing —
+      the same props the reducer’s alias backbone uses to resolve arrivals onto one identity
+      instead of minting split-brain twins (doc 02).</span></div>
+    <div class="down">↓ <span class="faint" style="font-size:12px">each later call passes the id its tool queries by</span></div>
+    <div class="layer"><span class="tag">3 · fan out</span><span class="body">
+      <div class="pipe">
+        <div class="box"><b>appd</b><small>queries_by app_id</small></div>
+        <div class="box"><b>git</b><small>queries_by repo</small></div>
+        <div class="box"><b>ocp</b><small>queries_by k8s_workload</small></div>
+        <div class="box"><b>artifactory</b><small>queries_by repo</small></div>
+        <div class="box"><b>prometheus · splunk · cmdb</b><small>queries_by service_name</small></div>
+        <div class="box"><b>servicenow · bigpanda</b><small>queries_by incident_id</small></div>
+      </div></span></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">The catalogue tells the model exactly
+  this, verbatim: <em>“Resolve that id off the target CI … Do NOT reuse the display name for a tool
+  that queries by a different id (AppD queries by app_id, git by repo, the platform by
+  k8s_workload).”</em> The backbone is expressed as data (<code>CapabilityMeta.queries_by</code>),
+  not code — one string per adapter today; per-intent <code>queries_by</code> is a design row that
+  has not landed (§11).</p>
+</div>
+
+<h2 id="contracts"><span class="n">03</span>The contracts — <code>Adapter</code>, the call, the audit record</h2>
+<p class="lead">Three small shapes carry the whole boundary. They are worth reading verbatim,
+because every governance and honesty property below hangs off one of their fields.</p>
+
+<pre><code># capability/layer.py — the tool contract (verbatim shapes)
+@runtime_checkable
+class Adapter(Protocol):
+    provider: str                 # "prometheus", "servicenow", ...
+    intents: frozenset[str]       # the concrete verbs this tool owns
+    effect: Effect                # READ | WRITE — the default across the intents set
+    binding: Binding              # MCP | REST | A2A — which transport family serves it
+    meta: CapabilityMeta          # the self-describing catalogue record
+
+    def normalize(self, raw: dict) -> list[Operation]: ...
+
+# optional, not in the Protocol — discovered via getattr(a, "effects", None):
+#   effects: ClassVar[dict[str, Effect]]     # PER-INTENT effect override
+#   e.g. ServiceNowAdapter: {"ingest_alert": Effect.WRITE}
+#        OcpAdapter:        {"ocp__restart": Effect.WRITE}
+
+@dataclass(frozen=True)
+class CapabilityMeta:
+    summary: str          # one line: what this capability is FOR
+    queries_by: str       # the target identifier it needs: app_id | repo | service_name | ...
+    returns: str = ""     # what it contributes to the graph (optional, for the catalogue)
+
+class CapabilityCall(BaseModel):  # extra="forbid" — what the planner emits
+    intent: str
+    params: dict = Field(default_factory=dict)</code></pre>
+
+<p>And the output side — one <code>Invocation</code> per call, the audit record the engine
+journals, the session streams, and <code>RunResult.invocations</code> collects:</p>
+
+<pre><code>class Invocation(BaseModel):      # extra="forbid" — one audit record per capability call
+    intent: str
+    provider: str
+    effect: Effect
+    op_count: int
+    blocked: bool = False
+    reason: str | None = None
+    outcome: str = "data"         # "data" | "empty" | "error" | "blocked"  (§05 — load-bearing)
+    params: dict = Field(default_factory=dict)   # what went IN (the query, journaled in full)
+    summary: str = ""             # one line of what came OUT
+    kind: str = "tool"            # tool | workflow | llm | handoff (agent-trace span kind)
+    started_at: str | None = None       # ISO wall-clock — EPHEMERAL, never journaled
+    duration_ms: float | None = None    # ephemeral too — goldens stay byte-deterministic</code></pre>
+
+<div class="grid two">
+  <div class="card"><h4>Why a Protocol, not a base class</h4><p>An adapter is <em>data plus one pure
+    function</em>. There is nothing to inherit: no shared transport code (that lives behind
+    <code>Source</code>), no shared constants (INV-9 — reliabilities come from the playbook’s
+    <code>Tunables</code>, filled by the reducer). The Protocol is <code>runtime_checkable</code>
+    so the layer can be handed anything with the right shape.</p></div>
+  <div class="card"><h4>Why per-intent <code>effects</code></h4><p>Real tools mix reads and writes
+    on one surface. The old workaround was a split placeholder class per write
+    (<code>OcpRestartAdapter</code>); the <code>effects</code> override retires it —
+    <code>ocp__restart</code> is WRITE on the very adapter serving <code>pod_status</code> as READ,
+    and <code>ingest_alert</code> is WRITE because it <em>creates a vendor-side record</em> while
+    its six sibling ServiceNow intents stay reads.</p></div>
+  <div class="card"><h4>Why timing is ephemeral</h4><p><code>started_at</code> /
+    <code>duration_ms</code> are stamped by the engine around <code>serve()</code>
+    (<code>model_copy</code>) for the live trace UI, and never journaled, never exported in the
+    bundle. Wall-clock in the record would diff every golden on every run.</p></div>
+  <div class="card"><h4>Why params ride in full</h4><p>The journaled invocation carries
+    <code>params</code> verbatim — “hashing them is a live-privacy knob for a later phase”
+    (<code>runtime/engine.py</code>). A deliberate code-over-design choice: audit fidelity first,
+    redaction when live tenancy demands it.</p></div>
+</div>
+
+<h2 id="gate"><span class="n">04</span><code>serve()</code> is gate-first — allow / ask / deny</h2>
+<p class="lead">One method is the production path:
+<code>serve(call, *, allow_write) → tuple[list[Operation], Invocation]</code>. Its order is the
+invariant: <b>resolve → gate → fetch → normalize</b>. A blocked call returns before
+<code>Source.fetch</code> is ever reached, so a denied write cannot cause a vendor-side effect —
+this is the fix for the audited write-before-gate bug, and it is structural, not conventional.</p>
+
+<div class="diagram">
+  <div class="cap">serve() — the gate ladder, with every early exit and its exact reason string</div>
+  <div class="stack">
+    <div class="layer eng"><span class="tag">resolve</span><span class="body">
+      <code>a = self._by_intent.get(call.intent)</code> — miss ⇒ blocked
+      <code>Invocation(provider="?", outcome="blocked", reason="no capability for intent
+      '&lt;intent&gt;'")</code>. An unknown verb is <em>provably refused</em>, never guessed
+      at.</span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">policy (opt-in)</span><span class="body">
+      Only when a <code>CapabilityRegistry</code> is wired: <code>spec_for(intent)</code> →
+      <b>DENY</b> ⇒ blocked (<code>"capability pending review - deny"</code> for a synthesised
+      unknown, else <code>"policy: deny for intent '…'"</code>); <b>ASK</b> without
+      <code>allow_write</code> ⇒ blocked (<code>"policy: ask - human approval required for
+      '…'"</code>). ASK is released by the same <code>allow_write</code> boolean — there is no
+      per-call token yet (§11).</span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">read/write gate</span><span class="body">
+      <code>effect_for(a, intent)</code> — resolution order: registry-declared effect → the
+      adapter’s <code>effects</code> dict → the adapter default. <code>WRITE and not
+      allow_write</code> ⇒ blocked <code>"write blocked - no approved gate"</code> — the
+      human-approval invariant, enforced per <em>intent</em>, never per adapter.</span></div>
+    <div class="down">↓ <span class="faint" style="font-size:12px">only now may a side effect happen</span></div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">fetch</span><span class="body">
+      <code>raw = self.source.fetch(a.binding, call.intent, call.params) if self.source else {}</code>
+      — any exception (vendor 4xx/5xx, timeout, parse blow-up) is caught ⇒ a recorded
+      <code>error</code> Invocation. A live transport failure degrades the read; it never raises
+      through <code>serve()</code>.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">normalize</span><span class="body">
+      <code>_fold()</code>: <code>a.normalize(raw)</code> inside try/except — a raising adapter is
+      an <code>error</code> Invocation (<code>summary="tool error - no evidentiary weight"</code>),
+      never a crash. Success: <code>outcome = "data" if ops else "empty"</code>.</span></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0"><code>invoke(intent, raw, *,
+  allow_write)</code> is the same governance over a <em>pre-fetched</em> raw — the seam the unit
+  tests feed directly; no production caller. One known gap, stated in §11: intent collision when
+  two adapters claim one verb is <em>silent last-wins</em> over the adapters list
+  (<code>layer.py</code> ctor) — the design’s ranked multi-source is unbuilt.</p>
+</div>
+
+<h3>The human gate above the boolean</h3>
+<p>The layer’s gate is a boolean — <code>allow_write</code> comes from the playbook:
+<code>spec.writes_allowed</code>, true only for the write-armed ACT stage (in the shipped seven-id
+<code>incident.yaml</code> that is the <code>remediate</code> phase — today’s declaration of the
+frame → investigate-loop → gated ACT → verify → close shape, see doc 01 §05). Who flips the
+boolean? In an interactive session, a human, and only after seeing the evidence:</p>
+
+<div class="diagram">
+  <div class="cap">The write gate, end to end (runtime/session.py — composition over the engine, no engine edits)</div>
+  <div class="pipe">
+    <div class="box"><b>plan</b><small>carries a WRITE-effect call</small></div><span class="arrow">→</span>
+    <div class="box hl"><b>_GatePlanner intercepts</b><small>_is_write_call: effect_for per intent</small></div><span class="arrow">→</span>
+    <div class="box"><b>gate_opened</b><small>journaled: action + hypothesis + evidence</small></div><span class="arrow">→</span>
+    <div class="box write"><b>SUSPENDED ⚑</b><small>_GateSuspend — nothing claimed, no seq burned</small></div><span class="arrow">→</span>
+    <div class="box"><b>approve / refine / deny</b><small>gate_decision journaled, source=human</small></div><span class="arrow">→</span>
+    <div class="box"><b>resume</b><small>cached plan — serve(allow_write=True)</small></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">APPROVE serves the cached plan intact;
+  REFINE merges operator params into the write calls; DENY strips the writes and feeds an
+  <code>UpdateHypothesis(basis="operator DENIED the proposed remediation: …")</code> back into the
+  ops — a genuinely divergent journal. The question (<code>gate_opened</code>) and the answer
+  (<code>gate_decision</code>) are both durable journal kinds: the journal proves consent
+  <em>and</em> execution — the approved write’s <code>invocation</code> entry shares the executed
+  phase’s seq.</p>
+</div>
+
+<div class="callout"><b>Two honest caveats, design-acknowledged.</b> (1) One approve releases
+<em>every</em> write call in that plan — per-call approval-token binding (a <code>gate_id</code>
+tied to one write Invocation) is deferred substrate work (<code>registry.py</code> SCOPE NOTE).
+(2) In <em>batch</em> mode (<code>Engine.run()</code> with a write-capable layer), a
+<code>writes_allowed</code> phase passes <code>allow_write=True</code> with no human in the loop —
+the interactive gate lives in the session layer. Both are on the convergence list, not
+surprises.</div>
+
+<h2 id="outcomes"><span class="n">05</span>Outcome honesty — <code>data · empty · error · blocked</code></h2>
+<p class="lead">Every call ends in exactly one of four boundary outcomes, and the distinction is
+the layer’s most load-bearing honesty property. The field’s own comment
+(<code>layer.py&nbsp;Invocation.outcome</code>) says it plainly: a downstream reader keys off
+<em>this</em>, “never off <code>op_count == 0</code> alone (which conflates clean-empty with error
+— the silent-empty poison this field exists to kill).”</p>
+
+<div class="grid two">
+  <div class="card" style="border-color:var(--green)"><h4 style="color:var(--green)">data</h4>
+    <p><code>op_count &gt; 0</code> — the tool returned facts that folded into the graph.
+    <code>summary</code> is a one-line human digest of the ops.</p></div>
+  <div class="card" style="border-color:var(--teal)"><h4 style="color:var(--teal)">empty <span class="faint">(“clean-empty”)</span></h4>
+    <p>An <b>honest no-data read</b>: the provider answered, nothing to fold. This <em>may</em> feed
+    the refutation path — it is the only outcome that can back an honest
+    <code>NoEvidence</code> null-result fact (R-P2). The code literal is <code>"empty"</code>;
+    the design prose calls it clean-empty — same thing.</p></div>
+  <div class="card" style="border-color:var(--red)"><h4 style="color:var(--red)">error</h4>
+    <p>A transport or normalize failure. <b>No evidentiary weight</b> — it must never be read as a
+    refuting result. <code>reason="{ExcType}: {msg}"</code>,
+    <code>summary="tool error - no evidentiary weight"</code>. Error ≠ empty is the honesty
+    line.</p></div>
+  <div class="card" style="border-color:var(--amber)"><h4 style="color:var(--amber)">blocked</h4>
+    <p>The gate refused the call — unknown intent, policy deny/ask, or an ungated write.
+    <code>blocked=True</code> plus the exact reason string from §04. Recorded, never silently
+    swallowed.</p></div>
+</div>
+
+<p>What makes this real is that the outcome is <em>consumed</em>, end to end:</p>
+
+<div class="diagram">
+  <div class="cap">One outcome, three consumers — how honesty propagates</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">engine</span><span class="body">
+      <code>self._intent_outcomes[inv.intent] = inv.outcome</code> — the <b>last</b> outcome per
+      intent (a later clean call restores an intent’s evidentiary standing). Then
+      <code>no_weight = frozenset(i for i, o in … if o in ("error", "blocked"))</code> →
+      <code>materialize(ops, seq, …, no_weight_intents=no_weight)</code>.</span></div>
+    <div class="down">↓</div>
+    <div class="layer eng"><span class="tag">reducer</span><span class="body">
+      A <code>NoEvidence</code> op naming a no-weight intent is <b>rejected</b>: an errored or
+      blocked call observed <em>nothing</em> — “only a clean-empty read can become null evidence.”
+      This is the fabricated-negative-evidence killer: without it, a vendor outage becomes refuting
+      evidence and the run converges wrong-but-confident.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">journal + UI</span><span class="body">
+      <b>Every</b> call — data, empty, error, blocked alike — becomes a
+      <code>kind="invocation"</code> journal entry <em>sharing its phase’s seq</em> (an annotation,
+      not a numbered step; replay ignores it): <code>action={capability, provider, params, effect}</code>,
+      <code>observation={outcome, reason, blocked, op_count}</code>, <code>decision=outcome</code>.
+      The session streams the same record as a <code>capability_call</code> event with
+      <code>outcome</code> explicit — the UI must never infer “clean” from zero ops.</span></div>
+  </div>
+</div>
+
+<div class="plain"><p style="margin:0"><b>What breaks without this.</b> Pre-fix, an unguarded
+boundary had two failure modes the audits named: one vendor 500 killed the session (now: a caught
+<code>error</code> Invocation), and a shape mismatch read as “we checked and it was clean” (now:
+<code>error ≠ empty</code>, enforced where evidence is minted). Both fixes are downstream of one
+field.</p></div>
+
+<p class="muted" style="font-size:14px">One display-level staleness, so you don’t chase it:
+<code>_summarize_ops()</code> counts legacy op class names (<code>AddFact</code>,
+<code>AddEvent</code>, …) and does <em>not</em> count <code>AddAssertion</code> — which is what all
+ten adapters now emit. A fold of pure assertions can therefore summarize as
+<code>"no new data"</code> even though <code>outcome="data"</code> and <code>op_count &gt; 0</code>.
+The honest outcome field is unaffected; only the cosmetic summary lags.</p>
+
+<h2 id="seam"><span class="n">06</span>The one fetch seam — <code>Source</code> and its six transports</h2>
+<p class="lead">The transport contract is a single method:
+<code>fetch(binding, intent, params) → dict</code>. <code>binding</code> rides along so a composing
+transport can route; a single concrete transport ignores it. Six implementations share the
+signature, so the fold never forks — and going live swaps <em>only this object</em>.</p>
+
+<table>
+  <thead><tr><th>Transport</th><th>Routing key</th><th>On a miss</th><th>Status</th></tr></thead>
+  <tbody>
+  <tr><td><code>MockSource(fixtures)</code></td>
+      <td>exact <b>intent</b> → fixture blob (a list wraps as <code>{"records": …}</code>)</td>
+      <td><code>{}</code> → zero ops → <code>empty</code></td>
+      <td><b>Production</b> (mock path) — the hermetic seam; zero network, zero credentials.</td></tr>
+  <tr><td><code>ScenarioSource(intent_provider, fixtures)</code></td>
+      <td>intent → <b>provider</b> → <b>phase-scoped</b> blob:
+      <code>provider → {phase | "*": raw}</code>; the driver sets <code>.phase</code> before each
+      step</td>
+      <td>unfixtured provider → <code>{}</code> — “that tool isn’t wired for this incident”</td>
+      <td><b>Production</b> (live-LLM path). Provider-keying closes the two-vocabulary gap: any
+      valid intent of a fixtured provider is “connected,” so a live model need only pick the right
+      provider, not guess the one wired intent name.</td></tr>
+  <tr><td><code>McpSource(endpoint, *, transport, token)</code></td>
+      <td>one JSON-RPC <code>tools/call</code> per fetch — the intent goes <b>verbatim</b> as the
+      tool name</td>
+      <td>vendor error → <code>RuntimeError</code> (caught by <code>serve</code> → error);
+      unrecognised shape → <code>{}</code></td>
+      <td><b>Real code, tests-only wiring.</b> Bearer token; injectable HTTP; stdlib default posts
+      with <code>Accept: application/json, text/event-stream</code>, timeout 30.</td></tr>
+  <tr><td><code>RestSource(base_url, routes, *, transport, token)</code></td>
+      <td>intent → relative path (<code>routes</code>); params become the GET query string</td>
+      <td>unrouted intent → <code>{}</code></td>
+      <td><b>Real code, tests-only wiring.</b> GET-only — no POST, no templated query builders
+      (§11).</td></tr>
+  <tr><td><code>RoutedSource(transports)</code></td>
+      <td>the adapter’s <code>Binding</code> (arity 3: MCP/REST/A2A)</td>
+      <td>unwired binding → <code>LookupError</code> (caught by <code>serve</code> → error)</td>
+      <td>Kept for the single-endpoint case — its own docstring flags the arity problem: all seven
+      MCP providers collapse onto one endpoint + token.</td></tr>
+  <tr><td><code>ProviderRoutedSource(intent_provider, transports_by_provider)</code></td>
+      <td>intent → <b>provider</b> → that provider’s own transport (arity 9)</td>
+      <td>unwired provider → <code>{}</code> — the honest “not connected”</td>
+      <td><b>The live-mixed-tool fix, tests-only today</b>: servicenow and splunk stop sharing one
+      endpoint + credential.</td></tr>
+  </tbody>
+</table>
+
+<div class="diagram">
+  <div class="cap">Three lanes through one seam — same adapters, same engine, different Source</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">hermetic</span><span class="body"><b>MockSource</b> —
+      intent-keyed fixtures. Drives the golden suite; proves the adapters and the engine with zero
+      network. <span class="faint">wired by <code>scenarios._layer</code>:
+      <code>CapabilityLayer([*default_adapters(), RemediationAdapter()],
+      source=MockSource(fixtures))</code></span></span></div>
+    <div class="down">↓ <span class="faint" style="font-size:12px">same <code>Adapter.normalize</code>, same <code>serve()</code></span></div>
+    <div class="layer eng"><span class="tag">product today</span><span class="body"><b>ScenarioSource</b> —
+      a live LLM investigates against provider-keyed, phase-scoped fixtures (a provider can return
+      the <em>current</em> world per phase — e.g. recovery metrics after the gated write). The
+      session’s drive loop stamps <code>src.phase = current_phase.value</code> before each
+      step.</span></div>
+    <div class="down">↓ <span class="faint" style="font-size:12px">the substrate a first real connection uses</span></div>
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">live-real</span><span class="body">
+      <b>ProviderRoutedSource</b> over <code>build_provider_transports(bindings, …)</code> — for
+      each provider with <code>IW_CAP_&lt;PROVIDER&gt;_URL</code> set (token:
+      <code>IW_CAP_&lt;PROVIDER&gt;_TOKEN</code>), an <code>McpSource</code> (MCP binding) or
+      <code>RestSource</code> (REST binding) at that endpoint. Providers without a URL are omitted —
+      their intents route to <code>{}</code>. A2A (write delegation) is deliberately left unwired.
+      <span class="faint">Built + unit-tested; no production caller constructs it yet.</span></span></div>
+  </div>
+</div>
+
+<h3>MCP envelope tolerance — the part of “live” that is already real</h3>
+<p>A real MCP endpoint answers in several shapes, and none of them may crash the boundary
+(INV-7). <code>_mcp_result(reply)</code> prefers <code>result.structuredContent</code>; falls back
+to the first parseable JSON <code>content[].type=="text"</code> block; raises
+<code>RuntimeError</code> only on a genuine JSON-RPC <code>error</code> or
+<code>result.isError</code> (which <code>serve()</code> catches into an <code>error</code>
+Invocation); and degrades a merely-unrecognised shape to <code>{}</code> — never an
+<code>AttributeError</code>. Underneath, <code>_parse_sse_or_json(body)</code> handles a plain JSON
+string <em>and</em> SSE / Streamable-HTTP frames (<code>event: message</code> +
+<code>data:</code> lines) — the <b>last</b> parseable <code>data:</code> payload wins, because a
+streaming server may emit progress frames before the result; <code>[DONE]</code> markers are
+skipped; an undecodable body degrades to <code>{}</code>. What is <em>not</em> built: the MCP
+<code>initialize</code> handshake, session ids, <code>tools/list</code> discovery, OAuth (§11).</p>
+
+<pre><code># sources.py — the wire shape McpSource actually sends (intent verbatim as the tool name)
+payload = {"jsonrpc": "2.0", "id": self._id, "method": "tools/call",
+           "params": {"name": intent, "arguments": params or {}}}
+headers = {"Content-Type": "application/json"}          # + Authorization: Bearer &lt;token&gt;
+return _mcp_result(self._http(self.endpoint, payload, headers))</code></pre>
+
+<h2 id="mapping"><span class="n">07</span>Vendor JSON → the documented shape — <code>mapping.py</code></h2>
+<p class="lead">Adapters expect a fixed raw shape — the de-facto schema documented by
+<code>runtime/live_fixtures.py</code>. Fixtures <em>are</em> that shape and bypass mapping; a real
+vendor envelope is translated here, so a live MCP/REST tool works without touching any adapter.
+Translation is response-side only (request-side builders — PromQL, SPL, sysparm, AQL — are unbuilt,
+§11).</p>
+
+<pre><code># mapping.py — dispatch: exact (provider, intent) → (provider, "*") → pass-through
+fn = _TRANSLATORS.get((provider, intent)) or _TRANSLATORS.get((provider, "*"))
+# a raising translator returns the vendor raw UNCHANGED — a broken mapping
+# degrades to pass-through; it cannot crash a live run (INV-7)</code></pre>
+
+<ul class="tight">
+  <li><b>Registered translators cover 4 of 10 providers</b> — <code>prometheus</code> ×
+      {<code>instant_query</code>, <code>range_query</code>, <code>fetch_metrics</code>} +
+      <code>active_alerts</code>; <code>servicenow</code> × <code>*</code>;
+      <code>splunk</code> × <code>*</code>; <code>git</code> × <code>*</code>. The rest pass
+      through — correct when a custom MCP server already emits the documented shape.</li>
+  <li><b>The Prometheus translator</b> (<code>_prometheus_query(raw, params)</code>) unwraps the
+      <code>/api/v1/query</code> envelope (<code>data.result[]</code>, <code>value</code> pair or
+      <code>values</code> list), coerces string samples (<code>_coerce_num</code>:
+      <code>"0.4"</code> → 0.4; <code>"+Inf"</code> survives as a string), converts unix timestamps
+      to ISO (<code>_unix_to_iso</code>), and adds a <code>{"service": {"name", "env"}}</code>
+      block <em>only when the call params carry both</em> — half an identity would mint a
+      degenerate node id, so it is omitted rather than guessed. Params-forwarding is the point: a
+      Prometheus vector carries labels, not the service/env the planner queried <em>by</em>.</li>
+  <li><b>One INV-9 residue, flagged honestly:</b> that translator stamps
+      <code>reliability: 0.97</code> as a literal — the lone hardcoded reliability left at the
+      boundary (everywhere else the reducer fills a measured assertion’s missing reliability from
+      <code>tunables.source_reliability</code>).</li>
+  <li><b><code>MappingSource(inner, intent_provider)</code></b> composes the translation over any
+      <code>Source</code> (and passes <code>.phase</code> through for
+      <code>ScenarioSource</code>) — built and unit-tested, wired nowhere in production: fixtures
+      don’t need it, and no live transport is constructed in <code>src/</code> yet.</li>
+</ul>
+
+<h2 id="governance"><span class="n">08</span>Governance as data — <code>registry.py</code></h2>
+<p class="lead">The domain dictionary governs the vocabulary of the <em>graph</em>; this module
+applies the same closed-core + governed-onboarding grammar to the vocabulary of the
+<em>tools</em>. It is substrate: built, tested, opt-in — and not yet passed by any production
+wiring (<code>registry=None</code> everywhere today).</p>
+
+<pre><code># capability/registry.py — one governance row per intent
+class Policy(StrEnum):
+    ALLOW = "allow"; ASK = "ask"; DENY = "deny"
+
+@dataclass(frozen=True)
+class CapabilitySpec:
+    provider: str
+    intent: str
+    effect: Effect = Effect.READ       # PER-INTENT — where the split-adapter workaround retires
+    policy: Policy = Policy.ALLOW
+    pending_review: bool = False       # True only on synthesised rows for unknown intents
+
+CapabilityRegistry.from_adapters(adapters, *, policy=Policy.ALLOW)
+    # mirrors the registry off the wired adapters, honoring each adapter's
+    # per-intent `effects` override (ocp__restart lands "write")
+CapabilityRegistry.spec_for(intent)
+    # unknown intent → CapabilitySpec(provider="?", policy=DENY, pending_review=True)
+    # — NEVER an implicit allow</code></pre>
+
+<div class="grid two">
+  <div class="card"><h4>The property this buys</h4><p>An unregistered tool call is <b>provably
+    refused at resolution</b>, never silently executed. A partial hand-authored registry denies
+    everything it doesn’t list; <code>set_policy()</code> is the explicit, auditable mutation
+    (mark a write <code>ask</code>, quarantine a provider <code>deny</code>).</p></div>
+  <div class="card"><h4>The scope note, verbatim intent</h4><p>Enforcement is at the
+    <code>CapabilityLayer</code> boundary, opt-in. Per-call approval-<b>token</b> binding (a
+    <code>gate_id</code> linking one approval to one write Invocation) and playbook
+    <code>allowed_intents</code> enforcement at resolve time are engine-side and deferred — this
+    module is the substrate they will consume. Earned autonomy (an ask→allow ladder) is likewise
+    deferred.</p></div>
+</div>
+
+<h2 id="roster"><span class="n">09</span>The roster — one adapter per tool</h2>
+<p class="lead">Ten adapters, one per tool. <code>ALL_ADAPTERS</code> lists the nine readers
+(<code>adapters/__init__.py</code> — its docstring still says “the 8 tool adapters,” stale since
+BigPanda landed); <code>default_adapters()</code> instantiates them; the write-effect
+<code>RemediationAdapter</code> is wired only by the scenario registry and the live manager. All
+ten emit <code>AddAssertion</code> natively — species set, the vendor’s own name preserved on
+<code>source_native_name</code> even when <code>name</code> maps into the closed vocabulary — and
+every subject id comes from <code>registry.node_id(NodeType, props)</code>, the same deterministic
+helper the reducer and the scenario authors use (the split-brain-twin killer:
+<code>_slug</code> collapses <code>_</code>, space, <code>/</code>, case).</p>
+
+<table>
+  <thead><tr><th>Adapter · provider</th><th>Intents</th><th>Effect · binding</th><th>Queries by</th><th>What it folds</th></tr></thead>
+  <tbody>
+  <tr><td><code>PrometheusAdapter</code> · prometheus</td>
+      <td><code>active_alerts · instant_query · range_query · fetch_metrics</code></td>
+      <td>READ · REST</td><td><code>service_name</code></td>
+      <td>Service node; Alert + <code>fired</code> event + FIRED_ON; each metric a READING
+      (<code>stat=gauge</code>, point <code>Window(at=…)</code>) with the vendor metric name on
+      <code>source_native_name</code>.</td></tr>
+  <tr><td><code>SplunkAdapter</code> · splunk</td>
+      <td><code>search_errors · error_signature_topk · search_fw_denies · transaction_trace ·
+      fetch_logs</code></td>
+      <td>READ · MCP</td><td><code>service_name</code></td>
+      <td>ErrorSignature (identity <code>signature_hash</code>) + <code>count</code> READING
+      (<code>stat=count</code>, <code>EvidenceRef(kind="trace_id")</code>) + <code>last_seen</code>
+      DESCRIPTOR + EMITTED edge from the resolving emitter; only <code>action=="blocked"</code>
+      denies fold → FirewallRule + <code>deny_count</code> READING.</td></tr>
+  <tr><td><code>AppDAdapter</code> · appd</td>
+      <td><code>bt_health · get_snapshots · healthrule_violations · flowmap · fetch_traces</code></td>
+      <td>READ · MCP</td><td><code>app_id</code></td>
+      <td>BusinessTransaction keyed <code>{service_name, bt_name}</code>; BT readings
+      (<code>art_p95</code>, <code>epm</code>, delta-vs-baseline); violations → Alert +
+      <code>fired</code>; traces → <code>trace_captured</code>; exit-calls → discovered topology
+      (§10).</td></tr>
+  <tr><td><code>ServiceNowAdapter</code> · servicenow</td>
+      <td><code>get_incident · find_recent_changes · get_ci · list_related_incidents ·
+      assess_impact · ingest_alert · query_change_log</code></td>
+      <td>READ + <code>effects={"ingest_alert": WRITE}</code> · MCP</td><td><code>incident_id</code></td>
+      <td>Incident + <code>declared</code> event; <b>the identity backbone</b> onto the Service
+      node (§02); ChangeEvent + <code>implemented</code> + CHANGED_BY / INTRODUCED_BY (release tag,
+      commit sha); related incidents as RECURRENCE_OF / SIMILAR_TO. An <b>empty</b>
+      <code>changes</code> list is a first-class shape — the no-change incident class, not an
+      error.</td></tr>
+  <tr><td><code>CmdbAdapter</code> · cmdb</td>
+      <td><code>get_dependencies · impact_analysis · get_ci_class · find_ci_by_attr ·
+      seed_graph</code></td>
+      <td>READ · MCP</td><td><code>service_name</code></td>
+      <td>Nodes + structural edges only — <b>no facts, no events</b>: the trusted
+      <code>declared</code> spine. <code>sys_class_name</code> → typed NodeType via a 13-entry
+      class map (fallback <code>CONFIG_ITEM</code>, never <code>GENERIC_CI</code>); an illegal
+      relationship is dropped, never forced.</td></tr>
+  <tr><td><code>OcpAdapter</code> · ocp</td>
+      <td><code>rollout_status · pod_status · events · pod_logs · ocp__restart</code></td>
+      <td>READ + <code>effects={"ocp__restart": WRITE}</code> · MCP</td><td><code>k8s_workload</code></td>
+      <td>Deployment (identity <code>uid</code>) + rollout state facts + Release DEPLOYED_AS; Pod +
+      typed facts (<code>_POD_FACT_SPECIES</code>) + RUNS_ON host; k8s reasons mapped to the closed
+      event vocabulary, raw reason preserved (§10). The restart ack folds to zero ops.</td></tr>
+  <tr><td><code>ArtifactoryAdapter</code> · artifactory</td>
+      <td><code>get_artifact_by_digest · get_build · list_promotions · aql_search</code></td>
+      <td>READ · MCP</td><td><code>repo</code></td>
+      <td>BuildArtifact (identity = digest) + <code>built</code>; <code>git.revision</code> →
+      BUILT_FROM CodeCommit; <code>promoted.to/.at</code> → RELEASED_AS Release +
+      <code>released</code>/<code>promoted</code> events; a standalone promotion mints a stub
+      artifact so the edge has a known endpoint.</td></tr>
+  <tr><td><code>GitAdapter</code> · git</td>
+      <td><code>get_commit · diff_range · get_pr_for_commit · blame · read_diff</code></td>
+      <td>READ · REST</td><td><code>repo</code></td>
+      <td>CodeCommit, PullRequest; diff stats as DESCRIPTORs; <code>changed_lines</code> → a
+      <code>diff_summary</code> content DESCRIPTOR (the planner sees the <code>DROP INDEX</code>
+      line, not just counts); blame → the terminal causal join (§10).</td></tr>
+  <tr><td><code>BigPandaAdapter</code> · bigpanda</td>
+      <td><code>get_correlated_incident · list_correlated_alerts · get_flapping_signals</code></td>
+      <td>READ · MCP</td><td><code>incident_id</code></td>
+      <td>The correlated cluster: primary Incident (minted by the correlation platform), the
+      affected-service blast radius, member Alerts FIRED_ON their services
+      (<code>correlated: true</code>), related Incidents SIMILAR_TO the primary (§ next).</td></tr>
+  <tr><td><code>RemediationAdapter</code> · remediation</td>
+      <td><code>apply_remediation</code></td>
+      <td><b>WRITE</b> · A2A</td><td><code>service_name</code></td>
+      <td>Zero ops unless the transport echoes an <code>applied{at, entity, type, action}</code>
+      block — then one EVENT on the target, <code>value={"remediation": action}</code>. “The
+      reversible action itself lives outside the graph; the graph only witnesses its recorded
+      effect.” (It stamps <code>source=Source.SERVICENOW</code> — there is no
+      <code>remediation</code> member in the <code>Source</code> enum.)</td></tr>
+  </tbody>
+</table>
+
+<h3>The reference template, verbatim</h3>
+<p><code>PrometheusAdapter</code> is the template the other nine follow — descriptors plus one pure
+fold. Note what an adapter <em>doesn’t</em> do: no HTTP, no retries, no constants
+(<code>source_reliability=m.get("reliability")</code> — <code>None</code> lets the reducer fill the
+playbook default, INV-9), no invented names (the vendor’s metric name survives on
+<code>source_native_name</code>; an off-dictionary name will land quarantined as
+<code>x.prometheus.&lt;native&gt;</code>, not erased):</p>
+
+<pre><code># capability/adapters/prometheus.py — the whole read side of a tool integration
+class PrometheusAdapter:
+    provider = "prometheus"
+    intents = frozenset({"active_alerts", "instant_query", "range_query", "fetch_metrics"})
+    effect = Effect.READ
+    binding = Binding.REST   # no first-party MCP server — trivial raw REST
+    meta = CapabilityMeta(
+        summary="Time-series metrics (RED/USE) and firing alerts",
+        queries_by="service_name", returns="alerts + metric facts")
+
+    def normalize(self, raw: dict) -> list[Operation]:
+        ops: list[Operation] = []
+        svc = raw.get("service")
+        # ... AddNode(SERVICE) → svc_id = registry.node_id(...)
+        for al in raw.get("alerts", []):
+            # AddNode(ALERT) + AddAssertion(name="fired", species=EVENT,
+            #                               occurred_at=al["at"], ...) + AddEdge(FIRED_ON)
+            ...
+        for m in raw.get("metrics", []):
+            ops.append(AddAssertion(subject=subject, name=m["predicate"], value=m["value"],
+                                    unit=m.get("unit"), species=Species.READING,
+                                    stat=Stat.GAUGE, window=Window(at=m["at"]),
+                                    valid_from=m["at"], observed_at=m["at"],
+                                    source=Source.PROMETHEUS,
+                                    source_reliability=m.get("reliability"),
+                                    source_native_name=m["predicate"]))
+        return ops</code></pre>
+
+<div class="callout"><b>Adding or replacing a tool.</b> Write one class like the above (descriptors
++ <code>normalize</code>), add it to the layer’s adapter list, and give it data — a fixture blob
+for hermetic runs, or <code>IW_CAP_&lt;PROVIDER&gt;_URL</code>/<code>_TOKEN</code> once the
+provider-routed live path is wired. The catalogue re-renders itself from <code>meta</code>
+(the reasoner learns the tool with zero prompt edits), <code>tool_intents()</code> starts
+accepting its verbs, and nothing else in the engine changes. Swapping vendors behind a capability
+— Moogsoft for BigPanda, say — is the same move: the intents and the fold shape stay, only the
+adapter (and, live, a translator in <code>mapping.py</code>) changes.</div>
+
+<h2 id="firsttap"><span class="n">10</span>The first tap — de-noising the storm</h2>
+<p class="lead">The event-correlation / AIOps adapter (<code>BigPandaAdapter</code> — BigPanda,
+Moogsoft, and kin) is the layer <em>above</em> raw monitoring, and the investigation taps it
+first. Monitoring tools fire many individual alerts; the aggregation platform deduplicates and
+correlates them into a single high-level incident. Instead of a wall of raw alerts, the engine
+gets: <em>“these N alerts across these M services are ONE incident — and here are the co-firing,
+related incidents.”</em> That correlated cluster is a strong hypothesis prior, folded in the same
+shapes the engine already reasons over.</p>
+
+<div class="diagram">
+  <div class="cap">get_correlated_incident — one call collapses the storm into typed graph shapes</div>
+  <div class="stack">
+    <div class="layer"><span class="tag">the storm</span><span class="body">
+      <div class="pipe">
+        <div class="box"><b>alert</b><small>5xx-rate</small></div>
+        <div class="box"><b>alert</b><small>latency-p99</small></div>
+        <div class="box"><b>alert</b><small>pod-restart</small></div>
+        <div class="box"><b>alert</b><small>queue-lag</small></div>
+        <div class="box"><b>… × N</b><small>across M services</small></div>
+      </div></span></div>
+    <div class="down">↓ <span class="faint" style="font-size:12px">the correlation platform deduplicates + correlates; the adapter folds its answer</span></div>
+    <div class="layer eng"><span class="tag">one incident</span><span class="body">
+      <code>raw["primary_incident"]</code> → <b>Incident node</b> — the correlation engine is what
+      <em>mints</em> this incident from the storm, so the adapter creates the node
+      (<code>{"incident_id": primary, "severity": …}</code>).</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">the cluster</span><span class="body">
+      <div class="pipe">
+        <div class="box"><b>member Alerts</b><small>fired · value={state, correlated: true} · FIRED_ON svc</small></div>
+        <div class="box"><b>affected Services</b><small>the blast radius the platform computed</small></div>
+        <div class="box hl"><b>related Incidents</b><small>SIMILAR_TO primary · ConfidenceLevel(ri.get("confidence","med"))</small></div>
+      </div></span></div>
+  </div>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">Raw shape it reads:
+  <code>{primary_incident, severity, affected_services[{name, env}], correlated_alerts[{id,
+  alertname, at, state, service}], related_incidents[{number, priority, opened_at, cmdb_ci,
+  confidence}]}</code>. Every member alert’s <code>fired</code> event carries
+  <code>"correlated": true</code>, so downstream views can tell a platform-correlated alert from a
+  directly-observed one. Honesty note (§11): this adapter is fixture-shaped —
+  <em>not</em> implemented against BigPanda’s real v2 API yet.</p>
+</div>
+
+<h2 id="joins"><span class="n">11</span>The cross-tool joins the adapters draw</h2>
+<p class="lead">Each adapter folds its own tool honestly; the investigation works because a few of
+those folds deliberately <em>join</em> tools. These are the seams worth knowing by name.</p>
+
+<div class="grid two">
+  <div class="card"><h4>The identity backbone — servicenow</h4><p>The CI’s per-tool identifiers
+    (<code>app_id · sys_id · repo · k8s_workload</code>) are copied onto the Service node, so
+    every later tool can be queried by <em>its own</em> id (§02) — and the reducer’s alias
+    backbone resolves cross-tool arrivals onto one entity instead of twinning it.</p></div>
+  <div class="card"><h4>Discovered topology — appd exit-calls</h4><p><code>_fold_exit_calls</code>
+    is a branch switch on the trace boundary: <code>type=="JDBC"</code> → Database
+    (<code>{db_id, engine}</code>) + DEPENDS_ON <code>origin=discovered</code>;
+    <code>type=="HTTP"</code> → ExternalService (when <code>target_external</code>) else Service +
+    DEPENDS_ON; anything else is an in-process hop — <b>no edge</b>. Telemetry-discovered topology,
+    kept distinct from the CMDB-declared spine.</p></div>
+  <div class="card"><h4>The terminal join — git blame</h4><p><code>{sha, file, line, snippet}</code>
+    pins an ErrorSignature to a CodeCommit: a CAUSED_BY edge at <code>ConfidenceLevel.HIGH</code>
+    with <code>EvidenceRef(kind="blame", ref="file:line", label=snippet)</code>, plus a
+    <code>blame_line</code> content DESCRIPTOR (live-only — hermetic fixtures carry no snippet).
+    A CAUSED_BY from <code>hyp:&lt;id&gt;</code> to the commit is drawn <em>only</em> when the
+    payload names a hypothesis id — causal linkage stays the planner’s job; the adapter just draws
+    the edge to an already-proposed hypothesis.</p></div>
+  <div class="card"><h4>Supply chain by digest — artifactory</h4><p>The artifact’s digest is its
+    identity; <code>properties["git.revision"]</code> draws BUILT_FROM to the CodeCommit (the
+    Artifactory→Git join) and <code>promoted.to/.at</code> draws RELEASED_AS to the Release —
+    commit → artifact → release becomes walkable structure, which is exactly what the deployment
+    and code-regression scenarios traverse.</p></div>
+  <div class="card"><h4>Closed vocabulary at the platform — ocp</h4><p>k8s reasons map through
+    fixed tables — <code>_POD_REASON_EVENTS</code> (<code>OOMKilling/OOMKilled → OOMKilled</code>,
+    <code>BackOff/CrashLoopBackOff → restarted</code>, <code>Killing → terminated</code>, …),
+    <code>_DEPLOYMENT_REASON_EVENTS</code> (<code>ScalingReplicaSet → rollout_started</code>,
+    <code>ProgressDeadlineExceeded → rollback</code>, …), <code>_LOG_SIGNATURES</code> for
+    <code>pod_logs</code> (a second, independent path to the same signal). The raw reason survives
+    on <code>source_native_name</code>; an unmapped reason is skipped, never minted into the
+    vocabulary.</p></div>
+  <div class="card"><h4>The declared spine — cmdb</h4><p>Structure only, treated as truth:
+    every edge <code>origin=Origin.DECLARED</code> (R-G8). The raw relationship string
+    (“Runs on::Hosts”) maps to the <em>first registry-legal</em> EdgeType candidate for the
+    concrete type pair (<code>_edge_type_for</code>); no legal candidate ⇒ the relationship is
+    dropped — the adapter’s own guard against the reducer’s rejection path. Uniquely threads
+    <code>source=Source.CMDB</code> onto <code>AddNode</code>, so each declared prop is attributed
+    to the tool that supplied it.</p></div>
+</div>
+
+<h2 id="real"><span class="n">12</span>Real vs aspirational — the honest ledger of this boundary</h2>
+<p class="lead">The design docs (part 4 of the redesign) describe more than the tree contains. Here
+is the split, verified against code — so nobody reads a roadmap as a feature list.</p>
+
+<div class="grid two">
+  <div class="card" style="border-color:var(--green)">
+    <h4 style="color:var(--green)">Real — shipped and tested</h4>
+    <ul class="tight" style="font-size:14px;color:var(--muted)">
+      <li>Gate-first <code>serve()</code>; guarded transport <em>and</em> normalize — one vendor
+          500 can no longer kill a session.</li>
+      <li>Four distinguishable outcomes, consumed end to end: engine
+          <code>no_weight_intents</code> → the reducer rejects tainted <code>NoEvidence</code>.</li>
+      <li>Every call journaled (<code>kind="invocation"</code>, sharing the phase seq); durable
+          <code>gate_opened</code> / <code>gate_decision</code> entries.</li>
+      <li>Per-intent effect: <code>effects</code> overrides + <code>effect_for</code>;
+          <code>ingest_alert</code> and <code>ocp__restart</code> are WRITE on mixed adapters; the
+          split-adapter workaround class is retired.</li>
+      <li>Registry-as-data with allow/ask/deny and pending-review→deny — <em>as substrate</em>:
+          built + tested, not wired into any production layer.</li>
+      <li>Provider-arity routing + env config (<code>ProviderRoutedSource</code>,
+          <code>IW_CAP_&lt;P&gt;_URL/_TOKEN</code>, <code>build_provider_transports</code>) —
+          substrate, unit tests only.</li>
+      <li>Tolerant MCP envelope + SSE / Streamable-HTTP parsing (<code>_mcp_result</code>,
+          <code>_parse_sse_or_json</code>).</li>
+      <li>Response-side translators for prometheus / servicenow / splunk / git (4 of 10;
+          the rest pass through by design).</li>
+      <li><code>ScenarioSource</code>: provider-keyed, phase-scoped fixtures — the live-LLM product
+          path.</li>
+      <li>Ten adapters emitting the Assertion atom natively, with
+          <code>source_native_name</code> preserved and ids from <code>registry.node_id</code>.</li>
+    </ul>
+  </div>
+  <div class="card" style="border-color:var(--amber)">
+    <h4 style="color:var(--amber)">Aspirational — design prose, no or partial code</h4>
+    <ul class="tight" style="font-size:14px;color:var(--muted)">
+      <li>MCP <code>initialize</code> handshake, session ids, <code>tools/list</code> discovery,
+          OAuth; intent→vendor-tool-name mapping (the intent goes verbatim today).</li>
+      <li>Request-side builders — PromQL / SPL / sysparm / AQL templating, REST POST;
+          <code>RestSource</code> is GET-only.</li>
+      <li>Per-call approval-token binding (<code>gate_id</code> → one write Invocation); today one
+          approve releases every write in the plan, and batch mode self-approves on
+          <code>writes_allowed</code>.</li>
+      <li>Playbook <code>allowed_intents</code> enforced at resolve time — today abstract,
+          prompt-advisory (the engine consults it only for the
+          <code>correlate_timeline</code> hint).</li>
+      <li>Ranked multi-source per intent — today an intent collision is <b>silent last-wins</b>
+          over the adapters list (the page’s one anti-invariant).</li>
+      <li>Per-vendor hardening: ServiceNow <code>{value, link}</code> reference-field shapes;
+          BigPanda against the real v2 API (fixture-shaped today).</li>
+      <li>A live A2A transport for <code>RemediationAdapter</code> — deliberately reserved; an
+          approved routed write degrades to an <code>error</code> Invocation rather than crashing,
+          but the transport is fictional.</li>
+      <li>Earned autonomy — the ask→allow ladder — explicitly deferred.</li>
+      <li>Per-intent <code>queries_by</code> and registry-carried request/response templates
+          (<code>CapabilitySpec</code> has no such fields).</li>
+    </ul>
+  </div>
+</div>
+
+<h2 id="invariants"><span class="n">13</span>What breaks if you break it</h2>
+<p class="lead">The boundary’s guarantees, each with its enforcement point and its failure mode —
+the fastest way to review a change to <code>capability/</code>.</p>
+
+<table>
+  <thead><tr><th>Invariant</th><th>Enforced at</th><th>If violated</th></tr></thead>
+  <tbody>
+  <tr><td><b>Gate before fetch</b> — a blocked call returns before <code>Source.fetch</code></td>
+      <td><code>layer.py&nbsp;serve()</code>: resolve → <code>_gate</code> → fetch → normalize</td>
+      <td>A denied write causes a vendor-side effect — the audited write-before-gate bug returns:
+      production mutation without consent.</td></tr>
+  <tr><td><b>Read = free, write = gated, per intent</b></td>
+      <td><code>effect_for()</code> (registry → <code>effects</code> dict → default);
+      <code>session._is_write_call</code> uses the same resolution</td>
+      <td>A write rides an adapter’s READ default (the retired <code>OcpRestartAdapter</code>
+      workaround class), or reads get pointlessly gated and the loop starves.</td></tr>
+  <tr><td><b>Unknown intent provably refused</b></td>
+      <td><code>_gate</code> (no adapter ⇒ blocked); <code>spec_for</code> (unknown ⇒
+      pending-review DENY)</td>
+      <td>An unreviewed tool call executes silently — the exact governance hole the registry
+      grammar exists to close.</td></tr>
+  <tr><td><b>Outcome honesty: error ≠ empty ≠ blocked</b></td>
+      <td><code>Invocation.outcome</code>; engine <code>_intent_outcomes</code> →
+      <code>no_weight_intents</code>; reducer’s <code>NoEvidence</code> rejection</td>
+      <td>A vendor outage or shape mismatch becomes fabricated negative evidence — the run converges
+      wrong-but-confident. This is the failure the whole field exists to kill.</td></tr>
+  <tr><td><b>Never-crash boundary</b> (INV-7)</td>
+      <td>try/except in <code>serve()</code> and <code>_fold()</code>; degrading
+      <code>map_response</code>; never-raising <code>_parse_sse_or_json</code></td>
+      <td>One malformed payload or 5xx aborts the live investigation it was supposed to
+      inform.</td></tr>
+  <tr><td><b><code>normalize</code> is pure; the fetch is the one seam</b> (R-K1)</td>
+      <td><code>Adapter</code> Protocol + <code>Source.fetch(binding, intent, params)</code></td>
+      <td>Mock and live paths diverge — the hermetic golden suite stops proving anything about
+      production.</td></tr>
+  <tr><td><b>Closed vocabulary, vendor name preserved</b></td>
+      <td>OCP reason tables (unmapped ⇒ skipped); CMDB legal-edge guard (illegal ⇒ dropped);
+      <code>source_native_name</code> on every assertion</td>
+      <td>Vendor label drift into the closed registry — or observations silently erased instead of
+      quarantined (the airlock exists so neither happens).</td></tr>
+  <tr><td><b>Deterministic shared identity</b></td>
+      <td><code>registry.node_id</code> / <code>_slug</code>, shared by adapters, reducer, and
+      scenario authors</td>
+      <td>The same real-world CI minted twice under different spellings — split-brain twins with
+      facts and edges dangling off the wrong node.</td></tr>
+  <tr><td><b>Absence is honest, not fabricated</b></td>
+      <td>Unfixtured / unrouted / unwired ⇒ <code>{}</code> ⇒ zero ops ⇒
+      <code>outcome="empty"</code></td>
+      <td>A missing wire reads as either a crash or as evidence — both lies.</td></tr>
+  <tr><td><b>Every call leaves a durable trace</b></td>
+      <td><code>Engine._journal_invocation</code> — data, empty, error, blocked alike; params in
+      full</td>
+      <td>An approved write leaves zero durable record — “the journal proves consent, never
+      execution” was the audited defect.</td></tr>
+  <tr><td><b>Timing stays ephemeral</b></td>
+      <td><code>started_at</code>/<code>duration_ms</code> stamped in memory only — never journaled,
+      never in the bundle</td>
+      <td>Wall-clock noise diffs every golden on every run; replay stops being
+      byte-comparable.</td></tr>
+  <tr><td><b>The write adapter stays out of the default set</b></td>
+      <td><code>RemediationAdapter</code> excluded from <code>default_adapters()</code>; wired only
+      by the scenario registry / live manager</td>
+      <td>The read-only golden path silently acquires a write surface.</td></tr>
+  </tbody>
+</table>
+
+<div class="plain"><p style="margin:0"><b>The one-sentence summary of this page.</b> Judgment picks
+the verb; the layer gates it; one seam fetches it; a pure fold types it; and the record of what
+happened — including <em>nothing happened</em> and <em>it failed</em> — is kept distinct, durable,
+and honest, so the evidence arithmetic downstream never stands on a lie.</p></div>
+
+<footer>
+  Rewritten 2026-07-22 against the live tree (P0–P6 + P8 landed; P7 substrate begun). End of the
+  set — back to the <a href="index.html" style="color:var(--accent)">Index</a>, or start over at
+  <a href="01-design-architecture.html" style="color:var(--accent)">01 · Design &amp;
+  Architecture</a>.
+</footer>
+</div>
+</body>
+</html>
