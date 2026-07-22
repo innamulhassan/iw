@@ -23,8 +23,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .common import Confidence, EvidenceRef
 from .enums import Channel, FactState, Source, Species, Stat
 
-# an assertion value is one of a small typed set; `unit` qualifies numbers (mirrors FactValue)
-AssertionValue = bool | int | float | str | dict | None
+# an assertion value is one of a small typed set; `unit` qualifies numbers (mirrors FactValue).
+# P6 widens it with datetime/list: node props are DECLARED assertions now, and vendor-declared
+# identity surfaces carry timestamps (change windows) and lists — exact types survive the flip
+# (a datetime prop must render byte-identically, never silently stringified).
+AssertionValue = bool | int | float | str | dict | list | datetime | None
 
 
 # ── Source → default belief channel (DOMAIN-v3 §2.2) ──────────────────────────
@@ -118,13 +121,16 @@ class Assertion(BaseModel):
     @model_validator(mode="after")
     def _time_shape(self) -> Assertion:
         """Species/time-shape invariants (build-spec step 1): identity has no observed_at;
-        reading requires stat+window; event requires occurred_at; occurred_at is EVENT-only."""
+        reading requires stat+window; event requires occurred_at; occurred_at is EVENT-only.
+        P6 delta: a DECLARED descriptor may omit observed_at — a node-prop declaration is
+        asserted configuration truth, timeless like identity (the fold mints it with no
+        observation instant, keeping journal replay deterministic — no wall-clock stamp)."""
         if self.species is Species.IDENTITY:
             if self.observed_at is not None:
                 raise ValueError(f"assertion {self.id}: identity is write-once — no observed_at")
             if self.valid_from is not None or self.valid_to is not None:
                 raise ValueError(f"assertion {self.id}: identity carries no validity window")
-        else:
+        elif not (self.species is Species.DESCRIPTOR and self.channel is Channel.DECLARED):
             if self.observed_at is None:
                 raise ValueError(f"assertion {self.id}: {self.species.value} requires observed_at")
 

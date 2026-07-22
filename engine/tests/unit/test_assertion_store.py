@@ -51,7 +51,9 @@ def test_facts_and_events_land_in_the_one_assertion_collection():
     g.upsert_node(_node())
     g.add_fact(_fact())
     g.add_event(_event())
-    assert set(g.assertions) == {"f1", "e1"}          # ONE store holds both
+    # ONE store holds observed facts, occurrences AND (step 2) the node-prop declarations
+    assert set(g.assertions) == {"f1", "e1",
+                                 f"prop:{SID}:service_name", f"prop:{SID}:env"}
     assert g.assertions["f1"].species is not Species.EVENT
     assert g.assertions["e1"].species is Species.EVENT
     # the views split it exactly (decision 2's discriminator)
@@ -174,4 +176,6 @@ def test_from_dict_reads_the_legacy_facts_events_cache_shape():
     }
     g2 = Graph.from_dict(legacy)
     assert g2.facts["f1"] == f and g2.events["e1"] == ev
-    assert set(g2.assertions) == {"f1", "e1"}
+    # a legacy load re-mints the node's prop declarations from its flattened props dict
+    assert set(g2.assertions) == {"f1", "e1",
+                                  f"prop:{SID}:service_name", f"prop:{SID}:env"}

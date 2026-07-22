@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections import Counter
 
 from ..domain.dictionary import is_quarantined
-from ..domain.enums import NodeType
+from ..domain.enums import Channel, NodeType
 from ..domain.registry import node_id
 from ..graph.graph import Graph
 from ..hypothesis.store import HypothesisStore
@@ -18,17 +18,21 @@ from ..runtime.postmortem import render_postmortem
 
 
 def _node_provenance(nid: str, g: Graph) -> dict:
-    """Derive a node's provenance (obs 5) as a pure projection of its facts+events — WHERE it was
-    fetched from (which capability first observed it) and WHEN first/last seen. No redundant
-    storage: the node's source IS which datasource observed it (the AppD/Dynatrace entity model),
-    and because facts are journaled this is deterministic + replay-stable. Tie-break on id."""
+    """Derive a node's provenance (obs 5) by reading REAL per-assertion provenance off the ONE
+    assertion collection (P6 store-flip): WHERE it was fetched from (which capability first
+    observed it) and WHEN first/last seen. Each assertion carries its own source — nothing here
+    is inferred from redundant storage, and because assertions are journaled the projection is
+    deterministic + replay-stable. Tie-break on id.
+
+    The DECLARED channel (node-prop declarations, P6 step 2) is excluded: a declaration is
+    asserted configuration, not an observation — it carries no observation instant, and the
+    node card's source stays the observing datasource (the AppD/Dynatrace entity model).
+    Per-prop declared provenance is queryable via `graph.declared_of(nid)`."""
     obs: list[tuple] = []
-    for f in g.facts.values():
-        if f.subject_ref == nid:
-            obs.append((f.observed_at, f.id, f.source.value))
-    for e in g.events.values():
-        if e.entity_ref == nid:
-            obs.append((e.observed_at, e.id, e.source.value))
+    for a in g.assertions.values():
+        if (a.subject_ref == nid and a.channel is not Channel.DECLARED
+                and a.observed_at is not None):
+            obs.append((a.observed_at, a.id, a.source.value))
     if not obs:
         return {"source": None, "first_source": None, "first_seen": None, "last_seen": None}
     obs.sort(key=lambda x: (x[0], x[1]))

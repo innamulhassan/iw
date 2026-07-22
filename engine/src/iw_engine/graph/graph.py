@@ -26,10 +26,11 @@ import networkx as nx
 
 from ..domain.assertion import Assertion
 from ..domain.edge import Edge
-from ..domain.enums import Channel, EdgeType, FactState, NodeType, Origin, Species
+from ..domain.enums import Channel, EdgeType, FactState, NodeType, Origin, Source, Species
 from ..domain.event import Event
 from ..domain.fact import Fact
 from ..domain.node import Node
+from ..domain.nodes import NODE_SPECS
 from ..domain.registry import edge_id as _edge_id
 from ..domain.shim import (
     assertion_of_event,
@@ -65,18 +66,70 @@ class Graph:
 
     # ── mutation (only the fold calls these) ──────────────────────────────────
     def upsert_node(self, node: Node) -> Node:
+        """Upsert an entity. P6 step 2: each prop becomes a DECLARED-channel assertion in the
+        one collection (identity keys → IDENTITY species, the rest → DESCRIPTOR), attributed to
+        the arrival's `node.source` (P1b's AddNode.source, threaded by the reducer) — so
+        per-prop provenance is REAL, not inferred. The stored record's `props` dict is the
+        materialized read view over those assertions, rebuilt here — never dual-authored.
+
+        Merge semantics preserved exactly from the dict era: a first mint lands every key
+        (None values included); a later upsert's non-None values win, its None values never
+        override; an unchanged value keeps the FIRST declaration's provenance (write-once
+        flavor, symmetric with aliases)."""
         prior = self.nodes.get(node.id)
-        if prior is not None:
-            merged = {**prior.props, **{k: v for k, v in node.props.items() if v is not None}}
+        if prior is None:
+            for k, v in node.props.items():
+                self._declare_prop(node.id, node.type, k, v, node.source, node.created_by)
+            node = node.model_copy(update={"props": self._props_view(node.id)})
+        else:
+            for k, v in node.props.items():
+                if v is None:
+                    continue                     # merge: a new None never overrides
+                self._declare_prop(node.id, prior.type, k, v, node.source, node.created_by)
             # aliases are identity surface: union, PRIOR wins per scheme (write-once flavor —
             # symmetric with the alias_index's first-binding-wins below).
             aliases = {**node.aliases, **prior.aliases}
-            node = prior.model_copy(update={"props": merged, "aliases": aliases})
+            node = prior.model_copy(update={"props": self._props_view(node.id),
+                                            "aliases": aliases})
         self.nodes[node.id] = node
         self._g.add_node(node.id, type=node.type.value)
         for scheme, val in node.aliases.items():
             self.alias_index.setdefault(resolver.alias_key(scheme, val), node.id)
         return node
+
+    def _declare_prop(self, nid: str, ntype: NodeType, key: str, value, source, seq: int) -> None:
+        """Upsert ONE node-prop declaration into the assertion collection (P6 step 2 / P1a
+        decision 2: node-declared = the DECLARED channel — the props view's discriminator).
+        Keyed `prop:<node>:<key>` so a re-declaration replaces in place (props are static
+        per R-G5 — a changed value is a correction, not history; time-varying belongs in
+        facts). An unchanged value is a no-op: the first declarer's provenance survives.
+        Unsourced arrivals (planner/engine-authored AddNodes) attribute to the engine."""
+        aid = f"prop:{nid}:{key}"
+        existing = self.assertions.get(aid)
+        if existing is not None and existing.value == value:
+            return
+        spec = NODE_SPECS.get(ntype)
+        identity = spec is not None and key in spec.identity_keys
+        self.assertions[aid] = Assertion(
+            id=aid, subject_ref=nid, name=key, value=value,
+            species=Species.IDENTITY if identity else Species.DESCRIPTOR,
+            channel=Channel.DECLARED, source=source or Source.ENGINE,
+            source_reliability=None if identity else 1.0, created_by=seq)
+        self._rev += 1
+
+    def _props_view(self, nid: str) -> dict:
+        """The node's props dict, materialized from its DECLARED assertions (insertion order =
+        declaration order, so the dict-era key order is preserved; value updates keep their
+        position, exactly like a dict merge)."""
+        return {a.name: a.value for a in self.assertions.values()
+                if a.channel is Channel.DECLARED and a.subject_ref == nid}
+
+    def declared_of(self, nid: str) -> list[Assertion]:
+        """The props view, un-flattened: one DECLARED assertion per prop, each carrying its
+        real provenance (source + created_by seq) — what `_node_provenance`-style consumers
+        read for per-prop attribution."""
+        return [a for a in self.assertions.values()
+                if a.channel is Channel.DECLARED and a.subject_ref == nid]
 
     def add_edge(self, edge: Edge) -> Edge:
         self.edges[edge.id] = edge                 # idempotent by edge id (type+src+dst+origin)
@@ -147,8 +200,20 @@ class Graph:
         for k, v in self.id_remaps.items():
             if v == old:
                 self.id_remaps[k] = new
-        # ONE loop over the one collection: facts AND events re-home together (their ids are
-        # minted once and never move; only the subject reference is rewritten).
+        # DECLARED prop assertions re-key first (P6 step 2): their ids embed the node id
+        # (`prop:<node>:<key>`), so like edges they re-mint on remap. Per-key collision =
+        # the canonical wins ({**old.props, **tgt.props} semantics — the old twin's value
+        # for a shared key is dropped, its provenance with it); old-only keys move over
+        # with their provenance intact.
+        moved = [a for a in self.assertions.values()
+                 if a.channel == Channel.DECLARED and a.subject_ref == old]
+        for a in moved:
+            del self.assertions[a.id]
+            nid = f"prop:{new}:{a.name}"
+            if nid not in self.assertions:
+                self.assertions[nid] = a.model_copy(update={"id": nid, "subject_ref": new})
+        # then ONE loop over the one collection: facts AND events re-home together (their ids
+        # are minted once and never move; only the subject reference is rewritten).
         for aid, a in self.assertions.items():
             if a.subject_ref == old:
                 self.assertions[aid] = a.model_copy(update={"subject_ref": new})
@@ -170,8 +235,10 @@ class Graph:
         old_node = self.nodes.pop(old, None)
         if old_node is not None and new in self.nodes:
             tgt = self.nodes[new]
+            # props content = {**old.props, **tgt.props} exactly (canonical wins per key,
+            # old-only keys survive) — materialized from the re-keyed DECLARED assertions.
             self.nodes[new] = tgt.model_copy(update={
-                "props": {**old_node.props, **tgt.props},
+                "props": self._props_view(new),
                 "aliases": {**old_node.aliases, **tgt.aliases}})
         for k, v in self.alias_index.items():
             if v == old:
@@ -317,25 +384,43 @@ class Graph:
     @classmethod
     def from_dict(cls, d: dict) -> Graph:
         g = cls()
-        for n in d.get("nodes", []):
-            g.upsert_node(Node.model_validate(n))
+        if "assertions" in d:
+            # current shape: the one collection IS the file — load it verbatim (exact insertion
+            # order, exact per-prop provenance), and load node records WITHOUT re-minting their
+            # prop declarations (the assertions list is the authority; the record's props dict
+            # was materialized from it at save time).
+            for a in d["assertions"]:
+                rec = Assertion.model_validate(a)
+                g.assertions[rec.id] = rec   # load as-is (windows already resolved)
+            for n in d.get("nodes", []):
+                g._load_node(Node.model_validate(n))
+        else:
+            # legacy cache shape (pre-flip graph.json): separate facts/events lists — converted
+            # through the same exact-inverse seams the views use, and prop declarations
+            # re-minted from each node's flattened props (per-prop provenance was not stored
+            # then). The cache is rebuildable from the journal anyway (R-J4); this just keeps
+            # an old cache readable.
+            for n in d.get("nodes", []):
+                g.upsert_node(Node.model_validate(n))
+            for f in d.get("facts", []):
+                fact = Fact.model_validate(f)
+                g.assertions[fact.id] = assertion_of_fact(fact)
+            for e in d.get("events", []):
+                ev = Event.model_validate(e)
+                g.assertions[ev.id] = assertion_of_event(ev)
         for e in d.get("edges", []):
             g.add_edge(Edge.model_validate(e))
-        for a in d.get("assertions", []):
-            rec = Assertion.model_validate(a)
-            g.assertions[rec.id] = rec       # load as-is (windows already resolved)
-        # legacy cache shape (pre-flip graph.json): separate facts/events lists — converted
-        # through the same exact-inverse seams the views use. The cache is rebuildable from the
-        # journal anyway (R-J4); this just keeps an old cache readable.
-        for f in d.get("facts", []):
-            fact = Fact.model_validate(f)
-            g.assertions[fact.id] = assertion_of_fact(fact)
-        for e in d.get("events", []):
-            ev = Event.model_validate(e)
-            g.assertions[ev.id] = assertion_of_event(ev)
         g._rev += 1
         g.id_remaps = {str(k): str(v) for k, v in d.get("remaps", {}).items()}
         return g
+
+    def _load_node(self, node: Node) -> None:
+        """Deserialization primitive: place a node record exactly as saved — no prop-assertion
+        minting (from_dict's assertions list carries them), no merge (a load is not an upsert)."""
+        self.nodes[node.id] = node
+        self._g.add_node(node.id, type=node.type.value)
+        for scheme, val in node.aliases.items():
+            self.alias_index.setdefault(resolver.alias_key(scheme, val), node.id)
 
     def __len__(self) -> int:
         return len(self.nodes)

@@ -315,9 +315,11 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                     "refusing a degenerate id"))
                 continue
             # lift the identity-backbone props into the entity's alias block — per-tool ids
-            # become identity surface the graph indexes, not inert cargo.
+            # become identity surface the graph indexes, not inert cargo. `source` rides the
+            # record (P6 step 2 / P1a decision 3): the fold turns each prop into a DECLARED
+            # assertion attributed to the adapter that supplied it.
             out.nodes.append(Node(id=target, type=op.type, props=props, aliases=derived,
-                                  provisional=provisional, created_by=seq))
+                                  provisional=provisional, source=op.source, created_by=seq))
             batch_types[target] = op.type
             batch_nodes.setdefault(target, out.nodes[-1])
             register_aliases(i, op.op.value, derived, target)
