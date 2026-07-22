@@ -26,6 +26,10 @@ class AddNode(_Op):
     op: Literal[OpKind.ADD_NODE] = OpKind.ADD_NODE
     type: NodeType
     props: dict = Field(default_factory=dict)
+    # P6 makes node props sourced assertions; the source is known at mint time, so the field is
+    # threaded here (default None = no behavior change, existing callers stay valid). The reducer
+    # does not read it yet — pure groundwork.
+    source: Source | None = None
 
 
 class AddAssertion(_Op):
