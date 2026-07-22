@@ -384,4 +384,36 @@ describe("store reducer — the live event fold", () => {
     expect(hypothesisList(s)).toHaveLength(1);
     expect(s.turns).toHaveLength(1);
   });
+
+  it("reopen (no live events) rebuilds the conversation from the journal — the durable record", () => {
+    // A disk-reopened investigation carries no event stream; the journal is the record.
+    const snapshot = {
+      session_id: "app-incident:INC-4821",
+      subject: { domain: "app-incident", id: "INC-4821", kind: "incident" },
+      state: "suspended",
+      outcome: "open",
+      phases: ["frame", "investigate", "investigate"],
+      graph: { nodes: [], edges: [], facts: [], events: [] },
+      hypotheses: [],
+      journal: [
+        { seq: 1, phase: "frame", actor: "engine", narrative: "payments-api 5xx spiked after the v4.12.0 deploy.", refs: {} },
+        { seq: 2, phase: "investigate", actor: "engine", narrative: "The deploy is the prime suspect (H1).", refs: {} },
+        { seq: 3, phase: "investigate", actor: "engine", narrative: "Ruled out the DB; NPE in TaxCalculator.", refs: {} },
+      ],
+      postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: null,
+      messages: [],
+      events: [], // reopened from disk — no live stream
+    } as unknown as Snapshot;
+
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    // the conversation is the full story, folded from the journal
+    expect(s.turns).toHaveLength(3);
+    expect(s.turns.map((t) => t.phase)).toEqual(["frame", "investigate", "investigate"]);
+    expect(s.turns[0].reasoning).toContain("payments-api 5xx");
+    expect(s.turns[2].reasoning).toContain("TaxCalculator");
+    // the stepper seeds too: phasesRun stays unique, phaseCounts carries the ×2 investigate loop
+    expect(s.phasesRun).toEqual(["frame", "investigate"]);
+    expect(phaseCounts(s).investigate).toBe(2);
+  });
 });

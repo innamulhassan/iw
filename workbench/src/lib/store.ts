@@ -10,6 +10,7 @@ import type {
   GraphEvent,
   GraphFact,
   HypothesisItem,
+  JournalEntry,
   RejectionItem,
   SessionEvent,
   SessionState,
@@ -179,6 +180,26 @@ export function reduce(state: LiveState, action: StoreAction): LiveState {
   }
 }
 
+// ── reopen: rebuild the conversation from the JOURNAL — the durable record ──────────
+// A disk-reopened investigation carries no live event stream (events === []), but the journal
+// captured every phase's reasoning. The journal IS the record, so fold it into the conversation
+// and the reopened run reads like it happened. One turn per journaled reasoning entry; the
+// operator-message / gate-decision kinds are not reasoning turns and are skipped here.
+function turnsFromJournal(journal: JournalEntry[]): Turn[] {
+  return journal
+    .filter((e) => {
+      const kind = (e as { kind?: string }).kind;
+      return (kind === undefined || kind === "phase" || kind === "step") && !!e.narrative;
+    })
+    .map((e) => ({
+      key: e.seq,
+      phase: String(e.phase),
+      reasoning: e.narrative,
+      calls: [],
+      obs: emptyObs(),
+    }));
+}
+
 // ── seed: full cold-load from the snapshot bundle, then replay its events ───────────
 function seed(snap: Snapshot): LiveState {
   const s = emptyState();
@@ -207,6 +228,15 @@ function seed(snap: Snapshot): LiveState {
   s.rejections = snap.rejections ?? s.rejections;
   // replay the recorded event stream to build the chat, node badges, phase + open gate
   const grown = applyEvents(s, snap.events, /*fresh*/ true);
+  // Reopen (no live stream): the durable JOURNAL is the record — fold it into the conversation
+  // so a reopened investigation reads like it happened (reasoning per phase; the stepper + the
+  // ×N iteration badges seed from these turns via phaseCounts). Live runs (events present) are
+  // untouched.
+  if (snap.events.length === 0 && snap.journal.length > 0) {
+    grown.turns = turnsFromJournal(snap.journal);
+    for (const t of grown.turns)
+      if (!grown.phasesRun.includes(t.phase)) grown.phasesRun.push(t.phase);
+  }
   return grown;
 }
 
