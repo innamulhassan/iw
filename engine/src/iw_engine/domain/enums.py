@@ -60,6 +60,46 @@ class ConfidenceLevel(StrEnum):
     HIGH = "high"
 
 
+class Species(StrEnum):
+    """The five temporal species of an Assertion (DOMAIN-v3 §2.2). One provenance envelope,
+    differing only on the time axis: what IS this (identity), what do we know ABOUT it
+    (descriptor), what is TRUE over time (state), what did we MEASURE (reading), what HAPPENED
+    (event). The atom that collapses today's prop/fact/event trichotomy into one record."""
+
+    IDENTITY = "identity"
+    DESCRIPTOR = "descriptor"
+    STATE = "state"
+    READING = "reading"
+    EVENT = "event"
+
+
+class Channel(StrEnum):
+    """The belief channel an Assertion's trust is keyed on (DOMAIN-v3 §2.2) — belief keyed on
+    channel, NOT Source identity (moves off the Source.LLM==inferred special-case). INFERRED
+    carries a confidence; MEASURED/DECLARED/ENGINE carry a source_reliability."""
+
+    MEASURED = "measured"    # a tool/human directly observed it
+    INFERRED = "inferred"    # the model reasoned it into being (confidence)
+    DECLARED = "declared"    # CMDB / IaC asserted it as truth
+    ENGINE = "engine"        # the engine authored it (no_evidence, hypothesis statements)
+
+
+class Stat(StrEnum):
+    """The statistic a READING carries (DOMAIN-v3 §9.1, widened vocabulary). A reading's number
+    is a judgment-granularity measurement qualified by its stat + window — ending the
+    `red_rate` rpm-vs-baseline ambiguity by making window/stat FIELDS, not name-encoded."""
+
+    GAUGE = "gauge"
+    RATE = "rate"
+    RATIO = "ratio"
+    COUNT = "count"
+    COUNTER = "counter"                       # lifetime monotonic
+    PERCENTILE = "percentile"
+    DISTRIBUTION = "distribution"
+    DELTA_VS_BASELINE = "delta_vs_baseline"
+    TIMESTAMP = "timestamp"
+
+
 class FactState(StrEnum):
     """The shared lifecycle vocabulary for every retractable storage shape — Fact AND, since
     the P0 lifecycle fix, Edge and Event (VALIDATION-VERDICT §B P0 #2). One enum, not three:
