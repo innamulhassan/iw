@@ -9,6 +9,7 @@ import JournalPane from "./JournalPane";
 import IncidentList from "./IncidentList";
 import HypothesisPanel from "./HypothesisPanel";
 import DiscoveryPanel from "./DiscoveryPanel";
+import RejectionsPanel from "./RejectionsPanel";
 
 interface Props {
   live: LiveState;
@@ -69,6 +70,11 @@ export default function Workbench({
             Object.keys(live.discovery.quarantined_names).length > 0) && (
             <section className="pane pane--discovery">
               <DiscoveryPanel discovery={live.discovery} />
+            </section>
+          )}
+          {live.rejections.length > 0 && (
+            <section className="pane pane--rejections">
+              <RejectionsPanel rejections={live.rejections} />
             </section>
           )}
           <section className="pane pane--journal">
