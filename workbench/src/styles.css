@@ -341,10 +341,37 @@ code {
   color: var(--amber);
 }
 
-.hypothesis-card__confidence-label {
-  font-size: 12px;
+/* the ENGINE-EARNED evidence score (P4) — prominent, not just the LOW/MED/HIGH band */
+.hypothesis-card__score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.hypothesis-card--refuted .hypothesis-card__score {
+  color: var(--text-muted);
+}
+
+.hypothesis-card__score-unit {
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+.hypothesis-card__score-tag {
+  margin-left: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
 }
 
 .hypothesis-card__statement {
@@ -808,8 +835,87 @@ code {
 }
 .workbench__sidebar .pane { min-height: 0; overflow-y: auto; padding: 16px 18px; }
 .pane--hypotheses { flex: 1.2 1 0; }
+.pane--discovery { flex: 0 0 auto; max-height: 180px; }
+.pane--rejections { flex: 0 0 auto; max-height: 180px; }
 .pane--journal { flex: 1 1 0; }
 .pane--incidents { flex: 0.9 1 0; }
+
+/* ---------- discovery (the airlock's promotion signal, P3 step 5) ---------- */
+
+.discovery__group { margin-bottom: 8px; }
+.discovery__label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.discovery__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.discovery-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  background: #fafbfd;
+  font-size: 11.5px;
+}
+.discovery-chip__name { color: var(--violet); }
+.discovery-chip__count { font-weight: 700; color: var(--text-muted); }
+
+/* ---------- provisional (P3 airlock) — quarantined knowledge reads as TENTATIVE ---------- */
+
+.is-provisional { opacity: 0.62; }
+.prov-chip {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--amber);
+  background: var(--amber-soft);
+  border: 1px dashed var(--amber);
+  border-radius: 999px;
+  padding: 0 6px;
+  vertical-align: 1px;
+}
+
+/* ---------- rejections (evidence withheld — the bounded-repair signal) ---------- */
+
+.rejections__list { list-style: none; margin: 0; padding: 0; }
+.rejections__row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 3px 0;
+  font-size: 12px;
+  border-bottom: 1px dashed var(--border);
+}
+.rejections__row:last-child { border-bottom: none; }
+.rejections__phase {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.rejections__op { flex: 0 0 auto; color: var(--text-muted); }
+.rejections__reason { color: var(--text); min-width: 0; }
 
 /* ---------- phase stepper (focus/greyed) ---------- */
 .phase-bar__back {
@@ -856,6 +962,21 @@ code {
 .toolcall { border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fafbfd; overflow: hidden; }
 .toolcall--write { border-color: #f0d9b0; background: #fdf8ef; }
 .toolcall--blocked { border-color: #f6cccc; }
+/* invocation outcome honesty (P3): a FAILED call must read as failure, never as "no data" */
+.toolcall--error { border-color: #f6cccc; background: #fef6f6; }
+.toolcall--empty { background: #fafafa; }
+.toolcall--empty .toolcall__intent { color: var(--text-muted); }
+.toolcall__outcome {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.toolcall__outcome--error { background: var(--red-soft); color: var(--red); }
+.toolcall__outcome--blocked { background: var(--red-soft); color: var(--red); }
+.toolcall__outcome--empty { background: #eef1f6; color: var(--text-muted); }
 .toolcall__summary {
   width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px;
   background: none; border: none; cursor: pointer; font: inherit; text-align: left;

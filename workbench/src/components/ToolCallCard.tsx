@@ -62,27 +62,59 @@ function fmtVal(v: unknown): string {
   return String(v);
 }
 
+/** The boundary-honesty outcome (P3 step 1): the engine distinguishes data · empty (an HONEST
+ *  no-data read) · error (a FAILED call — carries NO evidentiary weight, never "no data") ·
+ *  blocked. Older recorded streams may lack the field — fall back to blocked-or-data so a
+ *  legacy card never claims an honesty level the engine didn't assert. */
+function outcomeOf(call: ToolCall): string {
+  if (call.outcome) return call.outcome;
+  return call.blocked ? "blocked" : "data";
+}
+
+const OUTCOME_ICON: Record<string, string> = {
+  blocked: "⛔",
+  error: "⚠️",
+  empty: "∅",
+};
+
+function outText(call: ToolCall, outcome: string): string {
+  switch (outcome) {
+    case "blocked":
+      return `blocked — ${call.reason ?? "no approved gate"}`;
+    case "error":
+      // error-honesty made visible: a failed call is NOT negative evidence
+      return `call failed — ${call.reason ?? "provider error"} · no evidence`;
+    case "empty":
+      return "no data — clean empty (the provider answered; nothing to fold)";
+    default:
+      return call.summary || `${call.op_count} ops`;
+  }
+}
+
 export default function ToolCallCard({ call }: { call: ToolCall }) {
   const [open, setOpen] = useState(false);
   const isWrite = call.effect === "write";
-  const status = call.blocked ? "blocked" : "ok";
+  const outcome = outcomeOf(call);
   const dur = fmtDuration(call.durationMs);
   const started = fmtClock(call.startedAt);
   const kind = call.kind ?? (isWrite ? "workflow" : "tool");
   const purpose = PURPOSE[call.intent] ?? call.intent.replace(/_/g, " ");
   const paramEntries = Object.entries(call.params ?? {});
-  const out = call.blocked ? `blocked — ${call.reason ?? "no approved gate"}` : call.summary || `${call.op_count} ops`;
+  const out = outText(call, outcome);
 
   return (
-    <div className={`toolcall toolcall--${status} ${isWrite ? "toolcall--write" : ""}`}>
+    <div className={`toolcall toolcall--${outcome} ${isWrite ? "toolcall--write" : ""}`}>
       <button className="toolcall__summary" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
         <span className={`toolcall__chevron ${open ? "is-open" : ""}`}>▶</span>
         <span className="toolcall__icon" aria-hidden="true">
-          {call.blocked ? "⛔" : isWrite ? "✍️" : "🔧"}
+          {OUTCOME_ICON[outcome] ?? (isWrite ? "✍️" : "🔧")}
         </span>
         <code className="toolcall__intent">{call.intent}</code>
         <span className="toolcall__provider">{call.provider}</span>
         <span className={`toolcall__kind toolcall__kind--${kind}`}>{kind}</span>
+        {outcome !== "data" && (
+          <span className={`toolcall__outcome toolcall__outcome--${outcome}`}>{outcome}</span>
+        )}
         <span className="toolcall__result">
           → {out}
           {dur && <span className="toolcall__dur"> · {dur}</span>}
@@ -110,7 +142,19 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
           </div>
           <div className="tr-row">
             <span className="tr-k">out</span>
-            <span className={`tr-v ${call.blocked ? "tr-blocked" : ""}`}>{out}</span>
+            <span className={`tr-v ${outcome === "blocked" || outcome === "error" ? "tr-blocked" : ""}`}>
+              {out}
+            </span>
+          </div>
+          <div className="tr-row">
+            <span className="tr-k">outcome</span>
+            <span className="tr-v tr-muted">
+              {outcome === "data" && "data — ops folded into the graph"}
+              {outcome === "empty" && "clean-empty — an honest no-data read (refuting weight allowed)"}
+              {outcome === "error" && "error — the call failed; carries NO evidentiary weight"}
+              {outcome === "blocked" && "blocked — the write had no approved gate"}
+              {!["data", "empty", "error", "blocked"].includes(outcome) && outcome}
+            </span>
           </div>
           <div className="tr-row">
             <span className="tr-k">trace</span>

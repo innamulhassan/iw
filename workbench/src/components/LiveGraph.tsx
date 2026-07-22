@@ -358,6 +358,7 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
               const causal = Boolean(EDGE_COLORS[edge.type]) || edge.origin === "inferred";
               const d = `M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y}`;
               const isHover = hoverEdge?.id === edge.id;
+              const isProvisional = Boolean(edge.provisional); // P3 airlock — tentative, reads dim
               return (
                 <g key={edge.id}>
                   <path
@@ -365,9 +366,15 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                     fill="none"
                     stroke={color}
                     strokeWidth={isHover ? (causal ? 3.5 : 3) : causal ? 2 : 1.5}
-                    strokeDasharray={isRelated ? "2 4" : causal ? "6 4" : undefined}
+                    strokeDasharray={isProvisional ? "2 3" : isRelated ? "2 4" : causal ? "6 4" : undefined}
+                    strokeOpacity={isProvisional ? 0.45 : undefined}
                     markerEnd={`url(#arrow-${color.replace("#", "")})`}
-                    className={causal ? "edge edge--causal" : "edge edge--structural"}
+                    className={[
+                      causal ? "edge edge--causal" : "edge edge--structural",
+                      isProvisional ? "edge--provisional" : "",
+                    ]
+                      .join(" ")
+                      .trim()}
                   />
                   {/* wide invisible hit-area so a thin edge is easy to hover for its detail */}
                   <path
@@ -473,6 +480,7 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                   <span className={`edge-tip__kind edge-tip__kind--${causal ? "causal" : "structural"}`}>
                     {causal ? "inferred" : "structural"}
                   </span>
+                  {edge.provisional && <span className="prov-chip">provisional</span>}
                 </div>
                 <div className="edge-tip__dir">
                   <b>{src ? labelForNode(src) : shortId(edge.src)}</b>
@@ -584,6 +592,7 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                     className={[
                       f.state === "superseded" ? "is-superseded" : "",
                       f.id === selectedFactId ? "is-highlight" : "",
+                      f.provisional ? "is-provisional" : "",
                     ]
                       .join(" ")
                       .trim()}
@@ -592,6 +601,7 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                     {f.unit ? ` ${f.unit}` : ""}
                     {f.where ? <span className="node-detail__where"> @{f.where}</span> : null}
                     {f.source && <span className="node-detail__meta"> · {f.source}</span>}
+                    {f.provisional && <span className="prov-chip">provisional</span>}
                   </li>
                 ))}
               </ul>
@@ -604,9 +614,10 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                 <h4 className="node-detail__sub">Events ({selectedEvents.length})</h4>
                 <ul className="node-detail__events">
                   {selectedEvents.map((ev) => (
-                    <li key={ev.id}>
+                    <li key={ev.id} className={ev.provisional ? "is-provisional" : ""}>
                       <span className="node-detail__evtype">{ev.type}</span>
                       {ev.at && <span className="node-detail__meta"> · {new Date(ev.at).toLocaleTimeString()}</span>}
+                      {ev.provisional && <span className="prov-chip">provisional</span>}
                     </li>
                   ))}
                 </ul>

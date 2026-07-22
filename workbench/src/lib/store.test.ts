@@ -185,6 +185,165 @@ describe("store reducer — the live event fold", () => {
     expect(decided.decisions["g1"].source).toBe("human");
   });
 
+  it("carries the invocation OUTCOME on the tool call — error is a failed call, never 'no data'", () => {
+    const evs: SessionEvent[] = [
+      { seq: 1, ts: "t", type: "phase_started", phase: "investigate" },
+      {
+        seq: 2,
+        ts: "t",
+        type: "capability_call",
+        intent: "fetch_metrics",
+        provider: "prometheus",
+        effect: "read",
+        op_count: 0,
+        outcome: "error",
+        blocked: false,
+        reason: "HTTP 503 from provider",
+      },
+      {
+        seq: 3,
+        ts: "t",
+        type: "capability_call",
+        intent: "search_fw_denies",
+        provider: "firewall",
+        effect: "read",
+        op_count: 0,
+        outcome: "empty",
+        blocked: false,
+        reason: null,
+      },
+    ];
+    const s = reduce(emptyState(), { kind: "events", events: evs });
+    expect(s.turns[0].calls[0].outcome).toBe("error");
+    expect(s.turns[0].calls[1].outcome).toBe("empty");
+  });
+
+  it("never fabricates a ghost card from a bare hypothesis id the engine does not hold", () => {
+    const evs: SessionEvent[] = [
+      { seq: 1, ts: "t", type: "phase_started", phase: "hypothesize" },
+      {
+        seq: 2,
+        ts: "t",
+        type: "hypotheses_delta",
+        hypotheses: [
+          // a silently-dropped update to an unknown id: bare id, no statement, null status
+          { id: "hyp:phantom", action: "attach_evidence", status: null, confidence: null, basis: "" },
+          // a REAL proposal carries its statement on the delta
+          {
+            id: "hyp:h1",
+            action: "create",
+            status: "proposed",
+            confidence: 0.4,
+            basis: "deploy window matches",
+            statement: "the deploy broke it",
+          },
+        ],
+      },
+    ];
+    const s = reduce(emptyState(), { kind: "events", events: evs });
+    expect(s.hypotheses["hyp:phantom"]).toBeUndefined();
+    expect(hypothesisList(s).map((h) => h.id)).toEqual(["hyp:h1"]);
+    // and the phantom never shows up as a belief move either
+    expect(s.turns[0].obs.hypotheses.map((m) => m.id)).toEqual(["hyp:h1"]);
+  });
+
+  it("renders hypotheses in the ENGINE ranked() order — no client-side re-sort", () => {
+    // engine order deliberately NOT confidence-descending: the engine ranks by status first
+    const ranked = [
+      { id: "hyp:low", statement: "low-score leader", status: "supported", confidence: 0.35, basis: "b", root_candidate: null, supporting: [], refuting: [], chain: [] },
+      { id: "hyp:high", statement: "high-score rival", status: "proposed", confidence: 0.9, basis: "b", root_candidate: null, supporting: [], refuting: [], chain: [] },
+    ];
+    const snapshot = {
+      session_id: "app-incident:INC-1",
+      subject: { domain: "app-incident", id: "INC-1", kind: "incident" },
+      state: "running",
+      outcome: "open",
+      phases: ["frame"],
+      graph: { nodes: [], edges: [], facts: [], events: [] },
+      hypotheses: ranked,
+      journal: [],
+      postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: null,
+      messages: [],
+      events: [],
+    } as unknown as Snapshot;
+    let s = reduce(emptyState(), { kind: "seed", snapshot });
+    expect(hypothesisList(s).map((h) => h.id)).toEqual(["hyp:low", "hyp:high"]);
+
+    // a delta-born hypothesis appends until the next snapshot merge re-ranks it
+    s = reduce(s, {
+      kind: "events",
+      events: [
+        { seq: 1, ts: "t", type: "phase_started", phase: "hypothesize" },
+        {
+          seq: 2,
+          ts: "t",
+          type: "hypotheses_delta",
+          hypotheses: [
+            { id: "hyp:new", action: "create", status: "proposed", confidence: 0.99, basis: "b", statement: "brand new" },
+          ],
+        },
+      ],
+    });
+    expect(hypothesisList(s).map((h) => h.id)).toEqual(["hyp:low", "hyp:high", "hyp:new"]);
+
+    // mergeDetail refreshes to the engine's NEW ranked order
+    const reRanked = { ...snapshot, hypotheses: [ranked[1], ranked[0]] } as unknown as Snapshot;
+    s = reduce(s, { kind: "mergeDetail", snapshot: reRanked });
+    expect(hypothesisList(s).map((h) => h.id)).toEqual(["hyp:high", "hyp:low", "hyp:new"]);
+  });
+
+  it("seeds discovery counters + rejections from the bundle and marks provisional assertions", () => {
+    const snapshot = {
+      session_id: "app-incident:INC-1",
+      subject: { domain: "app-incident", id: "INC-1", kind: "incident" },
+      state: "running",
+      outcome: "open",
+      phases: ["frame"],
+      graph: {
+        nodes: [],
+        edges: [],
+        facts: [
+          { id: "f1", subject: "service:pay", predicate: "x.appd.weird_metric", value: 1, unit: null, at: "t", valid_to: null, source: "appdynamics", state: "active", provisional: true },
+        ],
+        events: [],
+      },
+      hypotheses: [],
+      journal: [],
+      rejections: [{ seq: 4, phase: "investigate", op_index: 2, op_kind: "AddFact", reason: "unknown predicate" }],
+      discovery: { class_hints: { LoadBalancer: 3 }, quarantined_names: { "x.appd.weird_metric": 2 } },
+      postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: null,
+      messages: [],
+      events: [],
+    } as unknown as Snapshot;
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    expect(s.discovery.class_hints).toEqual({ LoadBalancer: 3 });
+    expect(s.discovery.quarantined_names).toEqual({ "x.appd.weird_metric": 2 });
+    expect(s.rejections).toHaveLength(1);
+    expect(s.rejections[0].reason).toBe("unknown predicate");
+    expect(s.facts["f1"].provisional).toBe(true);
+
+    // and a provisional fact arriving on the LIVE stream keeps its flag too
+    const grown = reduce(s, {
+      kind: "events",
+      events: [
+        { seq: 1, ts: "t", type: "phase_started", phase: "investigate" },
+        {
+          seq: 2,
+          ts: "t",
+          type: "graph_delta",
+          nodes: [],
+          edges: [],
+          facts: [{ id: "f2", subject: "service:pay", predicate: "x.appd.other", value: 2, provisional: true }],
+          events: [{ id: "ev1", entity: "service:pay", type: "x.appd.blip", provisional: true }],
+        },
+      ],
+    });
+    expect(grown.facts["f2"].provisional).toBe(true);
+    expect(grown.events["ev1"].provisional).toBe(true);
+  });
+
   it("seeds full detail from a snapshot then replays its events for badges + chat", () => {
     const snapshot = {
       session_id: "app-incident:INC-1",
