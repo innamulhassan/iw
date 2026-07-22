@@ -269,7 +269,7 @@ class LivePlanner:
 
     # ── Planner.plan ──────────────────────────────────────────────────────────
     def plan(self, ctx: PlanContext) -> PlanOutput:
-        self._attempts[ctx.phase.value] = self._attempts.get(ctx.phase.value, 0) + 1
+        self._attempts[ctx.phase] = self._attempts.get(ctx.phase, 0) + 1
         user = self._build_prompt(ctx)
         raw = self.client.complete_json(self.system, user)
         out = self._to_plan_output(ctx, raw)
@@ -294,12 +294,13 @@ class LivePlanner:
                      "# tool resolves but returns EMPTY — do not waste calls on them):\n#   "
                      + ", ".join(sorted(self.available_sources)))
 
-        remediate_hint = ""
-        if ctx.phase.value == "remediate":
-            remediate_hint = (
-                "\n# REMEDIATE: propose the concrete fix as an `apply_remediation` capability CALL "
-                "(a WRITE) — e.g. calls:[{intent:'apply_remediation', params:{action:'<the reversible "
-                "fix>', reversible:true}}]. This WRITE opens the human approval gate; do NOT just "
+        write_hint = ""
+        if spec.writes_allowed:
+            # role binding (P7 phase-as-data): the hint keys on `writes_allowed`, never a phase name
+            write_hint = (
+                "\n# THIS PHASE MAY EXECUTE WRITES: propose the concrete fix as an `apply_remediation` "
+                "capability CALL (a WRITE) — e.g. calls:[{intent:'apply_remediation', params:{action:'<the "
+                "reversible fix>', reversible:true}}]. This WRITE opens the human approval gate; do NOT just "
                 "describe the fix in prose or you will skip the human-in-the-loop approval.")
 
         correlated = ""
@@ -332,7 +333,7 @@ class LivePlanner:
             dropped = ("\n# OPS DROPPED LAST TURN (the engine rejected these — fix the cause, do "
                        "not re-emit them unchanged):\n" + lines)
 
-        attempt = self._attempts.get(ctx.phase.value, 1)
+        attempt = self._attempts.get(ctx.phase, 1)
         feedback = ""
         if attempt > 1:
             # prefer the EXACT gate reason the engine handed back (GAP 3); fall back to the
@@ -341,12 +342,14 @@ class LivePlanner:
                    if ctx.gate_feedback else
                    "Your previous plan did NOT pass the gate (usually: produces_required was empty, "
                    "min_facts not met, confidence gate unmet, or no refutation). ")
+            # role binding (P7 phase-as-data): the symptom-seeding nudge keys on the playbook's
+            # entry_phase binding, never on a phase name.
             feedback = (
-                f"\n# !! REPLAN NOTICE: this is attempt #{attempt} at the '{ctx.phase.value}' phase. "
+                f"\n# !! REPLAN NOTICE: this is attempt #{attempt} at the '{ctx.phase}' phase. "
                 + why
                 + "Do something DIFFERENT this time — do not repeat the same calls. "
-                + ("In FRAME, emit the Anomaly node + an onset_value fact NOW. "
-                   if ctx.phase.value == "frame" else "")
+                + (f"In {ctx.phase.upper()}, emit the Anomaly node + an onset_value fact NOW. "
+                   if ctx.phase == ctx.entry_phase else "")
                 + (f"Tools you have already called (data, if any, is already in the graph above): "
                    f"{sorted(self._called)}."))
 
@@ -359,12 +362,12 @@ class LivePlanner:
 # INCIDENT
 subject: {ctx.subject.model_dump()}
 
-# CURRENT PHASE: {ctx.phase.value}
+# CURRENT PHASE: {ctx.phase}
 goal: {ctx.goal}
 allowed_intents this phase (ABSTRACT categories — fulfil them with the WIRED tools above, not by
   emitting these words as tool names): {spec.allowed_intents}
 produces_required (must be non-empty to advance): {spec.produces_required or '(none)'}
-GATE to ADVANCE: {gate}{remediate_hint}{correlated}{steer}{dropped}{feedback}
+GATE to ADVANCE: {gate}{write_hint}{correlated}{steer}{dropped}{feedback}
 PROGRESSION RULE: {self.doctrine.progression}
 
 # CURRENT GRAPH (everything your prior tool calls have discovered — read it for evidence)
@@ -377,7 +380,7 @@ Plan this phase. Return ONLY the JSON object."""
 
     # ── map LLM JSON -> PlanOutput (reject + repair off-catalog) ───────────────
     def _to_plan_output(self, ctx: PlanContext, raw: dict) -> PlanOutput:
-        phase = ctx.phase.value
+        phase = ctx.phase
         # the LLM output is untrusted: a non-dict top level (JSON array, bare string) is
         # repaired to an EMPTY plan — reject+repair, never a hard crash that would kill
         # the whole live session (INV-7; 2026-07-22 review, finding 5)

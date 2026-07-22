@@ -112,17 +112,9 @@ class FactState(StrEnum):
     RETRACTED = "retracted"     # the observation was WRONG (tombstone) — DESIGN §2.4 R-J3
 
 
-# ── Phases + control ──────────────────────────────────────────────────────────
-class Phase(StrEnum):
-    FRAME = "frame"
-    TRIAGE = "triage"
-    HYPOTHESIZE = "hypothesize"
-    INVESTIGATE = "investigate"
-    REMEDIATE = "remediate"
-    VERIFY = "verify"
-    CLOSE = "close"
-
-
+# ── Control (P7 phase-as-data: there is NO Phase enum — a phase id is a STRING the
+# loaded playbook declares and cross-validates; the engine keys only on role bindings
+# (entry_phase / terminal_phase / symptom_node / writes_allowed), never a phase name) ──
 class VerdictStatus(StrEnum):
     ADVANCE = "advance"
     REPEAT = "repeat"

@@ -8,7 +8,7 @@ while sibling egress paths stay healthy; Splunk shows CLEAN policy denies
 Differential diagnosis rules OUT a physical-layer link flap (packet_loss stays 0.0%)
 and confirms the ACL change as root cause. The fix (revert CHG-3311 on FW-EGR-118) is a
 SECURITY change: REMEDIATE only PROPOSES it (an UpdateHypothesis, no capability call) —
-the write-gate (CapabilityLayer.invoke, allow_write only in Phase.REMEDIATE) is exercised
+the write-gate (CapabilityLayer.invoke, allow_write only in the writes_allowed phase) is exercised
 directly by a premature auto-remediation attempt (`ocp__restart`) fired outside the
 gated phase, which the engine must block. The scripted planner drives the real engine
 through all 7 phases to a RESOLVED close.
@@ -52,7 +52,7 @@ def build(premature_write: bool = False):
     """Returns (subject, script, fixtures). When `premature_write` is True, TRIAGE fires an
     extra `ocp__restart` capability call (an over-eager auto-remediation attempt) — proving
     the write-gate (CapabilityLayer: writes only execute with allow_write, granted only in
-    Phase.REMEDIATE) blocks it outside the approved gate without disturbing the rest of the
+    the writes_allowed phase) blocks it outside the approved gate without disturbing the rest of the
     run."""
     subject = SubjectRef(domain="app-incident", id="INC-7702", kind="incident")
 
@@ -94,7 +94,7 @@ def build(premature_write: bool = False):
     ]
     if premature_write:
         # an impatient on-call tries an auto-remediation restart before root-causing —
-        # the write-gate (allow_write only in Phase.REMEDIATE) must block it here.
+        # the write-gate (allow_write only in the writes_allowed phase) must block it here.
         triage = phase("triage", triage_ops,
             "Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared "
             "in CMDB). An on-call engineer, impatient, tries an auto-remediation restart "

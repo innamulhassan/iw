@@ -64,7 +64,7 @@ class _GateSuspend(Exception):
 
 @dataclass
 class _Pending:
-    phase: object                 # Phase the gate is open on
+    phase: str                    # playbook phase id the gate is open on
     plan: PlanOutput              # the peeked plan (cached so re-entry never re-consumes the planner)
     write_calls: list[CapabilityCall]
     gate_id: str
@@ -220,7 +220,7 @@ class InvestigationSession:
             decision=decision.value, actor=actor)
         self._emit("gate_decision", gate_id=p.gate_id, decision=decision.value,
                    actor=actor, source=Source.HUMAN.value, reason=reason,
-                   phase=p.phase.value)
+                   phase=p.phase)
 
     def add_message(self, text: str, *, actor: str = "operator") -> dict:
         """Record an operator turn in the two-way chat (obs 2). The message becomes a first-class
@@ -234,7 +234,7 @@ class InvestigationSession:
         phase = self._engine.current_phase
         self._engine.journal.append_message(phase, text=text, message_kind=kind, actor=actor)
         self._emit("user_message", text=text, kind=kind, actor=actor,
-                   source=Source.HUMAN.value, phase=phase.value if phase else None)
+                   source=Source.HUMAN.value, phase=phase)
         self._persist()                      # operator turns are journal entries — keep them durable
         return msg
 
@@ -283,7 +283,7 @@ class InvestigationSession:
             src = getattr(self._engine.layer, "source", None) if self._engine.layer else None
             cur = self._engine.current_phase
             if src is not None and cur is not None and hasattr(src, "phase"):
-                src.phase = cur.value
+                src.phase = cur
             try:
                 result = self._engine.step()
             except _GateSuspend:
@@ -322,7 +322,7 @@ class InvestigationSession:
         gate_id = f"{self.id}:gate:{self._gate_count}"
         self._pending = _Pending(phase=ctx.phase, plan=out, write_calls=write_calls, gate_id=gate_id)
         self.state = SessionState.SUSPENDED
-        self._emit("phase_started", phase=ctx.phase.value)
+        self._emit("phase_started", phase=ctx.phase)
         payload = self._gate_payload(ctx, write_calls, gate_id, out.narrative)
         # JOURNAL v2 (part2 §1): the gate OPENING is durable — what was proposed, on whose
         # behalf, on what evidence. Was an in-memory event only ("the journal proves consent"
@@ -333,7 +333,7 @@ class InvestigationSession:
             hypothesis=payload["hypothesis"]["id"] if payload["hypothesis"] else None,
             evidence=[e.get("id") for e in payload["evidence"]])
         self._emit("gate_opened", **payload)
-        self._emit("session_state", state=self.state.value, phase=ctx.phase.value)
+        self._emit("session_state", state=self.state.value, phase=ctx.phase)
         self._persist()                      # a suspended run is durable at the open gate
 
     def _gate_payload(self, ctx: PlanContext, write_calls: list[CapabilityCall],
@@ -357,7 +357,7 @@ class InvestigationSession:
                           "confidence": self._engine.hypothesis_store.score(lead),
                           "root_candidate": lead.root_candidate}
             evidence = [self._fact_view(fid) for fid in lead.supporting_facts]
-        return {"gate_id": gate_id, "phase": ctx.phase.value, "reasoning": narrative,
+        return {"gate_id": gate_id, "phase": ctx.phase, "reasoning": narrative,
                 "actions": actions, "hypothesis": hypothesis, "evidence": evidence}
 
     def _resolve_pending_plan(self, ctx: PlanContext) -> PlanOutput:
@@ -389,8 +389,8 @@ class InvestigationSession:
     # ── event emission (all derived from the folded PhaseResult) ────────────────
     def _emit_step_events(self, result, *, include_phase_started: bool) -> None:
         if include_phase_started:
-            self._emit("phase_started", phase=result.phase_id.value)
-        self._emit("reasoning", phase=result.phase_id.value, narrative=result.narrative)
+            self._emit("phase_started", phase=result.phase_id)
+        self._emit("reasoning", phase=result.phase_id, narrative=result.narrative)
         for inv in self._engine.invocations[self._inv_cursor:]:
             # `outcome` is the load-bearing honesty field (P3 step 1 / part4-capability §4):
             # data · empty (clean-empty) · error · blocked — the UI must never infer "clean"
@@ -425,7 +425,7 @@ class InvestigationSession:
                    hypotheses=[self._hyp_delta_view(dlt) for dlt in result.hypotheses_updated])
         phase = self._engine.current_phase
         self._emit("session_state", state=self.state.value,
-                   phase=phase.value if phase is not None else None,
+                   phase=phase,
                    verdict=result.verdict.status.value)
 
     def _hyp_delta_view(self, delta) -> dict:
@@ -475,7 +475,7 @@ class InvestigationSession:
         self._engine.journal.append_lifecycle(
             "max_steps_exhausted", phase_id=phase, outcome=self._outcome)
         self._emit("session_state", state=self.state.value,
-                   phase=phase.value if phase else None, outcome=self._outcome,
+                   phase=phase, outcome=self._outcome,
                    reason="max_steps_exhausted")
         self._persist()
 

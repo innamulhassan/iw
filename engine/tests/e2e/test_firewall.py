@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 import iw_engine
 from iw_engine.capability import CapabilityLayer, MockSource
 from iw_engine.capability.adapters import default_adapters
-from iw_engine.domain.enums import CloseOutcome, EdgeType, Effect, HypothesisStatus, Phase
+from iw_engine.domain.enums import CloseOutcome, EdgeType, Effect, HypothesisStatus
 from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
 
 from . import scenario_firewall as s5
@@ -41,8 +41,8 @@ def test_firewall_acl_revert_resolves():
     subject, script, fixtures = s5.build()
     res, invocations = _run(subject, script, fixtures)
 
-    assert res.phases_run == [Phase.FRAME, Phase.TRIAGE, Phase.HYPOTHESIZE, Phase.INVESTIGATE,
-                              Phase.REMEDIATE, Phase.VERIFY, Phase.CLOSE]
+    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
+                              "remediate", "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
@@ -111,7 +111,7 @@ def test_write_gate_blocks_premature_remediation():
 
     # blocking the stray write didn't corrupt or derail the investigation
     assert res.rejections == []
-    assert res.phases_run == [Phase.FRAME, Phase.TRIAGE, Phase.HYPOTHESIZE, Phase.INVESTIGATE,
-                              Phase.REMEDIATE, Phase.VERIFY, Phase.CLOSE]
+    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
+                              "remediate", "verify", "close"]
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"

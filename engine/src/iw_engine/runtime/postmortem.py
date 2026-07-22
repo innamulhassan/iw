@@ -35,6 +35,6 @@ def render_postmortem(subject: SubjectRef, graph: Graph, store: HypothesisStore,
                          for h in store.alive()
                          if not confirmed or h.id != confirmed.id],
         "timeline": timeline,
-        "narrative": [{"seq": e.seq, "phase": e.phase_id.value if e.phase_id else None,
+        "narrative": [{"seq": e.seq, "phase": e.phase_id,
                        "text": e.reasoning} for e in journal.phase_entries()],
     }

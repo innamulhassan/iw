@@ -5,7 +5,7 @@ signature first_seen at flip time), and the journal-replay-equivalence invariant
 """
 from __future__ import annotations
 
-from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Phase
+from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus
 
 from . import scenario_featureflag as sf
 from ._helpers import assert_replay_equivalent, run
@@ -15,8 +15,8 @@ def test_featureflag_happy_path():
     subject, script, fixtures = sf.build()
     res = run(subject, script, fixtures)
 
-    assert res.phases_run == [Phase.FRAME, Phase.TRIAGE, Phase.HYPOTHESIZE, Phase.INVESTIGATE,
-                              Phase.REMEDIATE, Phase.VERIFY, Phase.CLOSE]
+    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
+                              "remediate", "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"

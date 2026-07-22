@@ -16,7 +16,6 @@ from iw_engine.domain.enums import (
     EdgeType,
     NodeType,
     Origin,
-    Phase,
     Source,
     VerdictStatus,
 )
@@ -340,7 +339,7 @@ def test_remap_rides_the_delta_and_replay_reproduces_it():
     g, store, jr = Graph(), HypothesisStore(), Journal(clock=clock)
     old, new = "service:payments-svc|prod", "service:payments-api|prod"
     delta1 = PhaseResult(
-        phase_id=Phase.FRAME, goal_restated="seed",
+        phase_id="frame", goal_restated="seed",
         nodes_touched=[_node(old, NodeType.SERVICE, {"service_name": "payments-svc",
                                                      "env": "prod"})],
         facts_added=[_measured(old, "degraded", True, "fact:f1")],
@@ -349,7 +348,7 @@ def test_remap_rides_the_delta_and_replay_reproduces_it():
                              confidence=Confidence(value=0.6, basis="seed")))
     fold(delta1, jr.reserve_seq(), g, store, jr)
     delta2 = PhaseResult(
-        phase_id=Phase.TRIAGE, goal_restated="unify",
+        phase_id="triage", goal_restated="unify",
         nodes_touched=[_node(new, NodeType.SERVICE, {"service_name": "payments-api",
                                                      "env": "prod"}, seq=2)],
         remaps=[Remap(kind="merge", old_id=old, new_id=new, reason="alias linked")],
@@ -412,7 +411,7 @@ def test_alias_contradiction_between_canonical_entities_is_recorded_not_rebound(
 
 
 # ── step 5: Merge + late alias binding (R-J5 / §9.2) ───────────────────────────
-def _run_phase(g: Graph, store: HypothesisStore, jr: Journal, ops, phase=Phase.FRAME):
+def _run_phase(g: Graph, store: HypothesisStore, jr: Journal, ops, phase="frame"):
     """Materialize + fold through a real PhaseResult (the engine's own delta shape), so these
     flows are journaled exactly as production journals them — replay must reproduce them."""
     seq = jr.reserve_seq()
@@ -453,7 +452,7 @@ def test_provisional_mint_then_late_alias_binding_auto_merges():
     assert g.alias_index["appd:APM-PAYMEN"] == PROV_ID
 
     m2 = _run_phase(g, store, jr, [AddNode(type=NodeType.SERVICE, props=dict(SVC_PROPS))],
-                    phase=Phase.TRIAGE)
+                    phase="triage")
     assert [(m.kind, m.old_id, m.new_id) for m in m2.remaps] == [("merge", PROV_ID, SID)]
     assert "appd:APM-PAYMEN" in m2.remaps[0].reason
     assert PROV_ID not in g.nodes                       # graduated
@@ -493,7 +492,7 @@ def test_explicit_merge_op_graduates_a_provisional():
         Merge(provisional_id=PROV_ID, canonical_id=SID, reason="operator confirmed identity"),
         AddFact(subject=PROV_ID, predicate="degraded", value=True, valid_from=T0,
                 observed_at=T0, source=Source.APPD, source_reliability=0.9),
-    ], phase=Phase.TRIAGE)
+    ], phase="triage")
     assert m.rejections == []
     assert PROV_ID not in g.nodes and g.id_remaps[PROV_ID] == SID
     # the same-batch fact authored against the provisional id followed the graduation
@@ -561,7 +560,7 @@ def test_retype_graduates_generic_ci_with_history_surviving():
                reason="class_hint cmdb_ci_db_ora corroborated"),
         AddFact(subject=DBID, predicate="replication_lag", value=42.0, valid_from=T0,
                 observed_at=T0, source=Source.SERVICENOW, source_reliability=0.85),
-    ], phase=Phase.TRIAGE)
+    ], phase="triage")
     assert m2.rejections == []
     assert [(m.kind, m.old_id, m.new_id) for m in m2.remaps] == [("retype", GCI, DBID)]
 
@@ -585,7 +584,7 @@ def test_retype_graduates_generic_ci_with_history_surviving():
     m3 = _run_phase(g, store, jr, [
         AddFact(subject=GCI, predicate="conn_pool_util", value=0.97, valid_from=T0,
                 observed_at=T0, source=Source.PROMETHEUS, source_reliability=0.9),
-    ], phase=Phase.INVESTIGATE)
+    ], phase="investigate")
     assert m3.rejections == []
     assert m3.facts[0].subject_ref == DBID and m3.facts[0].predicate == "conn_pool_util"
 

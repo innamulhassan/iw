@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .common import Confidence
 from .edge import Edge
-from .enums import GateResult, Phase, VerdictStatus
+from .enums import GateResult, VerdictStatus
 from .event import Event
 from .fact import Fact
 from .hypothesis import HypDelta
@@ -79,7 +79,7 @@ class Remap(BaseModel):
 class PhaseResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    phase_id: Phase
+    phase_id: str                    # playbook-declared phase id (P7 phase-as-data)
     goal_restated: str
     facts_added: list[Fact] = Field(default_factory=list)          # -> GRAPH
     events_added: list[Event] = Field(default_factory=list)        # -> GRAPH

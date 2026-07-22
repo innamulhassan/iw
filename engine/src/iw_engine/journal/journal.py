@@ -27,7 +27,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..domain.enums import Phase, Source
+from ..domain.enums import Source
 from ..domain.phase_result import PhaseResult
 
 SCHEMA_VERSION = 2   # 2: typed entry kinds + append-at-event one-seq (v1 read-only supported)
@@ -60,7 +60,7 @@ class JournalEntry(BaseModel):
     #   step          — the v1 union of gate_decision+message, accepted read-only
     kind: Literal["phase", "step", "invocation", "gate_opened", "gate_decision", "message",
                   "rejection", "repair", "lifecycle"] = "phase"
-    phase_id: Phase | None = None
+    phase_id: str | None = None              # playbook-declared phase id (P7 phase-as-data)
     actor: str = "engine"                    # WHO produced this entry (engine, or a human approver)
     source: Source | None = None             # provenance of a decision entry (Source.HUMAN on a gate answer)
     intent: str | None = None
@@ -115,7 +115,7 @@ class Journal:
             seq=seq, ts=self._clock(), kind="phase", phase_id=result.phase_id,
             actor=actor, reasoning=result.narrative, delta=result, refs=refs))
 
-    def append_gate_opened(self, phase_id: Phase, *, gate_id: str, actions: list[dict],
+    def append_gate_opened(self, phase_id: str, *, gate_id: str, actions: list[dict],
                            reasoning: str, hypothesis: str | None,
                            evidence: list[str]) -> JournalEntry:
         """The gate OPENING is durable (part2 §1: it was an in-memory event only): what was
@@ -127,7 +127,7 @@ class Journal:
             action={"gate_id": gate_id, "actions": actions},
             observation={"hypothesis": hypothesis, "evidence": evidence}))
 
-    def append_gate_decision(self, phase_id: Phase, *, intent: str, reasoning: str,
+    def append_gate_decision(self, phase_id: str, *, intent: str, reasoning: str,
                              action: dict, observation: dict, decision: str,
                              actor: str) -> JournalEntry:
         return self.append(JournalEntry(
@@ -135,14 +135,14 @@ class Journal:
             source=Source.HUMAN, intent=intent, reasoning=reasoning, action=action,
             observation=observation, decision=decision))
 
-    def append_message(self, phase_id: Phase | None, *, text: str, message_kind: str,
+    def append_message(self, phase_id: str | None, *, text: str, message_kind: str,
                        actor: str) -> JournalEntry:
         return self.append(JournalEntry(
             ts=self._clock(), kind="message", phase_id=phase_id, actor=actor,
             source=Source.HUMAN, intent="operator_message", reasoning=text,
             action={"kind": message_kind}, observation={"actor": actor}))
 
-    def append_lifecycle(self, event: str, *, phase_id: Phase | None = None,
+    def append_lifecycle(self, event: str, *, phase_id: str | None = None,
                          outcome: str | None = None, detail: dict | None = None) -> JournalEntry:
         """Run lifecycle record (part2 §1/§3: zombie states die diagnosable): started / resumed /
         max_steps_exhausted / closed — with the terminal outcome where one exists."""

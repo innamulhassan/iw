@@ -61,9 +61,9 @@ def render_phases(pb: Playbook) -> str:
         if p.gate.require_refutation:
             gate.append("a rival ruled out OR the leader challenged with refuting evidence")
         gtxt = ("\n     GATE (to ADVANCE): " + "; ".join(gate)) if gate else ""
-        nxt = ", ".join(f"{k}->{v.value}" for k, v in p.on_verdict.items()) or "(terminal)"
+        nxt = ", ".join(f"{k}->{v}" for k, v in p.on_verdict.items()) or "(terminal)"
         lines.append(
-            f"  {p.id.value}: {p.goal}\n"
+            f"  {p.id}: {p.goal}\n"
             f"     allowed_intents (abstract action budget): {', '.join(p.allowed_intents)}\n"
             f"     produces_required: {p.produces_required or '(none)'}"
             f"{gtxt}\n     routes: {nxt}")

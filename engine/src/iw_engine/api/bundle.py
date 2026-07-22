@@ -70,11 +70,11 @@ def _journal_entry(e: JournalEntry) -> dict:
     shape (unchanged goldens); the human-step kinds (v2 gate_decision/message + the v1 "step"
     union) additionally carry the gate decision + approver, under their real kind."""
     if e.kind in ("step", "gate_decision", "message"):
-        return {"seq": e.seq, "kind": e.kind, "phase": e.phase_id.value if e.phase_id else None,
+        return {"seq": e.seq, "kind": e.kind, "phase": e.phase_id,
                 "actor": e.actor, "source": e.source.value if e.source else None,
                 "decision": e.decision, "intent": e.intent, "narrative": e.reasoning,
                 "action": e.action}
-    return {"seq": e.seq, "phase": e.phase_id.value if e.phase_id else None,
+    return {"seq": e.seq, "phase": e.phase_id,
             "actor": e.actor, "narrative": e.reasoning, "refs": e.refs}
 
 
@@ -87,7 +87,7 @@ def export_bundle(res: RunResult) -> dict:
     return {
         "subject": res.subject.model_dump(),
         "outcome": res.close_outcome.value if res.close_outcome else "open",
-        "phases": [p.value for p in res.phases_run],
+        "phases": list(res.phases_run),
         "graph": {
             "nodes": [{"id": n.id, "type": n.type.value, "props": n.props,
                        "origin": n.id == origin_id, **_node_provenance(n.id, g)}
@@ -143,7 +143,7 @@ def export_bundle(res: RunResult) -> dict:
         # bounded repair loop): what was dropped, in which phase, and WHY. Never memory-only,
         # so a reopened/replayed investigation shows the same list.
         "rejections": [
-            {"seq": e.seq, "phase": e.phase_id.value if e.phase_id else None,
+            {"seq": e.seq, "phase": e.phase_id,
              "op_index": r.op_index, "op_kind": r.op_kind, "reason": r.reason}
             for e in jr.phase_entries() for r in e.delta.rejections],
         # the airlock's promotion counters (P3 step 5): the discovery signal telling a human

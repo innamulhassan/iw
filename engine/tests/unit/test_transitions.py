@@ -17,7 +17,7 @@ from e2e import scenario_code_regression as s1
 from e2e._helpers import fact, node, phase
 
 import iw_engine
-from iw_engine.domain.enums import NodeType, Phase, Source
+from iw_engine.domain.enums import NodeType, Source
 from iw_engine.domain.playbook import Tunables
 from iw_engine.graph import Graph, fold, rebuild
 from iw_engine.graph.reducer import materialize
@@ -132,7 +132,7 @@ def test_derived_events_ride_the_delta_and_replay():
                        fact(SVC, "degraded", True, T0)], 1, g, DERIVE)
     assert any(e.type == "degraded_started" for e in mat.events)
     delta = PhaseResult(
-        phase_id=Phase.FRAME, goal_restated="", nodes_touched=mat.nodes,
+        phase_id="frame", goal_restated="", nodes_touched=mat.nodes,
         facts_added=mat.facts, events_added=mat.events, narrative="flip",
         verdict=PhaseVerdict(status=VerdictStatus.ADVANCE,
                              confidence=Confidence(value=0.9, basis="x"),

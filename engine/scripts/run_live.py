@@ -83,7 +83,7 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
           f"{'=' * 78}")
     engine.start(subject, max_steps=max_steps)
     while not engine.done():
-        source.phase = engine.current_phase.value   # phase-scope the fixtures (recovery in verify)
+        source.phase = engine.current_phase   # phase-scope the fixtures (recovery in verify)
         engine.step()
     res = engine.result()
 
@@ -99,7 +99,7 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
     converged = match and (len(res.rejections) == 0) and bool(refuted)
 
     print(f"\n-- {name} RESULT --")
-    print(f"  phases:      {[p.value for p in res.phases_run]}")
+    print(f"  phases:      {list(res.phases_run)}")
     print(f"  outcome:     {res.close_outcome.value if res.close_outcome else 'open'}")
     for h in res.hypothesis_store.ranked():
         print(f"  hyp {h.id:8} status={h.status.value:11} conf={h.confidence.value:.2f} "

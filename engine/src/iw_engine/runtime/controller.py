@@ -5,7 +5,7 @@ LLM's `next_actions` is advisory (it seeds the next plan), never the phase route
 """
 from __future__ import annotations
 
-from ..domain.enums import GateResult, HypothesisStatus, Phase, VerdictStatus
+from ..domain.enums import GateResult, HypothesisStatus, VerdictStatus
 from ..domain.phase_result import PhaseResult, PhaseVerdict
 from ..domain.playbook import PhaseSpec, Tunables
 from ..hypothesis.store import HypothesisStore
@@ -52,8 +52,8 @@ def check_gate(spec: PhaseSpec, result: PhaseResult, store: HypothesisStore,
     return v.model_copy(update={"gate_result": GateResult.PASS, "gate_reason": None})
 
 
-def next_phase(current: PhaseSpec, verdict: PhaseVerdict) -> Phase | None:
-    """Map a (gated) verdict to the next phase; None ends the run."""
+def next_phase(current: PhaseSpec, verdict: PhaseVerdict) -> str | None:
+    """Map a (gated) verdict to the next phase id; None ends the run."""
     if verdict.status == VerdictStatus.DONE:
         return None
     nxt = current.on_verdict.get(verdict.status.value)

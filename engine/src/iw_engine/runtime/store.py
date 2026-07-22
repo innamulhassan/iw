@@ -133,7 +133,7 @@ class InvestigationStore:
             "state": state,
             "outcome": res.close_outcome.value if res.close_outcome else "open",
             "close_outcome": res.close_outcome.value if res.close_outcome else None,
-            "phases_run": [p.value for p in res.phases_run],
+            "phases_run": list(res.phases_run),
             # P4: the playbook tunables the run scored under — a disk reopen re-binds the
             # rebuilt store's belief arithmetic with EXACTLY these knobs, so the reopened
             # bundle's earned confidence equals the live one field-for-field.

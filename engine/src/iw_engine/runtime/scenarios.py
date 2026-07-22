@@ -7,9 +7,9 @@ The six scenarios (their deterministic `build() -> (subject, script[, fixtures])
 `tests/e2e/scenario_*.py` — the same twins the golden suite drives in batch. Here we reuse
 them for the *interactive* run: a `ScriptedPlanner(script)` behind the session's write-gate, a
 `MockSource(fixtures)` behind the capability layer, plus a WRITE-effect `RemediationAdapter` so
-the REMEDIATE phase actually opens a human-in-the-loop gate (the golden scripts only *propose*
-a fix as a hypothesis update — the registry injects the matching `apply_remediation` write call
-so the operator gets an Approve / Refine / Deny card, exactly the UI-SPEC §2 approval loop).
+the playbook's `writes_allowed` phase actually opens a human-in-the-loop gate (the golden scripts
+only *propose* a fix as a hypothesis update — the registry injects the matching `apply_remediation`
+write call so the operator gets an Approve / Refine / Deny card, exactly the UI-SPEC §2 approval loop).
 
 The scenario twins are authored under `tests/`, so on an editable/source checkout we add that
 directory to `sys.path` (mirroring pyproject's `pythonpath = ["src", "tests"]`) and import the
@@ -28,7 +28,6 @@ from ..capability.adapters import default_adapters
 from ..capability.adapters.remediation import RemediationAdapter
 from ..domain import registry
 from ..domain.catalog import render_catalog, render_tools, tool_intents
-from ..domain.enums import Phase
 from ..domain.playbook import Playbook
 from ..domain.subject import SubjectRef
 from .live_fixtures import LIVE_SCENARIOS
@@ -41,7 +40,7 @@ from .store import InvestigationStore
 
 # ── scenario catalog: one runnable incident per layer (UI-SPEC §1) ─────────────────
 # Each entry is the metadata the start selector needs (id + title + layer) plus the human
-# remediation the REMEDIATE gate proposes. `id` is the session identity the UI opens; where a
+# remediation the write-gate proposes. `id` is the session identity the UI opens; where a
 # scenario twin natively reuses an id (network + nochange are both authored as INC-9001) we give
 # it a distinct catalog id so every incident lists + opens independently.
 _CATALOG: list[dict] = [
@@ -111,13 +110,16 @@ def _load_builders() -> dict[str, Callable]:
 
 
 # ── the write-gate injection (turns a proposal into an approvable action) ──────────
-def _with_gate(script: list[PlanOutput], remediation: str) -> list[PlanOutput]:
-    """Return a copy of `script` whose REMEDIATE phase carries an `apply_remediation` WRITE
-    call, so the interactive session suspends there and offers Approve / Refine / Deny. The
-    golden batch path (which calls `build()` directly) never sees this — only the session does."""
+def _with_gate(script: list[PlanOutput], remediation: str,
+               write_phases: set[str]) -> list[PlanOutput]:
+    """Return a copy of `script` whose `writes_allowed` phase(s) carry an `apply_remediation`
+    WRITE call, so the interactive session suspends there and offers Approve / Refine / Deny.
+    Keyed on the playbook's `writes_allowed` role binding (P7 phase-as-data), never a phase
+    name. The golden batch path (which calls `build()` directly) never sees this — only the
+    session does."""
     out: list[PlanOutput] = []
     for step in script:
-        if step.phase == Phase.REMEDIATE:
+        if step.phase in write_phases:
             call = CapabilityCall(intent="apply_remediation",
                                   params={"action": remediation, "reversible": True})
             step = step.model_copy(update={"calls": [*step.calls, call]})
@@ -142,10 +144,11 @@ def build_manager(*, playbook: Playbook | None = None,
                   clock: Callable[[], datetime] | None = None,
                   store: InvestigationStore | None = None) -> SessionManager:
     """A SessionManager wired to the scenario registry — the default backend for the workbench.
-    `planner_factory(subject)` replays the incident's scripted plan (with the REMEDIATE write
+    `planner_factory(subject)` replays the incident's scripted plan (with the write-phase
     call injected); `layer_factory(subject)` gives it the fixture-backed capability layer."""
     pb = playbook or load_playbook(_default_playbook())
     builders = _load_builders()
+    write_phases = {p.id for p in pb.phases if p.writes_allowed}   # role binding, not a name
 
     def _built(subject: SubjectRef):
         entry = _BY_ID.get(subject.id)
@@ -156,7 +159,7 @@ def build_manager(*, playbook: Playbook | None = None,
         got = build()
         script = got[1]
         fixtures = got[2] if len(got) > 2 else None
-        return _with_gate(script, entry["remediation"]), fixtures
+        return _with_gate(script, entry["remediation"], write_phases), fixtures
 
     def planner_factory(subject: SubjectRef) -> ScriptedPlanner:
         return ScriptedPlanner(_built(subject)[0])
@@ -196,7 +199,7 @@ def live_build_manager(*, playbook: Playbook | None = None,
                        store: InvestigationStore | None = None) -> SessionManager:
     """A SessionManager whose planner is the REAL LLM (LivePlanner), reusing run_live's wiring:
     a `ScenarioSource` (intent→provider routing) over the shared live fixtures, the same catalog
-    + tools prompt, and the write-effect RemediationAdapter so the LLM can open the REMEDIATE
+    + tools prompt, and the write-effect RemediationAdapter so the LLM can open the write
     gate itself. This is the product experience — the engine/reducer/hypothesis store/journal are identical
     to the mock path; only the JUDGMENT author changes. Raises if no LLM key is available."""
     pb = playbook or load_playbook(_default_playbook())
@@ -207,8 +210,8 @@ def live_build_manager(*, playbook: Playbook | None = None,
 
     catalog_text = render_catalog(registry, pb)
     # show the LLM the write-effect remediation tool too, so it can PROPOSE the fix as an
-    # apply_remediation WRITE call in REMEDIATE — which opens the human approval gate (the
-    # human-in-the-loop invariant). Read-only tools alone would let it silently self-remediate.
+    # apply_remediation WRITE call in the writes_allowed phase — which opens the human approval
+    # gate (the human-in-the-loop invariant). Read-only tools alone would let it silently self-remediate.
     tool_adapters = (*default_adapters(), RemediationAdapter())
     tools_text = render_tools(tool_adapters, include_writes=True)
     key_by_id = {e["id"]: e["key"] for e in _CATALOG}

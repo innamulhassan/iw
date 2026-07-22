@@ -18,7 +18,6 @@ from unittest import mock
 
 import pytest
 
-from iw_engine.domain.enums import Phase
 from iw_engine.runtime.live_planner import LivePlanner
 from iw_engine.runtime.llm_client import (
     GeminiClient,
@@ -78,15 +77,15 @@ def test_stub_client_drives_live_planner_one_phase():
     planner = LivePlanner(_StubClient(payload), "catalog", "tools", set())
     ctx = PlanContext(
         subject=SubjectRef(domain="app-incident", id="INC-1", kind="incident"),
-        phase=Phase.FRAME,
-        phase_spec=PhaseSpec(id=Phase.FRAME, goal="seed the symptom", allowed_intents=[]),
+        phase="frame",
+        phase_spec=PhaseSpec(id="frame", goal="seed the symptom", allowed_intents=[]),
         goal="seed the symptom",
         graph_view={},
         hypotheses=[],
     )
     planner.graph = None   # bypass render_graph_full (uses the live graph ref)
     out = planner.plan(ctx)
-    assert out.phase == Phase.FRAME
+    assert out.phase == "frame"
     assert out.narrative == "stub"
     # the stub's add_node op survived reject+repair and landed in the plan — proving a
     # non-network client fully drives the planner (the any-LLM contract)
@@ -101,8 +100,8 @@ def _ctx():
     from iw_engine.runtime.planner import PlanContext
     return PlanContext(
         subject=SubjectRef(domain="app-incident", id="INC-1", kind="incident"),
-        phase=Phase.FRAME,
-        phase_spec=PhaseSpec(id=Phase.FRAME, goal="g", allowed_intents=[]),
+        phase="frame",
+        phase_spec=PhaseSpec(id="frame", goal="g", allowed_intents=[]),
         goal="g", graph_view={}, hypotheses=[])
 
 

@@ -4,7 +4,7 @@ ignored), the JDBC-boundary discriminator, and the journal-replay-equivalence in
 """
 from __future__ import annotations
 
-from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Origin, Phase
+from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Origin
 
 from . import scenario_database as s2
 from ._helpers import assert_replay_equivalent, run
@@ -14,8 +14,8 @@ def test_database_happy_path():
     subject, script, fixtures = s2.build()
     res = run(subject, script, fixtures)
 
-    assert res.phases_run == [Phase.FRAME, Phase.TRIAGE, Phase.HYPOTHESIZE, Phase.INVESTIGATE,
-                              Phase.REMEDIATE, Phase.VERIFY, Phase.CLOSE]
+    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
+                              "remediate", "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"

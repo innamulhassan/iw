@@ -32,7 +32,7 @@ class _Probe:
         self.seen: dict[str, list[dict]] = {}
 
     def plan(self, ctx):
-        self.seen[ctx.phase.value] = list(ctx.correlations)
+        self.seen[ctx.phase] = list(ctx.correlations)
         return self.inner.plan(ctx)
 
 

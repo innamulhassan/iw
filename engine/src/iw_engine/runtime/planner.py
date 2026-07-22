@@ -12,7 +12,6 @@ from typing import Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..capability.layer import CapabilityCall
-from ..domain.enums import Phase
 from ..domain.operations import Operation
 from ..domain.phase_result import PhaseVerdict, Rejection
 from ..domain.playbook import PhaseSpec, Tunables
@@ -22,10 +21,12 @@ from ..domain.subject import SubjectRef
 @dataclass
 class PlanContext:
     subject: SubjectRef
-    phase: Phase
+    phase: str                       # playbook-declared phase id (P7 phase-as-data)
     phase_spec: PhaseSpec
     goal: str
     graph_view: dict
+    entry_phase: str | None = None   # the playbook's entry-phase role binding, handed through so
+    #                                  a planner can key entry-phase behaviour on DATA, never a name
     hypotheses: list[dict] = field(default_factory=list)   # ranked hypothesis store summary
     tunables: Tunables = field(default_factory=Tunables)
     gate_feedback: str | None = None   # WHY the last gate downgraded this phase (GAP 3) — the
@@ -49,7 +50,7 @@ class PlanContext:
 class PlanOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    phase: Phase
+    phase: str
     calls: list[CapabilityCall] = Field(default_factory=list)   # capability invocations -> data ops
     ops: list[Operation] = Field(default_factory=list)          # planner-direct ops (hypotheses, no_evidence)
     narrative: str

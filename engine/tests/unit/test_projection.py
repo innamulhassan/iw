@@ -18,7 +18,6 @@ from iw_engine.domain.enums import (
     HypothesisStatus,
     NodeType,
     Origin,
-    Phase,
     Source,
     VerdictStatus,
 )
@@ -323,7 +322,7 @@ def test_ledger_promotion_blocked_by_sub_gate_rival():
 def _phase_result() -> PhaseResult:
     sid = "service:payments-api|prod"
     return PhaseResult(
-        phase_id=Phase.FRAME,
+        phase_id="frame",
         goal_restated="normalize the signal",
         nodes_touched=[make_service()],
         facts_added=[make_fact(sid, "red_errors", 0.4, fid="f1")],

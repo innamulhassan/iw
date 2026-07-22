@@ -11,7 +11,6 @@ from iw_engine.domain.enums import (
     EdgeType,
     NodeType,
     Origin,
-    Phase,
     Source,
     Species,
     VerdictStatus,
@@ -105,7 +104,9 @@ def call(intent: str, **params) -> CapabilityCall:
 def phase(p: str, ops: list | None = None, narrative: str = "", *, calls: list | None = None,
           status: str = "advance", level: str = "high",
           next_actions: list[str] | None = None) -> PlanOutput:
-    return PlanOutput(phase=Phase(p), calls=calls or [], ops=ops or [], narrative=narrative,
+    # P7 phase-as-data: a phase id is a playbook string; a scripted typo fails loudly at
+    # run time via the ScriptedPlanner's phase-match assertion, not an enum constructor.
+    return PlanOutput(phase=p, calls=calls or [], ops=ops or [], narrative=narrative,
                       verdict=verdict(status, level), next_actions=next_actions or [])
 
 

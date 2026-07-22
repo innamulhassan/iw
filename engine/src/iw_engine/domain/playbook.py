@@ -2,12 +2,18 @@
 the playbook holds only WHAT/WHEN (phases, allowed_intents, gates, produces_required,
 transitions) + a single `tunables:` block that enumerates EVERY knob. The engine owns
 only mechanics/arithmetic — no tuning constant lives in engine code.
+
+P7 phase-as-data (Part III §1): the engine has NO Phase enum. A phase id is a STRING this
+playbook declares; every cross-reference (`entry_phase`/`terminal_phase` role bindings,
+`on_verdict` routes, `tunables.op_ceiling` keys) is validated against the declared phase
+list at LOAD time, so a typo is a loud load error, never a silent dead-end. The engine keys
+only on role bindings — nothing in the loop needs a phase *name*.
 """
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .enums import NodeType, Phase
+from .enums import NodeType, VerdictStatus
 
 
 class Tunables(BaseModel):
@@ -118,12 +124,12 @@ class GateSpec(BaseModel):
 class PhaseSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    id: Phase
+    id: str = Field(min_length=1)   # a playbook-declared phase name (data, not an engine enum)
     goal: str
     allowed_intents: list[str]
     produces_required: list[str] = Field(default_factory=list)   # PhaseResult fields that must be non-empty
     gate: GateSpec = Field(default_factory=GateSpec)
-    on_verdict: dict[str, Phase] = Field(default_factory=dict)    # verdict status -> next phase
+    on_verdict: dict[str, str] = Field(default_factory=dict)    # verdict status -> next phase id
     writes_allowed: bool = False    # this phase may execute write-effect capabilities (the human-gated phase)
 
 
@@ -133,17 +139,56 @@ class Playbook(BaseModel):
     id: str
     applies_to: str
     capabilities: list[str] = Field(default_factory=list)
-    entry_phase: Phase = Phase.FRAME
+    entry_phase: str | None = None                 # role binding; defaults to the FIRST declared phase
     phases: list[PhaseSpec]
     tunables: Tunables = Field(default_factory=Tunables)
     # domain role-bindings (retire the engine's hardcoded constants — DESIGN depth §E):
-    symptom_node: NodeType = NodeType.ANOMALY      # the FRAME symptom anchor captured for node-expansion
-    terminal_phase: Phase = Phase.CLOSE            # reaching it closes the investigation
+    symptom_node: NodeType = NodeType.ANOMALY      # the entry-phase symptom anchor captured for node-expansion
+    terminal_phase: str | None = None              # role binding; defaults to the LAST declared phase
     # the live planner's prompt doctrine (Part III §3). Optional: scripted/batch runs never read
     # it; a live planner without one falls back to the packaged incident playbook's doctrine.
     doctrine: Doctrine | None = None
 
-    def phase(self, pid: Phase) -> PhaseSpec:
+    @model_validator(mode="after")
+    def _validate_phase_refs(self) -> Playbook:
+        """Phase ids are strings OF THIS PLAYBOOK (P7 phase-as-data): unique, and every
+        cross-reference — role bindings, verdict routes, op_ceiling keys — must name a
+        declared phase. Verdict-route KEYS must be the engine's verdict vocabulary."""
+        if not self.phases:
+            raise ValueError(f"playbook {self.id!r} declares no phases")
+        ids = [p.id for p in self.phases]
+        dupes = sorted({i for i in ids if ids.count(i) > 1})
+        if dupes:
+            raise ValueError(f"playbook {self.id!r}: duplicate phase ids {dupes}")
+        known = set(ids)
+        if self.entry_phase is None:
+            self.entry_phase = ids[0]
+        if self.terminal_phase is None:
+            self.terminal_phase = ids[-1]
+        for role, ref in (("entry_phase", self.entry_phase),
+                          ("terminal_phase", self.terminal_phase)):
+            if ref not in known:
+                raise ValueError(
+                    f"playbook {self.id!r}: {role} {ref!r} is not a declared phase (have {sorted(known)})")
+        valid_verdicts = {v.value for v in VerdictStatus}
+        for p in self.phases:
+            for verdict, target in p.on_verdict.items():
+                if verdict not in valid_verdicts:
+                    raise ValueError(
+                        f"playbook {self.id!r} phase {p.id!r}: on_verdict key {verdict!r} "
+                        f"is not a verdict status (have {sorted(valid_verdicts)})")
+                if target not in known:
+                    raise ValueError(
+                        f"playbook {self.id!r} phase {p.id!r}: on_verdict[{verdict!r}] routes to "
+                        f"undeclared phase {target!r} (have {sorted(known)})")
+        for key in self.tunables.op_ceiling:
+            if key not in known:
+                raise ValueError(
+                    f"playbook {self.id!r}: tunables.op_ceiling key {key!r} "
+                    f"is not a declared phase (have {sorted(known)})")
+        return self
+
+    def phase(self, pid: str) -> PhaseSpec:
         for p in self.phases:
             if p.id == pid:
                 return p

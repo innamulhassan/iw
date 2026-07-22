@@ -105,7 +105,7 @@ def test_session_suspends_at_write_gate():
     assert session.state == SessionState.SUSPENDED
 
     # the run got as far as REMEDIATE and no further (the write was NOT applied)
-    assert session._engine.current_phase.value == "remediate"
+    assert session._engine.current_phase == "remediate"
     assert not any(e.type == "deployed" for e in session._engine.graph.events.values())
 
     # exactly one gate is open, carrying the proposed action + the serving hypothesis + evidence
@@ -185,13 +185,13 @@ def test_session_deny_diverges():
     assert not any(e.type == "deployed" for e in denied._engine.graph.events.values())
 
     # the denial was recorded as a synthetic ledger result fed back (visible in the journal)
-    remediate = [e for e in denied._engine.journal.phase_entries() if e.phase_id.value == "remediate"]
+    remediate = [e for e in denied._engine.journal.phase_entries() if e.phase_id == "remediate"]
     assert remediate and "DENIED" in remediate[0].reasoning
 
     # the outcome + the journals genuinely DIVERGE from the approve branch
     assert denied.outcome == "mitigated" and approved.outcome == "resolved"
-    a_journal = [(e.phase_id.value, e.reasoning) for e in approved._engine.journal.phase_entries()]
-    d_journal = [(e.phase_id.value, e.reasoning) for e in denied._engine.journal.phase_entries()]
+    a_journal = [(e.phase_id, e.reasoning) for e in approved._engine.journal.phase_entries()]
+    d_journal = [(e.phase_id, e.reasoning) for e in denied._engine.journal.phase_entries()]
     assert a_journal != d_journal
     assert denied._engine.hypothesis_store.confirmed() is None    # nothing confirmed without the fix
 

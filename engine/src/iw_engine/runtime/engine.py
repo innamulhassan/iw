@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from ..capability.layer import CapabilityLayer, Invocation
-from ..domain.enums import CloseOutcome, Phase, VerdictStatus
+from ..domain.enums import CloseOutcome, VerdictStatus
 from ..domain.hypothesis import Hypothesis
 from ..domain.phase_result import PhaseResult
 from ..domain.playbook import Playbook
@@ -30,7 +30,7 @@ from .planner import PlanContext, Planner
 @dataclass
 class RunResult:
     subject: SubjectRef
-    phases_run: list[Phase]
+    phases_run: list[str]            # playbook-declared phase ids (P7 phase-as-data)
     graph: Graph
     hypothesis_store: HypothesisStore
     journal: Journal
@@ -68,8 +68,8 @@ class Engine:
         # call of the same intent clears the bar.
         self._intent_outcomes: dict[str, str] = {}
         # resumable run-state (A3) — the engine is a stepper; run() is a driver over step()
-        self._phase: Phase | None = None
-        self._phases_run: list[Phase] = []
+        self._phase: str | None = None
+        self._phases_run: list[str] = []
         self._steps = 0
         self._max_steps = 60
 
@@ -88,7 +88,7 @@ class Engine:
         return self._phase is None or self._steps >= self._max_steps
 
     @property
-    def current_phase(self) -> Phase | None:
+    def current_phase(self) -> str | None:
         """The phase the next `step()` will run (None once the run is complete). Lets a driver
         (the live runner, the interactive session backend) observe/scope per-phase state — e.g.
         a phase-scoped fixture transport — between steps without reaching into internals."""
@@ -122,7 +122,7 @@ class Engine:
                          invocations=self.invocations)
 
     # ── one phase ─────────────────────────────────────────────────────────────
-    def _run_phase(self, phase: Phase, spec) -> PhaseResult:
+    def _run_phase(self, phase: str, spec) -> PhaseResult:
         # P4: the abstract `correlate_timeline` intent resolves to ENGINE code — every
         # phase whose playbook declares it (hypothesize/investigate in the core playbook)
         # receives the deterministic skew-tolerant change→onset candidates as a plan hint.
@@ -135,6 +135,7 @@ class Engine:
             hypotheses=[{"id": h.id, "statement": h.statement, "status": h.status.value,
                          "confidence": self.hypothesis_store.score(h)}
                         for h in self.hypothesis_store.ranked()],
+            entry_phase=self.playbook.entry_phase,
             tunables=self.playbook.tunables, gate_feedback=self._gate_feedback,
             rejections=list(self._last_rejections), correlations=correlations)
         plan = self.planner.plan(ctx)
@@ -146,8 +147,8 @@ class Engine:
         seq = self.journal.reserve_seq()
 
         # capability calls -> data ops (the tool outputs fold into the graph); writes
-        # (remediation actions) execute only in the human-gated REMEDIATE phase. serve() is
-        # gate-first: a disallowed write is blocked BEFORE any fetch/side-effect (§C.3/§D).
+        # (remediation actions) execute only in a human-gated `writes_allowed` phase. serve()
+        # is gate-first: a disallowed write is blocked BEFORE any fetch/side-effect (§C.3/§D).
         data_ops: list = []
         if self.layer is not None:
             allow_write = spec.writes_allowed          # domain role-binding, not a hardcoded phase
@@ -172,7 +173,7 @@ class Engine:
                 self._journal_invocation(seq, phase, inv)
         combined = data_ops + list(plan.ops)
 
-        ceiling = self.playbook.tunables.op_ceiling.get(phase.value)
+        ceiling = self.playbook.tunables.op_ceiling.get(phase)
         ops = combined[:ceiling] if ceiling else combined
 
         # intents whose LAST call errored/was blocked observed NOTHING — a NoEvidence op naming
@@ -226,7 +227,7 @@ class Engine:
         self.journal.append_phase(seq, result)
         return result
 
-    def _journal_invocation(self, seq: int, phase: Phase, inv) -> None:
+    def _journal_invocation(self, seq: int, phase: str, inv) -> None:
         """Journal ONE capability call's boundary outcome (P3 airlock step 1, extended by
         JOURNAL v2 to EVERY call — part2 §1's invocation row: an approved write used to leave
         zero durable trace; now intent, provider, params, effect, blocked-ness and op-count
@@ -246,7 +247,7 @@ class Engine:
                          "blocked": inv.blocked, "op_count": inv.op_count},
             decision=inv.outcome))
 
-    def _close_outcome(self, phases_run: list[Phase], confirmed) -> CloseOutcome | None:
+    def _close_outcome(self, phases_run: list[str], confirmed) -> CloseOutcome | None:
         if self.playbook.terminal_phase not in phases_run:
             return None
         return CloseOutcome.RESOLVED if confirmed is not None else CloseOutcome.MITIGATED

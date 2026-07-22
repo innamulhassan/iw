@@ -8,7 +8,7 @@ import pathlib
 from datetime import UTC, datetime
 
 import iw_engine
-from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Phase
+from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus
 from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
 
 from . import scenario_code_regression as s1
@@ -27,8 +27,8 @@ def _run(build_fn, **kw):
 def test_code_regression_happy_path():
     res = _run(s1.build)
 
-    assert res.phases_run == [Phase.FRAME, Phase.TRIAGE, Phase.HYPOTHESIZE, Phase.INVESTIGATE,
-                              Phase.REMEDIATE, Phase.VERIFY, Phase.CLOSE]
+    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
+                              "remediate", "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
@@ -58,8 +58,8 @@ def test_code_regression_happy_path():
 def test_refuted_variant_backtracks():
     res = _run(s1.build, refuted_variant=True)
     # the engine returned from INVESTIGATE to HYPOTHESIZE when the leading hypothesis was refuted
-    assert res.phases_run.count(Phase.HYPOTHESIZE) >= 2
-    assert Phase.INVESTIGATE in res.phases_run
+    assert res.phases_run.count("hypothesize") >= 2
+    assert "investigate" in res.phases_run
     assert res.hypothesis_store.hypotheses["hyp:h1"].status == HypothesisStatus.REFUTED
 
 
@@ -68,15 +68,14 @@ def test_write_gate_holds_below_confidence():
     downgrades it to REPEAT — the engine never advances to remediation on thin evidence."""
     from iw_engine.domain.common import Confidence
     from iw_engine.domain.enums import GateResult, VerdictStatus
-    from iw_engine.domain.enums import Phase as P
     from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict
     from iw_engine.domain.playbook import GateSpec, PhaseSpec, Tunables
     from iw_engine.hypothesis import HypothesisStore
     from iw_engine.runtime.controller import check_gate
 
-    spec = PhaseSpec(id=P.INVESTIGATE, goal="", allowed_intents=[],
+    spec = PhaseSpec(id="investigate", goal="", allowed_intents=[],
                      gate=GateSpec(require_confidence_gate=True, require_refutation=True))
-    result = PhaseResult(phase_id=P.INVESTIGATE, goal_restated="",
+    result = PhaseResult(phase_id="investigate", goal_restated="",
                          narrative="thin", verdict=PhaseVerdict(
                              status=VerdictStatus.ADVANCE,
                              confidence=Confidence(value=0.9, basis="x")))
