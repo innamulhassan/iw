@@ -35,9 +35,10 @@ from ..domain.operations import (
     NoEvidence,
     Operation,
     ProposeHypothesis,
+    Retract,
     UpdateHypothesis,
 )
-from ..domain.phase_result import Rejection
+from ..domain.phase_result import Rejection, Retraction
 from ..domain.playbook import Tunables
 from ..domain.shim import assertion_from_event, assertion_from_fact
 from . import graph as graph_mod
@@ -52,6 +53,7 @@ class Materialized:
     events: list[Event] = field(default_factory=list)
     edges: list[Edge] = field(default_factory=list)
     hyp_deltas: list[HypDelta] = field(default_factory=list)
+    retractions: list[Retraction] = field(default_factory=list)
     rejections: list[Rejection] = field(default_factory=list)
 
 
@@ -123,6 +125,20 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
             out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=
                                             f"{name_word} '{canonical}' not allowed on {nt.value}"))
             return
+        if not provisional:
+            # SHAPE QUARANTINE (P3 step 6 / DOMAIN-v3 §9.1 — the airlock's second lane): a KNOWN
+            # name with an invalid shape (unit mismatch, reading without stat+window) lands
+            # PROVISIONAL **plus** a journaled rejection notice — never silently accepted (the
+            # mismatch is on record, feeding the planner) and never erased (the observation
+            # itself survives, dimmed).
+            shape_why = dictionary.shape_violation(
+                canonical, unit=op.unit, stat=op.stat, species=op.species,
+                has_window=op.window is not None)
+            if shape_why is not None:
+                provisional = True
+                out.rejections.append(Rejection(
+                    op_index=i, op_kind=op_kind,
+                    reason=f"shape quarantine '{canonical}': {shape_why} — landed provisional"))
         if is_event:
             eid = registry.event_id(op.subject, canonical, op.occurred_at)
             payload = op.value if isinstance(op.value, dict) else {}
@@ -259,6 +275,22 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 action=action, hypothesis_id=f"hyp:{op.hid}", new_status=new_status,
                 confidence=conf, add_supporting=op.add_supporting, add_refuting=op.add_refuting,
                 add_chain=op.add_chain, basis=op.basis))
+
+        elif isinstance(op, Retract):
+            # P3 step 6 (R-J3): a tombstone must name something that EXISTS — in the graph, or
+            # materialized earlier in this same batch (the fold applies retractions after adds,
+            # so the ordering is replay-deterministic either way).
+            known_target = (op.target in graph.facts or op.target in graph.events
+                            or op.target in graph.edges
+                            or any(f.id == op.target for f in out.facts)
+                            or any(e.id == op.target for e in out.events)
+                            or any(e.id == op.target for e in out.edges))
+            if not known_target:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value,
+                                                reason=f"unknown retract target {op.target}"))
+                continue
+            out.retractions.append(Retraction(target=op.target, invalidated_by=op.invalidated_by,
+                                              reason=op.reason))
 
         elif isinstance(op, NoEvidence):
             if op.intent in no_weight_intents:

@@ -178,6 +178,7 @@ class Engine:
             events_added=mat.events, nodes_touched=mat.nodes, edges_added=mat.edges,
             hypotheses_updated=mat.hyp_deltas, narrative=plan.narrative,
             next_actions=plan.next_actions, verdict=plan.verdict,
+            retractions=mat.retractions,   # tombstones ride the delta (P3 step 6 — R-J3)
             rejections=mat.rejections)   # journaled with the delta (P3 step 2 — never memory-only)
 
         # apply the delta via the single mutation seam FIRST, then gate against the updated store

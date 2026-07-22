@@ -40,6 +40,19 @@ class Rejection(BaseModel):
     reason: str
 
 
+class Retraction(BaseModel):
+    """One validated tombstone (P3 airlock step 6 — the Retract op, R-J3). Applied by the fold
+    AFTER the delta's additions: the target fact/event/edge gets state=RETRACTED (+
+    invalidated_by where the shape carries it). In the delta ⇒ journaled ⇒ replay reproduces the
+    tombstone bit-for-bit."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target: str
+    invalidated_by: str | None = None
+    reason: str = ""
+
+
 class PhaseResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -50,6 +63,7 @@ class PhaseResult(BaseModel):
     nodes_touched: list[Node] = Field(default_factory=list)        # -> GRAPH
     edges_added: list[Edge] = Field(default_factory=list)          # -> GRAPH
     hypotheses_updated: list[HypDelta] = Field(default_factory=list)  # -> HYPOTHESIS STORE
+    retractions: list[Retraction] = Field(default_factory=list)    # -> GRAPH (tombstones, R-J3)
     narrative: str                                                 # -> JOURNAL (the ONLY prose field)
     next_actions: list[str] = Field(default_factory=list)          # -> CONTROLLER (advisory)
     verdict: PhaseVerdict                                          # -> CONTROLLER (authoritative)
@@ -60,4 +74,4 @@ class PhaseResult(BaseModel):
 
     def is_empty_delta(self) -> bool:
         return not (self.facts_added or self.events_added or self.nodes_touched
-                    or self.edges_added or self.hypotheses_updated)
+                    or self.edges_added or self.hypotheses_updated or self.retractions)

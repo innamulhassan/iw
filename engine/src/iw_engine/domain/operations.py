@@ -140,8 +140,22 @@ class NoEvidence(_Op):
     at: datetime            # when we looked (the null-result is itself timestamped evidence)
 
 
+class Retract(_Op):
+    """Tombstone a WRONG observation (P3 airlock step 6 — R-J3 finally reachable through the op
+    grammar). Targets a materialized fact/event/edge id; the fold sets state=RETRACTED (the
+    record survives as evidence of what was once believed — append-only, never deleted). Replay-
+    safe: the retraction rides the PhaseResult delta, so a journal replay tombstones the same id
+    at the same seq. Hypothesis records are NOT retracted here — refutation via UpdateHypothesis
+    is their lifecycle."""
+
+    op: Literal[OpKind.RETRACT] = OpKind.RETRACT
+    target: str                        # FactId | EventId | EdgeId to tombstone
+    invalidated_by: str | None = None  # id of the fact/hypothesis that proved it wrong
+    reason: str = ""                   # the narrative WHY (journaled with the delta)
+
+
 Operation = Annotated[
     AddNode | AddAssertion | AddFact | AddEvent | AddEdge | ProposeHypothesis | UpdateHypothesis
-    | NoEvidence,
+    | NoEvidence | Retract,
     Field(discriminator="op"),
 ]

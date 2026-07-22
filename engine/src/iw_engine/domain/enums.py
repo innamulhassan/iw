@@ -279,3 +279,4 @@ class OpKind(StrEnum):
     PROPOSE_HYPOTHESIS = "propose_hypothesis"
     UPDATE_HYPOTHESIS = "update_hypothesis"
     NO_EVIDENCE = "no_evidence"   # honest null-result sentinel (R-P2)
+    RETRACT = "retract"           # tombstone a wrong fact/event/edge (R-J3 — P3 airlock step 6)

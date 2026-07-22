@@ -24,6 +24,17 @@ def _apply_to_graph(result: PhaseResult, graph: Graph) -> None:
         graph.add_event(e)
     for e in result.edges_added:
         graph.add_edge(e)
+    # retractions LAST (P3 step 6 — the Retract op, R-J3): tombstones apply after this delta's
+    # additions, so the order is deterministic under replay. Dispatch by store membership (the
+    # id namespaces are disjoint); an id in no store is a no-op — the reducer validated it, and
+    # replay must never crash on a shape it already accepted.
+    for r in result.retractions:
+        if r.target in graph.facts:
+            graph.retract_fact(r.target)
+        elif r.target in graph.events:
+            graph.retract_event(r.target, invalidated_by=r.invalidated_by)
+        elif r.target in graph.edges:
+            graph.retract_edge(r.target, invalidated_by=r.invalidated_by)
 
 
 def _project_evidence_edges(h: Hypothesis, seq: int, graph: Graph) -> None:

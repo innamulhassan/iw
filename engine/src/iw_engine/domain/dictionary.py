@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .enums import NodeType, Source, Species, Stat
+from .enums import NodeType, Source, Species, Stat  # Stat: entry metadata + shape checks
 from .nodes import NODE_SPECS
 
 _NT = NodeType
@@ -227,6 +227,31 @@ def resolve(source: Source | None, name: str, unit: str | None = None) -> str | 
     if name in DICTIONARY:
         return name
     return _MERGE_ALIASES.get(name)
+
+
+def shape_violation(canonical: str, *, unit: str | None, stat: Stat | None,
+                    species: Species | None, has_window: bool) -> str | None:
+    """P3 SHAPE QUARANTINE (DOMAIN-v3 §9.1 — the airlock's second lane): why a KNOWN name
+    arrived with an invalid shape, or None when the shape is acceptable. The reducer lands a
+    violating assertion PROVISIONAL with a journaled rejection notice — never silently accepted,
+    never erased.
+
+    Checked (cannot fire on a shim-defaulted emission):
+      - unit mismatch — both the op and the DictEntry declare a unit and they differ (None on
+        either side is always compatible: "a twin's None/omitted unit never drops a fact");
+      - a claimed READING without its mandatory stat+window.
+    NOT checked yet: stat mismatch — the P1a/P1b adapters stamp `stat=gauge` as a compat default
+    on metrics whose entries declare rate/ratio/percentile (their fixtures state no stat), so a
+    mismatch lane would quarantine the scripted happy path. It becomes checkable when adapters
+    emit true stats."""
+    e = DICTIONARY.get(canonical)
+    if e is None or e.species is Species.EVENT:
+        return None                    # unknown → name quarantine; events carry no reading shape
+    if unit is not None and e.unit is not None and unit != e.unit:
+        return f"unit mismatch: got '{unit}', dictionary declares '{e.unit}'"
+    if species is Species.READING and (stat is None or not has_window):
+        return "a reading requires both stat and window"
+    return None
 
 
 def applies_to_ok(canonical: str, ntype: NodeType) -> bool:

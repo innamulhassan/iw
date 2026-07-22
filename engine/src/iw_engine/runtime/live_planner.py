@@ -36,6 +36,7 @@ from ..domain.operations import (
     NoEvidence,
     Operation,
     ProposeHypothesis,
+    Retract,
     UpdateHypothesis,
 )
 from ..domain.phase_result import PhaseVerdict
@@ -195,7 +196,8 @@ OUTPUT: a single JSON object, no markdown, exactly:
   "verdict": {"status":"advance|repeat|backtrack|blocked|done","confidence_level":"low|med|high","basis":"why this verdict"},
   "next_actions": ["what the next phase should do"]
 }
-valid op kinds: add_node, add_fact, add_event, add_edge, propose_hypothesis, update_hypothesis, no_evidence.
+valid op kinds: add_node, add_fact, add_event, add_edge, propose_hypothesis, update_hypothesis, no_evidence, retract.
+(`retract` tombstones a WRONG fact/event you previously folded — {"op":"retract","target":"<fact/event/edge id>","reason":"..."}; use it only for observations proven wrong, never to hide refuting evidence.)
 valid sources: prometheus, splunk, appd, servicenow, cmdb, ocp, artifactory, git, llm, human, engine.
 valid hypothesis statuses: proposed, investigating, supported, confirmed, refuted, superseded."""
 
@@ -448,6 +450,11 @@ Plan this phase. Return ONLY the JSON object."""
             if kind == "no_evidence":
                 return NoEvidence(intent=str(o["intent"]), scope=str(o.get("scope", "")),
                                   basis=str(o.get("basis", "")), at=self._dt(o.get("at"))), None
+            if kind == "retract":
+                return Retract(target=str(o["target"]),
+                               invalidated_by=(str(o["invalidated_by"])
+                                               if o.get("invalidated_by") else None),
+                               reason=str(o.get("reason", ""))), None
             return None, f"unknown op kind {kind!r}"
         except Exception as e:  # any bad field => repair (drop) this op
             return None, f"{type(e).__name__}: {e}"
