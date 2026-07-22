@@ -82,8 +82,15 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         dictionary (P2 §2.3): the emitted native name is resolved to its canonical spelling (7->1
         merges by name, 1->N splits by unit) and the vendor's own name is preserved on
         `source_native_name`. The dictionary's `applies_to` REPLACES the per-type
-        `fact_predicates`/`event_allowed` membership check — the single name authority. An unknown
-        name (not a canonical, alias, or split input) is a plain Rejection (the airlock is P3).
+        `fact_predicates`/`event_allowed` membership check — the single name authority.
+
+        NAME QUARANTINE (P3 airlock, DOMAIN-v3 §2.4 row 1): an unknown name (not a canonical,
+        alias, or split input) is NOT rejected-and-erased — it lands under the quarantine
+        spelling `x.<source>.<native>`, flagged `provisional`, species as the op inferred it,
+        journaled with the delta and counted toward promotion. `applies_to` is skipped for a
+        quarantined name (an unknown name has no constraints YET — promotion, a human
+        core-registry edit, is what assigns them). Referential integrity is NOT relaxed: an
+        unknown subject still rejects.
 
         Fact/Event IDENTITY stays keyed on the NATIVE name, so relabelling never moves an id:
         provenance ordering, hypothesis store supporting/refuting fact-id refs, and supersession chains are
@@ -98,12 +105,13 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         nt = type_of(op.subject)
         native = op.source_native_name or op.name
         canonical = dictionary.resolve(op.source, op.name, op.unit)
-        if canonical is None:
-            out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=f"unknown {name_word} '{op.name}'"))
-            return
+        provisional = canonical is None
+        if provisional:
+            canonical = dictionary.quarantine_name(op.source, native)   # never erased, never silent
         # applies_to on nodes; edge subjects carry no NodeType (nt is None) so edge-borne
-        # assertions bypass the type check (edge-predicate legality is §C2 / a later phase).
-        if nt is not None and not dictionary.applies_to_ok(canonical, nt):
+        # assertions bypass the type check (edge-predicate legality is §C2 / a later phase);
+        # quarantined names carry no applies_to until a human promotes them.
+        if not provisional and nt is not None and not dictionary.applies_to_ok(canonical, nt):
             out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=
                                             f"{name_word} '{canonical}' not allowed on {nt.value}"))
             return
@@ -113,7 +121,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
             out.events.append(Event(
                 id=eid, entity_ref=op.subject, type=canonical, occurred_at=op.occurred_at,
                 observed_at=op.observed_at, payload=payload, source=op.source,
-                source_native_name=native, created_by=seq))
+                source_native_name=native, provisional=provisional, created_by=seq))
             return
 
         conf = (_level_conf(op.confidence_level, tunables, f"inferred {canonical}")
@@ -136,7 +144,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 unit=op.unit, valid_from=op.valid_from, valid_to=op.valid_to,
                 observed_at=op.observed_at, source=op.source, source_native_name=native,
                 confidence=conf, source_reliability=reliability, evidence=op.evidence,
-                supersedes=supersedes, created_by=seq))
+                supersedes=supersedes, provisional=provisional, created_by=seq))
         except (ValueError, AssertionError) as exc:
             # The Fact model enforces its invariants by raising (R-C4 belief-channel). The
             # LivePlanner pre-repairs these, but if one slips through we reject the op and

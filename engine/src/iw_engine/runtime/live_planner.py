@@ -515,7 +515,10 @@ Plan this phase. Return ONLY the JSON object."""
         Mirrors the reducer's authoritative dictionary check (P2 §2.3): the name is canonicalized
         first (so a vendor spelling like `red_latency_p99` and its canonical `latency_p99` both
         resolve), then checked against `applies_to`. An unknown non-hypothesis prefix is left for
-        the reducer."""
+        the reducer. An UNKNOWN NAME is also left for the reducer (P3 §2.4): it is no longer a
+        wasted turn — the airlock lands it as a provisional `x.<source>.<native>` assertion, so
+        pre-dropping it here would silently erase the discovery signal the airlock exists to
+        collect."""
         prefix = subject.split(":", 1)[0]
         if prefix in ("hyp", "hypothesis"):
             return f"fact on a hypothesis node ({subject}) — use add_supporting/add_refuting"
@@ -525,7 +528,7 @@ Plan this phase. Return ONLY the JSON object."""
             return None
         canonical = dictionary.resolve(None, predicate, None)
         if canonical is None:
-            return f"unknown predicate '{predicate}'"
+            return None                     # unknown name → the reducer QUARANTINES it (P3)
         if not dictionary.applies_to_ok(canonical, nt):
             return f"illegal predicate '{canonical}' on {nt.value} (moved off-node)"
         return None

@@ -394,8 +394,11 @@ class InvestigationSession:
                            "value": f.value, "unit": f.unit, "where": f.where,
                            "source": f.source.value,
                            "observed_at": f.observed_at.isoformat(),
-                           "at": f.valid_from.isoformat()} for f in result.facts_added],
-                   events=[{"id": e.id, "entity": e.entity_ref, "type": e.type}
+                           "at": f.valid_from.isoformat(),
+                           **({"provisional": True} if f.provisional else {})}
+                          for f in result.facts_added],
+                   events=[{"id": e.id, "entity": e.entity_ref, "type": e.type,
+                            **({"provisional": True} if e.provisional else {})}
                            for e in result.events_added])
         self._emit("hypotheses_delta",
                    hypotheses=[self._hyp_delta_view(dlt) for dlt in result.hypotheses_updated])

@@ -68,19 +68,24 @@ def export_bundle(res: RunResult) -> dict:
                        "valid_to": e.valid_to.isoformat() if e.valid_to else None,
                        "invalidated_by": e.invalidated_by}
                       for e in g.edges.values()],
+            # `provisional` (P3 airlock) is emitted ONLY when true: airlock-admitted knowledge
+            # is marked (the UI renders it dimly), while every closed-vocabulary fact/event
+            # keeps its exact pre-P3 shape — the 11 goldens stay byte-identical by construction.
             "facts": [{"id": f.id, "subject": f.subject_ref, "predicate": f.predicate,
                        "value": f.value, "unit": f.unit, "where": f.where,
                        "at": f.valid_from.isoformat(),
                        "observed_at": f.observed_at.isoformat(),
                        "valid_to": f.valid_to.isoformat() if f.valid_to else None,
                        "source": f.source.value, "source_native_name": f.source_native_name,
-                       "state": f.state.value}
+                       "state": f.state.value,
+                       **({"provisional": True} if f.provisional else {})}
                       for f in g.facts.values()],
             "events": [{"id": e.id, "entity": e.entity_ref, "type": e.type,
                         "at": e.occurred_at.isoformat(), "payload": e.payload,
                         "source": e.source.value, "source_native_name": e.source_native_name,
                         "state": e.state.value,
-                        "invalidated_by": e.invalidated_by}
+                        "invalidated_by": e.invalidated_by,
+                        **({"provisional": True} if e.provisional else {})}
                        for e in g.events.values()],
         },
         "hypotheses": [{"id": h.id, "statement": h.statement, "status": h.status.value,

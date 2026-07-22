@@ -19,6 +19,12 @@ Resolution has three mechanically-distinct classes (see name-assignment-table.md
 
 `no_evidence:<intent>` is the reserved engine namespace — dictionary-exempt (the reducer's
 NoEvidence path never routes through here).
+
+`x.<source>.<native>` is the AIRLOCK namespace (P3, DOMAIN-v3 §2.4 row 1): a name that resolves
+to nothing is NOT rejected-and-erased — the reducer lands it under this quarantine spelling,
+flagged provisional and counted toward promotion. Promotion stays a human core-registry edit
+(add the DictEntry/alias here); the quarantine prefix guarantees no collision with any canonical
+and no spoofing of the `no_evidence:` engine channel.
 """
 from __future__ import annotations
 
@@ -193,6 +199,22 @@ _SPLIT_DEFAULT: dict[str, str] = {
     "red_rate": "request_rate",
     "epm": "errors_per_min",
 }
+
+
+QUARANTINE_PREFIX = "x."
+
+
+def quarantine_name(source: Source, native: str) -> str:
+    """The airlock spelling for an unknown name (P3, DOMAIN-v3 §2.4 row 1): `x.<source>.<native>`.
+    Deterministic (same source+native → same spelling, so repeats COUNT toward promotion) and
+    collision-free: no canonical starts with `x.` and the engine's reserved `no_evidence:` prefix
+    cannot be spoofed through it."""
+    return f"{QUARANTINE_PREFIX}{source.value}.{native}"
+
+
+def is_quarantined(name: str) -> bool:
+    """Whether a stored name is airlock-quarantined (provisional vocabulary, not yet promoted)."""
+    return name.startswith(QUARANTINE_PREFIX)
 
 
 def resolve(source: Source | None, name: str, unit: str | None = None) -> str | None:

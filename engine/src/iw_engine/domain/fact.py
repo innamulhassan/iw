@@ -48,6 +48,10 @@ class Fact(BaseModel):
     evidence: list[EvidenceRef] = Field(default_factory=list)
     supersedes: str | None = None          # FactId this replaces (never mutate — supersede)
     state: FactState = FactState.ACTIVE
+    # P3 airlock (DOMAIN-v3 §2.4): True for knowledge the airlock admitted rather than the
+    # closed vocabulary — a name-quarantined fact (`x.<source>.<native>`) or a known name with
+    # an off-shape reading. Rendered dimly, counted toward promotion, never silently erased.
+    provisional: bool = False
     created_by: int                        # journal seq — lineage
 
     @model_validator(mode="after")

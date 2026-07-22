@@ -30,4 +30,7 @@ class Event(BaseModel):
     # misattributed occurrence) is RETRACTED — tombstoned via state + invalidated_by, never deleted.
     state: FactState = FactState.ACTIVE
     invalidated_by: str | None = None             # id of what proved this occurrence wrong
+    # P3 airlock (DOMAIN-v3 §2.4): an occurrence whose type the dictionary does not know lands
+    # quarantined (`x.<source>.<native>`) + provisional — journaled and counted, never erased.
+    provisional: bool = False
     created_by: int            # journal seq — lineage

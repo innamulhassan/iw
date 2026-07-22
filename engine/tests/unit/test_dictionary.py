@@ -76,7 +76,8 @@ def test_identity_names_resolve_to_themselves():
 
 
 def test_unknown_name_is_unresolved():
-    # a genuinely unknown name resolves to None (the reducer turns this into a plain Rejection)
+    # a genuinely unknown name resolves to None (the reducer AIRLOCKS it as a provisional
+    # `x.<source>.<native>` assertion — P3 name quarantine, never a silent erase)
     assert resolve(Source.LLM, "totally_made_up_metric", None) is None
 
 
