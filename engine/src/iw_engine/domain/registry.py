@@ -33,7 +33,10 @@ def edge_spec(t: EdgeType) -> EdgeSpec:
 
 # ── deterministic ids (planner + reducer + scenarios share these) ─────────────
 def _slug(v: object) -> str:
-    return str(v).strip().replace(" ", "-").replace("/", "-").lower()
+    # P5 identity hardening (DOMAIN-v3 §2.1 / audit 4 probe D): `_` collapses like space/`/`,
+    # so `payments_api` == `payments-api` == `Payments API` — cross-tool spellings of one name
+    # stop minting split-brain twins.
+    return str(v).strip().replace(" ", "-").replace("/", "-").replace("_", "-").lower()
 
 
 def node_id(ntype: NodeType, props: dict) -> str:
@@ -42,6 +45,17 @@ def node_id(ntype: NodeType, props: dict) -> str:
     keys = spec.identity_keys or tuple(sorted(props.keys()))
     parts = [_slug(props.get(k, "")) for k in keys]
     return f"{ntype.value}:" + "|".join(parts)
+
+
+def missing_identity_keys(ntype: NodeType, props: dict) -> tuple[str, ...]:
+    """The identity keys absent (or slug-empty) in `props` — non-empty means `node_id` would
+    mint a degenerate id (`generic_ci:`, `service:|prod`). The reducer REJECTS such an AddNode
+    (P5 / DOMAIN-v3 §2.1 identity hardening: "a missing identity key is a rejection, not a
+    `type:` degenerate id"); this stays a pure predicate so scenario authors and the planner
+    pre-check share the same authority."""
+    spec = NODE_SPECS[ntype]
+    return tuple(k for k in spec.identity_keys
+                 if props.get(k) is None or not _slug(props[k]))
 
 
 def fact_id(subject: str, predicate: str, valid_from: datetime | str) -> str:

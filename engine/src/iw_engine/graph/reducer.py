@@ -178,8 +178,17 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
     # ── pass 1: nodes (so facts/edges in the same batch can reference them) ────
     # A Hypothesis is BOTH a hypothesis store entry and a graph node (NodeType.HYPOTHESIS) so causal
     # edges (CAUSED_BY hyp->cause, SUPPORTS/REFUTES node->hyp) can reference it (R-G2).
-    for op in ops:
+    for i, op in enumerate(ops):
         if isinstance(op, AddNode):
+            # P5 identity hardening (DOMAIN-v3 §2.1): a missing identity-key value is a
+            # REJECTION, never a degenerate `type:`/`service:|prod` id — degenerate ids are how
+            # unrelated observations silently upsert into one phantom entity.
+            missing = registry.missing_identity_keys(op.type, op.props)
+            if missing:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"missing identity key(s) {', '.join(missing)} for {op.type.value} — "
+                    "refusing a degenerate id"))
+                continue
             nid = registry.node_id(op.type, op.props)
             out.nodes.append(Node(id=nid, type=op.type, props=op.props, created_by=seq))
             batch_types[nid] = op.type
