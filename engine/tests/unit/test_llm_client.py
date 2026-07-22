@@ -9,8 +9,14 @@ hermetically.
 """
 from __future__ import annotations
 
+import email.message
+import io
+import json
 import os
+import urllib.error
 from unittest import mock
+
+import pytest
 
 from iw_engine.domain.enums import Phase
 from iw_engine.runtime.live_planner import LivePlanner
@@ -18,7 +24,9 @@ from iw_engine.runtime.llm_client import (
     GeminiClient,
     LLMClient,
     XaiClient,
+    loads_salvage,
     make_llm_client,
+    retry_delay,
 )
 
 
@@ -208,3 +216,152 @@ def test_factory_model_pin_via_env():
         c = make_llm_client()
     assert isinstance(c, XaiClient)
     assert c.model == "grok-custom"
+
+
+# ── loads_salvage on adversarial model output (never re-calls the API) ─────────
+def test_salvage_fenced_json_block():
+    """A ```json fenced block (the classic markdown-wrapped answer) parses cleanly."""
+    assert loads_salvage('```json\n{"a": 1}\n```') == {"a": 1}
+
+
+def test_salvage_fenced_block_without_language_tag():
+    assert loads_salvage('```\n{"a": 1}\n```') == {"a": 1}
+
+
+def test_salvage_json_embedded_in_prose():
+    """'Sure! Here is the plan: {...}. Hope that helps.' — the outermost object is
+    salvaged from surrounding chatter."""
+    text = 'Sure! Here is the plan: {"ok": true}. Hope that helps.'
+    assert loads_salvage(text) == {"ok": True}
+
+
+def test_salvage_balanced_object_with_truncated_tail():
+    """A complete object followed by a truncated second one (cut off mid-stream)
+    salvages the balanced prefix instead of raising."""
+    text = '{"plan": {"x": 1}}\nextra prose {"partial": '
+    assert loads_salvage(text) == {"plan": {"x": 1}}
+
+
+def test_salvage_takes_first_object_of_concatenated_pair():
+    assert loads_salvage('{"a": 1}{"b": 2}') == {"a": 1}
+
+
+@pytest.mark.parametrize("bad", [
+    "",                             # empty response
+    None,                           # provider returned no text at all
+    "total garbage no braces",      # pure prose, nothing to salvage
+    '{"a": 1, "b": ',               # truncated before any balanced close
+    '{"a": [1, 2',                  # truncated inside an array
+])
+def test_salvage_unrecoverable_raises_without_recall(bad):
+    """Unsalvageable output raises RuntimeError (the caller decides; salvage NEVER
+    re-calls the API — quota is precious)."""
+    with pytest.raises(RuntimeError, match="unparseable LLM response"):
+        loads_salvage(bad)
+
+
+# ── the 429/503 retry loop (mocked urlopen; no network, no real sleeps) ────────
+def _http_error(code: int, headers: dict | None = None, body: bytes = b"") -> urllib.error.HTTPError:
+    hdrs = email.message.Message()
+    for k, v in (headers or {}).items():
+        hdrs[k] = v
+    return urllib.error.HTTPError("https://api.example/x", code, "err", hdrs, io.BytesIO(body))
+
+
+def test_retry_delay_honors_retry_after_header():
+    assert retry_delay(_http_error(429, {"Retry-After": "7"}), fallback=99.0) == 7.0
+
+
+def test_retry_delay_caps_huge_retry_after():
+    """A huge daily-quota hint is capped so it can't wedge the run for minutes."""
+    assert retry_delay(_http_error(429, {"Retry-After": "600"}), fallback=4.0) == 90.0
+
+
+def test_retry_delay_honors_google_retrydelay_body():
+    body = json.dumps({"error": {"details": [{"retryDelay": "42s"}]}}).encode()
+    assert retry_delay(_http_error(429, body=body), fallback=99.0) == 42.0
+
+
+def test_retry_delay_falls_back_when_no_hint():
+    assert retry_delay(_http_error(503), fallback=8.0) == 8.0
+    assert retry_delay(_http_error(503), fallback=500.0) == 90.0   # fallback capped too
+
+
+def test_retry_delay_ignores_non_numeric_retry_after():
+    """An HTTP-date Retry-After (unsupported format) falls through to the fallback."""
+    assert retry_delay(
+        _http_error(429, {"Retry-After": "Wed, 22 Jul 2026 09:00:00 GMT"}), fallback=6.0) == 6.0
+
+
+def test_gemini_429_loop_honors_retry_after_then_raises():
+    """Six attempts, each 429 with Retry-After: 7 — the loop sleeps the SERVER's hint
+    (not the exponential fallback) five times, then re-raises the HTTPError."""
+    sleeps: list[float] = []
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        raise _http_error(429, {"Retry-After": "7"})
+
+    with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         mock.patch("time.sleep", side_effect=sleeps.append):
+        c = GeminiClient("k", min_interval=0.0)
+        with pytest.raises(urllib.error.HTTPError):
+            c.complete_json("system", "user")
+    assert calls["n"] == 6            # initial try + 5 retries, then exhausted
+    assert sleeps == [7.0] * 5        # Retry-After honored on every back-off
+
+
+def test_gemini_503_retries_then_succeeds():
+    """One 503 carrying a Google RetryInfo retryDelay, then success — the loop sleeps
+    exactly the hinted 3s and returns the parsed payload."""
+    sleeps: list[float] = []
+    body = json.dumps({"error": {"details": [{"retryDelay": "3s"}]}}).encode()
+    errors = [_http_error(503, body=body)]
+
+    def fake_urlopen(req, timeout=None):
+        if errors:
+            raise errors.pop()
+        return _Resp({"candidates": [{"content": {"parts": [{"text": '{"ok": 1}'}]}}]})
+
+    with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         mock.patch("time.sleep", side_effect=sleeps.append):
+        c = GeminiClient("k", min_interval=0.0)
+        out = c.complete_json("system", "user")
+    assert out == {"ok": 1}
+    assert sleeps == [3.0]
+
+
+def test_gemini_400_raises_immediately_without_retry():
+    """A non-retryable status (400) must raise on the FIRST attempt — no sleeps."""
+    sleeps: list[float] = []
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        raise _http_error(400)
+
+    with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         mock.patch("time.sleep", side_effect=sleeps.append):
+        c = GeminiClient("k", min_interval=0.0)
+        with pytest.raises(urllib.error.HTTPError):
+            c.complete_json("system", "user")
+    assert calls["n"] == 1 and sleeps == []
+
+
+def test_xai_429_exponential_backoff_then_raises():
+    """XaiClient backs off 4*(2**attempt) on persistent 429 and raises after 6 attempts."""
+    sleeps: list[float] = []
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=None):
+        calls["n"] += 1
+        raise _http_error(429)
+
+    with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen), \
+         mock.patch("time.sleep", side_effect=sleeps.append):
+        c = XaiClient("k")
+        with pytest.raises(urllib.error.HTTPError):
+            c.complete_json("system", "user")
+    assert calls["n"] == 6
+    assert sleeps == [4, 8, 16, 32, 64]
