@@ -10,8 +10,8 @@ loop below simply produces zero ChangeEvent ops and the rest of the fold is unto
 from __future__ import annotations
 
 from ...domain import registry
-from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source
-from ...domain.operations import AddEdge, AddEvent, AddNode, Operation
+from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source, Species
+from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
 
@@ -48,8 +48,10 @@ class ServiceNowAdapter:
             ops.append(AddNode(type=NodeType.INCIDENT, props=inc_props))
             inc_id = registry.node_id(NodeType.INCIDENT, inc_props)
             at = inc["opened_at"]
-            ops.append(AddEvent(entity=inc_id, type="declared", occurred_at=at, observed_at=at,
-                                payload={"state": inc.get("state")}, source=Source.SERVICENOW))
+            ops.append(AddAssertion(subject=inc_id, name="declared", species=Species.EVENT,
+                                    occurred_at=at, observed_at=at,
+                                    value={"state": inc.get("state")}, source=Source.SERVICENOW,
+                                    source_native_name="declared"))
             inc_env = inc.get("env", inc_env)
 
             ci = inc.get("cmdb_ci") or {}
@@ -76,8 +78,10 @@ class ServiceNowAdapter:
             ops.append(AddNode(type=NodeType.CHANGE_EVENT, props=ch_props))
             ch_id = registry.node_id(NodeType.CHANGE_EVENT, ch_props)
             at = ch["start_date"]
-            ops.append(AddEvent(entity=ch_id, type="implemented", occurred_at=at, observed_at=at,
-                                payload={"actor": ch.get("requested_by")}, source=Source.SERVICENOW))
+            ops.append(AddAssertion(subject=ch_id, name="implemented", species=Species.EVENT,
+                                    occurred_at=at, observed_at=at,
+                                    value={"actor": ch.get("requested_by")},
+                                    source=Source.SERVICENOW, source_native_name="implemented"))
 
             target = (ch.get("cmdb_ci") or {}).get("display_value")
             if target:
@@ -131,8 +135,10 @@ class ServiceNowAdapter:
             ri_id = registry.node_id(NodeType.INCIDENT, ri_props)
             at = ri.get("opened_at")
             if at:
-                ops.append(AddEvent(entity=ri_id, type="declared", occurred_at=at, observed_at=at,
-                                    payload={"affected_ci": ri.get("cmdb_ci")}, source=Source.SERVICENOW))
+                ops.append(AddAssertion(subject=ri_id, name="declared", species=Species.EVENT,
+                                        occurred_at=at, observed_at=at,
+                                        value={"affected_ci": ri.get("cmdb_ci")},
+                                        source=Source.SERVICENOW, source_native_name="declared"))
             if primary_inc is not None and primary_inc != ri_id:
                 # "recurrence" marks a true recurrence of the SAME incident; else a co-firing peer.
                 etype = (EdgeType.RECURRENCE_OF if ri.get("relation") == "recurrence"
@@ -155,8 +161,10 @@ class ServiceNowAdapter:
             ops.append(AddNode(type=NodeType.ALERT, props=al_props))
             al_id = registry.node_id(NodeType.ALERT, al_props)
             at = al["at"]
-            ops.append(AddEvent(entity=al_id, type="fired", occurred_at=at, observed_at=at,
-                                payload={"state": al.get("state", "firing")}, source=Source.SERVICENOW))
+            ops.append(AddAssertion(subject=al_id, name="fired", species=Species.EVENT,
+                                    occurred_at=at, observed_at=at,
+                                    value={"state": al.get("state", "firing")},
+                                    source=Source.SERVICENOW, source_native_name="fired"))
             if inc_id:
                 ops.append(AddEdge(type=EdgeType.TRIGGERED_BY, src=inc_id, dst=al_id))
             svc_display = ((raw.get("incident") or {}).get("cmdb_ci") or {}).get("display_value")
