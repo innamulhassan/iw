@@ -13,18 +13,19 @@ from iw_engine.domain.enums import (
     Origin,
     Phase,
     Source,
+    Species,
     VerdictStatus,
 )
 from iw_engine.domain.operations import (
+    AddAssertion,
     AddEdge,
-    AddEvent,
-    AddFact,
     AddNode,
     NoEvidence,
     ProposeHypothesis,
     UpdateHypothesis,
 )
 from iw_engine.domain.phase_result import PhaseVerdict
+from iw_engine.domain.shim import species_for_predicate
 from iw_engine.runtime.planner import PlanOutput
 
 BAND = {"low": 0.3, "med": 0.6, "high": 0.9}
@@ -44,20 +45,26 @@ def node(t: NodeType, **props) -> AddNode:
 
 def fact(subject: str, predicate: str, value, at: datetime, *, source: Source = Source.PROMETHEUS,
          reliability: float = 0.95, level: str | None = None, unit: str | None = None,
-         valid_to: datetime | None = None) -> AddFact:
+         valid_to: datetime | None = None) -> AddAssertion:
+    # Scripted twins emit AddAssertion natively (P1b step 3). The species is inferred by the same
+    # §9.1 classifier the P1a shim used for these predicates (no reading shape scripted here → the
+    # STATE/DESCRIPTOR split it produced), so the reducer's Fact is byte-identical to the shim era.
     lvl = ConfidenceLevel(level) if level else None
-    return AddFact(subject=subject, predicate=predicate, value=value, unit=unit, valid_from=at,
-                   valid_to=valid_to, observed_at=at, source=source,
-                   source_reliability=None if lvl else reliability, confidence_level=lvl)
+    return AddAssertion(subject=subject, name=predicate, value=value, unit=unit,
+                        species=species_for_predicate(predicate), valid_from=at, valid_to=valid_to,
+                        observed_at=at, source=source,
+                        source_reliability=None if lvl else reliability, confidence_level=lvl,
+                        source_native_name=predicate)
 
 
 def fid(subject: str, predicate: str, at: datetime) -> str:
     return registry.fact_id(subject, predicate, at)
 
 
-def event(entity: str, etype: str, at: datetime, *, source: Source = Source.OCP, **payload) -> AddEvent:
-    return AddEvent(entity=entity, type=etype, occurred_at=at, observed_at=at,
-                    payload=payload, source=source)
+def event(entity: str, etype: str, at: datetime, *, source: Source = Source.OCP,
+          **payload) -> AddAssertion:
+    return AddAssertion(subject=entity, name=etype, species=Species.EVENT, occurred_at=at,
+                        observed_at=at, value=payload, source=source, source_native_name=etype)
 
 
 def edge(t: EdgeType, src: str, dst: str, *, origin: str | None = None,
