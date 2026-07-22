@@ -1,6 +1,7 @@
 import type { JournalEntry } from "../types";
 
 function refCount(refs: JournalEntry["refs"]): number {
+  if (!refs) return 0; // non-phase kinds (invocation/plan/gate/…) carry no refs
   return (
     refs.nodes.length + refs.edges.length + refs.facts.length + refs.events.length + refs.hypotheses.length
   );
@@ -23,7 +24,7 @@ export default function JournalTimeline({ journal }: { journal: JournalEntry[] }
                 <span className="journal-entry__actor">{entry.actor}</span>
               </div>
               <p className="journal-entry__narrative">{entry.narrative}</p>
-              {refCount(entry.refs) > 0 && (
+              {entry.refs && refCount(entry.refs) > 0 && (
                 <p className="journal-entry__refs">
                   touched {entry.refs.nodes.length} nodes, {entry.refs.edges.length} edges,{" "}
                   {entry.refs.facts.length} facts, {entry.refs.events.length} events

@@ -144,12 +144,47 @@ export interface JournalRefs {
   hypotheses: string[];
 }
 
+// The bundle now serves EVERY journal kind with its kind + ts + full per-kind fields (the
+// COMPOSABLE record: UI, audit and the fold read the ONE shape). Fields beyond the original
+// {seq, phase, actor, narrative, refs} are optional and per-kind — a phase entry has goal/
+// verdict/refs, a plan has available/plan_calls/plan_ops, an invocation has intent/provider/
+// outcome/op_count, a gate_opened has actions/hypothesis/evidence, etc.
 export interface JournalEntry {
   seq: number;
-  phase: Phase | string;
+  kind?: string; // phase | plan | invocation | gate_opened | gate_decision | message | lifecycle | step
+  ts?: string | null;
+  phase: Phase | string | null;
   actor: string;
-  narrative: string;
-  refs: JournalRefs;
+  narrative?: string; // reasoning / the WHY (on an invocation)
+  refs?: JournalRefs; // phase entries only
+  // phase
+  goal?: string;
+  next_actions?: string[];
+  verdict?: string;
+  // plan — the planner's PLAN + the TOOLS AVAILABLE (its access surface)
+  available?: string[];
+  plan_calls?: string[];
+  plan_ops?: string[];
+  // invocation — one tool call in full
+  intent?: string;
+  provider?: string;
+  params?: Record<string, unknown>;
+  effect?: string;
+  outcome?: string;
+  op_count?: number;
+  blocked?: boolean;
+  reason?: string | null;
+  // gate_opened — the write-gate question
+  gate_id?: string;
+  actions?: GateAction[];
+  hypothesis?: string | null; // the serving hypothesis id
+  evidence?: string[]; // supporting fact ids
+  // gate_decision / message / lifecycle
+  decision?: string;
+  source?: string | null;
+  action?: Record<string, unknown>;
+  observation?: Record<string, unknown>;
+  event?: string; // lifecycle event name (started/resumed/closed/…)
 }
 
 export interface PostmortemNarrativeEntry {

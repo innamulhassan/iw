@@ -416,4 +416,119 @@ describe("store reducer — the live event fold", () => {
     expect(s.phasesRun).toEqual(["frame", "investigate"]);
     expect(phaseCounts(s).investigate).toBe(2);
   });
+
+  it("reopen renders the WHOLE story from the kind-tagged journal — tool calls + gate + decision + tail", () => {
+    // The bundle now serves every journal kind whole; a reopened run must rebuild the tool-call
+    // cards (from invocation entries sharing the phase seq), the write-gate (from gate_opened),
+    // the operator decision (gate_decision), and the chat tail (message) — identical to live.
+    const snapshot = {
+      session_id: "app-incident:INC-4821",
+      subject: { domain: "app-incident", id: "INC-4821", kind: "incident" },
+      state: "closed",
+      outcome: "resolved",
+      phases: ["frame", "investigate", "act", "close"],
+      graph: {
+        nodes: [{ id: "service:pay", type: "service", props: {} }, { id: "anomaly:a1", type: "anomaly", props: {} }],
+        edges: [],
+        facts: [{ id: "f1", subject: "service:pay", predicate: "red_errors", value: 0.4, unit: null, at: "t", valid_to: null, source: "prometheus", state: "active" }],
+        events: [],
+      },
+      hypotheses: [{ id: "hyp:h1", statement: "the deploy broke it", status: "confirmed", confidence: 0.9, basis: "b", root_candidate: "code_commit:abc", supporting: ["f1"], refuting: [], chain: [] }],
+      journal: [
+        { seq: 1, kind: "lifecycle", ts: "t1", phase: "frame", actor: "engine", event: "started" },
+        { seq: 2, kind: "plan", ts: "t2", phase: "frame", actor: "engine", narrative: "frame plan", available: ["get_dependencies", "active_alerts"], plan_calls: ["get_dependencies", "active_alerts"], plan_ops: ["AddNode"] },
+        { seq: 2, kind: "invocation", ts: "t2", phase: "frame", actor: "engine", intent: "get_dependencies", provider: "cmdb", effect: "read", outcome: "data", op_count: 3, blocked: false, reason: null, narrative: "map the topology", params: {} },
+        { seq: 2, kind: "invocation", ts: "t2", phase: "frame", actor: "engine", intent: "active_alerts", provider: "prometheus", effect: "read", outcome: "empty", op_count: 0, blocked: false, reason: null, narrative: "read alerts", params: {} },
+        { seq: 2, kind: "phase", ts: "t2", phase: "frame", actor: "engine", narrative: "5xx spiked after the deploy", goal: "frame the symptom", verdict: "advance", next_actions: [], refs: { nodes: ["service:pay", "anomaly:a1"], edges: [], facts: ["f1"], events: [], hypotheses: [] } },
+        { seq: 3, kind: "phase", ts: "t3", phase: "investigate", actor: "engine", narrative: "Ruled out the DB; NPE in TaxCalculator", goal: "find the cause", verdict: "advance", next_actions: [], refs: { nodes: [], edges: [], facts: [], events: [], hypotheses: ["hyp:h1"] } },
+        { seq: 4, kind: "gate_opened", ts: "t4", phase: "act", actor: "engine", intent: "rollback_release", narrative: "roll back to v4.11.3", gate_id: "g1", actions: [{ intent: "rollback_release", params: { to_version: "v4.11.3" }, provider: "ocp", effect: "write", summary: "rollback" }], hypothesis: "hyp:h1", evidence: ["f1"] },
+        { seq: 5, kind: "gate_decision", ts: "t5", phase: "act", actor: "alice@oncall", source: "human", decision: "approve", intent: "rollback_release", narrative: "ship it", action: { gate_id: "g1", intent: "rollback_release", params: {} }, observation: { decision: "approve", actor: "alice@oncall" } },
+        { seq: 6, kind: "lifecycle", ts: "t6", phase: "act", actor: "engine", event: "resumed" },
+        { seq: 6, kind: "invocation", ts: "t6", phase: "act", actor: "engine", intent: "rollback_release", provider: "ocp", effect: "write", outcome: "data", op_count: 1, blocked: false, reason: null, narrative: "apply the rollback", params: { to_version: "v4.11.3" } },
+        { seq: 6, kind: "phase", ts: "t6", phase: "act", actor: "engine", narrative: "applied the rollback under the gate", goal: "remediate", verdict: "advance", next_actions: [], refs: { nodes: [], edges: [], facts: [], events: [], hypotheses: [] } },
+        { seq: 7, kind: "message", ts: "t7", phase: "act", actor: "operator", source: "human", narrative: "looks good, thanks", action: { kind: "steer" }, observation: { actor: "operator" } },
+        { seq: 8, kind: "lifecycle", ts: "t8", phase: "close", actor: "engine", event: "closed", outcome: "resolved" },
+        { seq: 8, kind: "phase", ts: "t8", phase: "close", actor: "engine", narrative: "postmortem: rollback resolved it", goal: "close", verdict: "done", next_actions: [], refs: { nodes: [], edges: [], facts: [], events: [], hypotheses: [] } },
+      ],
+      postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: null,
+      messages: [],
+      events: [],
+    } as unknown as Snapshot;
+
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+
+    // one turn per phase entry, in seq order
+    expect(s.turns.map((t) => t.phase)).toEqual(["frame", "investigate", "act", "close"]);
+    // the FRAME turn rebuilt its tool-call cards from the invocation entries (intent/provider/outcome)
+    const frame = s.turns[0];
+    expect(frame.reasoning).toContain("5xx spiked");
+    expect(frame.calls.map((c) => c.intent)).toEqual(["get_dependencies", "active_alerts"]);
+    expect(frame.calls[0].provider).toBe("cmdb");
+    expect(frame.calls[0].outcome).toBe("data");
+    expect(frame.calls[1].outcome).toBe("empty");
+    expect(frame.calls[0].startedAt).toBe("t2"); // the journal ts is the call's WHEN on reopen
+    // obs hydrated from the phase entry's refs
+    expect(frame.obs.factIds).toContain("f1");
+    expect(frame.obs.nodeIds).toHaveLength(2);
+    // the ACT turn carries the write it applied + the gate
+    const act = s.turns.find((t) => t.phase === "act")!;
+    expect(act.calls.map((c) => c.intent)).toEqual(["rollback_release"]);
+    expect(act.gateId).toBe("g1");
+    // tool-call keys are UNIQUE across the reopened turns (invocations share their phase seq)
+    const keys = s.turns.flatMap((t) => t.calls.map((c) => c.seq));
+    expect(new Set(keys).size).toBe(keys.length);
+    // the write-gate was reconstructed with its hydrated hypothesis + evidence
+    expect(s.gates["g1"].hypothesis?.statement).toBe("the deploy broke it");
+    expect(s.gates["g1"].evidence[0].predicate).toBe("red_errors");
+    expect(s.gates["g1"].actions[0].intent).toBe("rollback_release");
+    // the operator DECISION (WHO approved) folded from gate_decision
+    expect(s.decisions["g1"].decision).toBe("approve");
+    expect(s.decisions["g1"].actor).toBe("alice@oncall");
+    expect(s.decisions["g1"].source).toBe("human");
+    // the operator chat tail folded from the message entry
+    expect(s.messages.map((m) => m.text)).toEqual(["looks good, thanks"]);
+    // the stepper collapses the loop; phasesRun stays unique
+    expect(s.phasesRun).toEqual(["frame", "investigate", "act", "close"]);
+  });
+
+  it("reopen of a SUSPENDED run synthesizes the gated turn + carries the pending gate", () => {
+    // A run reopened while suspended never completed the gated phase (no phase entry for it), so
+    // the gate's turn is synthesized from the gate_opened record — as live's phase_started does.
+    const pendingGate = {
+      type: "gate_opened", seq: 4, ts: "t4", gate_id: "g1", phase: "act",
+      reasoning: "roll back to v4.11.3", actions: [{ intent: "rollback_release", params: {}, provider: "ocp", effect: "write", summary: "rollback" }],
+      hypothesis: { id: "hyp:h1", statement: "the deploy broke it", status: "supported", confidence: 0.9, root_candidate: null }, evidence: [],
+    };
+    const snapshot = {
+      session_id: "app-incident:INC-4821",
+      subject: { domain: "app-incident", id: "INC-4821", kind: "incident" },
+      state: "suspended",
+      outcome: "open",
+      phases: ["frame", "investigate", "act"],
+      graph: { nodes: [], edges: [], facts: [], events: [] },
+      hypotheses: [{ id: "hyp:h1", statement: "the deploy broke it", status: "supported", confidence: 0.9, basis: "b", root_candidate: null, supporting: [], refuting: [], chain: [] }],
+      journal: [
+        { seq: 1, kind: "lifecycle", ts: "t1", phase: "frame", actor: "engine", event: "started" },
+        { seq: 2, kind: "phase", ts: "t2", phase: "frame", actor: "engine", narrative: "5xx spiked", goal: "frame", verdict: "advance", next_actions: [], refs: {} },
+        { seq: 3, kind: "phase", ts: "t3", phase: "investigate", actor: "engine", narrative: "deploy is the suspect", goal: "investigate", verdict: "advance", next_actions: [], refs: {} },
+        { seq: 4, kind: "gate_opened", ts: "t4", phase: "act", actor: "engine", intent: "rollback_release", narrative: "roll back to v4.11.3", gate_id: "g1", actions: [{ intent: "rollback_release", params: {}, provider: "ocp", effect: "write", summary: "rollback" }], hypothesis: "hyp:h1", evidence: [] },
+      ],
+      postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: pendingGate,
+      messages: [],
+      events: [],
+    } as unknown as Snapshot;
+
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    // the act turn was synthesized (no act phase entry existed) and carries the gate
+    const act = s.turns.find((t) => t.phase === "act")!;
+    expect(act).toBeTruthy();
+    expect(act.gateId).toBe("g1");
+    expect(act.reasoning).toContain("roll back");
+    // the currently-open gate is carried so ApprovalCard renders live
+    expect(s.gate?.gate_id).toBe("g1");
+    expect(s.gates["g1"].hypothesis?.statement).toBe("the deploy broke it");
+    expect(s.turns.map((t) => t.phase)).toEqual(["frame", "investigate", "act"]);
+  });
 });

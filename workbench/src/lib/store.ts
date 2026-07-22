@@ -181,23 +181,150 @@ export function reduce(state: LiveState, action: StoreAction): LiveState {
 }
 
 // ── reopen: rebuild the conversation from the JOURNAL — the durable record ──────────
-// A disk-reopened investigation carries no live event stream (events === []), but the journal
-// captured every phase's reasoning. The journal IS the record, so fold it into the conversation
-// and the reopened run reads like it happened. One turn per journaled reasoning entry; the
-// operator-message / gate-decision kinds are not reasoning turns and are skipped here.
+// A disk-reopened investigation carries no live event stream (events === []). The journal IS the
+// complete record, so fold the WHOLE story back: one Turn per phase entry (its reasoning + the
+// facts/nodes it grew from `refs`), the tool-call CARDS from the invocation entries that annotate
+// that phase's seq, and the write-gate from the gate_opened entry — so a reopened run reads
+// identical to live (reasoning + tool calls + gate), never just bare reasoning.
+function obsFromRefs(refs?: JournalEntry["refs"]): TurnObs {
+  if (!refs) return emptyObs();
+  return {
+    factIds: refs.facts ?? [],
+    nodeIds: refs.nodes ?? [],
+    edgeIds: refs.edges ?? [],
+    eventIds: refs.events ?? [],
+    hypotheses: [], // belief-move detail isn't in refs; the live path builds it from deltas
+  };
+}
+
+function toolCallFromInvocation(e: JournalEntry, key: number): ToolCall {
+  return {
+    seq: key, // SYNTHETIC unique key: invocations SHARE their phase's seq, so key by build order
+    intent: e.intent ?? "",
+    provider: e.provider ?? "",
+    effect: e.effect ?? "read",
+    op_count: e.op_count ?? 0,
+    outcome: e.outcome,
+    blocked: e.blocked ?? false,
+    reason: e.reason ?? null,
+    params: e.params,
+    startedAt: e.ts ?? null, // the journal ts is the call's WHEN on a reopen (trace span is ephemeral)
+    // kind (tool/workflow) is derived by ToolCallCard from effect when absent; summary was ephemeral
+  };
+}
+
+function isPhaseEntry(e: JournalEntry): boolean {
+  const kind = (e as { kind?: string }).kind;
+  // kind==="phase" is the served bundle; kind===undefined tolerates a legacy/hand-authored
+  // kind-less phase entry (older snapshots + the test fixtures) with a narrative.
+  return kind === "phase" || (kind === undefined && !!e.narrative);
+}
+
 function turnsFromJournal(journal: JournalEntry[]): Turn[] {
-  return journal
-    .filter((e) => {
-      const kind = (e as { kind?: string }).kind;
-      return (kind === undefined || kind === "phase" || kind === "step") && !!e.narrative;
-    })
-    .map((e) => ({
+  const turns: Turn[] = [];
+  const bySeq = new Map<number, Turn>(); // phase seq → its turn (annotations share that seq)
+  for (const e of journal) {
+    if (!isPhaseEntry(e)) continue;
+    const turn: Turn = {
       key: e.seq,
       phase: String(e.phase),
-      reasoning: e.narrative,
+      reasoning: e.narrative ?? "",
       calls: [],
-      obs: emptyObs(),
-    }));
+      obs: obsFromRefs(e.refs),
+    };
+    turns.push(turn);
+    bySeq.set(e.seq, turn);
+  }
+  // attach the tool-call cards: invocation entries annotate their phase's seq
+  let callKey = 1;
+  for (const e of journal) {
+    if ((e as { kind?: string }).kind !== "invocation") continue;
+    const turn = bySeq.get(e.seq);
+    if (turn) turn.calls.push(toolCallFromInvocation(e, callKey++));
+  }
+  // attach the write-gate: a gate_opened entry marks its phase's turn. On a SUSPENDED reopen the
+  // gated phase never completed (no phase entry), so synthesize its turn from the gate_opened
+  // record — exactly as the live path's phase_started(act) creates the act turn.
+  for (const e of journal) {
+    if ((e as { kind?: string }).kind !== "gate_opened" || !e.gate_id) continue;
+    const phase = String(e.phase);
+    let turn = [...turns].reverse().find((t) => t.phase === phase && !t.gateId);
+    if (!turn) {
+      turn = { key: e.seq, phase, reasoning: e.narrative ?? "", calls: [], obs: emptyObs() };
+      turns.push(turn);
+    }
+    turn.gateId = e.gate_id;
+  }
+  turns.sort((a, b) => a.key - b.key);
+  return turns;
+}
+
+// Reconstruct a live-shaped GateOpenedEvent from a gate_opened journal entry, hydrating the
+// serving hypothesis + evidence from the snapshot (the journal stores them by id).
+function gateEventFromJournal(
+  e: JournalEntry,
+  hypById: Map<string, HypothesisItem>,
+  factById: Map<string, GraphFact>
+): GateOpenedEvent {
+  const h = e.hypothesis ? hypById.get(e.hypothesis) : undefined;
+  return {
+    type: "gate_opened",
+    seq: e.seq,
+    ts: e.ts ?? "",
+    gate_id: e.gate_id ?? "",
+    phase: String(e.phase),
+    reasoning: e.narrative ?? "",
+    actions: e.actions ?? [],
+    hypothesis: h
+      ? {
+          id: h.id,
+          statement: h.statement,
+          status: h.status,
+          confidence: h.confidence,
+          root_candidate: h.root_candidate,
+        }
+      : null,
+    evidence: (e.evidence ?? []).map((fid) => {
+      const f = factById.get(fid);
+      return f
+        ? { id: f.id, subject: f.subject, predicate: f.predicate, value: f.value, unit: f.unit, source: f.source, resolved: true }
+        : { id: fid, resolved: false };
+    }),
+  };
+}
+
+// Rebuild the gates, operator decisions and operator messages from the journal on reopen, so
+// ApprovalCard + the two-way chat tail render identically to live (the journal is the record).
+function hydrateFromJournal(s: LiveState, snap: Snapshot): void {
+  const hypById = new Map(snap.hypotheses.map((h) => [h.id, h]));
+  const factById = new Map(snap.graph.facts.map((f) => [f.id, f]));
+  for (const e of snap.journal) {
+    const kind = (e as { kind?: string }).kind;
+    if (kind === "gate_opened" && e.gate_id) {
+      s.gates[e.gate_id] = gateEventFromJournal(e, hypById, factById);
+    } else if (kind === "gate_decision" || kind === "step") {
+      const gateId = (e.action as { gate_id?: string } | undefined)?.gate_id;
+      if (gateId && e.decision) {
+        s.decisions[gateId] = {
+          decision: e.decision as GateDecision,
+          reason: e.narrative || undefined,
+          actor: e.actor,
+          source: e.source ?? undefined,
+        };
+      }
+    } else if (kind === "message") {
+      const msgKind = (e.action as { kind?: string } | undefined)?.kind ?? "steer";
+      s.messages.push({
+        seq: e.seq,
+        text: e.narrative ?? "",
+        kind: msgKind,
+        actor: e.actor,
+        phase: e.phase != null ? String(e.phase) : null,
+      });
+    }
+  }
+  // the currently-open gate on a suspended reopen (for ApprovalCard's live state)
+  if (snap.state === "suspended" && snap.pending_gate) s.gate = snap.pending_gate;
 }
 
 // ── seed: full cold-load from the snapshot bundle, then replay its events ───────────
@@ -228,14 +355,15 @@ function seed(snap: Snapshot): LiveState {
   s.rejections = snap.rejections ?? s.rejections;
   // replay the recorded event stream to build the chat, node badges, phase + open gate
   const grown = applyEvents(s, snap.events, /*fresh*/ true);
-  // Reopen (no live stream): the durable JOURNAL is the record — fold it into the conversation
-  // so a reopened investigation reads like it happened (reasoning per phase; the stepper + the
-  // ×N iteration badges seed from these turns via phaseCounts). Live runs (events present) are
-  // untouched.
+  // Reopen (no live stream): the durable JOURNAL is the complete record — fold the WHOLE story
+  // back so a reopened investigation reads like it happened: reasoning + tool-call cards + the
+  // write-gate + the operator tail, per phase (the stepper + the ×N iteration badges seed from
+  // these turns via phaseCounts). Live runs (events present) are untouched.
   if (snap.events.length === 0 && snap.journal.length > 0) {
     grown.turns = turnsFromJournal(snap.journal);
     for (const t of grown.turns)
       if (!grown.phasesRun.includes(t.phase)) grown.phasesRun.push(t.phase);
+    hydrateFromJournal(grown, snap); // gates + decisions + operator messages from the journal
   }
   return grown;
 }
