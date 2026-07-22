@@ -11,7 +11,7 @@ from pathlib import Path
 from ..journal.journal import Journal
 from .graph import Graph
 
-GRAPH_SCHEMA_VERSION = 1
+GRAPH_SCHEMA_VERSION = 2   # 2: the P6 store-flip — one "assertions" list replaces facts/events
 
 
 def _atomic_write(path: Path, text: str) -> None:

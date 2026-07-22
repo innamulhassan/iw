@@ -5,6 +5,18 @@ applied here by the fold; the graph never mutates itself from the outside. Idemp
 upsert by id (deterministic identity). Facts are never mutated — a superseding fact
 closes the prior one's valid_to. MultiDiGraph so a structural DEPENDS_ON and an inferred
 CAUSED_BY between the same pair coexist (distinct edge ids).
+
+P6 STORE-FLIP (part2 §3 + the P1a design decisions): the graph stores ONE assertion
+collection (`self.assertions`); `facts`/`events` are read VIEWS over it, discriminated
+exactly as decision 2 fixed —
+    facts view  = species ≠ EVENT  ∧  channel ≠ DECLARED   (observed knowledge)
+    events view = species = EVENT                          (occurrences)
+    props view  = channel = DECLARED                       (node-declared — P6 step 2)
+The views return the same Fact/Event records as the pre-flip store (converted via
+domain.shim's exact-inverse pair), so fold/render/bundle/hypothesis/postmortem are
+unchanged and the goldens stay byte-identical. Mutation stays method-only (fold-driven);
+the views are cached per mutation generation, so repeated reads between folds return
+the same objects.
 """
 from __future__ import annotations
 
@@ -12,12 +24,19 @@ from datetime import datetime
 
 import networkx as nx
 
+from ..domain.assertion import Assertion
 from ..domain.edge import Edge
-from ..domain.enums import EdgeType, FactState, NodeType, Origin
+from ..domain.enums import Channel, EdgeType, FactState, NodeType, Origin, Species
 from ..domain.event import Event
 from ..domain.fact import Fact
 from ..domain.node import Node
 from ..domain.registry import edge_id as _edge_id
+from ..domain.shim import (
+    assertion_of_event,
+    assertion_of_fact,
+    event_of_assertion,
+    fact_of_assertion,
+)
 from . import resolver
 
 
@@ -26,8 +45,12 @@ class Graph:
         self._g = nx.MultiDiGraph()               # traversal spine (node ids + edge keys)
         self.nodes: dict[str, Node] = {}
         self.edges: dict[str, Edge] = {}
-        self.facts: dict[str, Fact] = {}
-        self.events: dict[str, Event] = {}
+        # THE one assertion collection (P6 store-flip) — facts, events and (step 2) node-prop
+        # declarations all live here; `facts`/`events` below are cached read views over it.
+        self.assertions: dict[str, Assertion] = {}
+        self._rev = 0                              # mutation generation — invalidates the views
+        self._facts_cache: tuple[int, dict[str, Fact]] = (-1, {})
+        self._events_cache: tuple[int, dict[str, Event]] = (-1, {})
         # P5 identity layer (DOMAIN-v3 §2.1, R-J5's alias table): "scheme:id" → node id.
         # Maintained here (upsert_node is fold-only) so journal replay rebuilds it exactly;
         # first binding wins per key — a later conflicting claim never silently rebinds
@@ -61,27 +84,29 @@ class Graph:
         return edge
 
     def add_fact(self, fact: Fact) -> Fact:
-        if fact.supersedes and fact.supersedes in self.facts:
-            old = self.facts[fact.supersedes]
-            # CLAMP, not reject: model_copy skips the Fact._window_ok validator, so a
-            # back-dated correction (new.valid_from < old.valid_from) would silently
-            # persist an inverted window (valid_to < valid_from). Clamping to
-            # old.valid_from yields a zero-length window — "no instant at which the old
-            # value was the truth" — the correct reading of a back-dated correction.
-            # Clamp is the safe choice because add_fact is the single mutation seam for
-            # BOTH live fold and journal replay: it has no rejection channel, and raising
-            # here could brick crash-resume replay of an already-written journal
-            # (2026-07-22 review, finding 18).
-            closed_at = max(fact.valid_from, old.valid_from)
-            self.facts[fact.supersedes] = old.model_copy(
+        if fact.supersedes and fact.supersedes in self.assertions:
+            old = self.assertions[fact.supersedes]
+            # CLAMP, not reject: model_copy skips the window validator, so a back-dated
+            # correction (new.valid_from < old.valid_from) would silently persist an
+            # inverted window (valid_to < valid_from). Clamping to old.valid_from yields
+            # a zero-length window — "no instant at which the old value was the truth" —
+            # the correct reading of a back-dated correction. Clamp is the safe choice
+            # because add_fact is the single mutation seam for BOTH live fold and journal
+            # replay: it has no rejection channel, and raising here could brick
+            # crash-resume replay of an already-written journal (2026-07-22, finding 18).
+            closed_at = (max(fact.valid_from, old.valid_from)
+                         if old.valid_from is not None else fact.valid_from)
+            self.assertions[fact.supersedes] = old.model_copy(
                 update={"valid_to": closed_at, "state": FactState.SUPERSEDED})
-        self.facts[fact.id] = fact
+        self.assertions[fact.id] = assertion_of_fact(fact)
+        self._rev += 1
         return fact
 
     def retract_fact(self, fact_id: str) -> None:
-        if fact_id in self.facts:
-            self.facts[fact_id] = self.facts[fact_id].model_copy(
+        if fact_id in self.assertions:
+            self.assertions[fact_id] = self.assertions[fact_id].model_copy(
                 update={"state": FactState.RETRACTED})
+            self._rev += 1
 
     def retract_edge(self, edge_id: str, *, invalidated_by: str | None = None,
                      at: datetime | None = None) -> None:
@@ -94,7 +119,8 @@ class Graph:
                         "valid_to": at})
 
     def add_event(self, event: Event) -> Event:
-        self.events[event.id] = event
+        self.assertions[event.id] = assertion_of_event(event)
+        self._rev += 1
         return event
 
     def remap_id(self, old: str, new: str) -> None:
@@ -121,12 +147,12 @@ class Graph:
         for k, v in self.id_remaps.items():
             if v == old:
                 self.id_remaps[k] = new
-        for fid, f in self.facts.items():
-            if f.subject_ref == old:
-                self.facts[fid] = f.model_copy(update={"subject_ref": new})
-        for eid, e in self.events.items():
-            if e.entity_ref == old:
-                self.events[eid] = e.model_copy(update={"entity_ref": new})
+        # ONE loop over the one collection: facts AND events re-home together (their ids are
+        # minted once and never move; only the subject reference is rewritten).
+        for aid, a in self.assertions.items():
+            if a.subject_ref == old:
+                self.assertions[aid] = a.model_copy(update={"subject_ref": new})
+        self._rev += 1
         touched = [e for e in self.edges.values() if old in (e.src, e.dst)]
         if self._g.has_node(old):
             self._g.remove_node(old)              # drops old's incident nx edges; re-added below
@@ -158,9 +184,33 @@ class Graph:
         """Tombstone a wrong telemetry Event (flaky exporter, misattributed occurrence) — an
         Event is point-in-time so it is never superseded, only RETRACTED (VALIDATION-VERDICT §B
         P0 #2). Kept in the journal as an append-only record of what was once observed."""
-        if event_id in self.events:
-            self.events[event_id] = self.events[event_id].model_copy(
+        if event_id in self.assertions:
+            self.assertions[event_id] = self.assertions[event_id].model_copy(
                 update={"state": FactState.RETRACTED, "invalidated_by": invalidated_by})
+            self._rev += 1
+
+    # ── the assertion views (P6 store-flip — decision 2's channel discriminator) ─
+    @property
+    def facts(self) -> dict[str, Fact]:
+        """Observed knowledge: every non-EVENT, non-DECLARED assertion, as the Fact records the
+        pre-flip store held (same ids, same insertion order relative to other facts). Cached per
+        mutation generation, so reads between folds return the same objects."""
+        rev, view = self._facts_cache
+        if rev != self._rev:
+            view = {a.id: fact_of_assertion(a) for a in self.assertions.values()
+                    if a.species is not Species.EVENT and a.channel is not Channel.DECLARED}
+            self._facts_cache = (self._rev, view)
+        return self._facts_cache[1]
+
+    @property
+    def events(self) -> dict[str, Event]:
+        """Occurrences: every EVENT-species assertion, as Event records (same ids/order)."""
+        rev, view = self._events_cache
+        if rev != self._rev:
+            view = {a.id: event_of_assertion(a) for a in self.assertions.values()
+                    if a.species is Species.EVENT}
+            self._events_cache = (self._rev, view)
+        return self._events_cache[1]
 
     # ── queries ───────────────────────────────────────────────────────────────
     def node(self, nid: str) -> Node | None:
@@ -258,8 +308,9 @@ class Graph:
         return {
             "nodes": [n.model_dump(mode="json") for n in self.nodes.values()],
             "edges": [e.model_dump(mode="json") for e in self.edges.values()],
-            "facts": [f.model_dump(mode="json") for f in self.facts.values()],
-            "events": [e.model_dump(mode="json") for e in self.events.values()],
+            # the ONE collection is what persists (P6 store-flip); the facts/events views are
+            # derived on read, never stored — no dual write to drift.
+            "assertions": [a.model_dump(mode="json") for a in self.assertions.values()],
             "remaps": dict(self.id_remaps),   # P5: graduated ids stay resolvable across a load
         }
 
@@ -270,11 +321,19 @@ class Graph:
             g.upsert_node(Node.model_validate(n))
         for e in d.get("edges", []):
             g.add_edge(Edge.model_validate(e))
+        for a in d.get("assertions", []):
+            rec = Assertion.model_validate(a)
+            g.assertions[rec.id] = rec       # load as-is (windows already resolved)
+        # legacy cache shape (pre-flip graph.json): separate facts/events lists — converted
+        # through the same exact-inverse seams the views use. The cache is rebuildable from the
+        # journal anyway (R-J4); this just keeps an old cache readable.
         for f in d.get("facts", []):
             fact = Fact.model_validate(f)
-            g.facts[fact.id] = fact          # load as-is (windows already resolved)
+            g.assertions[fact.id] = assertion_of_fact(fact)
         for e in d.get("events", []):
-            g.add_event(Event.model_validate(e))
+            ev = Event.model_validate(e)
+            g.assertions[ev.id] = assertion_of_event(ev)
+        g._rev += 1
         g.id_remaps = {str(k): str(v) for k, v in d.get("remaps", {}).items()}
         return g
 

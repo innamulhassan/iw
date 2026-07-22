@@ -7,6 +7,12 @@ an INFERRED assertion carries a `confidence`; a MEASURED/DECLARED/ENGINE one car
 
 P1a ships this atom behind a compat shim (see operations.AddFact/AddEvent → AddAssertion and
 the reducer): today's Fact/Event/props keep working, re-authored natively in P1b.
+
+P6 (the store-flip, part2 §3 + the P1a design decisions): the graph now stores ONE assertion
+collection; Fact/Event become read views over it (graph.facts/graph.events, converted via
+domain.shim). The atom therefore carries every Fact/Event lifecycle field — `where` (Fact's
+spatial W), `provisional` (the P3 airlock flag), and `invalidated_by` (decision 1: the
+retraction lifecycle covers events too, so the tombstone's cause lives on the atom).
 """
 from __future__ import annotations
 
@@ -72,6 +78,7 @@ class Assertion(BaseModel):
     name: str                                # dictionary-canonical (P2 validates; P1a accepts any)
     value: AssertionValue = None
     unit: str | None = None
+    where: str | None = None                 # optional spatial/context W (Fact-era field, P6 flip)
     species: Species
     channel: Channel                         # belief keyed on channel, NOT Source identity
 
@@ -94,6 +101,11 @@ class Assertion(BaseModel):
     evidence: list[EvidenceRef] = Field(default_factory=list)
     supersedes: str | None = None
     state: FactState = FactState.ACTIVE
+    invalidated_by: str | None = None        # id of what proved this wrong (P1a decision 1: the
+                                             # retraction lifecycle lives on the atom — events too)
+    # P3 airlock: True for knowledge the airlock admitted rather than the closed vocabulary —
+    # quarantined name or off-shape reading. Rendered dimly, counted, never silently erased.
+    provisional: bool = False
     created_by: int                          # journal seq — lineage
 
     @model_validator(mode="after")

@@ -1,6 +1,7 @@
 """The AddFact/AddEvent → AddAssertion compatibility shim (P1a build-spec step 2) — maps the
 legacy AddFact/AddEvent ops onto the AddAssertion atom so the reducer has one materialization
-path.
+path. P6 (the store-flip) adds the RECORD-level twins: Fact/Event ⇄ Assertion converters, the
+exact-inverse pair the graph's single assertion store reads and writes through.
 
 P1b RETAINED this thin + deprecated (step 4 "else" branch), NOT removed: the adapters and the
 scenario twins now emit AddAssertion natively, but two callers of the legacy ops remain —
@@ -19,7 +20,10 @@ direction: a window you never query costs nothing).
 """
 from __future__ import annotations
 
+from .assertion import Assertion, channel_for_source
 from .enums import Species
+from .event import Event
+from .fact import Fact
 from .operations import AddAssertion, AddEvent, AddFact
 
 # ── §9.1 boundary test as data ────────────────────────────────────────────────
@@ -73,3 +77,57 @@ def assertion_from_event(op: AddEvent) -> AddAssertion:
         species=Species.EVENT, occurred_at=op.occurred_at, observed_at=op.observed_at,
         source=op.source, source_reliability=None,
         evidence=[])
+
+
+# ── P6 store-flip: RECORD-level converters (Fact/Event ⇄ Assertion) ───────────
+# The graph stores ONE assertion collection; these four are its exact-inverse read/write seams.
+# Every field round-trips byte-identically (proven by the golden suite + unit tests): the
+# species on a converted Fact is re-derived by the same §9.1 boundary test the op shim uses —
+# deterministic, and never surfaced in any rendered view, so a reclassification cannot move a
+# byte in the bundle. The channel is derived from the source exactly as the op path does
+# (LLM → inferred, engine → engine, observing tools/humans → measured) — never DECLARED, so
+# every converted Fact stays in the facts view (DECLARED is the node-prop channel, P6 step 2).
+
+def assertion_of_fact(f: Fact) -> Assertion:
+    """Fact record → Assertion record (the store's write seam for facts)."""
+    return Assertion(
+        id=f.id, subject_ref=f.subject_ref, name=f.predicate, value=f.value, unit=f.unit,
+        where=f.where, species=species_for_predicate(f.predicate),
+        channel=channel_for_source(f.source),
+        valid_from=f.valid_from, valid_to=f.valid_to, observed_at=f.observed_at,
+        source=f.source, source_native_name=f.source_native_name,
+        confidence=f.confidence, source_reliability=f.source_reliability,
+        evidence=f.evidence, supersedes=f.supersedes, state=f.state,
+        provisional=f.provisional, created_by=f.created_by)
+
+
+def fact_of_assertion(a: Assertion) -> Fact:
+    """Assertion record → Fact record (the facts view's read seam — exact inverse of
+    `assertion_of_fact`; `name` returns to `predicate`)."""
+    return Fact(
+        id=a.id, subject_ref=a.subject_ref, predicate=a.name, value=a.value, unit=a.unit,
+        where=a.where, valid_from=a.valid_from, valid_to=a.valid_to, observed_at=a.observed_at,
+        source=a.source, source_native_name=a.source_native_name,
+        confidence=a.confidence, source_reliability=a.source_reliability,
+        evidence=a.evidence, supersedes=a.supersedes, state=a.state,
+        provisional=a.provisional, created_by=a.created_by)
+
+
+def assertion_of_event(e: Event) -> Assertion:
+    """Event record → Assertion record (species EVENT; `type` → `name`, `payload` → `value`)."""
+    return Assertion(
+        id=e.id, subject_ref=e.entity_ref, name=e.type, value=e.payload,
+        species=Species.EVENT, channel=channel_for_source(e.source),
+        occurred_at=e.occurred_at, observed_at=e.observed_at,
+        source=e.source, source_native_name=e.source_native_name, state=e.state,
+        invalidated_by=e.invalidated_by, provisional=e.provisional, created_by=e.created_by)
+
+
+def event_of_assertion(a: Assertion) -> Event:
+    """Assertion record → Event record (the events view's read seam — exact inverse of
+    `assertion_of_event`; an Event payload is always a dict, so `value` round-trips exactly)."""
+    return Event(
+        id=a.id, entity_ref=a.subject_ref, type=a.name, occurred_at=a.occurred_at,
+        observed_at=a.observed_at, payload=a.value if isinstance(a.value, dict) else {},
+        source=a.source, source_native_name=a.source_native_name, state=a.state,
+        invalidated_by=a.invalidated_by, provisional=a.provisional, created_by=a.created_by)
