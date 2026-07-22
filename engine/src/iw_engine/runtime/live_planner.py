@@ -38,10 +38,12 @@ from ..domain.operations import (
     AddEvent,
     AddFact,
     AddNode,
+    Merge,
     NoEvidence,
     Operation,
     ProposeHypothesis,
     Retract,
+    Retype,
     UpdateHypothesis,
 )
 from ..domain.phase_result import PhaseVerdict
@@ -494,6 +496,17 @@ Plan this phase. Return ONLY the JSON object."""
                                invalidated_by=(str(o["invalidated_by"])
                                                if o.get("invalidated_by") else None),
                                reason=str(o.get("reason", ""))), None
+            # P5's identity graduations, reachable from a LIVE model at last (P6 convergence
+            # wiring): the doctrine has advertised merge/retype since the ops shipped, but the
+            # parser silently dropped them — the "live parser drops it" bug class.
+            if kind == "merge":
+                return Merge(provisional_id=str(o["provisional_id"]),
+                             canonical_id=str(o["canonical_id"]),
+                             reason=str(o.get("reason", ""))), None
+            if kind == "retype":
+                return Retype(target=str(o["target"]), new_type=NodeType(o["new_type"]),
+                              props=o.get("props") or {},
+                              reason=str(o.get("reason", ""))), None
             return None, f"unknown op kind {kind!r}"
         except Exception as e:  # any bad field => repair (drop) this op
             return None, f"{type(e).__name__}: {e}"

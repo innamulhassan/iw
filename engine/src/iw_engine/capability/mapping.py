@@ -23,6 +23,7 @@ function; none touch the network.
 """
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 
 from ..domain.enums import Binding
@@ -30,33 +31,44 @@ from .sources import Source
 
 # ── the translator registry ────────────────────────────────────────────────────
 # key: (provider, intent) -> translator. A provider-wide fallback ("*", "*") is
-# tried before exact (provider, intent). Translators are pure: vendor_raw -> dict.
-Translator = Callable[[dict], dict]
+# tried before exact (provider, intent). Translators are pure: vendor_raw -> dict,
+# optionally also receiving the CALL PARAMS (S1.5 fix, P6 convergence): a vendor
+# response often lacks the identity the adapter needs (a Prometheus vector carries
+# labels, not the service/env the planner queried BY) — the params are where that
+# identity lives, so they are forwarded to any translator declaring a second arg.
+Translator = Callable[..., dict]
 _TRANSLATORS: dict[tuple[str, str], Translator] = {}
 
 
 def register(provider: str, intent: str = "*") -> Callable[[Translator], Translator]:
     """Decorator: register a vendor->adapter translator for (provider, intent).
-    intent="*" makes it the provider-wide default for any unmapped intent."""
+    intent="*" makes it the provider-wide default for any unmapped intent.
+    A translator may take `(raw)` or `(raw, params)`; single-arg ones are wrapped
+    at registration so the dispatch always calls with both (no per-call inspection)."""
     def deco(fn: Translator) -> Translator:
-        _TRANSLATORS[(provider, intent)] = fn
+        wants_params = len(inspect.signature(fn).parameters) >= 2
+        _TRANSLATORS[(provider, intent)] = (
+            fn if wants_params else (lambda raw, params=None, _fn=fn: _fn(raw)))
         return fn
     return deco
 
 
-def map_response(provider: str, intent: str, vendor_raw: dict) -> dict:
+def map_response(provider: str, intent: str, vendor_raw: dict,
+                 params: dict | None = None) -> dict:
     """Translate a vendor tool response into the adapter-expected shape.
 
     Looks up (provider, intent) exactly, then falls back to (provider, "*"). If
     neither is registered, returns vendor_raw unchanged (pass-through — correct
     when the vendor JSON already matches the adapter, e.g. a custom MCP server
-    that emits the documented shape). Never raises: a translator that fails
-    returns the input unchanged so a bad mapping can't crash a live run."""
+    that emits the documented shape). `params` are the CALL's params, forwarded so
+    a translator can supply the identity the vendor payload lacks (S1.5). Never
+    raises: a translator that fails returns the input unchanged so a bad mapping
+    can't crash a live run."""
     fn = _TRANSLATORS.get((provider, intent)) or _TRANSLATORS.get((provider, "*"))
     if fn is None:
         return vendor_raw
     try:
-        return fn(vendor_raw)
+        return fn(vendor_raw, params or {})
     except Exception:
         # a broken translator must never crash a live investigation — fall back to
         # the raw vendor JSON (the adapter's presence-driven fold tolerates it).
@@ -83,22 +95,25 @@ class MappingSource:
         if not isinstance(raw, dict):
             return raw   # lists/scalars are the caller's contract; don't touch
         provider = self.intent_provider.get(intent, "")
-        return map_response(provider, intent, raw)
+        return map_response(provider, intent, raw, params)
 
 
 # ── translators: Prometheus (REST) ─────────────────────────────────────────────
 @register("prometheus", "instant_query")
 @register("prometheus", "range_query")
 @register("prometheus", "fetch_metrics")
-def _prometheus_query(raw: dict) -> dict:
+def _prometheus_query(raw: dict, params: dict | None = None) -> dict:
     """Prometheus /api/v1/query envelope -> adapter shape.
 
     Vendor: {"status":"success","data":{"resultType":"vector",
               "result":[{"metric":{"__name__":"red_errors","service":"payments-api"},
                           "value":[1689770000,"0.4"]}, ...]}}
     Adapter wants: {"service":{...}, "metrics":[{predicate,value,at,reliability,unit}]}
-    The service block comes from the call params (params["service"]/["env"]) since a
-    Prometheus metric carries only labels, not the identity the adapter needs."""
+    The service block comes from the CALL PARAMS (S1.5 — now actually forwarded): a
+    Prometheus metric carries only labels, not the identity the adapter needs. Both
+    `service` and `env` must be present — half an identity would mint a degenerate
+    node id, so it is omitted rather than guessed (metrics then need an explicit
+    per-sample `subject`, exactly as before)."""
     result = (raw.get("data") or {}).get("result") or raw.get("result") or []
     metrics = []
     for sample in result:
@@ -117,7 +132,11 @@ def _prometheus_query(raw: dict) -> dict:
                 })
         elif isinstance(sample, dict) and {"predicate", "value"} <= sample.keys():
             metrics.append(sample)   # already adapter-shaped
-    return {"metrics": metrics}
+    out: dict = {"metrics": metrics}
+    p = params or {}
+    if p.get("service") and p.get("env"):
+        out["service"] = {"name": p["service"], "env": p["env"]}
+    return out
 
 
 @register("prometheus", "active_alerts")

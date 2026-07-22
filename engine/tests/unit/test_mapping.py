@@ -111,3 +111,47 @@ def test_mapping_source_passthrough_for_unknown_provider():
     inner = _FakeSource({"weird_intent": {"raw": 1}})
     ms = MappingSource(inner, intent_provider={})
     assert ms.fetch(Binding.REST, "weird_intent", {}) == {"raw": 1}
+
+
+# ── S1.5 (P6 convergence): call params forwarded to translators ────────────────
+def test_prometheus_query_builds_service_block_from_params():
+    """A Prometheus vector carries labels, not the identity the adapter mints the node
+    from — that identity lives in the CALL PARAMS, now forwarded (S1.5). With both
+    service+env present the translator supplies the adapter's `service` block, so live
+    REST metrics attach to the right entity instead of being dropped subject-less."""
+    vendor = {"data": {"result": [
+        {"metric": {"__name__": "red_errors"}, "value": [1689770000.0, "0.4"]}]}}
+    out = map_response("prometheus", "fetch_metrics", vendor,
+                       {"service": "payments-api", "env": "prod"})
+    assert out["service"] == {"name": "payments-api", "env": "prod"}
+    assert out["metrics"][0]["predicate"] == "red_errors"
+
+
+def test_prometheus_query_omits_half_an_identity():
+    """service without env (or neither) must OMIT the block — a half identity would mint
+    a degenerate node id; omission is honest (per-sample `subject` still works)."""
+    vendor = {"data": {"result": []}}
+    assert "service" not in map_response("prometheus", "fetch_metrics", vendor,
+                                         {"service": "payments-api"})
+    assert "service" not in map_response("prometheus", "fetch_metrics", vendor, {})
+    assert "service" not in map_response("prometheus", "fetch_metrics", vendor, None)
+
+
+def test_single_arg_translators_still_work_with_params():
+    """Back-compat: a (raw)-only translator is wrapped at registration — params flow
+    through the dispatch without touching it."""
+    out = map_response("servicenow", "get_incident",
+                       {"result": {"number": "INC-1"}}, {"sys_id": "abc"})
+    assert out["number"] == "INC-1"
+
+
+def test_mapping_source_forwards_params():
+    class _Inner:
+        def fetch(self, binding, intent, params):
+            return {"data": {"result": [
+                {"metric": {"__name__": "red_errors"}, "value": [1689770000.0, "0.4"]}]}}
+
+    src = MappingSource(_Inner(), {"fetch_metrics": "prometheus"})
+    out = src.fetch(Binding.REST, "fetch_metrics",
+                    {"service": "payments-api", "env": "prod"})
+    assert out["service"] == {"name": "payments-api", "env": "prod"}

@@ -307,11 +307,15 @@ class InvestigationSession:
         return [c for c in out.calls if self._is_write_call(c)]
 
     def _is_write_call(self, call: CapabilityCall) -> bool:
+        # PER-INTENT effect (P6 convergence wiring, part4-capability §1): the gate keys on
+        # `layer.effect_for(adapter, intent)` — registry-declared, then the adapter's
+        # per-intent `effects` override, then its default — never on the adapter-WIDE effect
+        # alone, so a mixed adapter (ocp reads + ocp__restart) gates exactly its write intents.
         layer = self._engine.layer
         if layer is None:
             return False
         a = layer.resolve(call.intent)
-        return a is not None and a.effect == Effect.WRITE
+        return a is not None and layer.effect_for(a, call.intent) == Effect.WRITE
 
     def _open_gate(self, ctx: PlanContext, out: PlanOutput, write_calls: list[CapabilityCall]) -> None:
         self._gate_count += 1
