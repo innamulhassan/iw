@@ -23,6 +23,8 @@ class Event(BaseModel):
     observed_at: datetime      # when we recorded it
     payload: dict = Field(default_factory=dict)   # exit_code, old->new image, actor, ticket_id…
     source: Source
+    source_native_name: str | None = None         # the vendor's own reason before dictionary
+                                                   # canonicalization (P2 §2.3); None = LLM-authored
     # lifecycle — symmetric with Fact (VALIDATION-VERDICT §B P0 #2). A point-in-time occurrence
     # cannot be superseded (no window to close), but a wrong telemetry Event (flaky exporter,
     # misattributed occurrence) is RETRACTED — tombstoned via state + invalidated_by, never deleted.

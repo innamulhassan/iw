@@ -28,7 +28,10 @@ def test_prometheus_normalize_folds_cleanly():
     assert mat.rejections == [], mat.rejections            # adapter emits only registry-valid types
     svc = registry.node_id(NodeType.SERVICE, {"service_name": "payments-api", "env": "prod"})
     assert any(n.id == svc for n in mat.nodes)
-    assert any(f.predicate == "red_errors" and f.value == 0.4 for f in mat.facts)
+    # P2: the reducer canonicalizes the vendor spelling red_errors -> error_rate, keeping the
+    # native name for provenance.
+    assert any(f.predicate == "error_rate" and f.value == 0.4
+               and f.source_native_name == "red_errors" for f in mat.facts)
     assert any(e.type == EdgeType.FIRED_ON for e in mat.edges)
 
 

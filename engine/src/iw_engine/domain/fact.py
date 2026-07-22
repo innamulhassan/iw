@@ -39,6 +39,8 @@ class Fact(BaseModel):
     observed_at: datetime
 
     source: Source
+    source_native_name: str | None = None  # the vendor's own spelling before dictionary canonicalization
+                                           # (P2 §2.3) — provenance survives the rename; None = LLM-authored
     # exactly one belief channel is meaningful per fact (R-C4):
     confidence: Confidence | None = None          # for INFERRED facts
     source_reliability: float | None = Field(default=None, ge=0.0, le=1.0)  # for MEASURED facts

@@ -75,8 +75,10 @@ def test_appd_normalize_folds_cleanly():
     # bt_health facts land on the BusinessTransaction node
     assert any(f.subject_ref == bt and f.predicate == "art_p95" and f.value == 1250.0
                for f in mat.facts)
-    assert any(f.subject_ref == bt and f.predicate == "epm" and f.value == 340.0
-               for f in mat.facts)
+    # P2: `epm` with no unit is the errors-per-minute sense of the 1->N split (errors_per_min vs
+    # calls_per_min); the reducer canonicalizes it and keeps the native spelling.
+    assert any(f.subject_ref == bt and f.predicate == "errors_per_min" and f.value == 340.0
+               and f.source_native_name == "epm" for f in mat.facts)
     assert any(f.subject_ref == bt and f.predicate == "delta_vs_baseline" and f.value == 2.4
                for f in mat.facts)
 

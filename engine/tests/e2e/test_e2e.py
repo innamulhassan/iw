@@ -42,9 +42,11 @@ def test_code_regression_happy_path():
     caused = res.graph.out_edges(s1.H1, EdgeType.CAUSED_BY)
     assert caused and caused[0].dst == s1.COMMIT
 
-    # the symptom fact was superseded on recovery (bi-temporal), not overwritten
+    # the symptom fact was superseded on recovery (bi-temporal), not overwritten. P2: the
+    # canonical predicate is error_rate (red_errors is the vendor spelling); supersession is
+    # unchanged (the native-keyed fact ids are stable, the scan matches on the canonical name).
     err_facts = [f for f in res.graph.facts.values()
-                 if f.subject_ref == s1.SVC and f.predicate == "red_errors"]
+                 if f.subject_ref == s1.SVC and f.predicate == "error_rate"]
     assert len(err_facts) == 2  # 0.40 (superseded) + 0.01 (active)
     active = [f for f in err_facts if f.is_open]
     assert len(active) == 1 and active[0].value == 0.01

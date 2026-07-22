@@ -31,7 +31,7 @@ from iw_engine.domain.operations import (
 )
 from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict
 from iw_engine.domain.playbook import Tunables
-from iw_engine.domain.registry import edge_id
+from iw_engine.domain.registry import edge_id, fact_id
 from iw_engine.graph import Graph, fold
 from iw_engine.graph.reducer import materialize
 from iw_engine.journal import Journal
@@ -69,8 +69,11 @@ def test_materialize_partial_accepts_mixed_batch_with_exact_rejections():
 
     # the valid ops all folded: 2 explicit nodes + the hypothesis's own graph node
     assert sorted(n.id for n in mat.nodes) == ["anomaly:anom-1", "hyp:h1", SID]
+    # P2: the reducer canonicalizes red_errors -> error_rate (the 7->1 merge) while the vendor's
+    # own spelling survives on source_native_name; the fact id stays keyed on the native name.
     assert [(f.subject_ref, f.predicate, f.value) for f in mat.facts] == \
-           [(SID, "red_errors", 0.4)]
+           [(SID, "error_rate", 0.4)]
+    assert mat.facts[0].source_native_name == "red_errors"
     assert mat.edges == []                       # the only edge op was illegal
     assert len(mat.hyp_deltas) == 1
     assert mat.hyp_deltas[0].action == HypAction.CREATE
@@ -162,7 +165,11 @@ def test_add_assertion_state_materializes_identically_to_add_fact():
     assert len(via_fact.facts) == len(via_assertion.facts) == 1
     f1, f2 = via_fact.facts[0], via_assertion.facts[0]
     assert f1.id == f2.id
-    assert (f2.subject_ref, f2.predicate, f2.value, f2.unit) == (SID, "red_errors", 0.4, "ratio")
+    # P2: both paths canonicalize red_errors -> error_rate and keep the native spelling; the id is
+    # native-keyed so it is byte-identical to the pre-canonicalization id (no provenance/ref churn).
+    assert (f2.subject_ref, f2.predicate, f2.value, f2.unit) == (SID, "error_rate", 0.4, "ratio")
+    assert f1.source_native_name == f2.source_native_name == "red_errors"
+    assert f2.id == fact_id(SID, "red_errors", T0)
     # INV-9 default reliability applied on both paths, no confidence (measured channel)
     assert f1.source_reliability == f2.source_reliability
     assert f2.source_reliability is not None and f2.confidence is None
@@ -200,8 +207,12 @@ def test_edge_subject_assertion_is_reachable():
     ]
     mat = materialize(ops, 1, Graph(), Tunables())
     assert mat.rejections == []
+    # P2: call_error_rate canonicalizes to error_rate (the CALLS-edge error-rate alias); the edge
+    # subject carries no NodeType so the applies_to check is bypassed (edge-predicate legality is
+    # a later phase). The native spelling survives on source_native_name.
     assert [(f.subject_ref, f.predicate, f.value) for f in mat.facts] == \
-           [(eid, "call_error_rate", 0.2)]
+           [(eid, "error_rate", 0.2)]
+    assert mat.facts[0].source_native_name == "call_error_rate"
 
 
 def test_edge_subject_assertion_rejected_when_edge_absent():

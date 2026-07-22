@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..domain import registry
+from ..domain import dictionary, registry
 from ..domain.common import Confidence
 from ..domain.edge import Edge
 from ..domain.enums import ConfidenceLevel, HypothesisStatus, NodeType, Source, Species
@@ -76,34 +76,45 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 or nid in batch_edges or nid in graph.edges)
 
     def emit_assertion(op: AddAssertion, i: int, op_kind: str) -> None:
-        """Materialize one AddAssertion into the graph store. P1a keeps the Fact/Event store
-        (step 4 flips to assertions): a non-event species becomes a Fact, an event species an
-        Event — byte-identical to the pre-shim AddFact/AddEvent handlers, so goldens are
-        unchanged. AddFact/AddEvent route here through the compat shim; `op_kind` is the original
-        op's kind so a rejection still reads `add_fact`/`add_event` (not `add_assertion`)."""
+        """Materialize one AddAssertion into the graph store, canonicalizing its name via the
+        dictionary (P2 §2.3): the emitted native name is resolved to its canonical spelling (7->1
+        merges by name, 1->N splits by unit) and the vendor's own name is preserved on
+        `source_native_name`. The dictionary's `applies_to` REPLACES the per-type
+        `fact_predicates`/`event_allowed` membership check — the single name authority. An unknown
+        name (not a canonical, alias, or split input) is a plain Rejection (the airlock is P3).
+
+        Fact/Event IDENTITY stays keyed on the NATIVE name, so relabelling never moves an id:
+        provenance ordering, ledger supporting/refuting fact-id refs, and supersession chains are
+        byte-stable — the only materialized change is the `predicate`/`type` label + the recorded
+        `source_native_name`. `op_kind` is the original op's kind so a rejection still reads
+        `add_fact`/`add_event`."""
         is_event = op.species is Species.EVENT
         subj_word, name_word = ("entity", "event") if is_event else ("subject", "predicate")
         if not known(op.subject):
             out.rejections.append(Rejection(i, op_kind, f"unknown {subj_word} {op.subject}"))
             return
         nt = type_of(op.subject)
+        native = op.source_native_name or op.name
+        canonical = dictionary.resolve(op.source, op.name, op.unit)
+        if canonical is None:
+            out.rejections.append(Rejection(i, op_kind, f"unknown {name_word} '{op.name}'"))
+            return
+        # applies_to on nodes; edge subjects carry no NodeType (nt is None) so edge-borne
+        # assertions bypass the type check (edge-predicate legality is §C2 / a later phase).
+        if nt is not None and not dictionary.applies_to_ok(canonical, nt):
+            out.rejections.append(Rejection(i, op_kind,
+                                            f"{name_word} '{canonical}' not allowed on {nt.value}"))
+            return
         if is_event:
-            if nt and not registry.event_allowed(nt, op.name):
-                out.rejections.append(Rejection(i, op_kind,
-                                                f"{name_word} '{op.name}' not allowed on {nt.value}"))
-                return
-            eid = registry.event_id(op.subject, op.name, op.occurred_at)
+            eid = registry.event_id(op.subject, canonical, op.occurred_at)
             payload = op.value if isinstance(op.value, dict) else {}
             out.events.append(Event(
-                id=eid, entity_ref=op.subject, type=op.name, occurred_at=op.occurred_at,
-                observed_at=op.observed_at, payload=payload, source=op.source, created_by=seq))
+                id=eid, entity_ref=op.subject, type=canonical, occurred_at=op.occurred_at,
+                observed_at=op.observed_at, payload=payload, source=op.source,
+                source_native_name=native, created_by=seq))
             return
 
-        if nt and not registry.predicate_allowed(nt, op.name):
-            out.rejections.append(Rejection(i, op_kind,
-                                            f"{name_word} '{op.name}' not allowed on {nt.value}"))
-            return
-        conf = (_level_conf(op.confidence_level, tunables, f"inferred {op.name}")
+        conf = (_level_conf(op.confidence_level, tunables, f"inferred {canonical}")
                 if op.confidence_level is not None else None)
         # INV-9: a MEASURED assertion whose payload stated no reliability gets the per-source
         # default from the playbook tunables (adapters carry no hardcoded constants). An
@@ -111,18 +122,18 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         reliability = op.source_reliability
         if reliability is None and op.source != Source.LLM:
             reliability = tunables.source_reliability.get(op.source.value)
-        fid = registry.fact_id(op.subject, op.name, op.valid_from)
+        fid = registry.fact_id(op.subject, native, op.valid_from)
         supersedes = None
         for ef in graph.facts_of(op.subject):
-            if ef.predicate == op.name and ef.is_open and ef.id != fid:
+            if ef.predicate == canonical and ef.is_open and ef.id != fid:
                 supersedes = ef.id
                 break
         try:
             out.facts.append(Fact(
-                id=fid, subject_ref=op.subject, predicate=op.name, value=op.value,
+                id=fid, subject_ref=op.subject, predicate=canonical, value=op.value,
                 unit=op.unit, valid_from=op.valid_from, valid_to=op.valid_to,
-                observed_at=op.observed_at, source=op.source, confidence=conf,
-                source_reliability=reliability, evidence=op.evidence,
+                observed_at=op.observed_at, source=op.source, source_native_name=native,
+                confidence=conf, source_reliability=reliability, evidence=op.evidence,
                 supersedes=supersedes, created_by=seq))
         except (ValueError, AssertionError) as exc:
             # The Fact model enforces its invariants by raising (R-C4 belief-channel). The

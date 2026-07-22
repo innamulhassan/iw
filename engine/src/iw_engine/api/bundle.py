@@ -73,11 +73,13 @@ def export_bundle(res: RunResult) -> dict:
                        "at": f.valid_from.isoformat(),
                        "observed_at": f.observed_at.isoformat(),
                        "valid_to": f.valid_to.isoformat() if f.valid_to else None,
-                       "source": f.source.value, "state": f.state.value}
+                       "source": f.source.value, "source_native_name": f.source_native_name,
+                       "state": f.state.value}
                       for f in g.facts.values()],
             "events": [{"id": e.id, "entity": e.entity_ref, "type": e.type,
                         "at": e.occurred_at.isoformat(), "payload": e.payload,
-                        "source": e.source.value, "state": e.state.value,
+                        "source": e.source.value, "source_native_name": e.source_native_name,
+                        "state": e.state.value,
                         "invalidated_by": e.invalidated_by}
                        for e in g.events.values()],
         },
