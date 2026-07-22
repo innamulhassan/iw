@@ -174,6 +174,16 @@ class Engine:
         # precede materialization because every record stamps `created_by` with this seq.
         seq = self.journal.reserve_seq()
 
+        # JOURNAL the PLAN (owner goal: goal + PLAN + TOOLS AVAILABLE, from the start). An
+        # annotation sharing the phase seq (replay-inert): the tools the planner COULD call
+        # (spec.allowed_intents), the intents it DECIDED to call, and the direct ops it authored.
+        # Emitted for BOTH the call path AND the scripted-direct-ops path — so a plan that authors
+        # its evidence as direct ops (zero invocations) stops being invisible provenance.
+        self.journal.append_plan(
+            seq, phase, tools_available=list(spec.allowed_intents),
+            calls=[c.intent for c in plan.calls],
+            ops=[type(o).__name__ for o in plan.ops], narrative=plan.narrative)
+
         # capability calls -> data ops (the tool outputs fold into the graph); writes
         # (remediation actions) execute only in a human-gated `writes_allowed` phase. serve()
         # is gate-first: a disallowed write is blocked BEFORE any fetch/side-effect (§C.3/§D).
@@ -198,7 +208,10 @@ class Engine:
                 # journal proves consent, never execution"). Outcomes stay DISTINCT downstream
                 # (error ≠ clean-empty is the honesty line).
                 self._intent_outcomes[inv.intent] = inv.outcome
-                self._journal_invocation(seq, phase, inv)
+                # the WHY each tool was called (owner goal): thread the plan's stated intent (its
+                # narrative) as the invocation's rationale, so an invocation entry stops carrying
+                # reasoning=None — an audit reads WHY, not just the capability name.
+                self._journal_invocation(seq, phase, inv, why=plan.narrative)
         # The per-phase op ceiling guards against RUNAWAY PLANNER OUTPUT only — it never
         # touches the adapters' data ops. Those are deterministic tool folds and internally
         # referential (a call's AddFact lands on a node a sibling call's AddNode creates);
@@ -269,20 +282,21 @@ class Engine:
         self.journal.append_phase(seq, result)
         return result
 
-    def _journal_invocation(self, seq: int, phase: str, inv) -> None:
+    def _journal_invocation(self, seq: int, phase: str, inv, why: str | None = None) -> None:
         """Journal ONE capability call's boundary outcome (P3 airlock step 1, extended by
         JOURNAL v2 to EVERY call — part2 §1's invocation row: an approved write used to leave
-        zero durable trace; now intent, provider, params, effect, blocked-ness and op-count
-        are on the record). The entry keys the outcome on `decision`/`observation.outcome`,
-        keeping error ≠ clean-empty DISTINGUISHABLE downstream (part4-capability §4). These
-        are `kind="invocation"` entries: they SHARE the phase's seq (an annotation of that
-        phase, not a numbered step of their own), so phase/step numbering — and every golden
-        seq — is untouched; replay ignores them (no delta). Wall-clock timing stays ephemeral
-        on the in-memory Invocation (trace concern); params ride in full — hashing them is a
-        live-privacy knob for a later phase."""
+        zero durable trace; now intent, provider, params, effect, blocked-ness, op-count AND the
+        WHY are on the record). The entry keys the outcome on `decision`/`observation.outcome`,
+        keeping error ≠ clean-empty DISTINGUISHABLE downstream (part4-capability §4). `why` is the
+        plan's stated intent (its narrative) — the rationale the owner wants for every tool call,
+        replacing the old reasoning=None. These are `kind="invocation"` entries: they SHARE the
+        phase's seq (an annotation of that phase, not a numbered step of their own), so phase/step
+        numbering — and every golden seq — is untouched; replay ignores them (no delta). Wall-clock
+        timing stays ephemeral on the in-memory Invocation (trace concern); params ride in full —
+        hashing them is a live-privacy knob for a later phase."""
         self.journal.append(JournalEntry(
             seq=seq, ts=self._clock(), kind="invocation",
-            phase_id=phase, actor="engine", intent=inv.intent,
+            phase_id=phase, actor="engine", intent=inv.intent, reasoning=why,
             action={"capability": inv.intent, "provider": inv.provider,
                     "params": dict(inv.params), "effect": inv.effect.value},
             observation={"outcome": inv.outcome, "reason": inv.reason,

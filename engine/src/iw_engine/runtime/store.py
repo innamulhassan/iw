@@ -107,8 +107,10 @@ class InvestigationStore:
                     f.flush()
                     os.fsync(f.fileno())
         else:
-            # first write for this run — header + everything so far (atomic + fsync'd).
-            lines = [json.dumps({"schema_version": SCHEMA_VERSION})]
+            # first write for this run — header + everything so far (atomic + fsync'd). The
+            # header carries its own kind ("header") so no on-disk line is kind-less (CLEAN rule),
+            # matching Journal.to_ndjson; from_ndjson strips it by its schema_version key.
+            lines = [json.dumps({"schema_version": SCHEMA_VERSION, "kind": "header"})]
             lines += [e.model_dump_json() for e in entries]
             _atomic_write(p, "\n".join(lines) + "\n")
         return len(entries)

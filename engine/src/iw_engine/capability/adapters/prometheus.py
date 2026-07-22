@@ -84,4 +84,4 @@ class PrometheusAdapter:
         parts = ident.split("|")
         if not keys or len(parts) != len(keys) or not all(parts):
             return
-        ops.append(AddNode(type=nt, props=dict(zip(keys, parts))))
+        ops.append(AddNode(type=nt, props=dict(zip(keys, parts, strict=False))))

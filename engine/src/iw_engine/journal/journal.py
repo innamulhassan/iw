@@ -47,6 +47,12 @@ class JournalEntry(BaseModel):
     ts: datetime
     # The typed entry kinds (part2 §1):
     #   phase         — the full PhaseResult delta (the replay payload)
+    #   plan          — what the planner AUTHORED this phase BEFORE reduction: the tools it COULD
+    #                   call (available), the intents it DECIDED to call (plan_calls), the direct
+    #                   ops it authored (plan_ops), + its narrative. Shares its phase's seq (an
+    #                   annotation, not a numbered step) and carries NO delta, so replay ignores
+    #                   it. It makes the plan visible on BOTH paths — the call path AND the
+    #                   scripted-direct-ops path, where there are no invocations to infer it from.
     #   gate_opened   — the proposed action + evidence shown to the human (record)
     #   gate_decision — approve/refine/deny + actor (the consent record)
     #   message       — an operator steer/answer (Source.HUMAN)
@@ -58,8 +64,8 @@ class JournalEntry(BaseModel):
     #   repair        — a planner repair record (dropped ops, coercions; live path)
     #   lifecycle     — run started/resumed/max-steps-exhausted/terminal outcome
     #   step          — the v1 union of gate_decision+message, accepted read-only
-    kind: Literal["phase", "step", "invocation", "gate_opened", "gate_decision", "message",
-                  "rejection", "repair", "lifecycle"] = "phase"
+    kind: Literal["phase", "plan", "step", "invocation", "gate_opened", "gate_decision",
+                  "message", "rejection", "repair", "lifecycle"] = "phase"
     phase_id: str | None = None              # playbook-declared phase id (P7 phase-as-data)
     actor: str = "engine"                    # WHO produced this entry (engine, or a human approver)
     source: Source | None = None             # provenance of a decision entry (Source.HUMAN on a gate answer)
@@ -69,6 +75,11 @@ class JournalEntry(BaseModel):
     action: dict | None = None              # step: {capability, args}
     observation: dict | None = None         # step: {summary, evidence_ref}
     decision: str | None = None
+    # PLAN annotation fields (kind="plan"): the planner's access surface + authored plan for
+    # the audit — what it COULD call, what it DECIDED to call, and the direct ops it wrote.
+    available: list[str] | None = None      # tools available that phase (PhaseSpec.allowed_intents)
+    plan_calls: list[str] | None = None     # intended capability intents ([c.intent for c in plan.calls])
+    plan_ops: list[str] | None = None       # direct-op summary ([type(o).__name__ for o in plan.ops])
     refs: dict = Field(default_factory=dict)  # derived index: {nodes, edges, facts, events, hypotheses}
 
 
@@ -114,6 +125,20 @@ class Journal:
         return self.append(JournalEntry(
             seq=seq, ts=self._clock(), kind="phase", phase_id=result.phase_id,
             actor=actor, reasoning=result.narrative, delta=result, refs=refs))
+
+    def append_plan(self, seq: int, phase_id: str, *, tools_available: list[str],
+                    calls: list[str], ops: list[str], narrative: str) -> JournalEntry:
+        """Record the planner's PLAN for a phase (owner goal: 'the planner's PLAN + the TOOLS
+        AVAILABLE'). Carries the access surface (`available` = allowed_intents), the intents it
+        DECIDED to call (`plan_calls`), and the direct ops it authored (`plan_ops`) — so the plan
+        is visible on the scripted-direct-ops path too, where zero invocations are emitted and the
+        plan would otherwise be invisible except as after-the-fact facts. SHARES the phase's seq
+        (an annotation, not a numbered step) and carries NO delta, so phase/step numbering — and
+        every golden seq — is untouched and replay ignores it."""
+        return self.append(JournalEntry(
+            seq=seq, ts=self._clock(), kind="plan", phase_id=phase_id, actor="engine",
+            reasoning=narrative, available=list(tools_available),
+            plan_calls=list(calls), plan_ops=list(ops)))
 
     def append_gate_opened(self, phase_id: str, *, gate_id: str, actions: list[dict],
                            reasoning: str, hypothesis: str | None,
@@ -163,7 +188,11 @@ class Journal:
 
     # ── NDJSON persistence (R-J4: versioned + partial-line-safe) ──────────────
     def to_ndjson(self) -> str:
-        lines = [json.dumps({"schema_version": SCHEMA_VERSION})]
+        # The schema header carries its OWN kind ("header") so NO on-disk line is kind-less —
+        # the owner's CLEAN rule ("every entry carries its kind; one coherent shape"). It stays
+        # metadata (not a JournalEntry): from_ndjson strips it on load by its schema_version key,
+        # exactly as before, so the additive `kind` is wire-safe and v1 headers still load.
+        lines = [json.dumps({"schema_version": SCHEMA_VERSION, "kind": "header"})]
         lines += [e.model_dump_json() for e in self.entries]
         return "\n".join(lines) + "\n"
 

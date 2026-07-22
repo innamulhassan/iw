@@ -121,6 +121,13 @@ class InvestigationSession:
         if hasattr(planner, "graph"):
             planner.graph = self._engine.graph
         self._engine.start(subject, max_steps=max_steps)
+        # JOURNAL v2 lifecycle (part2 §1/§3): the run START is durable — the owner goal requires
+        # started/resumed/exhausted/closed; 'started' + 'resumed' were documented but never
+        # emitted. This is the interactive run-start (the batch run() has no session lifecycle);
+        # it shares the ONE seq counter, so the interactive journal stays gap-free.
+        self._engine.journal.append_lifecycle(
+            "started", phase_id=self._engine.current_phase,
+            detail={"subject": subject.key, "max_steps": max_steps})
         self.state = SessionState.RUNNING
         self._events: list[dict] = []
         self._event_seq = 0
@@ -169,6 +176,12 @@ class InvestigationSession:
         dec = GateDecision(decision)
         self._decision = _Decision(dec, params=params or {}, reason=reason)
         self._record_gate_decision(dec, actor=actor, reason=reason, params=params or {})
+        # JOURNAL v2 lifecycle: the run RESUMES from the suspended write-gate — a durable
+        # 'resumed' record (owner goal: started/resumed/exhausted/closed). It follows the human's
+        # gate_decision (question → answer → resume) and precedes the re-drive of the gated phase.
+        self._engine.journal.append_lifecycle(
+            "resumed", phase_id=self._pending.phase,
+            detail={"decision": dec.value, "actor": actor})
         self.state = SessionState.RUNNING
         if self._background:
             self._drive_async()
