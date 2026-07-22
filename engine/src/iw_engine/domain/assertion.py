@@ -132,11 +132,19 @@ class Assertion(BaseModel):
         """Belief keyed on channel (DOMAIN-v3 §2.2): exactly one belief field is meaningful and
         WHICH one is fixed by the channel — INFERRED carries a confidence, MEASURED/DECLARED/
         ENGINE carry a source_reliability. IDENTITY is asserted truth, not a belief: it carries
-        neither. This is the Fact-era R-C4 discipline restated on the envelope."""
+        neither. EVENT is lenient in P1a — an occurrence had no belief channel in the Fact/Event
+        era, so a shim-minted event may carry belief or none (P1b makes events first-class
+        belief-bearing per §2.2); only never both. This is the Fact-era R-C4 discipline restated
+        on the envelope."""
         if self.species is Species.IDENTITY:
             if self.confidence is not None or self.source_reliability is not None:
                 raise ValueError(
                     f"assertion {self.id}: identity is asserted truth — no belief channel")
+            return self
+        if self.species is Species.EVENT:
+            if self.confidence is not None and self.source_reliability is not None:
+                raise ValueError(
+                    f"assertion {self.id}: event carries at most one belief field, not both")
             return self
         if self.channel is Channel.INFERRED:
             if self.confidence is None:

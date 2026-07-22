@@ -109,6 +109,26 @@ def test_event_requires_occurred_at():
                   source=Source.OCP, source_reliability=0.9, created_by=1)
 
 
+def _event(**kw):
+    base = dict(id="e1", subject_ref="deployment:x", name="rollout_complete",
+                species=Species.EVENT, channel=Channel.MEASURED, occurred_at=T0, observed_at=T0,
+                source=Source.OCP, created_by=1)
+    base.update(kw)
+    return Assertion(**base)
+
+
+def test_event_belief_is_optional():
+    # a shim-minted event may carry no belief (the Fact/Event era had none) ...
+    assert _event().source_reliability is None
+    # ... or a reliability (P1b makes events first-class belief-bearing) ...
+    assert _event(source_reliability=0.9).source_reliability == 0.9
+
+
+def test_event_rejects_both_belief_fields():
+    with pytest.raises(ValidationError, match="at most one belief field, not both"):
+        _event(source_reliability=0.9, confidence=Confidence(value=0.6, basis="r"))
+
+
 def test_occurred_at_is_event_only():
     with pytest.raises(ValidationError, match="occurred_at is EVENT-only"):
         _state(occurred_at=T0)

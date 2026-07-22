@@ -11,8 +11,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .assertion import AssertionValue, Window
 from .common import EvidenceRef
-from .enums import ConfidenceLevel, EdgeType, NodeType, OpKind, Origin, Source
+from .enums import Channel, ConfidenceLevel, EdgeType, NodeType, OpKind, Origin, Source, Species, Stat
 from .fact import FactValue
 from .hypothesis import ChainLink
 
@@ -25,6 +26,34 @@ class AddNode(_Op):
     op: Literal[OpKind.ADD_NODE] = OpKind.ADD_NODE
     type: NodeType
     props: dict = Field(default_factory=dict)
+
+
+class AddAssertion(_Op):
+    """The P1a atom op (build-spec §2.2) — a superset of AddFact carrying the species + reading
+    qualifiers. AddFact/AddEvent are deprecated compat shims that map onto this (domain.shim).
+    `channel` is optional: the reducer defaults it from the source. Belief stays UNRESOLVED here
+    (a coarse `confidence_level` rubric / raw `source_reliability`); the reducer resolves the
+    rubric to a numeric band and applies the INV-9 per-source reliability default, exactly as it
+    does for AddFact."""
+
+    op: Literal[OpKind.ADD_ASSERTION] = OpKind.ADD_ASSERTION
+    subject: str                       # NodeId or EdgeId
+    name: str                          # dictionary-canonical name (P2 validates; P1a accepts any)
+    value: AssertionValue = None
+    unit: str | None = None
+    species: Species
+    channel: Channel | None = None     # default derived from source by the reducer
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    observed_at: datetime | None = None
+    occurred_at: datetime | None = None            # EVENT only
+    stat: Stat | None = None                       # READING only
+    window: Window | None = None                   # READING only
+    source: Source
+    source_native_name: str | None = None
+    confidence_level: ConfidenceLevel | None = None      # for inferred assertions
+    source_reliability: float | None = None              # for measured assertions
+    evidence: list[EvidenceRef] = Field(default_factory=list)
 
 
 class AddFact(_Op):
@@ -98,6 +127,7 @@ class NoEvidence(_Op):
 
 
 Operation = Annotated[
-    AddNode | AddFact | AddEvent | AddEdge | ProposeHypothesis | UpdateHypothesis | NoEvidence,
+    AddNode | AddAssertion | AddFact | AddEvent | AddEdge | ProposeHypothesis | UpdateHypothesis
+    | NoEvidence,
     Field(discriminator="op"),
 ]
