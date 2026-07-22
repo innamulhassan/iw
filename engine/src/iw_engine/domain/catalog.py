@@ -12,6 +12,7 @@ verbs behind the playbook's abstract `allowed_intents`.
 """
 from __future__ import annotations
 
+from . import dictionary
 from .edges import EDGE_SPECS
 from .nodes import NODE_SPECS
 from .playbook import Playbook
@@ -76,7 +77,11 @@ def render_nodes() -> str:
     lines: list[str] = []
     for ntype, spec in sorted(NODE_SPECS.items(), key=lambda kv: (kv[1].tier, kv[0].value)):
         idk = ",".join(spec.identity_keys)
-        preds = ",".join(spec.fact_predicates) if spec.fact_predicates else "(unconstrained)"
+        # P2 §2.3: the legal fact names are the dictionary's CANONICAL spellings for this type
+        # (a derived view of `applies_to`), not the per-type `fact_predicates` native list — the
+        # model emits canonical names; the engine sets `source_native_name` for tool data.
+        names = dictionary.fact_names_for(ntype)
+        preds = ",".join(names) if names else "(none)"
         disc = (spec.discriminator or "").replace("\n", " ").split(". ")[0].strip()
         if len(disc) > 90:
             disc = disc[:87] + "..."

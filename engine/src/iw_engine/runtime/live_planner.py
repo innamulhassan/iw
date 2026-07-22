@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from ..capability.layer import CapabilityCall
-from ..domain import registry
+from ..domain import dictionary
 from ..domain.common import Confidence
 from ..domain.enums import (
     ConfidenceLevel,
@@ -504,7 +504,10 @@ Plan this phase. Return ONLY the JSON object."""
             model often mis-ids it as `hypothesis:h1` vs the real `hyp:h1` -> unknown subject);
           - a predicate illegal for the subject's node type (e.g. `degraded` on the Anomaly, which
             takes only onset_value/severity_score — it belongs on the Service).
-        An unknown non-hypothesis prefix is left for the reducer's authoritative check."""
+        Mirrors the reducer's authoritative dictionary check (P2 §2.3): the name is canonicalized
+        first (so a vendor spelling like `red_latency_p99` and its canonical `latency_p99` both
+        resolve), then checked against `applies_to`. An unknown non-hypothesis prefix is left for
+        the reducer."""
         prefix = subject.split(":", 1)[0]
         if prefix in ("hyp", "hypothesis"):
             return f"fact on a hypothesis node ({subject}) — use add_supporting/add_refuting"
@@ -512,8 +515,11 @@ Plan this phase. Return ONLY the JSON object."""
             nt = NodeType(prefix)
         except ValueError:
             return None
-        if not registry.predicate_allowed(nt, predicate):
-            return f"illegal predicate '{predicate}' on {nt.value} (moved off-node)"
+        canonical = dictionary.resolve(None, predicate, None)
+        if canonical is None:
+            return f"unknown predicate '{predicate}'"
+        if not dictionary.applies_to_ok(canonical, nt):
+            return f"illegal predicate '{canonical}' on {nt.value} (moved off-node)"
         return None
 
     @staticmethod
