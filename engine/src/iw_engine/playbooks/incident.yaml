@@ -41,7 +41,10 @@ phases:
     allowed_intents: [propose_fix, apply_mitigation, apply_remediation]
     produces_required: [hypotheses_updated]
     writes_allowed: true          # the one phase that may execute write-effect capabilities
-    on_verdict: {advance: verify, repeat: act}
+    # backtrack: a planner that reaches act WITHOUT an anchored leader must be able to return
+    # to the investigate loop — an unmapped backtrack here terminated a live run "open"
+    # (network retest 2026-07-22) when the model rightly refused to write unanchored.
+    on_verdict: {advance: verify, repeat: act, backtrack: investigate}
 
   - id: verify
     goal: "Did the symptom clear and does the confirmed chain still hold?"

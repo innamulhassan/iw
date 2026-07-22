@@ -374,6 +374,17 @@ def focus_slice(graph: Graph, anomaly_ref: str | None, budget: int, *,
                 ordered_full.append(n)
     dist: Mapping[str, int] = graph.structural_distances(focus) if focus is not None else {}
     suspect_ids = {x for e in inferred for x in (e.src, e.dst)} - tier.keys()
+    # BOOTSTRAP (live retest 2026-07-22): before ANYTHING is believed — no inferred layer —
+    # the suspect set above is empty and the symptom node is a structural ISLAND (the planner
+    # may not author edges, and no tool links the model-authored Anomaly), so the slice
+    # rendered ONE bare node and collapsed the entire seeded topology. A live planner whose
+    # root_candidate must be an id COPIED from the slice then deadlocks: it can never propose,
+    # so the inferred layer never appears (the change-correlation hint masked this in change-ful
+    # scenarios; every no-change scenario starved). Pre-anchor, the whole seeded topology near
+    # the symptom IS the suspect set — budget still bounds what renders.
+    if not inferred and not suspect_ids:
+        suspect_ids = set(graph.nodes) - tier.keys() - {
+            nid for nid, n in graph.nodes.items() if n.type == NodeType.HYPOTHESIS}
     for n in sorted(suspect_ids, key=lambda n: (dist.get(n, len(graph.nodes) + 1), n)):
         tier[n] = "suspect"
         ordered_full.append(n)
