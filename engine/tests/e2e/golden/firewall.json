@@ -1,4 +1,8 @@
 {
+  "discovery": {
+    "class_hints": {},
+    "quarantined_names": {}
+  },
   "graph": {
     "edges": [
       {

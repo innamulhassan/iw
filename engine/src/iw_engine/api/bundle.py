@@ -5,6 +5,9 @@ engine did not record.
 """
 from __future__ import annotations
 
+from collections import Counter
+
+from ..domain.dictionary import is_quarantined
 from ..domain.enums import NodeType
 from ..domain.registry import node_id
 from ..graph.graph import Graph
@@ -31,6 +34,31 @@ def _node_provenance(nid: str, g: Graph) -> dict:
     obs.sort(key=lambda x: (x[0], x[1]))
     return {"source": obs[-1][2], "first_source": obs[0][2],
             "first_seen": obs[0][0].isoformat(), "last_seen": obs[-1][0].isoformat()}
+
+
+def discovery_counters(g: Graph) -> dict:
+    """The PROMOTION SIGNAL (P3 airlock step 5 / DOMAIN-v3 §2.4): derived frequencies that tell
+    a human WHICH core-registry edit to make — never made automatically (promotion stays a human
+    core-registry edit per the owner's ruling; the engine only counts).
+
+    - `class_hints`: how often each `class_hint` recurs across generic_ci nodes — repeated
+      identical hints are the signal that a real NodeType is missing (P2-5).
+    - `quarantined_names`: how often each airlock name (`x.<source>.<native>`) recurs across
+      provisional facts/events — repeated names are the signal that a DictEntry/alias is missing.
+
+    Pure projection of the graph (itself journal-replayable), so a reopened investigation shows
+    the same counts. Keys sorted for determinism."""
+    hints = Counter(str(n.props["class_hint"]) for n in g.nodes.values()
+                    if n.type is NodeType.GENERIC_CI and n.props.get("class_hint"))
+    names: Counter[str] = Counter()
+    for f in g.facts.values():
+        if f.provisional and is_quarantined(f.predicate):
+            names[f.predicate] += 1
+    for ev in g.events.values():
+        if ev.provisional and is_quarantined(ev.type):
+            names[ev.type] += 1
+    return {"class_hints": dict(sorted(hints.items())),
+            "quarantined_names": dict(sorted(names.items()))}
 
 
 def _journal_entry(e: JournalEntry) -> dict:
@@ -108,5 +136,8 @@ def export_bundle(res: RunResult) -> dict:
             {"seq": e.seq, "phase": e.phase_id.value if e.phase_id else None,
              "op_index": r.op_index, "op_kind": r.op_kind, "reason": r.reason}
             for e in jr.phase_entries() for r in e.delta.rejections],
+        # the airlock's promotion counters (P3 step 5): the discovery signal telling a human
+        # WHICH core-registry edit to make. Counted, surfaced, never auto-applied.
+        "discovery": discovery_counters(g),
         "postmortem": render_postmortem(res.subject, g, store, jr, res.close_outcome),
     }
