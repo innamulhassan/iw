@@ -23,8 +23,9 @@
 - **Click a node → detail panel:** its **static properties** + its **facts / events**. (Different phases may surface different detail on the same node.)
 
 ## 5. Phase focus (current scope — owner is focusing here)
-- **Active now:** FRAME (already correct) · TRIAGE · HYPOTHESIZE · INVESTIGATE (root-cause). These get full attention + must be right.
-- **Gray out for now:** REMEDIATE · VERIFY · (CLOSE) — not being worked on yet; show them disabled/greyed in the stepper.
+*(P7 update: the engine shipped the 5-phase algebra — `engine/src/iw_engine/playbooks/incident.yaml` is the source of truth. TRIAGE folded into the act-entry decision; HYPOTHESIZE folded into the ONE investigate loop; REMEDIATE became ACT, the one write-gated phase. INVESTIGATE may repeat — the stepper collapses repeats onto its single step with an ×N iteration badge.)*
+- **Active now:** FRAME · INVESTIGATE (root-cause loop). These get full attention + must be right.
+- **Gray out until reached:** ACT · VERIFY · (CLOSE) — greyed in the stepper until the run reaches them (the write-gate lives in ACT).
 
 ## 6. Quality bar
 - Step back, understand fully with depth, review each requirement, **do it right**. **Always verify + check for completeness** against this spec before saying done.
@@ -37,4 +38,4 @@
 - **Interactive session** backend (start with domain+id, stream phase turns + tool calls, gate approval) — the session/SSE work.
 - **Multi-domain** load (domain selector) — the `domains/<domain>/` loader.
 - **Incident persistence + list** (open closed ones) — persist each session's journal; list them.
-- Focus the run on FRAME→INVESTIGATE; REMEDIATE/VERIFY greyed.
+- Focus the run on FRAME→INVESTIGATE; ACT/VERIFY greyed until reached (P7 phase names).

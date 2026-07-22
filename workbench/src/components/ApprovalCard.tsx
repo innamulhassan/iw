@@ -130,7 +130,7 @@ export default function ApprovalCard({ gate, decision, busy, onDecide }: Props) 
       {mode === "deny" && (
         <div className="approval__deny">
           <textarea
-            placeholder="Why are you denying this remediation?"
+            placeholder="Why are you denying this action?"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={2}

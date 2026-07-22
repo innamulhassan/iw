@@ -6,6 +6,7 @@ import {
   hypothesisList,
   nodesInOrder,
   nodesWithOrder,
+  phaseCounts,
   reduce,
   relatedIncidents,
 } from "./store";
@@ -36,7 +37,7 @@ const events: SessionEvent[] = [
     facts: [],
     events: [],
   },
-  { seq: 5, ts: "t", type: "session_state", state: "running", phase: "triage" },
+  { seq: 5, ts: "t", type: "session_state", state: "running", phase: "investigate" },
 ];
 
 describe("store reducer — the live event fold", () => {
@@ -67,24 +68,40 @@ describe("store reducer — the live event fold", () => {
     expect(twice.turns[0].calls).toHaveLength(1);
   });
 
+  it("collapses the repeated investigate loop: phasesRun stays unique, phaseCounts carries ×N", () => {
+    // P7: investigate is ONE loop — the engine emits it repeatedly (frame, investigate,
+    // investigate, act, …); the stepper must show ONE investigate step with an iteration count.
+    const evs: SessionEvent[] = [
+      { seq: 1, ts: "t", type: "phase_started", phase: "frame" },
+      { seq: 2, ts: "t", type: "phase_started", phase: "investigate" },
+      { seq: 3, ts: "t", type: "phase_started", phase: "investigate" },
+      { seq: 4, ts: "t", type: "phase_started", phase: "act" },
+    ];
+    const s = reduce(emptyState(), { kind: "events", events: evs });
+    expect(s.phasesRun).toEqual(["frame", "investigate", "act"]); // unique, in order
+    expect(s.turns).toHaveLength(4); // but every loop turn is kept for the chat/journal
+    expect(phaseCounts(s)).toEqual({ frame: 1, investigate: 2, act: 1 });
+    expect(activePhase(s)).toBe("act");
+  });
+
   it("opens a write-gate and records the operator decision", () => {
     let s = reduce(emptyState(), { kind: "events", events });
     s = reduce(s, {
       kind: "events",
       events: [
-        { seq: 6, ts: "t", type: "phase_started", phase: "remediate" },
+        { seq: 6, ts: "t", type: "phase_started", phase: "act" },
         {
           seq: 7,
           ts: "t",
           type: "gate_opened",
           gate_id: "g1",
-          phase: "remediate",
+          phase: "act",
           reasoning: "roll back",
           actions: [{ intent: "apply_remediation", params: {}, provider: "remediation", effect: "write", summary: "rollback" }],
           hypothesis: { id: "hyp:h1", statement: "deploy broke it", status: "supported", confidence: 0.9, root_candidate: "code_commit:abc" },
           evidence: [],
         },
-        { seq: 8, ts: "t", type: "session_state", state: "suspended", phase: "remediate" },
+        { seq: 8, ts: "t", type: "session_state", state: "suspended", phase: "act" },
       ],
     });
     expect(s.state).toBe("suspended");
@@ -114,7 +131,7 @@ describe("store reducer — the live event fold", () => {
         facts: [{ id: "f1", subject: "service:pay", predicate: "red_errors", value: 0.4 }],
         events: [],
       },
-      { seq: 3, ts: "t", type: "phase_started", phase: "triage" },
+      { seq: 3, ts: "t", type: "phase_started", phase: "investigate" },
       {
         seq: 4,
         ts: "t",
@@ -150,7 +167,7 @@ describe("store reducer — the live event fold", () => {
       pending_gate: null,
       messages: [],
       events: [
-        { seq: 1, ts: "t", type: "phase_started", phase: "hypothesize" },
+        { seq: 1, ts: "t", type: "phase_started", phase: "investigate" },
         {
           seq: 2,
           ts: "t",
@@ -175,9 +192,9 @@ describe("store reducer — the live event fold", () => {
     const decided = reduce(s, {
       kind: "events",
       events: [
-        { seq: 3, ts: "t", type: "phase_started", phase: "remediate" },
-        { seq: 4, ts: "t", type: "gate_opened", gate_id: "g1", phase: "remediate", reasoning: "roll back", actions: [], hypothesis: null, evidence: [] },
-        { seq: 5, ts: "t", type: "gate_decision", gate_id: "g1", decision: "approve", actor: "alice@oncall", source: "human", reason: "", phase: "remediate" },
+        { seq: 3, ts: "t", type: "phase_started", phase: "act" },
+        { seq: 4, ts: "t", type: "gate_opened", gate_id: "g1", phase: "act", reasoning: "roll back", actions: [], hypothesis: null, evidence: [] },
+        { seq: 5, ts: "t", type: "gate_decision", gate_id: "g1", decision: "approve", actor: "alice@oncall", source: "human", reason: "", phase: "act" },
       ],
     });
     expect(decided.decisions["g1"].decision).toBe("approve");
@@ -220,7 +237,7 @@ describe("store reducer — the live event fold", () => {
 
   it("never fabricates a ghost card from a bare hypothesis id the engine does not hold", () => {
     const evs: SessionEvent[] = [
-      { seq: 1, ts: "t", type: "phase_started", phase: "hypothesize" },
+      { seq: 1, ts: "t", type: "phase_started", phase: "investigate" },
       {
         seq: 2,
         ts: "t",
@@ -274,7 +291,7 @@ describe("store reducer — the live event fold", () => {
     s = reduce(s, {
       kind: "events",
       events: [
-        { seq: 1, ts: "t", type: "phase_started", phase: "hypothesize" },
+        { seq: 1, ts: "t", type: "phase_started", phase: "investigate" },
         {
           seq: 2,
           ts: "t",

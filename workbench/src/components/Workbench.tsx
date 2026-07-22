@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { LiveState, Selection } from "../lib/store";
-import { activePhase, hypothesisList } from "../lib/store";
+import { activePhase, hypothesisList, phaseCounts } from "../lib/store";
 import type { GateDecision } from "../lib/api";
 import PhaseStepper from "./PhaseStepper";
 import ChatPane from "./ChatPane";
@@ -43,6 +43,7 @@ export default function Workbench({
         subject={live.subject}
         reached={live.phasesRun}
         current={activePhase(live)}
+        counts={phaseCounts(live)}
         state={live.state}
         outcome={live.outcome}
         layer={layer}

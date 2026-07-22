@@ -6,10 +6,8 @@ import ApprovalCard from "./ApprovalCard";
 
 const PHASE_ICON: Record<string, string> = {
   frame: "🔭",
-  triage: "🚑",
-  hypothesize: "💡",
   investigate: "🔎",
-  remediate: "🛠️",
+  act: "🛠️",
   verify: "✅",
   close: "📓",
 };
@@ -84,7 +82,7 @@ export default function ChatPane({ live, busy, onDecide, onSend }: Props) {
                   {turn.reasoning ? (
                     <p className="turn__reasoning">{turn.reasoning}</p>
                   ) : gate && !decision ? (
-                    <p className="turn__reasoning turn__reasoning--muted">Proposing a remediation…</p>
+                    <p className="turn__reasoning turn__reasoning--muted">Proposing an action…</p>
                   ) : null}
 
                   {turn.calls.length > 0 && (

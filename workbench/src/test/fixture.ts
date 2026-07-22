@@ -7,7 +7,7 @@ import type { InvestigationBundle } from "../types";
 export const fixtureBundle: InvestigationBundle = {
   subject: { domain: "app-incident", id: "INC-TEST-1", kind: "incident" },
   outcome: "resolved",
-  phases: ["frame", "triage", "hypothesize"],
+  phases: ["frame", "investigate", "investigate"],
   graph: {
     nodes: [
       {
@@ -85,9 +85,9 @@ export const fixtureBundle: InvestigationBundle = {
     },
     {
       seq: 2,
-      phase: "triage",
+      phase: "investigate",
       actor: "engine",
-      narrative: "Declared a low-severity test incident.",
+      narrative: "Proposed the leading hypothesis and a rival, then refuted the rival.",
       refs: { nodes: [], edges: [], facts: [], events: [], hypotheses: [] },
     },
   ],

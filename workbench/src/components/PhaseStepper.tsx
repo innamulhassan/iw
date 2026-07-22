@@ -1,10 +1,11 @@
 import type { Subject } from "../types";
 
-// UI-SPEC §5: FRAME · TRIAGE · HYPOTHESIZE · INVESTIGATE are the in-focus phases; REMEDIATE ·
-// VERIFY · CLOSE are greyed/disabled for now (the run still passes through them — the write-gate
-// lives in REMEDIATE — but the stepper shows where the owner's attention is).
-const ALL_PHASES = ["frame", "triage", "hypothesize", "investigate", "remediate", "verify", "close"] as const;
-const ACTIVE = new Set(["frame", "triage", "hypothesize", "investigate"]);
+// UI-SPEC §5 / P7 5-phase algebra (incident.yaml is the source of truth): FRAME · INVESTIGATE
+// are the in-focus phases (triage folded into the act-entry decision, hypothesize into the ONE
+// investigate loop); ACT · VERIFY · CLOSE are greyed until the run reaches them (the write-gate
+// lives in ACT — every production-changing action, mitigation or remediation alike).
+const ALL_PHASES = ["frame", "investigate", "act", "verify", "close"] as const;
+const ACTIVE = new Set(["frame", "investigate"]);
 
 const OUTCOME_LABEL: Record<string, string> = {
   resolved: "Resolved",
@@ -18,11 +19,14 @@ interface Props {
   current: string | null;
   state: string | null;
   outcome: string;
+  /** How many turns each phase has run (investigate is ONE loop — repeats collapse onto its
+   *  single step and surface as an ×N badge, never as extra columns). */
+  counts?: Record<string, number>;
   layer?: string;
   onBack: () => void;
 }
 
-export default function PhaseStepper({ subject, reached, current, state, outcome, layer, onBack }: Props) {
+export default function PhaseStepper({ subject, reached, current, state, outcome, counts, layer, onBack }: Props) {
   const reachedSet = new Set(reached);
 
   return (
@@ -70,6 +74,11 @@ export default function PhaseStepper({ subject, reached, current, state, outcome
             >
               <span className="phase-step__index">{i + 1}</span>
               <span className="phase-step__label">{phase}</span>
+              {(counts?.[phase] ?? 0) > 1 && (
+                <span className="phase-step__count" title={`${phase} looped ${counts?.[phase]} times`}>
+                  ×{counts?.[phase]}
+                </span>
+              )}
             </li>
           );
         })}

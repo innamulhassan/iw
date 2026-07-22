@@ -3,10 +3,8 @@ import ToolCallCard from "./ToolCallCard";
 
 const PHASE_ICON: Record<string, string> = {
   frame: "🔭",
-  triage: "🚑",
-  hypothesize: "💡",
   investigate: "🔎",
-  remediate: "🛠️",
+  act: "🛠️",
   verify: "✅",
   close: "📓",
 };

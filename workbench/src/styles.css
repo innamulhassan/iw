@@ -290,6 +290,22 @@ code {
   font-weight: 600;
 }
 
+/* investigate is ONE loop (P7): repeats collapse onto its single step — this ×N badge is the
+   iteration count, never an extra stepper column. */
+.phase-step__count {
+  position: absolute;
+  top: -6px;
+  right: calc(50% - 26px);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
 /* ---------- hypotheses ---------- */
 
 .hypothesis-card {

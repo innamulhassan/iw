@@ -7,10 +7,9 @@
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -22,70 +21,149 @@
         "props": {
           "service_name": "payments-api",
           "env": "prod"
-        }
+        },
+        "origin": false,
+        "source": "prometheus",
+        "first_source": "prometheus",
+        "first_seen": "2026-07-19T14:00:00+00:00",
+        "last_seen": "2026-07-19T14:27:00+00:00"
       },
       {
         "id": "anomaly:anom-1",
         "type": "anomaly",
         "props": {
           "anomaly_id": "ANOM-1"
-        }
+        },
+        "origin": false,
+        "source": "prometheus",
+        "first_source": "servicenow",
+        "first_seen": "2026-07-19T14:00:00+00:00",
+        "last_seen": "2026-07-19T14:27:00+00:00"
       },
       {
         "id": "alert:alt-1",
         "type": "alert",
         "props": {
           "alert_id": "ALT-1"
-        }
+        },
+        "origin": false,
+        "source": "prometheus",
+        "first_source": "prometheus",
+        "first_seen": "2026-07-19T14:00:00+00:00",
+        "last_seen": "2026-07-19T14:00:00+00:00"
       },
       {
         "id": "change_event:chg-1",
         "type": "change_event",
         "props": {
           "change_id": "CHG-1"
-        }
+        },
+        "origin": false,
+        "source": "servicenow",
+        "first_source": "servicenow",
+        "first_seen": "2026-07-19T13:47:00+00:00",
+        "last_seen": "2026-07-19T13:47:00+00:00"
       },
       {
         "id": "incident:inc-4821",
         "type": "incident",
         "props": {
           "incident_id": "INC-4821"
-        }
+        },
+        "origin": true,
+        "source": "servicenow",
+        "first_source": "servicenow",
+        "first_seen": "2026-07-19T14:00:00+00:00",
+        "last_seen": "2026-07-19T14:00:00+00:00"
       },
       {
         "id": "database:payments-ora",
         "type": "database",
         "props": {
           "db_id": "payments-ora"
-        }
+        },
+        "origin": false,
+        "source": "prometheus",
+        "first_source": "prometheus",
+        "first_seen": "2026-07-19T14:12:00+00:00",
+        "last_seen": "2026-07-19T14:12:00+00:00"
       },
       {
         "id": "code_commit:abc123",
         "type": "code_commit",
         "props": {
           "sha": "abc123"
-        }
+        },
+        "origin": false,
+        "source": null,
+        "first_source": null,
+        "first_seen": null,
+        "last_seen": null
+      },
+      {
+        "id": "incident:inc-4788",
+        "type": "incident",
+        "props": {
+          "incident_id": "INC-4788",
+          "severity": "3 - Moderate"
+        },
+        "origin": false,
+        "source": "servicenow",
+        "first_source": "servicenow",
+        "first_seen": "2026-07-19T14:00:00+00:00",
+        "last_seen": "2026-07-19T14:00:00+00:00"
+      },
+      {
+        "id": "incident:inc-4790",
+        "type": "incident",
+        "props": {
+          "incident_id": "INC-4790",
+          "severity": "4 - Low"
+        },
+        "origin": false,
+        "source": "servicenow",
+        "first_source": "servicenow",
+        "first_seen": "2026-07-19T14:00:00+00:00",
+        "last_seen": "2026-07-19T14:00:00+00:00"
       },
       {
         "id": "hyp:h1",
         "type": "hypothesis",
         "props": {
           "statement": "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator"
-        }
+        },
+        "origin": false,
+        "source": null,
+        "first_source": null,
+        "first_seen": null,
+        "last_seen": null
       },
       {
         "id": "hyp:h2",
         "type": "hypothesis",
         "props": {
           "statement": "payments-ora connection-pool exhaustion"
-        }
+        },
+        "origin": false,
+        "source": null,
+        "first_source": null,
+        "first_seen": null,
+        "last_seen": null
       },
       {
         "id": "error_signature:npe-taxcalc",
         "type": "error_signature",
         "props": {
-          "signature_hash": "npe-taxcalc"
-        }
+          "signature_hash": "npe-taxcalc",
+          "exception_class": "NullPointerException",
+          "first_seen": "2026-07-19 14:00:00+00:00",
+          "file_line": "TaxCalculator.java:88"
+        },
+        "origin": false,
+        "source": "splunk",
+        "first_source": "splunk",
+        "first_seen": "2026-07-19T14:12:00+00:00",
+        "last_seen": "2026-07-19T14:12:00+00:00"
       }
     ],
     "edges": [
@@ -95,7 +173,12 @@
         "src": "anomaly:anom-1",
         "dst": "service:payments-api|prod",
         "origin": "discovered",
-        "confidence": null
+        "confidence": null,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:fired_on:alert:alt-1->service:payments-api|prod:discovered",
@@ -103,7 +186,12 @@
         "src": "alert:alt-1",
         "dst": "service:payments-api|prod",
         "origin": "discovered",
-        "confidence": null
+        "confidence": null,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:changed_by:service:payments-api|prod->change_event:chg-1:discovered",
@@ -111,7 +199,12 @@
         "src": "service:payments-api|prod",
         "dst": "change_event:chg-1",
         "origin": "discovered",
-        "confidence": null
+        "confidence": null,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:correlated_with:anomaly:anom-1->change_event:chg-1:inferred",
@@ -119,7 +212,12 @@
         "src": "anomaly:anom-1",
         "dst": "change_event:chg-1",
         "origin": "inferred",
-        "confidence": 0.6
+        "confidence": 0.6,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:affects:incident:inc-4821->service:payments-api|prod:discovered",
@@ -127,7 +225,12 @@
         "src": "incident:inc-4821",
         "dst": "service:payments-api|prod",
         "origin": "discovered",
-        "confidence": null
+        "confidence": null,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:depends_on:service:payments-api|prod->database:payments-ora:declared",
@@ -135,7 +238,12 @@
         "src": "service:payments-api|prod",
         "dst": "database:payments-ora",
         "origin": "declared",
-        "confidence": null
+        "confidence": null,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:introduced_by:change_event:chg-1->code_commit:abc123:discovered",
@@ -143,7 +251,38 @@
         "src": "change_event:chg-1",
         "dst": "code_commit:abc123",
         "origin": "discovered",
-        "confidence": null
+        "confidence": null,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
+      },
+      {
+        "id": "edge:similar_to:incident:inc-4821->incident:inc-4788:inferred",
+        "type": "similar_to",
+        "src": "incident:inc-4821",
+        "dst": "incident:inc-4788",
+        "origin": "inferred",
+        "confidence": 0.9,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
+      },
+      {
+        "id": "edge:similar_to:incident:inc-4821->incident:inc-4790:inferred",
+        "type": "similar_to",
+        "src": "incident:inc-4821",
+        "dst": "incident:inc-4790",
+        "origin": "inferred",
+        "confidence": 0.6,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:emitted:service:payments-api|prod->error_signature:npe-taxcalc:discovered",
@@ -151,7 +290,12 @@
         "src": "service:payments-api|prod",
         "dst": "error_signature:npe-taxcalc",
         "origin": "discovered",
-        "confidence": null
+        "confidence": null,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:caused_by:hyp:h1->code_commit:abc123:inferred",
@@ -159,15 +303,12 @@
         "src": "hyp:h1",
         "dst": "code_commit:abc123",
         "origin": "inferred",
-        "confidence": 0.9
-      },
-      {
-        "id": "edge:supports:error_signature:npe-taxcalc->hyp:h1:inferred",
-        "type": "supports",
-        "src": "error_signature:npe-taxcalc",
-        "dst": "hyp:h1",
-        "origin": "inferred",
-        "confidence": 0.9
+        "confidence": 0.9,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       },
       {
         "id": "edge:refutes:database:payments-ora->hyp:h2:inferred",
@@ -175,19 +316,40 @@
         "src": "database:payments-ora",
         "dst": "hyp:h2",
         "origin": "inferred",
-        "confidence": 0.9
+        "confidence": 0.3,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
+      },
+      {
+        "id": "edge:supports:error_signature:npe-taxcalc->hyp:h1:inferred",
+        "type": "supports",
+        "src": "error_signature:npe-taxcalc",
+        "dst": "hyp:h1",
+        "origin": "inferred",
+        "confidence": 0.9,
+        "state": "active",
+        "source": null,
+        "established": null,
+        "valid_to": null,
+        "invalidated_by": null
       }
     ],
     "facts": [
       {
         "id": "fact:88c0c2c371a465b2",
         "subject": "service:payments-api|prod",
-        "predicate": "red_errors",
+        "predicate": "error_rate",
         "value": 0.4,
         "unit": null,
+        "where": null,
         "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
         "valid_to": "2026-07-19T14:27:00+00:00",
         "source": "prometheus",
+        "source_native_name": "red_errors",
         "state": "superseded"
       },
       {
@@ -196,10 +358,69 @@
         "predicate": "degraded",
         "value": true,
         "unit": null,
+        "where": null,
         "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
         "valid_to": "2026-07-19T14:27:00+00:00",
         "source": "prometheus",
+        "source_native_name": "degraded",
         "state": "superseded"
+      },
+      {
+        "id": "fact:e0e3e62e29e8d41a",
+        "subject": "service:payments-api|prod",
+        "predicate": "request_rate",
+        "value": 820,
+        "unit": "rpm",
+        "where": null,
+        "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
+        "valid_to": null,
+        "source": "prometheus",
+        "source_native_name": "red_rate",
+        "state": "active"
+      },
+      {
+        "id": "fact:fba377268b5d142b",
+        "subject": "service:payments-api|prod",
+        "predicate": "latency_p50",
+        "value": 58,
+        "unit": "ms",
+        "where": null,
+        "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
+        "valid_to": null,
+        "source": "appd",
+        "source_native_name": "red_latency_p50",
+        "state": "active"
+      },
+      {
+        "id": "fact:bb5e757aef06772b",
+        "subject": "service:payments-api|prod",
+        "predicate": "tier",
+        "value": "tier-1",
+        "unit": null,
+        "where": null,
+        "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
+        "valid_to": null,
+        "source": "servicenow",
+        "source_native_name": "tier",
+        "state": "active"
+      },
+      {
+        "id": "fact:dc94854d6b8faf39",
+        "subject": "service:payments-api|prod",
+        "predicate": "slo_availability_target",
+        "value": 0.999,
+        "unit": null,
+        "where": null,
+        "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
+        "valid_to": null,
+        "source": "servicenow",
+        "source_native_name": "slo_target",
+        "state": "active"
       },
       {
         "id": "fact:6ac933d081e39eea",
@@ -207,9 +428,12 @@
         "predicate": "onset_value",
         "value": 0.4,
         "unit": null,
+        "where": null,
         "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
         "valid_to": null,
         "source": "prometheus",
+        "source_native_name": "onset_value",
         "state": "active"
       },
       {
@@ -218,20 +442,26 @@
         "predicate": "severity_score",
         "value": 2,
         "unit": null,
+        "where": null,
         "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
         "valid_to": null,
         "source": "servicenow",
+        "source_native_name": "severity_score",
         "state": "active"
       },
       {
         "id": "fact:8d304a434d6b3f97",
         "subject": "service:payments-api|prod",
-        "predicate": "red_latency_p99",
+        "predicate": "latency_p99",
         "value": 4200,
         "unit": "ms",
+        "where": null,
         "at": "2026-07-19T14:00:00+00:00",
+        "observed_at": "2026-07-19T14:00:00+00:00",
         "valid_to": null,
         "source": "appd",
+        "source_native_name": "red_latency_p99",
         "state": "active"
       },
       {
@@ -240,9 +470,68 @@
         "predicate": "conn_pool_util",
         "value": 0.28,
         "unit": null,
+        "where": null,
         "at": "2026-07-19T14:12:00+00:00",
+        "observed_at": "2026-07-19T14:12:00+00:00",
         "valid_to": null,
         "source": "prometheus",
+        "source_native_name": "conn_pool_util",
+        "state": "active"
+      },
+      {
+        "id": "fact:fca0fea641626ef0",
+        "subject": "database:payments-ora",
+        "predicate": "active_connections",
+        "value": 56,
+        "unit": "conn",
+        "where": null,
+        "at": "2026-07-19T14:12:00+00:00",
+        "observed_at": "2026-07-19T14:12:00+00:00",
+        "valid_to": null,
+        "source": "prometheus",
+        "source_native_name": "active_connections",
+        "state": "active"
+      },
+      {
+        "id": "fact:56fa137c6ff2a5ef",
+        "subject": "database:payments-ora",
+        "predicate": "max_connections",
+        "value": 200,
+        "unit": "conn",
+        "where": null,
+        "at": "2026-07-19T14:12:00+00:00",
+        "observed_at": "2026-07-19T14:12:00+00:00",
+        "valid_to": null,
+        "source": "prometheus",
+        "source_native_name": "max_connections",
+        "state": "active"
+      },
+      {
+        "id": "fact:0910806d562902e7",
+        "subject": "database:payments-ora",
+        "predicate": "replication_lag",
+        "value": 0.2,
+        "unit": "s",
+        "where": null,
+        "at": "2026-07-19T14:12:00+00:00",
+        "observed_at": "2026-07-19T14:12:00+00:00",
+        "valid_to": null,
+        "source": "prometheus",
+        "source_native_name": "replication_lag",
+        "state": "active"
+      },
+      {
+        "id": "fact:0fb9906702153a66",
+        "subject": "database:payments-ora",
+        "predicate": "slow_query_rate",
+        "value": 3,
+        "unit": "per_min",
+        "where": null,
+        "at": "2026-07-19T14:12:00+00:00",
+        "observed_at": "2026-07-19T14:12:00+00:00",
+        "valid_to": null,
+        "source": "prometheus",
+        "source_native_name": "slow_query_rate",
         "state": "active"
       },
       {
@@ -251,20 +540,40 @@
         "predicate": "count",
         "value": 152,
         "unit": null,
+        "where": null,
         "at": "2026-07-19T14:12:00+00:00",
+        "observed_at": "2026-07-19T14:12:00+00:00",
         "valid_to": null,
         "source": "splunk",
+        "source_native_name": "count",
+        "state": "active"
+      },
+      {
+        "id": "fact:08fdf0ca1b577556",
+        "subject": "error_signature:npe-taxcalc",
+        "predicate": "last_seen",
+        "value": "2026-07-19T14:12:00+00:00",
+        "unit": null,
+        "where": null,
+        "at": "2026-07-19T14:12:00+00:00",
+        "observed_at": "2026-07-19T14:12:00+00:00",
+        "valid_to": null,
+        "source": "splunk",
+        "source_native_name": "last_seen",
         "state": "active"
       },
       {
         "id": "fact:29ffa036ac451049",
         "subject": "service:payments-api|prod",
-        "predicate": "red_errors",
+        "predicate": "error_rate",
         "value": 0.01,
         "unit": null,
+        "where": null,
         "at": "2026-07-19T14:27:00+00:00",
+        "observed_at": "2026-07-19T14:27:00+00:00",
         "valid_to": null,
         "source": "prometheus",
+        "source_native_name": "red_errors",
         "state": "active"
       },
       {
@@ -273,9 +582,12 @@
         "predicate": "degraded",
         "value": false,
         "unit": null,
+        "where": null,
         "at": "2026-07-19T14:27:00+00:00",
+        "observed_at": "2026-07-19T14:27:00+00:00",
         "valid_to": null,
         "source": "prometheus",
+        "source_native_name": "degraded",
         "state": "active"
       }
     ],
@@ -286,7 +598,10 @@
         "type": "degraded_started",
         "at": "2026-07-19T14:00:00+00:00",
         "payload": {},
-        "source": "prometheus"
+        "source": "prometheus",
+        "source_native_name": "degraded_started",
+        "state": "active",
+        "invalidated_by": null
       },
       {
         "id": "evt:674c1ef24ed73a69",
@@ -294,7 +609,10 @@
         "type": "fired",
         "at": "2026-07-19T14:00:00+00:00",
         "payload": {},
-        "source": "prometheus"
+        "source": "prometheus",
+        "source_native_name": "fired",
+        "state": "active",
+        "invalidated_by": null
       },
       {
         "id": "evt:f11f7436dca6c5f8",
@@ -304,7 +622,10 @@
         "payload": {
           "change": "deploy payments-api v4.12.0"
         },
-        "source": "servicenow"
+        "source": "servicenow",
+        "source_native_name": "implemented",
+        "state": "active",
+        "invalidated_by": null
       },
       {
         "id": "evt:8ad3f3d52cdecb52",
@@ -312,7 +633,36 @@
         "type": "declared",
         "at": "2026-07-19T14:00:00+00:00",
         "payload": {},
-        "source": "servicenow"
+        "source": "servicenow",
+        "source_native_name": "declared",
+        "state": "active",
+        "invalidated_by": null
+      },
+      {
+        "id": "evt:46b651fef3e3da4f",
+        "entity": "incident:inc-4788",
+        "type": "declared",
+        "at": "2026-07-19T14:00:00+00:00",
+        "payload": {
+          "affected_ci": "billing-api"
+        },
+        "source": "servicenow",
+        "source_native_name": "declared",
+        "state": "active",
+        "invalidated_by": null
+      },
+      {
+        "id": "evt:7bbccd42ff41f596",
+        "entity": "incident:inc-4790",
+        "type": "declared",
+        "at": "2026-07-19T14:00:00+00:00",
+        "payload": {
+          "affected_ci": "invoicing-api"
+        },
+        "source": "servicenow",
+        "source_native_name": "declared",
+        "state": "active",
+        "invalidated_by": null
       },
       {
         "id": "evt:f441293797eac95a",
@@ -320,7 +670,10 @@
         "type": "degraded_cleared",
         "at": "2026-07-19T14:27:00+00:00",
         "payload": {},
-        "source": "prometheus"
+        "source": "prometheus",
+        "source_native_name": "degraded_cleared",
+        "state": "active",
+        "invalidated_by": null
       },
       {
         "id": "evt:1b8b7bddeb4765c7",
@@ -328,16 +681,19 @@
         "type": "cleared",
         "at": "2026-07-19T14:27:00+00:00",
         "payload": {},
-        "source": "prometheus"
+        "source": "prometheus",
+        "source_native_name": "cleared",
+        "state": "active",
+        "invalidated_by": null
       }
     ]
   },
-  "ledger": [
+  "hypotheses": [
     {
       "id": "hyp:h1",
       "statement": "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator",
       "status": "confirmed",
-      "confidence": 0.9,
+      "confidence": 0.933,
       "basis": "rollback cleared 5xx to 1% \u2014 recovery confirms the causal chain",
       "root_candidate": "code_commit:abc123",
       "supporting": [
@@ -350,7 +706,7 @@
       "id": "hyp:h2",
       "statement": "payments-ora connection-pool exhaustion",
       "status": "refuted",
-      "confidence": 0.3,
+      "confidence": 0.2012,
       "basis": "payments-ora connection-pool exhaustion",
       "root_candidate": "database:payments-ora",
       "supporting": [],
@@ -365,73 +721,67 @@
       "seq": 1,
       "phase": "frame",
       "actor": "engine",
-      "narrative": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47.",
+      "narrative": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
       "refs": {
         "nodes": [
           "service:payments-api|prod",
           "anomaly:anom-1",
           "alert:alt-1",
-          "change_event:chg-1"
+          "change_event:chg-1",
+          "incident:inc-4821",
+          "database:payments-ora"
         ],
         "edges": [
           "edge:affects:anomaly:anom-1->service:payments-api|prod:discovered",
           "edge:fired_on:alert:alt-1->service:payments-api|prod:discovered",
           "edge:changed_by:service:payments-api|prod->change_event:chg-1:discovered",
-          "edge:correlated_with:anomaly:anom-1->change_event:chg-1:inferred"
-        ],
-        "facts": [
-          "fact:88c0c2c371a465b2",
-          "fact:bb63e88ab0c3d031",
-          "fact:6ac933d081e39eea",
-          "fact:29399f0484f294c0"
-        ],
-        "events": [
-          "evt:81e181ebac96fa73",
-          "evt:674c1ef24ed73a69",
-          "evt:f11f7436dca6c5f8"
-        ],
-        "hypotheses": []
-      }
-    },
-    {
-      "seq": 2,
-      "phase": "triage",
-      "actor": "engine",
-      "narrative": "Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
-      "refs": {
-        "nodes": [
-          "incident:inc-4821",
-          "database:payments-ora"
-        ],
-        "edges": [
+          "edge:correlated_with:anomaly:anom-1->change_event:chg-1:inferred",
           "edge:affects:incident:inc-4821->service:payments-api|prod:discovered",
           "edge:depends_on:service:payments-api|prod->database:payments-ora:declared"
         ],
         "facts": [
+          "fact:88c0c2c371a465b2",
+          "fact:bb63e88ab0c3d031",
+          "fact:e0e3e62e29e8d41a",
+          "fact:fba377268b5d142b",
+          "fact:bb5e757aef06772b",
+          "fact:dc94854d6b8faf39",
+          "fact:6ac933d081e39eea",
+          "fact:29399f0484f294c0",
           "fact:8d304a434d6b3f97"
         ],
         "events": [
+          "evt:81e181ebac96fa73",
+          "evt:674c1ef24ed73a69",
+          "evt:f11f7436dca6c5f8",
           "evt:8ad3f3d52cdecb52"
         ],
         "hypotheses": []
       }
     },
     {
-      "seq": 3,
-      "phase": "hypothesize",
+      "seq": 2,
+      "phase": "investigate",
       "actor": "engine",
-      "narrative": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2).",
+      "narrative": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1.",
       "refs": {
         "nodes": [
           "code_commit:abc123",
+          "incident:inc-4788",
+          "incident:inc-4790",
           "hyp:h1",
           "hyp:h2"
         ],
         "edges": [
-          "edge:introduced_by:change_event:chg-1->code_commit:abc123:discovered"
+          "edge:introduced_by:change_event:chg-1->code_commit:abc123:discovered",
+          "edge:similar_to:incident:inc-4821->incident:inc-4788:inferred",
+          "edge:similar_to:incident:inc-4821->incident:inc-4790:inferred"
         ],
         "facts": [],
-        "events": [],
+        "events": [
+          "evt:46b651fef3e3da4f",
+          "evt:7bbccd42ff41f596"
+        ],
         "hypotheses": [
           "hyp:h1",
           "hyp:h2"
@@ -439,23 +789,26 @@
       }
     },
     {
-      "seq": 4,
+      "seq": 3,
       "phase": "investigate",
       "actor": "engine",
-      "narrative": "Ruled out the DB (pool 28%). Traces pin an NPE in TaxCalculator introduced by abc123.",
+      "narrative": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123.",
       "refs": {
         "nodes": [
           "error_signature:npe-taxcalc"
         ],
         "edges": [
           "edge:emitted:service:payments-api|prod->error_signature:npe-taxcalc:discovered",
-          "edge:caused_by:hyp:h1->code_commit:abc123:inferred",
-          "edge:supports:error_signature:npe-taxcalc->hyp:h1:inferred",
-          "edge:refutes:database:payments-ora->hyp:h2:inferred"
+          "edge:caused_by:hyp:h1->code_commit:abc123:inferred"
         ],
         "facts": [
           "fact:f09f2c94be57f5d3",
-          "fact:da70219d53e3f4c5"
+          "fact:fca0fea641626ef0",
+          "fact:56fa137c6ff2a5ef",
+          "fact:0910806d562902e7",
+          "fact:0fb9906702153a66",
+          "fact:da70219d53e3f4c5",
+          "fact:08fdf0ca1b577556"
         ],
         "events": [],
         "hypotheses": [
@@ -465,8 +818,8 @@
       }
     },
     {
-      "seq": 5,
-      "phase": "remediate",
+      "seq": 4,
+      "phase": "act",
       "actor": "engine",
       "narrative": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).",
       "refs": {
@@ -480,7 +833,7 @@
       }
     },
     {
-      "seq": 6,
+      "seq": 5,
       "phase": "verify",
       "actor": "engine",
       "narrative": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed.",
@@ -501,7 +854,7 @@
       }
     },
     {
-      "seq": 7,
+      "seq": 6,
       "phase": "close",
       "actor": "engine",
       "narrative": "Postmortem: v4.12.0 (abc123) NPE in TaxCalculator \u2192 5xx; rollback to v4.11.3 resolved it. DB ruled out.",
@@ -514,6 +867,11 @@
       }
     }
   ],
+  "rejections": [],
+  "discovery": {
+    "class_hints": {},
+    "quarantined_names": {}
+  },
   "postmortem": {
     "subject": {
       "domain": "app-incident",
@@ -524,7 +882,7 @@
     "root_cause": {
       "statement": "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator",
       "root_candidate": "code_commit:abc123",
-      "confidence": 0.9,
+      "confidence": 0.933,
       "chain": []
     },
     "ruled_out": [
@@ -562,6 +920,22 @@
         "payload": {}
       },
       {
+        "at": "2026-07-19T14:00:00+00:00",
+        "entity": "incident:inc-4788",
+        "type": "declared",
+        "payload": {
+          "affected_ci": "billing-api"
+        }
+      },
+      {
+        "at": "2026-07-19T14:00:00+00:00",
+        "entity": "incident:inc-4790",
+        "type": "declared",
+        "payload": {
+          "affected_ci": "invoicing-api"
+        }
+      },
+      {
         "at": "2026-07-19T14:27:00+00:00",
         "entity": "service:payments-api|prod",
         "type": "degraded_cleared",
@@ -578,35 +952,30 @@
       {
         "seq": 1,
         "phase": "frame",
-        "text": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47."
+        "text": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate."
       },
       {
         "seq": 2,
-        "phase": "triage",
-        "text": "Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate."
+        "phase": "investigate",
+        "text": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1."
       },
       {
         "seq": 3,
-        "phase": "hypothesize",
-        "text": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2)."
+        "phase": "investigate",
+        "text": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123."
       },
       {
         "seq": 4,
-        "phase": "investigate",
-        "text": "Ruled out the DB (pool 28%). Traces pin an NPE in TaxCalculator introduced by abc123."
-      },
-      {
-        "seq": 5,
-        "phase": "remediate",
+        "phase": "act",
         "text": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated)."
       },
       {
-        "seq": 6,
+        "seq": 5,
         "phase": "verify",
         "text": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed."
       },
       {
-        "seq": 7,
+        "seq": 6,
         "phase": "close",
         "text": "Postmortem: v4.12.0 (abc123) NPE in TaxCalculator \u2192 5xx; rollback to v4.11.3 resolved it. DB ruled out."
       }

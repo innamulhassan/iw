@@ -544,3 +544,12 @@ export function hypothesisList(s: LiveState): HypothesisItem[] {
 export function activePhase(s: LiveState): string | null {
   return currentTurn(s)?.phase ?? null;
 }
+
+/** How many turns each phase has run. INVESTIGATE is ONE loop (P7): a run's phase sequence
+ *  repeats it (frame, investigate, investigate, act, …) — the stepper collapses repeats onto
+ *  the single investigate step and shows this count as an ×N iteration badge. */
+export function phaseCounts(s: LiveState): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const t of s.turns) counts[t.phase] = (counts[t.phase] ?? 0) + 1;
+  return counts;
+}

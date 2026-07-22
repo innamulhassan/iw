@@ -250,7 +250,7 @@ describe("useInvestigation — step() error surfacing (review finding 19)", () =
     advanceResponse = {
       ok: true,
       json: async () => ({
-        events: [{ seq: 9, ts: "t", type: "phase_started", phase: "triage" }],
+        events: [{ seq: 9, ts: "t", type: "phase_started", phase: "investigate" }],
         state: "running",
       }),
     };

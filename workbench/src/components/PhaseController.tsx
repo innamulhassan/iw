@@ -1,13 +1,13 @@
 import type { Outcome, Phase, Subject } from "../types";
 
 // Canonical phase order the stepper always renders, regardless of which
-// phases a given run actually reached.
+// phases a given run actually reached (P7 5-phase algebra — incident.yaml).
+// A run's phase list may repeat "investigate" (it is ONE loop): repeats
+// collapse onto the single investigate step and surface as an ×N badge.
 const ALL_PHASES: Phase[] = [
   "frame",
-  "triage",
-  "hypothesize",
   "investigate",
-  "remediate",
+  "act",
   "verify",
   "close",
 ];
@@ -28,6 +28,9 @@ interface Props {
 export default function PhaseController({ phases, outcome, subject, rootCauseStatement }: Props) {
   const reached = new Set(phases);
   const current = phases[phases.length - 1];
+  // investigate is ONE loop — count how many times each phase ran (×N badge when > 1)
+  const counts = new Map<string, number>();
+  for (const p of phases) counts.set(p, (counts.get(p) ?? 0) + 1);
 
   return (
     <header className="phase-bar">
@@ -65,6 +68,11 @@ export default function PhaseController({ phases, outcome, subject, rootCauseSta
             >
               <span className="phase-step__index">{i + 1}</span>
               <span className="phase-step__label">{phase}</span>
+              {(counts.get(phase) ?? 0) > 1 && (
+                <span className="phase-step__count" title={`${phase} looped ${counts.get(phase)} times`}>
+                  ×{counts.get(phase)}
+                </span>
+              )}
             </li>
           );
         })}

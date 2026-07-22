@@ -3,12 +3,13 @@
 // `| string` fallback) since a real engine run may emit node/edge/status
 // values beyond the ones observed in the demo fixture.
 
+// P7 — the 5-phase algebra (playbooks/incident.yaml is the source of truth):
+// frame → investigate (ONE loop: hypothesize ⇄ evidence ⇄ refute, so it may repeat)
+// → act (the one write-gated phase) → verify → close.
 export type Phase =
   | "frame"
-  | "triage"
-  | "hypothesize"
   | "investigate"
-  | "remediate"
+  | "act"
   | "verify"
   | "close";
 

@@ -43,6 +43,8 @@ const PURPOSE: Record<string, string> = {
   error_signature_topk: "read the top error signatures",
   search_fw_denies: "search firewall denials",
   transaction_trace: "read a transaction trace",
+  propose_fix: "propose the fix",
+  apply_mitigation: "apply the proposed mitigation",
   apply_remediation: "apply the proposed remediation",
 };
 
