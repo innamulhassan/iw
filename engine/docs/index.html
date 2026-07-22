@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investigation Workbench — Engine Docs</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a21;--panel2:#1c212b;--border:#2a3140;--text:#e6e9ef;--muted:#9aa4b2;
+    --faint:#6b7482;--accent:#5b8cff;--accent-soft:#1a2540;--green:#4ade80;--amber:#fbbf24;
+    --red:#f87171;--violet:#a78bfa;--teal:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  @media (prefers-color-scheme:light){:root{--bg:#f6f8fb;--panel:#fff;--panel2:#eef2f8;
+    --border:#dde3ec;--text:#1c2128;--muted:#54606f;--faint:#8a94a6;--accent:#2f6fed;
+    --accent-soft:#e9f0ff;--green:#15803d;--amber:#b45309;--red:#dc2626;--violet:#7c3aed;--teal:#0f766e;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.65;font-size:15.5px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 24px 90px}
+  header.masthead{padding:56px 0 26px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:36px;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:17px;max-width:66ch}
+  nav.docnav{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  nav.docnav a{font-size:13px;padding:6px 13px;border:1px solid var(--border);border-radius:8px;color:var(--muted);text-decoration:none;background:var(--panel)}
+  nav.docnav a.here{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  nav.docnav a:hover{color:var(--text)}
+  h2{font-size:25px;margin:54px 0 4px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--faint);font-size:15px;margin-right:10px}
+  h3{font-size:17px;margin:28px 0 6px}
+  p{margin:12px 0} .lead{font-size:16.5px;color:var(--muted);max-width:70ch}
+  code{font-family:var(--mono);font-size:.87em;background:var(--panel2);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.55}
+  pre code{background:none;border:none;padding:0}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:18px 0}
+  .grid{display:grid;gap:14px}.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:720px){.grid.two,.grid.three{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .card h4{margin:0 0 6px;font-size:15px}.card p{margin:4px 0;font-size:14px;color:var(--muted)}
+  .plain{border-left:3px solid var(--teal);background:rgba(45,212,191,.07);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0}
+  .plain b{color:var(--teal)}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14.5px}
+  .muted{color:var(--muted)}.faint{color:var(--faint)}
+  ul.tight{margin:8px 0;padding-left:22px}ul.tight li{margin:5px 0}
+  footer{margin-top:64px;padding-top:24px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+  /* ── diagram primitives (self-contained, responsive) ── */
+  .diagram{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;margin:22px 0}
+  .diagram .cap{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:14px}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .layer{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:12px;padding:12px 16px;background:var(--panel2)}
+  .layer .tag{flex:0 0 130px;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+  .layer .body{flex:1;font-size:14px}
+  .layer.eng{border-color:var(--accent);background:var(--accent-soft)}
+  .layer.eng .tag{color:var(--accent)}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+  .box{border:1px solid var(--border);border-radius:10px;padding:9px 13px;background:var(--panel);font-size:13px;text-align:center}
+  .box b{display:block;font-size:13.5px} .box small{color:var(--faint);font-size:11px;font-family:var(--mono)}
+  .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+  .box.write{border-color:var(--amber);background:rgba(251,191,36,.08)}
+  .arrow{color:var(--faint);font-size:18px;line-height:1}
+  .down{align-self:center;color:var(--faint);font-size:18px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+  /* ── docs-set addition (2026-07-22 rewrite): tables — the code map etc. ── */
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);text-align:left}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <div class="eyebrow">Investigation Workbench · Engine Docs</div>
+  <h1>Engine Documentation</h1>
+  <p class="sub">A governed, human-in-the-loop engine that investigates an incident and produces an
+  evidence-backed root cause. It is <b>pluggable exactly where pluggability pays</b> — the reasoning
+  model sits behind one <code>Planner</code> contract, every tool is a small adapter behind one
+  transport seam, and the problem domain (phases, gates, tunables, prompt doctrine) is a playbook
+  file — and <b>deliberately concrete everywhere else</b>: one assertion store, one mutation seam,
+  one append-only journal of record, and one simple file-backed data layer
+  (<code>runtime/store.py</code> — a contained module, not a pluggable storage backend).</p>
+  <nav class="docnav">
+    <a class="here" href="index.html">Index</a>
+    <a href="01-design-architecture.html">01 · Design &amp; Architecture</a>
+    <a href="02-data-model.html">02 · Data Model</a>
+    <a href="03-projections-and-data.html">03 · Projections &amp; Data</a>
+    <a href="04-incident-use-cases.html">04 · Incident Use-Cases</a>
+    <a href="05-capability-integration.html">05 · Capability Integration</a>
+  </nav>
+</header>
+
+<h2 id="what"><span class="n">§1</span>What this is</h2>
+<p class="lead">The engine runs an incident investigation as a governed loop. A planner — a live LLM
+or a deterministic script, interchangeable behind the same contract (<code>runtime/planner.py</code>)
+— proposes <em>typed operations</em>; the reducer (<code>graph/reducer.py&nbsp;materialize</code>)
+validates them against a closed vocabulary, quarantining what it cannot name rather than erasing it;
+one fold (<code>graph/fold.py&nbsp;apply_delta</code>) applies the surviving delta to the three
+projections — the <b>Graph</b> of the system under investigation, the <b>Journal</b> of record, and
+the <b>Hypothesis</b> store of competing explanations; a declarative gate
+(<code>runtime/controller.py&nbsp;check_gate</code>) decides whether the phase may advance; and the
+full delta is journaled, so <code>rebuild(journal)</code> reproduces the projections bit-for-bit.
+Belief is <em>earned</em>, not asserted: evidence weighs by source reliability × temporal proximity ×
+topological specificity (<code>hypothesis/belief.py</code>), and a hypothesis is promoted only when
+its engine-earned score crosses the gate with no unrefuted rival alive. Anything that would write to
+a live system stops at a human approval gate first.</p>
+
+<div class="plain">
+  <p style="margin:0"><b>Four ground rules</b> the whole system is built around:
+  <b>the journal is the source of truth</b> (every phase entry carries its full delta; replay
+  reproduces the state); <b>belief is earned</b> (promotion is the engine's decision — the model's
+  self-reported confidence is only a prior); <b>writes are human-gated</b> (a write-effect capability
+  executes only under an approved gate); and <b>nothing observed is silently erased</b> (unknowns
+  land quarantined and provisional; every rejection is journaled and fed back to the next plan).</p>
+</div>
+
+<h2 id="reading"><span class="n">§2</span>Reading order — top-down</h2>
+<p class="lead">The set reads high-level-first: the block picture, then the atoms, then the
+machinery that folds and replays them, then real runs, then the outside world. Each page stands
+alone, but the depth accumulates in this order.</p>
+
+<div class="diagram">
+  <div class="cap">Five documents, block-level → depth</div>
+  <div class="stack">
+    <div class="layer eng"><span class="tag">01 · start here</span><span class="body">
+      <b><a href="01-design-architecture.html" style="color:var(--accent)">Design &amp; Architecture</a></b> —
+      the one-minute idea; the three authors (playbook / engine / planner); the component stack; the
+      loop every phase runs (plan → reduce → fold → gate → journal → route); the exact
+      <code>Engine.step()</code> call path with real method names; the code map.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">02 · atoms</span><span class="body">
+      <b><a href="02-data-model.html" style="color:var(--accent)">Data Model</a></b> —
+      the <b>Entity-Assertion model</b>: one Assertion atom with five species (identity · descriptor ·
+      state · reading · event) and channel-keyed belief; facts, events and node props as read
+      <em>views</em>; the semantic dictionary (canonical names, merges, unit-keyed splits, the
+      <code>x.&lt;source&gt;.&lt;native&gt;</code> quarantine); the closed registry (43 node types,
+      36 edge types, import-time closure); the 11-op grammar.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">03 · machinery</span><span class="body">
+      <b><a href="03-projections-and-data.html" style="color:var(--accent)">Projections &amp; Data</a></b> —
+      <b>Graph · Journal · Hypothesis</b> and the single mutation seam that feeds them; journal
+      schema v2 (typed kinds, one seq space, append-at-event); replay and its equivalence
+      guarantees; earned belief and the promotion gate (INV-8); the file store — journal-authoritative,
+      fsync'd, watermark-verified (<code>runtime/store.py</code>).</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">04 · runs</span><span class="body">
+      <b><a href="04-incident-use-cases.html" style="color:var(--accent)">Incident Use-Cases</a></b> —
+      the eleven packaged incidents (code regression, deployment, network, database, firewall,
+      no-change, messaging, infra, cache, feature-flag, certificate); how a run plays phase by phase;
+      the write gate (approve / refine / deny); the postmortem folded from the journal.</span></div>
+    <div class="down">↓</div>
+    <div class="layer"><span class="tag">05 · the world</span><span class="body">
+      <b><a href="05-capability-integration.html" style="color:var(--accent)">Capability Integration</a></b> —
+      the gate-first capability boundary (resolve → gate → fetch → normalize); ten adapters that all
+      emit the assertion atom; transports (fixtures today, MCP/REST live); outcome honesty —
+      <code>data · empty · error · blocked</code> — and why an error is never evidence.</span></div>
+  </div>
+</div>
+
+<div class="callout"><b>Where the truth lives.</b> These pages describe the code, not a plan: the
+engine package is <code>engine/src/iw_engine/</code> (<code>domain/ · graph/ · journal/ ·
+hypothesis/ · runtime/ · capability/ · api/</code>), the packaged playbook is
+<code>engine/src/iw_engine/playbooks/incident.yaml</code>, and the standing design rules (R-G*,
+R-C*, R-J*, R-P*, R-K*) are in <code>engine/docs/DESIGN.md</code>. Where the design docs and the
+code diverge, these pages say so and follow the code.</div>
+
+<footer>
+  Investigation Workbench — engine documentation set, rewritten 2026-07-22 against the live tree.
+  Start with <a href="01-design-architecture.html" style="color:var(--accent)">01 · Design &amp;
+  Architecture</a>.
+</footer>
+</div>
+</body>
+</html>
