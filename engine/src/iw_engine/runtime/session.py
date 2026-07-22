@@ -190,6 +190,13 @@ class InvestigationSession:
         except Exception as exc:                          # a live LLM/transport failure mid-drive
             self._emit("session_error", message=f"{type(exc).__name__}: {exc}")
             self.state = SessionState.CLOSED
+            try:  # the terminal outcome is a lifecycle record too — best-effort on a dead run
+                self._engine.journal.append_lifecycle(
+                    "error", outcome="error",
+                    detail={"error": f"{type(exc).__name__}: {exc}"})
+                self._persist()
+            except Exception:
+                pass
             self._emit("session_state", state=self.state.value, phase=None, outcome="error")
         finally:
             with self._drive_lock:
@@ -290,6 +297,8 @@ class InvestigationSession:
             self._persist()                  # durable after every fold/step
         if self._engine.current_phase is None:
             self._close()
+        elif self._engine.done():
+            self._exhaust()                  # max-steps zombie fix (P6 step 5)
 
     # ── write-gate machinery ────────────────────────────────────────────────────
     def _write_calls(self, ctx: PlanContext, out: PlanOutput) -> list[CapabilityCall]:
@@ -441,8 +450,30 @@ class InvestigationSession:
         self.state = SessionState.CLOSED
         res = self._engine.result()
         self._outcome = res.close_outcome.value if res.close_outcome else "open"
+        # JOURNAL v2 lifecycle (part2 §1/§3): the terminal outcome is a durable record — a
+        # run that ended by finishing, or by an unrouted BLOCKED verdict draining the phase
+        # route, closes DIAGNOSABLY. (Routing BLOCKED/DONE somewhere better is P7's phase
+        # work; the lifecycle-journal + stream-close half lives here.)
+        self._engine.journal.append_lifecycle("closed", outcome=self._outcome)
         self._emit("session_state", state=self.state.value, phase=None, outcome=self._outcome)
         self._persist()                      # final durable write on close
+
+    def _exhaust(self) -> None:
+        """ZOMBIE FIX (P6 step 5, part2 §3): max-steps exhaustion used to leave the session
+        RUNNING forever — no close, no journal trace, the SSE stream dying only by idle
+        timeout, the zombie undiagnosable. Now: a durable `lifecycle` entry names the cause,
+        the session CLOSES (which ends the SSE loop — the stream closes), and the run stays
+        reopenable read-only from disk like any other closed investigation."""
+        phase = self._engine.current_phase
+        self.state = SessionState.CLOSED
+        res = self._engine.result()
+        self._outcome = res.close_outcome.value if res.close_outcome else "open"
+        self._engine.journal.append_lifecycle(
+            "max_steps_exhausted", phase_id=phase, outcome=self._outcome)
+        self._emit("session_state", state=self.state.value,
+                   phase=phase.value if phase else None, outcome=self._outcome,
+                   reason="max_steps_exhausted")
+        self._persist()
 
     def _emit(self, etype: str, **payload) -> dict:
         self._event_seq += 1

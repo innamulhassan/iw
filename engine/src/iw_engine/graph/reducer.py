@@ -530,4 +530,58 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 valid_from=op.at, observed_at=op.at, source=Source.ENGINE, source_reliability=1.0,
                 created_by=seq))
 
+    if tunables.derive_transitions:
+        _derive_transition_events(out, seq, graph)
     return out
+
+
+def _derive_transition_events(out: Materialized, seq: int, graph: graph_mod.Graph) -> None:
+    """P6 step 5 (part2 §3): a boolean STATE flip derives its transition EVENT in the ENGINE —
+    `<name>_started` on a False/absent→True flip, `<name>_cleared` on a True→False flip — so
+    adapters/scenarios stop dual-authoring an occurrence twin for every boolean state they
+    report. Tunable-gated (`tunables.derive_transitions`, default off — see playbook.py).
+
+    Discipline:
+      - dictionary-KNOWN transition names only (closed vocabulary: the engine never fabricates
+        a quarantine spelling it invented itself);
+      - dedup by EVENT ID against the graph and this batch — an authored twin (same entity,
+        name, instant) wins: within a batch the derived one is skipped, across batches the
+        idempotent add_event overwrite resolves to the authored record;
+      - provisional (airlocked) facts never derive;
+      - derived events ride the DELTA (Materialized.events → PhaseResult → journal), so replay
+        reproduces them bit-for-bit with zero engine-state dependence, and the record mirrors
+        the authored convention (source = the fact's source; occurred_at = the flip instant).
+    Threshold flips are deliberately absent: the dictionary carries no threshold values yet."""
+    batch_prior: dict[tuple[str, str], object] = {}
+    batch_event_ids = {e.id for e in out.events}
+    for f in out.facts:
+        if not isinstance(f.value, bool) or f.provisional:
+            continue
+        key = (f.subject_ref, f.predicate)
+        prior = batch_prior.get(key)
+        if prior is None:
+            if f.supersedes and f.supersedes in graph.assertions:
+                prior = graph.assertions[f.supersedes].value
+            else:
+                open_prior = [pf for pf in graph.facts_of(f.subject_ref)
+                              if pf.predicate == f.predicate and pf.is_open]
+                prior = open_prior[0].value if open_prior else None
+        batch_prior[key] = f.value
+        if f.value is True and prior is not True:
+            name = f"{f.predicate}_started"
+        elif f.value is False and prior is True:
+            name = f"{f.predicate}_cleared"
+        else:
+            continue                              # no flip (re-assert / never-started False)
+        canonical = dictionary.resolve(f.source, name, None)
+        entry = dictionary.DICTIONARY.get(canonical) if canonical else None
+        if entry is None or entry.species is not Species.EVENT:
+            continue                              # unknown transition name — never fabricated
+        eid = registry.event_id(f.subject_ref, canonical, f.valid_from)
+        if eid in graph.events or eid in batch_event_ids:
+            continue                              # an authored twin exists — it wins
+        batch_event_ids.add(eid)
+        out.events.append(Event(
+            id=eid, entity_ref=f.subject_ref, type=canonical, occurred_at=f.valid_from,
+            observed_at=f.observed_at, payload={}, source=f.source,
+            source_native_name=canonical, created_by=seq))

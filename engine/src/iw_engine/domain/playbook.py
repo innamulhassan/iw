@@ -36,6 +36,14 @@ class Tunables(BaseModel):
     # generic_ci substituted into a structural pair, or a CAUSED_BY blaming a generic_ci) —
     # provisional knowledge is admitted, never at full weight (DOMAIN-v3 §2.4 row 2).
     discovery_penalty: float = 0.75
+    # P6 step 5 (part2 §3): derive `<state>_started`/`<state>_cleared` transition EVENTS from
+    # boolean STATE flips in the reducer, so adapters/scenarios stop dual-authoring occurrence
+    # twins. DEFAULT OFF: the shipped scenarios still author their transitions — and several
+    # (deployment/infra/network) deliberately model stacks that DON'T emit them, so deriving
+    # alongside would add events their goldens don't hold. Flipping this on + de-dual-authoring
+    # the scenario twins + regenerating goldens is the recorded P7 follow-up. Threshold flips
+    # are absent by design: the dictionary carries no threshold values yet (not invented).
+    derive_transitions: bool = False
     # theta / evidence_floors / max_items were DELETED as dead, never-read knobs
     # (2026-07-22 review, findings 8/4/9): gate.min_facts is the live per-phase evidence
     # floor and op_ceiling the live per-phase bound (extra="forbid" makes any lingering
