@@ -319,3 +319,48 @@ def test_journal_ndjson_roundtrip_skips_partial_tail():
     jr2 = Journal.from_ndjson(corrupted)
     assert len(jr2.entries) == 1
     assert jr2.entries[0].delta.facts_added[0].value == 0.4
+
+
+def test_journal_crash_resume_truncated_tail_preserves_seq_watermark():
+    """Crash-resume (R-J4): write two entries, then truncate the TRAILING line mid-write
+    (the crash cut the last entry in half). from_ndjson must (1) skip the partial tail,
+    (2) keep every complete entry, and (3) reset the seq watermark to the surviving max —
+    so the next reserve_seq() re-issues the LOST seq instead of skipping or colliding."""
+    clock = lambda: T0  # noqa: E731
+    jr = Journal(clock=clock)
+    jr.append_phase(jr.reserve_seq(), _phase_result())     # seq 1 — survives
+    jr.append_phase(jr.reserve_seq(), _phase_result())     # seq 2 — will be truncated
+    text = jr.to_ndjson()
+    lines = text.rstrip("\n").split("\n")
+    truncated = "\n".join([*lines[:-1], lines[-1][: len(lines[-1]) // 2]])
+
+    jr2 = Journal.from_ndjson(truncated)
+    assert [e.seq for e in jr2.entries] == [1]             # partial entry 2 dropped
+    assert jr2.reserve_seq() == 2                          # watermark = surviving max + 1
+
+
+def test_journal_clean_resume_preserves_seq_watermark():
+    """A clean roundtrip resumes numbering AFTER the last persisted entry (no reuse)."""
+    clock = lambda: T0  # noqa: E731
+    jr = Journal(clock=clock)
+    jr.append_phase(jr.reserve_seq(), _phase_result())
+    jr.append_phase(jr.reserve_seq(), _phase_result())
+    jr2 = Journal.from_ndjson(jr.to_ndjson())
+    assert [e.seq for e in jr2.entries] == [1, 2]
+    assert jr2.reserve_seq() == 3
+
+
+def test_journal_mid_file_corruption_raises_not_skips():
+    """Only a TRAILING partial line is crash-forgivable. A corrupted line in the MIDDLE
+    of the file (real damage, not a mid-write crash) must raise loudly — silently
+    dropping an interior entry would corrupt the source of truth."""
+    import json as _json
+
+    clock = lambda: T0  # noqa: E731
+    jr = Journal(clock=clock)
+    jr.append_phase(jr.reserve_seq(), _phase_result())
+    jr.append_phase(jr.reserve_seq(), _phase_result())
+    lines = jr.to_ndjson().rstrip("\n").split("\n")
+    lines[1] = lines[1][: len(lines[1]) // 2]              # damage entry 1, entry 2 intact after it
+    with pytest.raises(_json.JSONDecodeError):
+        Journal.from_ndjson("\n".join(lines) + "\n")
