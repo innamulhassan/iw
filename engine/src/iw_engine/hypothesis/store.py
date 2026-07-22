@@ -22,6 +22,12 @@ _STATUS_RANK = {
     HypothesisStatus.SUPERSEDED: -1,
 }
 
+# A reached verdict is a terminal state: a re-CREATE of a hid already in one of these is a
+# no-op — a REFUTED (or CONFIRMED / SUPERSEDED) hypothesis is INDESTRUCTIBLE evidence and must
+# never be silently reset to PROPOSED by a live planner re-proposing the same id (Track-4 #1).
+_TERMINAL = frozenset({HypothesisStatus.REFUTED, HypothesisStatus.CONFIRMED,
+                       HypothesisStatus.SUPERSEDED})
+
 
 class HypothesisStore:
     def __init__(self) -> None:
@@ -31,8 +37,25 @@ class HypothesisStore:
         for d in deltas:
             if d.action == HypAction.CREATE and d.hypothesis is not None:
                 h = d.hypothesis
-                self.hypotheses[h.id] = h.model_copy(
-                    update={"created_by": h.created_by or seq})
+                existing = self.hypotheses.get(h.id)
+                if existing is None:
+                    # first CREATE of this hid — insert
+                    self.hypotheses[h.id] = h.model_copy(
+                        update={"created_by": h.created_by or seq})
+                elif existing.status not in _TERMINAL:
+                    # re-CREATE of a LIVE hid is an UPDATE, never a destructive overwrite
+                    # (Track-4 #1): the accumulated status, evidence lists, chain, and created_by
+                    # audit trail are PRESERVED; only the descriptive fields refresh and evidence
+                    # can only grow. This closes the CREATE-destroys-REFUTED corruption.
+                    self.hypotheses[h.id] = existing.model_copy(update={
+                        "statement": h.statement,
+                        "confidence": h.confidence,
+                        "root_candidate": h.root_candidate or existing.root_candidate,
+                        "supporting_facts": sorted({*existing.supporting_facts, *h.supporting_facts}),
+                        "refuting_facts": sorted({*existing.refuting_facts, *h.refuting_facts}),
+                        "causal_chain": [*existing.causal_chain, *h.causal_chain],
+                        "updated_by": [*existing.updated_by, seq]})
+                # else: existing is TERMINAL (REFUTED/CONFIRMED/SUPERSEDED) — indestructible no-op
                 continue
             hid = d.hypothesis_id
             if hid is None or hid not in self.hypotheses:

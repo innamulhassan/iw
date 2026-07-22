@@ -244,6 +244,45 @@ def test_ledger_apply_and_rank():
     assert "f9" in led.hypotheses["hyp:h1"].refuting_facts
 
 
+def test_recreate_preserves_refuted_and_evidence():
+    """Track-4 #1 regression (audit §1.3): a live planner re-proposing (CREATE) an id that is
+    already REFUTED must NOT resurrect it as PROPOSED, wipe its refuting evidence, or reset its
+    created_by audit stamp — a refuted verdict is indestructible (it IS evidence)."""
+    store = HypothesisStore()
+    store.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.6))], seq=1)
+    store.apply([HypDelta(action=HypAction.ATTACH_EVIDENCE, hypothesis_id="hyp:h1",
+                          add_refuting=["f9"])], seq=2)
+    store.apply([HypDelta(action=HypAction.REFUTE, hypothesis_id="hyp:h1")], seq=3)
+    assert store.hypotheses["hyp:h1"].status == HypothesisStatus.REFUTED
+
+    # the destructive case: a fresh PROPOSED CREATE re-using the SAME id (the REPEAT loop)
+    store.apply([HypDelta(action=HypAction.CREATE,
+                          hypothesis=_hyp("hyp:h1", 0.9, status=HypothesisStatus.PROPOSED))], seq=4)
+    h = store.hypotheses["hyp:h1"]
+    assert h.status == HypothesisStatus.REFUTED          # NOT reset to proposed — indestructible
+    assert "f9" in h.refuting_facts                      # accumulated evidence survived
+    assert h.confidence.value == 0.6                     # terminal record untouched (no-op)
+    assert h.created_by == 1                             # original audit stamp kept
+
+
+def test_recreate_of_live_hid_merges_not_overwrites():
+    """A re-CREATE of a still-LIVE hid is an update in place, never a destructive reset: the
+    accumulated status + evidence survive, descriptive fields refresh, evidence only grows."""
+    store = HypothesisStore()
+    store.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.4))], seq=1)
+    store.apply([HypDelta(action=HypAction.ATTACH_EVIDENCE, hypothesis_id="hyp:h1",
+                          add_supporting=["f1"], new_status=HypothesisStatus.SUPPORTED)], seq=2)
+    store.apply([HypDelta(action=HypAction.CREATE,
+                          hypothesis=_hyp("hyp:h1", 0.7).model_copy(
+                              update={"statement": "refined theory"}))], seq=3)
+    h = store.hypotheses["hyp:h1"]
+    assert h.status == HypothesisStatus.SUPPORTED        # preserved, not reset to proposed
+    assert "f1" in h.supporting_facts                    # accumulated evidence survives
+    assert h.statement == "refined theory"               # descriptive fields refresh
+    assert h.confidence.value == 0.7
+    assert h.created_by == 1 and 3 in h.updated_by       # audit preserved + extended
+
+
 def test_ledger_promotion_gate():
     led = HypothesisStore()
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.9))], seq=1)
