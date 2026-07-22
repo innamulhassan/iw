@@ -1,5 +1,5 @@
 """export_bundle — flatten a completed run's three projections into ONE JSON document the
-React workbench renders (GraphView · JournalTimeline · HypothesisLedger · PhaseController).
+React workbench renders (GraphView · JournalTimeline · HypothesisPanel · PhaseController).
 Derived purely from the graph/hypothesis-store/journal, so the UI cannot show anything the
 engine did not record.
 """

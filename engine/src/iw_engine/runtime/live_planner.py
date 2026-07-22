@@ -45,8 +45,8 @@ from .planner import PlanContext, PlanOutput
 def _hid(x) -> str:
     """Normalize a hypothesis local id. The graph shows a hypothesis NODE as `hyp:h1`; if the
     model round-trips that displayed id back as the hid, the builder would re-prefix it to
-    `hyp:hyp:h1` and fragment the ledger. Strip a leading `hyp:` so `h1` and `hyp:h1` both map
-    to the same ledger entry (reject+repair)."""
+    `hyp:hyp:h1` and fragment the hypothesis store. Strip a leading `hyp:` so `h1` and `hyp:h1` both map
+    to the same hypothesis store entry (reject+repair)."""
     s = str(x).strip()
     return s[4:] if s.startswith("hyp:") else s
 
@@ -319,7 +319,7 @@ PROGRESSION RULE: set verdict=advance as soon as this phase's produces_required 
 # CURRENT GRAPH (everything your prior tool calls have discovered — read it for evidence)
 {render_graph_full(self.graph) if self.graph is not None else json.dumps(ctx.graph_view, default=str, indent=1)}
 
-# RANKED HYPOTHESES (the ledger so far)
+# RANKED HYPOTHESES (the hypothesis store so far)
 {json.dumps(ctx.hypotheses, default=str, indent=1)}
 
 Plan this phase. Return ONLY the JSON object."""

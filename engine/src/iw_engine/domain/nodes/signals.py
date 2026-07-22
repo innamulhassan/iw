@@ -2,7 +2,7 @@
 
 Alert (raw upstream signal) / Incident (the wrapping record) / Anomaly (THE canonical
 symptom node, R-G4) / ErrorSignature (deduped exception cluster, R-G1) /
-BusinessTransaction (AppD BT) / Hypothesis (graph-node projection of the ledger record;
+BusinessTransaction (AppD BT) / Hypothesis (graph-node projection of the hypothesis store record;
 root cause IS a confirmed Hypothesis, R-G2 — there is no separate RootCause/Remediation
 node). GenericCI is the single escape hatch (mirrors ServiceNow base `cmdb_ci`).
 """
@@ -89,9 +89,9 @@ SPECS: tuple[NodeSpec, ...] = (
         fact_predicates=(),
         event_types=("created", "confirmed", "refuted", "superseded"),
         discriminator=(
-            "The graph-node projection of a ledger Hypothesis record (see "
+            "The graph-node projection of a hypothesis store Hypothesis record (see "
             "domain/hypothesis.py for status/confidence/causal_chain, which live on "
-            "the ledger, not as node facts) — exists so the SUPPORTS/REFUTES/CAUSED_BY/"
+            "the hypothesis store, not as node facts) — exists so the SUPPORTS/REFUTES/CAUSED_BY/"
             "REMEDIATED_BY edges have a NodeId to attach to. The root cause IS a "
             "Hypothesis{status=confirmed} (R-G2) — there is no separate RootCause/"
             "Remediation node."

@@ -197,7 +197,7 @@ def live_build_manager(*, playbook: Playbook | None = None,
     """A SessionManager whose planner is the REAL LLM (LivePlanner), reusing run_live's wiring:
     a `ScenarioSource` (intent→provider routing) over the shared live fixtures, the same catalog
     + tools prompt, and the write-effect RemediationAdapter so the LLM can open the REMEDIATE
-    gate itself. This is the product experience — the engine/reducer/ledger/journal are identical
+    gate itself. This is the product experience — the engine/reducer/hypothesis store/journal are identical
     to the mock path; only the JUDGMENT author changes. Raises if no LLM key is available."""
     pb = playbook or load_playbook(_default_playbook())
     client = client or make_live_client(model)

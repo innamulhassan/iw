@@ -26,7 +26,7 @@ class PlanContext:
     phase_spec: PhaseSpec
     goal: str
     graph_view: dict
-    hypotheses: list[dict] = field(default_factory=list)   # ranked ledger summary
+    hypotheses: list[dict] = field(default_factory=list)   # ranked hypothesis store summary
     tunables: Tunables = field(default_factory=Tunables)
     gate_feedback: str | None = None   # WHY the last gate downgraded this phase (GAP 3) — the
     #                                    engine sets it from the prior verdict's gate_reason so a

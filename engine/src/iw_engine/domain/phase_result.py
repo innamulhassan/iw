@@ -2,7 +2,7 @@
 the single seam: the engine has one `fold(PhaseResult)`; each field folds into exactly
 one store. Adding/reordering a phase or a whole new playbook needs no new plumbing.
 Carries already-materialised Node/Fact/Edge/Event (the reducer turned the planner's ops
-into these) + the ledger deltas + the one prose field (narrative) + the verdict.
+into these) + the hypothesis store deltas + the one prose field (narrative) + the verdict.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ class PhaseResult(BaseModel):
     events_added: list[Event] = Field(default_factory=list)        # -> GRAPH
     nodes_touched: list[Node] = Field(default_factory=list)        # -> GRAPH
     edges_added: list[Edge] = Field(default_factory=list)          # -> GRAPH
-    hypotheses_updated: list[HypDelta] = Field(default_factory=list)  # -> LEDGER
+    hypotheses_updated: list[HypDelta] = Field(default_factory=list)  # -> HYPOTHESIS STORE
     narrative: str                                                 # -> JOURNAL (the ONLY prose field)
     next_actions: list[str] = Field(default_factory=list)          # -> CONTROLLER (advisory)
     verdict: PhaseVerdict                                          # -> CONTROLLER (authoritative)

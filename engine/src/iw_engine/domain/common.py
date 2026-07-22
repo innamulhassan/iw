@@ -1,7 +1,7 @@
 """Shared value objects — Confidence, EvidenceRef, id aliases.
 
 `Confidence{value, basis}` (basis MANDATORY) is the resolved numeric belief; the LLM
-emits a coarse `ConfidenceLevel` rubric (enums.py) which the ledger maps to a value
+emits a coarse `ConfidenceLevel` rubric (enums.py) which the hypothesis store maps to a value
 using the playbook's tunable band map (DESIGN §2.3 R-C4). A directly-*measured* fact
 carries `source_reliability` instead of a belief `Confidence`.
 """

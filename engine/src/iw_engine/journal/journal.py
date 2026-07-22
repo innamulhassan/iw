@@ -1,6 +1,6 @@
 """The journal — append-only, human-readable, the SOURCE OF TRUTH (principle 2). Every
 phase entry carries the FULL PhaseResult delta as its payload (DESIGN §2.4 R-J1), so
-replaying the journal rebuilds the graph + ledger exactly; `refs` is a derived index.
+replaying the journal rebuilds the graph + hypothesis store exactly; `refs` is a derived index.
 Persisted as NDJSON with a schema-version header; a trailing partial line is skipped on
 load (crash-safety, R-J4).
 """

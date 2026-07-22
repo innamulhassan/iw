@@ -84,7 +84,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         name (not a canonical, alias, or split input) is a plain Rejection (the airlock is P3).
 
         Fact/Event IDENTITY stays keyed on the NATIVE name, so relabelling never moves an id:
-        provenance ordering, ledger supporting/refuting fact-id refs, and supersession chains are
+        provenance ordering, hypothesis store supporting/refuting fact-id refs, and supersession chains are
         byte-stable — the only materialized change is the `predicate`/`type` label + the recorded
         `source_native_name`. `op_kind` is the original op's kind so a rejection still reads
         `add_fact`/`add_event`."""
@@ -142,7 +142,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
             out.rejections.append(Rejection(i, op_kind, f"invalid fact: {exc}"))
 
     # ── pass 1: nodes (so facts/edges in the same batch can reference them) ────
-    # A Hypothesis is BOTH a ledger entry and a graph node (NodeType.HYPOTHESIS) so causal
+    # A Hypothesis is BOTH a hypothesis store entry and a graph node (NodeType.HYPOTHESIS) so causal
     # edges (CAUSED_BY hyp->cause, SUPPORTS/REFUTES node->hyp) can reference it (R-G2).
     for op in ops:
         if isinstance(op, AddNode):

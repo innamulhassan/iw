@@ -58,7 +58,7 @@ class HypAction(StrEnum):
 
 
 class HypDelta(BaseModel):
-    """A ledger mutation carried in PhaseResult.hypotheses_updated."""
+    """A hypothesis store mutation carried in PhaseResult.hypotheses_updated."""
 
     model_config = ConfigDict(extra="forbid")
 

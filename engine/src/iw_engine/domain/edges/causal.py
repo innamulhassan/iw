@@ -6,10 +6,10 @@ naked float, principle 10) rather than discovered observations.
 
 `_EVIDENCE_SOURCES` — SUPPORTS/REFUTES point some fact-bearing NodeId at a Hypothesis;
 permissively, any node type except Hypothesis itself may be the subject a fact bears on.
-These two are `derived=True`: the canonical evidence record is the ledger's
+These two are `derived=True`: the canonical evidence record is the hypothesis store's
 `Hypothesis.{supporting,refuting}_facts` fact-id lists (the Fact is the ONE addressable
 evidence unit — VALIDATION-VERDICT §B P0 #1). The fold recomputes these edges from those
-lists so the graph view can never disagree with the ledger; the planner may NOT emit them
+lists so the graph view can never disagree with the hypothesis store; the planner may NOT emit them
 directly (the reducer rejects a hand-authored SUPPORTS/REFUTES). The old redundant
 EVIDENCE_FOR/EVIDENCE_AGAINST pair — a second node→Hypothesis link recording the same
 thing — was dropped.
@@ -262,7 +262,7 @@ SPECS: tuple[EdgeSpec, ...] = (
             "Fact(subject) -> Hypothesis: the subject of a fact in the hypothesis's "
             "supporting_facts list. DERIVED by the fold from that canonical fact-id "
             "list (VALIDATION-VERDICT §B P0 #1) — a graph-side projection, never "
-            "planner-emitted; the precise facts live on the ledger record."
+            "planner-emitted; the precise facts live on the hypothesis store record."
         ),
     ),
     EdgeSpec(
@@ -295,7 +295,7 @@ SPECS: tuple[EdgeSpec, ...] = (
         semantics=(
             "Hypothesis(confirmed) -> the remediating action/change record — "
             "DESIGN §2.1 R-G2: the root cause IS a confirmed Hypothesis, remediation "
-            "is this edge/ledger record, never a node."
+            "is this edge/hypothesis store record, never a node."
         ),
     ),
 )

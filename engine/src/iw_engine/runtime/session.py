@@ -12,11 +12,11 @@ Two things this layer adds, both by COMPOSITION (no engine edits):
    proposed action + the serving hypothesis and its evidence, then waits. On **approve** it
    re-runs the phase with the write intact (the layer serves it under the approved gate); on
    **refine** it edits the call params first; on **deny** it strips the write and records the
-   denial as a synthetic ledger result fed back so the next plan replans — a divergent journal.
+   denial as a synthetic hypothesis store result fed back so the next plan replans — a divergent journal.
 
 2. **An ordered event stream** derived purely from what the engine already recorded (the
-   journal / graph / ledger) — `phase_started`, `reasoning`, `capability_call`, `graph_delta`
-   (each node WITH its `created_by` seq), `ledger_delta`, `gate_opened`, `session_state`.
+   journal / graph / hypothesis store) — `phase_started`, `reasoning`, `capability_call`, `graph_delta`
+   (each node WITH its `created_by` seq), `hypotheses_delta`, `gate_opened`, `session_state`.
    Nothing here is invented: every delta is read back off the PhaseResult the engine folded.
 
 The session id is the investigation identity (`subject.key`); the journal is the checkpointer,
@@ -218,7 +218,7 @@ class InvestigationSession:
         """Record an operator turn in the two-way chat (obs 2). The message becomes a first-class
         `user_message` event on the stream AND a `step` entry in the durable journal (Source.HUMAN),
         and is buffered so the LIVE planner sees it as steering on its next plan (via _GatePlanner).
-        It does not itself mutate the graph/ledger fold — the planner decides what to do with it."""
+        It does not itself mutate the graph/hypothesis store fold — the planner decides what to do with it."""
         kind = "answer" if self.state == SessionState.SUSPENDED else "steer"
         msg = {"seq": len(self._messages) + 1, "text": text, "at": self._now(),
                "kind": kind, "actor": actor}
@@ -254,7 +254,7 @@ class InvestigationSession:
 
     def snapshot(self) -> dict:
         """export_bundle-shaped cold-load payload (+ session envelope). The engine's journal is
-        the checkpointer, so `graph`/`ledger` here equal a fresh journal replay."""
+        the checkpointer, so `graph`/`hypothesis store` here equal a fresh journal replay."""
         res = self._engine.result()
         bundle = export_bundle(res)
         return {
@@ -328,7 +328,7 @@ class InvestigationSession:
                 "provider": a.provider if a else "?", "effect": Effect.WRITE.value,
                 "summary": f"{a.provider if a else '?'}.{c.intent}({c.params})",
             })
-        # the serving hypothesis + its supporting facts (the evidence chain), read off the ledger
+        # the serving hypothesis + its supporting facts (the evidence chain), read off the hypothesis store
         lead = self._engine.hypothesis_store.leading()
         hypothesis = None
         evidence: list[dict] = []
@@ -353,7 +353,7 @@ class InvestigationSession:
                      if self._is_write_call(c) else c for c in p.plan.calls]
             return p.plan.model_copy(update={
                 "calls": calls, "narrative": p.plan.narrative + " [params refined by operator]"})
-        # DENY — drop the write; record the denial as a synthetic ledger result fed back to the
+        # DENY — drop the write; record the denial as a synthetic hypothesis store result fed back to the
         # next plan (a divergent journal), keeping any non-write calls.
         non_write = [c for c in p.plan.calls if not self._is_write_call(c)]
         lead = self._engine.hypothesis_store.leading()
