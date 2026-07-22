@@ -5,7 +5,7 @@ Asserts the OUTCOME, the differential diagnosis (checkout-db ruled out), the dis
 """
 from __future__ import annotations
 
-from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus
+from iw_engine.domain.enums import EdgeType, HypothesisStatus
 
 from . import scenario_deployment as s2
 from ._helpers import run
@@ -18,7 +18,7 @@ def test_deployment_happy_path_resolved():
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.phases_run == ["frame", "investigate", "investigate", "act",
                               "verify", "close"]
-    assert res.close_outcome == CloseOutcome.RESOLVED
+    assert res.close_outcome == "resolved"
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: checkout-db was ruled out, not ignored
@@ -49,14 +49,14 @@ def test_deployment_happy_path_resolved():
 def test_deployment_mitigated_variant_without_confirmation():
     """Same investigation and successful rollback, but VERIFY never promotes h1 to
     CONFIRMED — the engine must close MITIGATED (impact stopped, root cause unconfirmed),
-    not RESOLVED, exercising the other half of CloseOutcome."""
+    not RESOLVED, exercising the other half of the outcome rule."""
     subject, script, fixtures = s2.build(mitigated=True)
     res = run(subject, script, fixtures)
 
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.phases_run == ["frame", "investigate", "investigate", "act",
                               "verify", "close"]
-    assert res.close_outcome == CloseOutcome.MITIGATED
+    assert res.close_outcome == "mitigated"
     assert res.confirmed is None
 
     # the leading hypothesis is still well-evidenced (supported, high confidence) — just

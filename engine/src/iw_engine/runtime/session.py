@@ -453,7 +453,7 @@ class InvestigationSession:
     def _close(self) -> None:
         self.state = SessionState.CLOSED
         res = self._engine.result()
-        self._outcome = res.close_outcome.value if res.close_outcome else "open"
+        self._outcome = res.close_outcome or "open"
         # JOURNAL v2 lifecycle (part2 §1/§3): the terminal outcome is a durable record — a
         # run that ended by finishing, or by an unrouted BLOCKED verdict draining the phase
         # route, closes DIAGNOSABLY. (Routing BLOCKED/DONE somewhere better is P7's phase
@@ -471,7 +471,7 @@ class InvestigationSession:
         phase = self._engine.current_phase
         self.state = SessionState.CLOSED
         res = self._engine.result()
-        self._outcome = res.close_outcome.value if res.close_outcome else "open"
+        self._outcome = res.close_outcome or "open"
         self._engine.journal.append_lifecycle(
             "max_steps_exhausted", phase_id=phase, outcome=self._outcome)
         self._emit("session_state", state=self.state.value,

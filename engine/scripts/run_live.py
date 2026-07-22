@@ -100,7 +100,7 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
 
     print(f"\n-- {name} RESULT --")
     print(f"  phases:      {list(res.phases_run)}")
-    print(f"  outcome:     {res.close_outcome.value if res.close_outcome else 'open'}")
+    print(f"  outcome:     {res.close_outcome or 'open'}")
     for h in res.hypothesis_store.ranked():
         print(f"  hyp {h.id:8} status={h.status.value:11} conf={h.confidence.value:.2f} "
               f"root={h.root_candidate}")
@@ -112,7 +112,7 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
     return {"name": name, "converged": converged, "root": root, "golden": " | ".join(golds),
             "rejections": len(res.rejections), "refuted": refuted,
             "repairs": len(planner.repairs),
-            "outcome": res.close_outcome.value if res.close_outcome else "open"}
+            "outcome": res.close_outcome or "open"}
 
 
 def main() -> None:

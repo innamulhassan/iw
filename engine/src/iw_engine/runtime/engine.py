@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from ..capability.layer import CapabilityLayer, Invocation
-from ..domain.enums import CloseOutcome, VerdictStatus
+from ..domain.enums import VerdictStatus
 from ..domain.hypothesis import Hypothesis
 from ..domain.phase_result import PhaseResult
 from ..domain.playbook import Playbook
@@ -35,7 +35,7 @@ class RunResult:
     hypothesis_store: HypothesisStore
     journal: Journal
     confirmed: Hypothesis | None
-    close_outcome: CloseOutcome | None
+    close_outcome: str | None        # playbook-declared outcome label (P7 step 4), None = open
     rejections: list[Rejection] = field(default_factory=list)
     invocations: list[Invocation] = field(default_factory=list)   # capability audit trail
 
@@ -104,7 +104,17 @@ class Engine:
         spec = self.playbook.phase(self._phase)
         result = self._run_phase(self._phase, spec)
         self._phases_run.append(self._phase)
-        self._phase = next_phase(spec, result.verdict)
+        nxt = next_phase(spec, result.verdict)
+        if nxt is None and result.verdict.status is not VerdictStatus.DONE:
+            # P7 step 4: an UNMAPPED verdict (a BLOCKED/BACKTRACK/ADVANCE this phase declares
+            # no route for) is a journaled lifecycle event + an explicit terminal — never a
+            # silent dead-end. (A gate-passed DONE is the normal terminal, no extra record.)
+            self.journal.append_lifecycle(
+                "unrouted_verdict", phase_id=self._phase,
+                outcome=result.verdict.status.value,
+                detail={"verdict": result.verdict.status.value,
+                        "routes": dict(spec.on_verdict)})
+        self._phase = nxt
         return result
 
     def run(self, subject: SubjectRef, *, max_steps: int = 60) -> RunResult:
@@ -215,7 +225,10 @@ class Engine:
         # apply the delta via the single mutation seam FIRST, then gate against the updated store
         apply_delta(result, seq, self.graph, self.hypothesis_store)
 
-        gated = check_gate(spec, result, self.hypothesis_store, self.playbook.tunables)
+        gated = check_gate(spec, result, self.hypothesis_store, self.playbook.tunables,
+                           graph=self.graph, journal=self.journal,
+                           anomaly_ref=self._anomaly_ref,
+                           symptom_cleared_event=self.playbook.symptom_cleared_event)
         # REPEAT CAP (tunables.max_retries): a live planner can vote REPEAT indefinitely (the
         # database run looped in TRIAGE for all 16 steps). After max_retries prior consecutive
         # runs of this phase, force an ADVANCE so the investigation always progresses — the
@@ -258,7 +271,10 @@ class Engine:
                          "blocked": inv.blocked, "op_count": inv.op_count},
             decision=inv.outcome))
 
-    def _close_outcome(self, phases_run: list[str], confirmed) -> CloseOutcome | None:
+    def _close_outcome(self, phases_run: list[str], confirmed) -> str | None:
+        """The terminal outcome LABEL — playbook data, not an engine enum (P7 step 4): the
+        playbook's OutcomeRule maps confirmed-root / no-confirmed-root to its own labels."""
         if self.playbook.terminal_phase not in phases_run:
             return None
-        return CloseOutcome.RESOLVED if confirmed is not None else CloseOutcome.MITIGATED
+        o = self.playbook.outcomes
+        return o.confirmed_root if confirmed is not None else o.no_confirmed_root

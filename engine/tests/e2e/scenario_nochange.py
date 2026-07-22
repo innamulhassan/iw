@@ -15,7 +15,7 @@ change/commit to revert, so ACT only scales capacity (a gated mitigation, not a 
 VERIFY never promotes the hypothesis to CONFIRMED: the pool trend correlates with the
 symptom but was never causally isolated (no revert experiment is possible for an organic
 no-change incident). The scripted planner drives the real engine through the 5-phase
-algebra (6 steps — the investigate loop runs twice) to CloseOutcome.MITIGATED with
+algebra (6 steps — the investigate loop runs twice) to "mitigated" with
 confirmed=None.
 """
 from __future__ import annotations

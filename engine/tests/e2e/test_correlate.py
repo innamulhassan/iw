@@ -14,7 +14,6 @@ from datetime import UTC, datetime
 import iw_engine
 from iw_engine.capability import CapabilityLayer, MockSource
 from iw_engine.capability.adapters import default_adapters
-from iw_engine.domain.enums import CloseOutcome
 from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
 from iw_engine.runtime.live_planner import LivePlanner
 from iw_engine.runtime.planner import PlanContext
@@ -45,7 +44,7 @@ def test_engine_hands_correlations_to_the_declaring_phases_only():
     res = engine.run(subject)
 
     # the run itself is untouched by the hint (root-cause invariant)
-    assert res.close_outcome == CloseOutcome.RESOLVED
+    assert res.close_outcome == "resolved"
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # phases that do NOT declare correlate_timeline get no candidates

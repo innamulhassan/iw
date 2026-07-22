@@ -86,7 +86,7 @@ def export_bundle(res: RunResult) -> dict:
     origin_id = node_id(NodeType.INCIDENT, {"incident_id": res.subject.id})
     return {
         "subject": res.subject.model_dump(),
-        "outcome": res.close_outcome.value if res.close_outcome else "open",
+        "outcome": res.close_outcome or "open",
         "phases": list(res.phases_run),
         "graph": {
             "nodes": [{"id": n.id, "type": n.type.value, "props": n.props,

@@ -4,7 +4,8 @@
 
   * approve → the proposed write (a rollback) is applied under the gate → RESOLVED.
   * deny   → the write is dropped, the denial is recorded as a synthetic ledger result fed
-             back, and the run takes a DIVERGENT journal (→ MITIGATED).
+             back, and the run takes a DIVERGENT journal: the symptom never clears, verify
+             backtracks, the loop winds down BLOCKED → unrouted-verdict terminal (→ OPEN).
 
 Asserts the gate suspension, the derived event-stream shape, and that a node's `graph_delta`
 carries its `created_by` creation-order seq.
@@ -83,18 +84,26 @@ def _approve_script():
 
 
 def _deny_script():
-    """Diverges after the gate: the rollback is refused, the symptom persists, h1 is never
-    confirmed → the investigation closes MITIGATED rather than RESOLVED."""
+    """Diverges after the gate: the rollback is refused, the symptom persists — so the
+    symptom_cleared gate (P7 step 4) can never pass and the run may NOT claim a recovery.
+    The honest algebra: verify BACKTRACKS (recovery did not hold) into the investigate
+    loop, which winds down BLOCKED (the operator refused the only fix) — an UNROUTED
+    verdict, which the engine terminates with a journaled lifecycle record, outcome open."""
     subject, base = s1.build()
     act = base[3].model_copy(update={"calls": [call(ROLLBACK_INTENT, to_version="v4.11.3")]})
     verify = phase("verify", [
         fact(s1.SVC, "red_errors", 0.35, s1.T_FIX, source=Source.PROMETHEUS, reliability=0.98),
         update("h1", status="supported", level="high",
                basis="rollback declined; 5xx still ~35% — cause known, impact not cleared"),
-    ], "Rollback declined; symptom persists. Cause identified but incident not resolved.")
-    close = phase("close", [], "Closed MITIGATED: root cause identified (abc123 NPE) but the "
-                  "proposed remediation was declined.", status="done")
-    return subject, [base[0], base[1], base[2], act, verify, close]
+    ], "Rollback declined; symptom persists — recovery did NOT hold. Backtrack.",
+        status="backtrack")
+    wind_down = phase("investigate", [
+        update("h1", level="high",
+               basis="the only safe fix (rollback) was declined by the operator; no further "
+               "evidence can change the picture — investigation cannot proceed"),
+    ], "Operator declined the rollback; nothing further to investigate. Blocked.",
+        status="blocked")
+    return subject, [base[0], base[1], base[2], act, verify, wind_down]
 
 
 # ── the gate suspension + event stream ─────────────────────────────────────────
@@ -167,7 +176,7 @@ def test_session_approve_resolves():
     assert "graph" in snap and "hypotheses" in snap and "journal" in snap
 
 
-# ── deny → drop the write, feed the denial back → DIVERGENT journal → MITIGATED ─
+# ── deny → drop the write, feed the denial back → DIVERGENT journal → OPEN ──────
 def test_session_deny_diverges():
     a_subject, a_script = _approve_script()
     approved = _session(a_script, a_subject)
@@ -189,8 +198,14 @@ def test_session_deny_diverges():
     act_entries = [e for e in denied._engine.journal.phase_entries() if e.phase_id == "act"]
     assert act_entries and "DENIED" in act_entries[0].reasoning
 
-    # the outcome + the journals genuinely DIVERGE from the approve branch
-    assert denied.outcome == "mitigated" and approved.outcome == "resolved"
+    # the outcome + the journals genuinely DIVERGE from the approve branch. P7 step 4: with
+    # the fix declined the symptom never clears, verify may not advance, and the wind-down's
+    # unrouted BLOCKED terminates the run DIAGNOSABLY — close is never reached, outcome open.
+    assert denied.outcome == "open" and approved.outcome == "resolved"
+    unrouted = [e for e in denied._engine.journal.entries
+                if e.kind == "lifecycle" and e.action.get("event") == "unrouted_verdict"]
+    assert unrouted and unrouted[0].phase_id == "investigate" \
+        and unrouted[0].action["verdict"] == "blocked"
     a_journal = [(e.phase_id, e.reasoning) for e in approved._engine.journal.phase_entries()]
     d_journal = [(e.phase_id, e.reasoning) for e in denied._engine.journal.phase_entries()]
     assert a_journal != d_journal

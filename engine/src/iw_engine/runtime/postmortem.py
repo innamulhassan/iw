@@ -5,7 +5,7 @@ are recorded as ruled-out (they are evidence).
 """
 from __future__ import annotations
 
-from ..domain.enums import CloseOutcome, HypothesisStatus
+from ..domain.enums import HypothesisStatus
 from ..domain.subject import SubjectRef
 from ..graph.graph import Graph
 from ..hypothesis.store import HypothesisStore
@@ -13,7 +13,7 @@ from ..journal.journal import Journal
 
 
 def render_postmortem(subject: SubjectRef, graph: Graph, store: HypothesisStore,
-                      journal: Journal, outcome: CloseOutcome | None) -> dict:
+                      journal: Journal, outcome: str | None) -> dict:
     confirmed = store.confirmed()
     timeline = sorted(
         [{"at": e.occurred_at.isoformat(), "entity": e.entity_ref, "type": e.type,
@@ -21,7 +21,7 @@ def render_postmortem(subject: SubjectRef, graph: Graph, store: HypothesisStore,
         key=lambda x: x["at"])
     return {
         "subject": subject.model_dump(),
-        "outcome": outcome.value if outcome else "open",
+        "outcome": outcome or "open",
         # confidence values are the ENGINE-EARNED weighted scores (P4, DOMAIN-v3 §2.5)
         "root_cause": (
             {"statement": confirmed.statement, "root_candidate": confirmed.root_candidate,

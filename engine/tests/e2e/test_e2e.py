@@ -8,7 +8,7 @@ import pathlib
 from datetime import UTC, datetime
 
 import iw_engine
-from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus
+from iw_engine.domain.enums import EdgeType, HypothesisStatus
 from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
 
 from . import scenario_code_regression as s1
@@ -30,7 +30,7 @@ def test_code_regression_happy_path():
     assert res.phases_run == ["frame", "investigate", "investigate", "act",
                               "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
-    assert res.close_outcome == CloseOutcome.RESOLVED
+    assert res.close_outcome == "resolved"
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
     # differential diagnosis: the DB hypothesis was ruled out, not ignored
     assert res.hypothesis_store.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
@@ -74,7 +74,7 @@ def test_write_gate_holds_below_confidence():
     from iw_engine.runtime.controller import check_gate
 
     spec = PhaseSpec(id="investigate", goal="", allowed_intents=[],
-                     gate=GateSpec(require_confidence_gate=True, require_refutation=True))
+                     gate=GateSpec(promotion=True, refutation_attempted=True))
     result = PhaseResult(phase_id="investigate", goal_restated="",
                          narrative="thin", verdict=PhaseVerdict(
                              status=VerdictStatus.ADVANCE,

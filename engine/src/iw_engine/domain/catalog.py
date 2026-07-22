@@ -56,11 +56,15 @@ def render_phases(pb: Playbook) -> str:
         gate = []
         if p.gate.min_facts:
             gate.append(f"min_facts>={p.gate.min_facts}")
-        if p.gate.require_confidence_gate:
+        if p.gate.promotion:
             gate.append(f"leading-hypothesis confidence>={pb.tunables.confidence_gate}")
-        if p.gate.require_refutation:
+        if p.gate.refutation_attempted:
             gate.append("a rival ruled out OR the leader challenged with refuting evidence")
-        gtxt = ("\n     GATE (to ADVANCE): " + "; ".join(gate)) if gate else ""
+        if p.gate.symptom_cleared:
+            gate.append(f"an active '{pb.symptom_cleared_event}' event on the symptom node")
+        if p.gate.human_approved:
+            gate.append("a human approval (gate_decision approve/refine) on the journal")
+        gtxt = ("\n     GATE (to ADVANCE or DONE): " + "; ".join(gate)) if gate else ""
         nxt = ", ".join(f"{k}->{v}" for k, v in p.on_verdict.items()) or "(terminal)"
         lines.append(
             f"  {p.id}: {p.goal}\n"

@@ -5,7 +5,7 @@ saturation signal, never a ChangeEvent).
 """
 from __future__ import annotations
 
-from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, NodeType
+from iw_engine.domain.enums import EdgeType, HypothesisStatus, NodeType
 
 from . import scenario_nochange as s2
 from ._helpers import run
@@ -24,7 +24,7 @@ def test_nochange_mitigated_close():
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
 
     # closed MITIGATED: the symptom cleared but no hypothesis was ever confirmed
-    assert res.close_outcome == CloseOutcome.MITIGATED
+    assert res.close_outcome == "mitigated"
     assert res.confirmed is None
 
     # the leading hypothesis is evidence-backed and high-confidence, but stops at

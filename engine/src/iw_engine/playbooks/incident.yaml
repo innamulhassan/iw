@@ -16,6 +16,9 @@ id: incident-core
 applies_to: app-incident
 entry_phase: frame
 capabilities: [servicenow, splunk, appd, prometheus, cmdb, ocp, artifactory, git]
+# role bindings + outcome rule (P7 step 4 — engine constants become playbook data):
+symptom_cleared_event: cleared          # the symptom-node event the recovery gate keys on
+outcomes: {confirmed_root: resolved, no_confirmed_root: mitigated}
 
 phases:
   - id: frame
@@ -29,7 +32,7 @@ phases:
     goal: "ONE loop — hypothesize ⇄ gather evidence ⇄ refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals."
     allowed_intents: [enumerate_changes, propose_hypotheses, correlate_timeline, fetch_logs, fetch_metrics, fetch_traces, read_diff, blame, query_change_log]
     produces_required: [facts_added, hypotheses_updated]
-    gate: {require_confidence_gate: true, require_refutation: true}
+    gate: {promotion: true, refutation_attempted: true}
     on_verdict: {advance: act, repeat: investigate, backtrack: investigate}
 
   - id: act
@@ -43,6 +46,7 @@ phases:
     goal: "Did the symptom clear and does the confirmed chain still hold?"
     allowed_intents: [recheck_symptom, confirm_chain]
     produces_required: [facts_added]
+    gate: {symptom_cleared: true}      # recovery is PROVEN on the symptom node, never asserted
     on_verdict: {advance: close, backtrack: investigate}
 
   - id: close

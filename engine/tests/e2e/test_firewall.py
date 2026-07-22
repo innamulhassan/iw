@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 import iw_engine
 from iw_engine.capability import CapabilityLayer, MockSource
 from iw_engine.capability.adapters import default_adapters
-from iw_engine.domain.enums import CloseOutcome, EdgeType, Effect, HypothesisStatus
+from iw_engine.domain.enums import EdgeType, Effect, HypothesisStatus
 from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
 
 from . import scenario_firewall as s5
@@ -44,7 +44,7 @@ def test_firewall_acl_revert_resolves():
     assert res.phases_run == ["frame", "investigate", "investigate", "act",
                               "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
-    assert res.close_outcome == CloseOutcome.RESOLVED
+    assert res.close_outcome == "resolved"
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: the link-flap rival was ruled out, not ignored
@@ -113,5 +113,5 @@ def test_write_gate_blocks_premature_remediation():
     assert res.rejections == []
     assert res.phases_run == ["frame", "investigate", "investigate", "act",
                               "verify", "close"]
-    assert res.close_outcome == CloseOutcome.RESOLVED
+    assert res.close_outcome == "resolved"
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"

@@ -5,7 +5,7 @@ the journal-replay-equivalence invariant.
 """
 from __future__ import annotations
 
-from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Origin
+from iw_engine.domain.enums import EdgeType, HypothesisStatus, Origin
 
 from . import scenario_cache as sc
 from ._helpers import assert_replay_equivalent, run
@@ -18,7 +18,7 @@ def test_cache_happy_path():
     assert res.phases_run == ["frame", "investigate", "investigate", "act",
                               "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
-    assert res.close_outcome == CloseOutcome.RESOLVED
+    assert res.close_outcome == "resolved"
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: the code-regression hypothesis was ruled out, not ignored

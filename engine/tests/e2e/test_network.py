@@ -6,7 +6,7 @@ pricing-db is ruled out; reverting the change resolves it.
 """
 from __future__ import annotations
 
-from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus
+from iw_engine.domain.enums import EdgeType, HypothesisStatus
 
 from . import scenario_network as s2
 from ._helpers import assert_replay_equivalent, run
@@ -19,7 +19,7 @@ def test_network_mtu_change_resolves_incident():
     assert res.phases_run == ["frame", "investigate", "investigate", "act",
                               "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
-    assert res.close_outcome == CloseOutcome.RESOLVED
+    assert res.close_outcome == "resolved"
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: pricing-db was ruled out, not ignored

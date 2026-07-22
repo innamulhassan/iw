@@ -274,7 +274,7 @@ def test_engine_hands_the_focus_slice_every_phase():
     layer = CapabilityLayer(default_adapters(), source=MockSource(fixtures))
     res = Engine(pb, probe, clock=lambda: datetime(2026, 7, 19, tzinfo=UTC), layer=layer).run(subject)
 
-    assert res.close_outcome.value == "resolved"           # the probe changed nothing
+    assert res.close_outcome == "resolved"                 # the probe changed nothing
     assert [p for p, _ in probe.seen] == ["frame", "investigate", "investigate", "act",
                                           "verify", "close"]
     first = probe.seen[0][1]

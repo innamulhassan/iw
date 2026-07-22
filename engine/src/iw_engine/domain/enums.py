@@ -128,11 +128,8 @@ class GateResult(StrEnum):
     FAIL = "fail"
 
 
-class CloseOutcome(StrEnum):
-    """DESIGN §2.2 R-P4 — an incident closes resolved OR merely mitigated."""
-
-    RESOLVED = "resolved"    # confirmed hypothesis + verified fix
-    MITIGATED = "mitigated"  # impact stopped, no confirmed root cause
+# (CloseOutcome was retired in P7 step 4: terminal outcome labels + the confirmed-root
+# rule are PLAYBOOK data — `Playbook.outcomes` — not an engine enum.)
 
 
 class HypothesisStatus(StrEnum):

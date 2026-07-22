@@ -298,10 +298,14 @@ class LivePlanner:
         gate_bits = []
         if spec.gate.min_facts:
             gate_bits.append(f"min_facts>={spec.gate.min_facts}")
-        if spec.gate.require_confidence_gate:
+        if spec.gate.promotion:
             gate_bits.append(f"leading confidence>={ctx.tunables.confidence_gate}")
-        if spec.gate.require_refutation:
+        if spec.gate.refutation_attempted:
             gate_bits.append("a rival refuted OR the leader challenged")
+        if spec.gate.symptom_cleared:
+            gate_bits.append("the symptom node carries its cleared event (recovery proven)")
+        if spec.gate.human_approved:
+            gate_bits.append("a human approval recorded for this phase")
         gate = "; ".join(gate_bits) or "(none — just produce the required fields)"
 
         wired = ""

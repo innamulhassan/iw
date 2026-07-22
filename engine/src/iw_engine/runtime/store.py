@@ -35,7 +35,6 @@ from pydantic import ValidationError
 
 import iw_engine
 
-from ..domain.enums import CloseOutcome
 from ..domain.playbook import Tunables
 from ..domain.subject import SubjectRef
 from ..graph.fold import rebuild
@@ -131,8 +130,8 @@ class InvestigationStore:
             "key": key,
             "subject": subject.model_dump(),
             "state": state,
-            "outcome": res.close_outcome.value if res.close_outcome else "open",
-            "close_outcome": res.close_outcome.value if res.close_outcome else None,
+            "outcome": res.close_outcome or "open",
+            "close_outcome": res.close_outcome,
             "phases_run": list(res.phases_run),
             # P4: the playbook tunables the run scored under — a disk reopen re-binds the
             # rebuilt store's belief arithmetic with EXACTLY these knobs, so the reopened
@@ -204,7 +203,7 @@ class InvestigationStore:
             graph, store = rebuild(journal, tunables=tun)
             save_graph(graph, d / "graph.json", journal_seq=head)   # self-heal the cache
         co = meta.get("close_outcome")
-        close_outcome = CloseOutcome(co) if co else None
+        close_outcome = co or None
         phases_run = [e.phase_id for e in journal.phase_entries() if e.phase_id]
         return RunResult(
             subject=subject, phases_run=phases_run, graph=graph, hypothesis_store=store,

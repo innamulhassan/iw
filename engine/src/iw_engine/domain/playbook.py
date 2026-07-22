@@ -119,13 +119,33 @@ class Doctrine(BaseModel):
 
 
 class GateSpec(BaseModel):
-    """Declarative guard the engine applies to the planner's proposed 'advance' verdict."""
+    """Declarative PREDICATE SET the engine applies to the planner's proposed terminal-intent
+    verdicts — ADVANCE **and DONE** (P7 step 4: DONE is gated, never a free bypass). Playbooks
+    COMPOSE gates from these predicates; the engine implements only the predicate semantics
+    (Part III §1). A failed gate downgrades the verdict to REPEAT with the failing reason."""
 
     model_config = ConfigDict(extra="forbid")
 
-    min_facts: int = 0
-    require_confidence_gate: bool = False    # top hypothesis confidence >= tunables.confidence_gate
-    require_refutation: bool = False         # >=1 refutation attempt recorded on the leading hypothesis
+    min_facts: int = 0            # >= this many facts folded THIS phase step
+    promotion: bool = False       # the strengthened promotion_ok: leader over the confidence
+    #                               gate, beats the field by delta, NO alive unrefuted rival
+    refutation_attempted: bool = False   # >=1 rival refuted OR the leader itself challenged
+    symptom_cleared: bool = False        # the symptom role-binding carries the playbook's
+    #                                      declared cleared-event (recovery confirmed)
+    human_approved: bool = False         # a human gate_decision (approve/refine) is on the
+    #                                      journal for THIS phase (the governance terminal)
+
+
+class OutcomeRule(BaseModel):
+    """Playbook-declared terminal outcome labels (P7 step 4: the resolved/mitigated rule
+    leaves engine code — `_close_outcome` reads THIS, so a new domain can label its
+    terminals without an engine release). The rule: reaching the terminal phase WITH a
+    confirmed hypothesis yields `confirmed_root`; without one, `no_confirmed_root`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    confirmed_root: str = Field(default="resolved", min_length=1)
+    no_confirmed_root: str = Field(default="mitigated", min_length=1)
 
 
 class PhaseSpec(BaseModel):
@@ -152,6 +172,11 @@ class Playbook(BaseModel):
     # domain role-bindings (retire the engine's hardcoded constants — DESIGN depth §E):
     symptom_node: NodeType = NodeType.ANOMALY      # the entry-phase symptom anchor captured for node-expansion
     terminal_phase: str | None = None              # role binding; defaults to the LAST declared phase
+    # the event type on the symptom node that means "the symptom cleared" — DATA the
+    # symptom_cleared gate predicate keys on, never an engine-hardcoded vocabulary word
+    symptom_cleared_event: str = Field(default="cleared", min_length=1)
+    # terminal outcome labels + rule (P7 step 4 — out of engine._close_outcome)
+    outcomes: OutcomeRule = Field(default_factory=OutcomeRule)
     # the live planner's prompt doctrine (Part III §3). Optional: scripted/batch runs never read
     # it; a live planner without one falls back to the packaged incident playbook's doctrine.
     doctrine: Doctrine | None = None
