@@ -652,16 +652,19 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage.",
+      "narrative": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage. Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
       "phase": "frame",
       "refs": {
         "edges": [
           "edge:affects:anomaly:anom-1->service:auth-svc|prod:discovered",
-          "edge:fired_on:alert:alt-1->service:auth-svc|prod:discovered"
+          "edge:fired_on:alert:alt-1->service:auth-svc|prod:discovered",
+          "edge:affects:incident:inc-5700->service:auth-svc|prod:discovered",
+          "edge:exposes:service:auth-svc|prod->api_endpoint:auth-svc|prod|post|-oauth-token:declared"
         ],
         "events": [
           "evt:de50908fad38e0d4",
-          "evt:25f08b1f8f8be524"
+          "evt:25f08b1f8f8be524",
+          "evt:770dd5c53baab48b"
         ],
         "facts": [
           "fact:18bf033a3af52cce",
@@ -673,45 +676,25 @@
           "fact:cb0f094604a8afe9",
           "fact:84e63e65e1dcea01",
           "fact:6a4567a9868117ce",
-          "fact:16e1f39820bc929d"
+          "fact:16e1f39820bc929d",
+          "fact:c5d30702de089191"
         ],
         "hypotheses": [],
         "nodes": [
           "anomaly:anom-1",
           "service:auth-svc|prod",
           "certificate:auth-tls-intermediate",
-          "alert:alt-1"
+          "alert:alt-1",
+          "incident:inc-5700",
+          "api_endpoint:auth-svc|prod|post|-oauth-token"
         ]
       },
       "seq": 1
     },
     {
       "actor": "engine",
-      "narrative": "Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:affects:incident:inc-5700->service:auth-svc|prod:discovered",
-          "edge:exposes:service:auth-svc|prod->api_endpoint:auth-svc|prod|post|-oauth-token:declared"
-        ],
-        "events": [
-          "evt:770dd5c53baab48b"
-        ],
-        "facts": [
-          "fact:c5d30702de089191"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "incident:inc-5700",
-          "api_endpoint:auth-svc|prod|post|-oauth-token"
-        ]
-      },
-      "seq": 2
-    },
-    {
-      "actor": "engine",
       "narrative": "The cert (H1) is the prime suspect \u2014 0 days to expiry + partial failures on chain-validating clients. The outage hypothesis (H2) is weak: pods are Ready and ~58% of clients succeed. billing-svc filed the same intermediate-expiry shape last year \u2014 a related prior reinforcing H1.",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [
           "edge:similar_to:incident:inc-5700->incident:inc-3344:inferred",
@@ -733,7 +716,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -765,12 +748,12 @@
           "error_signature:pkix-path-building-failed"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: renew the intermediate cert + re-push the auth-svc TLS secret. Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -780,7 +763,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -803,7 +786,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -816,16 +799,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -835,36 +817,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage."
+        "text": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage. Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "The cert (H1) is the prime suspect \u2014 0 days to expiry + partial failures on chain-validating clients. The outage hypothesis (H2) is weak: pods are Ready and ~58% of clients succeed. billing-svc filed the same intermediate-expiry shape last year \u2014 a related prior reinforcing H1."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: renew the intermediate cert + re-push the auth-svc TLS secret. Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-renewal: cert at 90 days, 5xx back to 0.2%. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: the Corp Intermediate CA cert expired at 14:00, breaking the TLS chain for chain-validating clients (~40%); renewing + re-pushing the cert resolved it. Service outage ruled out \u2014 the failure was partial and client-dependent, the cert-expiry signature."
       }
     ],

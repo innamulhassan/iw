@@ -10,8 +10,9 @@ PKIX path building failed. Discriminator: the failure is PARTIAL (only ~40% of c
 those validating the intermediate) and intermittent by client/SNI — not a total outage.
 Fix: renew/re-push the intermediate cert on the auth-svc TLS secret. Teaches that
 cert-based failures are partial + client-dependent, a classic discriminator from code/
-infra faults. The scripted planner drives the REAL engine through all 7 phases, exercising
-appd, prometheus, servicenow and splunk via CapabilityCall + fixtures.
+infra faults. The scripted planner drives the REAL engine through the 5-phase algebra
+(6 steps — the investigate loop runs twice), exercising appd, prometheus, servicenow and
+splunk via CapabilityCall + fixtures.
 """
 from __future__ import annotations
 
@@ -84,29 +85,28 @@ def build():
                   "to expiry. The partial/client-dependent failure shape points at TLS, not "
                   "a total outage.")
 
-    # ── TRIAGE ───────────────────────────────────────────────────────────────────
-    triage = phase("triage",
-        calls=[call("appd_bt_metrics", bt="/oauth/token", window="10m")],
-        ops=[
-            node(NT.INCIDENT, incident_id="INC-5700"),
-            node(NT.API_ENDPOINT, service_name="auth-svc", env="prod", method="POST",
-                 route_template="/oauth/token"),
-            # the token endpoint's status-code distribution: 40% 5xx, the rest 200 — the
-            # partial failure that narrows the suspect set to the TLS handshake path.
-            fact(EP, "status_code_dist", {"500": 0.40, "200": 0.58, "4xx": 0.02}, T_ONSET,
-                 source=S.APPD, reliability=0.95),
-            edge(ET.AFFECTS, INC, SVC),
-            edge(ET.EXPOSES, SVC, EP, origin="declared"),
-            event(INC, "declared", T_ONSET, source=S.SERVICENOW),
-        ],
-        narrative="Declared SEV2. /oauth/token is the failing path, but only ~40% of "
-                  "clients — the ones validating the full chain. The cert's 0 days-to-expiry "
-                  "is the prime suspect; confirm via the actual handshake errors before "
-                  "touching the secret.")
+    # ── scope/impact framing folded into FRAME (the retired TRIAGE — P7 5-phase algebra) ──
+    frame = frame.model_copy(update={"ops": [*frame.ops,
+        node(NT.INCIDENT, incident_id="INC-5700"),
+        node(NT.API_ENDPOINT, service_name="auth-svc", env="prod", method="POST",
+             route_template="/oauth/token"),
+        # the token endpoint's status-code distribution: 40% 5xx, the rest 200 — the
+        # partial failure that narrows the suspect set to the TLS handshake path.
+        fact(EP, "status_code_dist", {"500": 0.40, "200": 0.58, "4xx": 0.02}, T_ONSET,
+             source=S.APPD, reliability=0.95),
+        edge(ET.AFFECTS, INC, SVC),
+        edge(ET.EXPOSES, SVC, EP, origin="declared"),
+        event(INC, "declared", T_ONSET, source=S.SERVICENOW),
+    ], "calls": [*frame.calls, call("appd_bt_metrics", bt="/oauth/token", window="10m")],
+       "narrative": frame.narrative + " Declared SEV2. /oauth/token is the failing path, "
+       "but only ~40% of clients — the ones validating the full chain. The cert's 0 "
+       "days-to-expiry is the prime suspect; confirm via the actual handshake errors "
+       "before touching the secret."})
 
-    # ── HYPOTHESIZE ──────────────────────────────────────────────────────────────
-    hypothesize = phase("hypothesize",
+    # ── INVESTIGATE opens the hypothesize⇄evidence loop ─────────────────────────
+    investigate_open = phase("investigate",
         calls=[call("list_related_incidents", cmdb_ci="auth-svc")],
+        status="repeat",
         ops=[
             node(NT.CERTIFICATE, cert_id="auth-tls-intermediate",
                  subject="auth-svc.internal", issuer="Corp Intermediate CA"),
@@ -126,13 +126,13 @@ def build():
                   "and ~58% of clients succeed. billing-svc filed the same intermediate-expiry "
                   "shape last year — a related prior reinforcing H1.")
 
-    # ── INVESTIGATE ──────────────────────────────────────────────────────────────
+    # ── the loop.s confirm turn ─────────────────────────────────────────────────
     # rule OUT the service outage (pods Ready, no restarts, error signature is TLS-side),
     # confirm the cert (PKIX path building failed, only on failing clients; cert expired).
     err_fact = fid(ERRSIG, "count", T_INV)
     expiry_fact = fid(CERT, "days_to_expiry", T_INV)
     p50_fact = fid(SVC, "red_latency_p50", T_INV)
-    investigate = phase("investigate",
+    investigate_confirm = phase("investigate",
         calls=[call("appd_bt_metrics", bt="/oauth/token", window="10m"),
                call("instant_query", query="cert_expiry_days auth-tls-intermediate"),
                call("list_related_incidents", cmdb_ci="auth-svc")],
@@ -166,8 +166,8 @@ def build():
                   "the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures "
                   "on chain-validating clients — the intermediate lapsed.")
 
-    # ── REMEDIATE ────────────────────────────────────────────────────────────────
-    remediate = phase("remediate",
+    # ── ACT (human-gated) ────────────────────────────────────────────────────────
+    act = phase("act",
         ops=[
             update("h1", level="high",
                    basis="proposed fix: renew the Corp Intermediate CA cert and re-push the "
@@ -198,7 +198,7 @@ def build():
                   "cert resolved it. Service outage ruled out — the failure was partial and "
                   "client-dependent, the cert-expiry signature.")
 
-    script = [frame, triage, hypothesize, investigate, remediate, verify, close]
+    script = [frame, investigate_open, investigate_confirm, act, verify, close]
 
     # ── fixtures: what the capability calls resolve to ────────────────────────────
     fixtures = {

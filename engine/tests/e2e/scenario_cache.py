@@ -8,8 +8,9 @@ a CACHE STAMPEDE: the deploy silently disabled client-side request coalescing
 ~50 simultaneous reads into the Redis tier, saturating its connection pool and driving
 tail latency. Discriminator: the slow exit calls are cache-bound (reads_from Redis),
 the fan-out ratio is 50x, and the service's own p50 stays flat — a hot-path/cache
-shape, not a code fault. The scripted planner drives the REAL engine through all 7
-phases, exercising appd, prometheus, servicenow and git via CapabilityCall + fixtures.
+shape, not a code fault. The scripted planner drives the REAL engine through the
+5-phase algebra (6 steps — the investigate loop runs twice), exercising appd,
+prometheus, servicenow and git via CapabilityCall + fixtures.
 """
 from __future__ import annotations
 
@@ -81,26 +82,26 @@ def build():
         narrative="product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at "
                   "14:10. p50 is flat at 64ms, errors normal — a tail-only / downstream shape.")
 
-    # ── TRIAGE ───────────────────────────────────────────────────────────────────
-    triage = phase("triage",
-        calls=[call("appd_bt_metrics", bt="/products/{id}", window="10m")],
-        ops=[
-            node(NT.INCIDENT, incident_id="INC-5500"),
-            node(NT.API_ENDPOINT, service_name="product-api", env="prod", method="GET",
-                 route_template="/products/{id}"),
-            edge(ET.AFFECTS, INC, SVC),
-            edge(ET.EXPOSES, SVC, EP, origin="declared"),
-            event(INC, "declared", T_ONSET, source=S.SERVICENOW),
-            fact(SVC, "tier", "tier-1", T_ONSET, source=S.SERVICENOW),
-            fact(SVC, "slo_target", 0.999, T_ONSET, source=S.SERVICENOW),
-        ],
-        narrative="Declared SEV2. The /products/{id} hot path is the source of the tail. "
-                  "It reads from product-redis — investigate the cache tier, don't blind-mitigate.")
+    # ── scope/impact framing folded into FRAME (the retired TRIAGE — P7 5-phase algebra) ──
+    frame = frame.model_copy(update={"ops": [*frame.ops,
+        node(NT.INCIDENT, incident_id="INC-5500"),
+        node(NT.API_ENDPOINT, service_name="product-api", env="prod", method="GET",
+             route_template="/products/{id}"),
+        edge(ET.AFFECTS, INC, SVC),
+        edge(ET.EXPOSES, SVC, EP, origin="declared"),
+        event(INC, "declared", T_ONSET, source=S.SERVICENOW),
+        fact(SVC, "tier", "tier-1", T_ONSET, source=S.SERVICENOW),
+        fact(SVC, "slo_target", 0.999, T_ONSET, source=S.SERVICENOW),
+    ], "calls": [*frame.calls, call("appd_bt_metrics", bt="/products/{id}", window="10m")],
+       "narrative": frame.narrative + " Declared SEV2. The /products/{id} hot path is the "
+       "source of the tail. It reads from product-redis — investigate the cache tier, "
+       "don't blind-mitigate."})
 
-    # ── HYPOTHESIZE ──────────────────────────────────────────────────────────────
-    hypothesize = phase("hypothesize",
+    # ── INVESTIGATE opens the hypothesize⇄evidence loop ─────────────────────────
+    investigate_open = phase("investigate",
         calls=[call("git_diff", sha="9f8e7d6", path="pkg/cache/client.go"),
                call("list_related_incidents", cmdb_ci="product-api")],
+        status="repeat",
         ops=[
             node(NT.CODE_COMMIT, sha="9f8e7d6"),
             edge(ET.INTRODUCED_BY, CHG, COMMIT),
@@ -120,7 +121,7 @@ def build():
                   "search-api filed the same stampede shape last quarter when coalescing was "
                   "disabled — a related prior reinforcing H1.")
 
-    # ── INVESTIGATE ──────────────────────────────────────────────────────────────
+    # ── the loop.s confirm turn ─────────────────────────────────────────────────
     # rule OUT the code regression (p50 flat — the service's own compute is unaffected),
     # confirm the stampede (hit-rate collapsed, evictions surging, memory pinned — a
     # cache-tier saturation shape).
@@ -128,7 +129,7 @@ def build():
     evict_fact = fid(CACHE, "eviction_rate", T_INV)
     mem_fact = fid(CACHE, "mem_utilization", T_INV)
     p50_fact = fid(SVC, "red_latency_p50", T_INV)
-    investigate = phase("investigate",
+    investigate_confirm = phase("investigate",
         calls=[call("appd_bt_metrics", bt="/products/{id}", window="10m"),
                call("instant_query", query="redis_connected_clients product-redis"),
                call("git_blame", sha="9f8e7d6", file="pkg/cache/client.go", line=88)],
@@ -162,8 +163,8 @@ def build():
                   "disables singleflight at client.go:88 — without coalescing, every request "
                   "issues its own cache read instead of sharing one in-flight.")
 
-    # ── REMEDIATE ────────────────────────────────────────────────────────────────
-    remediate = phase("remediate",
+    # ── ACT (human-gated) ────────────────────────────────────────────────────────
+    act = phase("act",
         ops=[
             update("h1", level="high",
                    basis="proposed fix: revert product-api to v3.3.2 (re-enable singleflight) "
@@ -195,7 +196,7 @@ def build():
                   "causing a 50x read stampede into product-redis; rollback to v3.3.2 resolved "
                   "it. Code regression ruled out.")
 
-    script = [frame, triage, hypothesize, investigate, remediate, verify, close]
+    script = [frame, investigate_open, investigate_confirm, act, verify, close]
 
     # ── fixtures: what the capability calls resolve to ────────────────────────────
     fixtures = {

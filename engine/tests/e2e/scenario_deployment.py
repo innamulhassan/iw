@@ -6,7 +6,8 @@ panics on boot, so the pod never reaches Ready (CrashLoopBackOff) and the rollou
 and the panic happens before any DB connection is ever attempted) and confirms the
 ConfigMap-key removal, traced blame -> PR #482 -> commit 9f2a1e0. Discriminator: the pod
 NEVER reaches Ready — a downstream-dependency rival would still flap Ready intermittently.
-The scripted planner drives the real engine through all 7 phases.
+The scripted planner drives the real engine through the 5-phase algebra (6 steps — the
+investigate loop runs twice: hypothesize⇄evidence).
 """
 from __future__ import annotations
 
@@ -96,7 +97,8 @@ def build(mitigated: bool = False):
         calls=[call("get_dependencies"), call("find_recent_changes"), call("active_alerts")],
     )
 
-    # ── TRIAGE: still bleeding — rollout stuck, pod never Ready (the discriminator) ──
+    # ── scope/impact framing folded into FRAME (the retired TRIAGE's real content — P7
+    # 5-phase algebra): rollout stuck, pod never Ready (the discriminator), healthy host ──
     fixtures["rollout_status"] = {
         "deployment": {"uid": "dep-checkout-api-7f9d8", "name": "checkout-api",
                        "namespace": "checkout-prod", "at": T_TRIAGE,
@@ -127,38 +129,36 @@ def build(mitigated: bool = False):
         ],
     }
 
-    triage = phase("triage",
-        [
-            node(NT.INCIDENT, incident_id="INC-7731"),
-            edge(ET.AFFECTS, INC, SVC),
-            event(INC, "declared", T_TRIAGE, source=S.SERVICENOW),
-            # the host the crashing pod is scheduled onto is itself healthy — USE metrics all
-            # nominal, no saturation — so the fault is the workload, not the node (rules out a
-            # node-pressure explanation before it is even hypothesised).
-            fact(HOST, "cpu_utilization", 0.31, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
-            fact(HOST, "mem_utilization", 0.52, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
-            fact(HOST, "disk_utilization", 0.44, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
-            fact(HOST, "net_utilization", 0.18, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
-            fact(HOST, "cpu_saturation", 0.0, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
-            fact(HOST, "disk_saturation", 0.0, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
-        ],
-        "Declared SEV2. Rollout is stuck (ProgressDeadlineExceeded->rollback) and the pod "
-        "is CrashLoopBackOff — it has never reached Ready; its host k8s-node-17 is healthy "
-        "(CPU 31%, no saturation). Investigate before mitigating.",
-        calls=[call("rollout_status"), call("pod_status"), call("events")],
-    )
+    frame = frame.model_copy(update={"ops": [*frame.ops,
+        node(NT.INCIDENT, incident_id="INC-7731"),
+        edge(ET.AFFECTS, INC, SVC),
+        event(INC, "declared", T_TRIAGE, source=S.SERVICENOW),
+        # the host the crashing pod is scheduled onto is itself healthy — USE metrics all
+        # nominal, no saturation — so the fault is the workload, not the node (rules out a
+        # node-pressure explanation before it is even hypothesised).
+        fact(HOST, "cpu_utilization", 0.31, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
+        fact(HOST, "mem_utilization", 0.52, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
+        fact(HOST, "disk_utilization", 0.44, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
+        fact(HOST, "net_utilization", 0.18, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
+        fact(HOST, "cpu_saturation", 0.0, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
+        fact(HOST, "disk_saturation", 0.0, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
+    ], "calls": [*frame.calls, call("rollout_status"), call("pod_status"), call("events")],
+       "narrative": frame.narrative + " Declared SEV2. Rollout is stuck "
+       "(ProgressDeadlineExceeded->rollback) and the pod is CrashLoopBackOff — it has never "
+       "reached Ready; its host k8s-node-17 is healthy (CPU 31%, no saturation). "
+       "Investigate before mitigating."})
 
-    # ── HYPOTHESIZE: change-first (H1) vs the declared dependency (H2) ──────────
-    hypothesize = phase("hypothesize", [
+    # ── INVESTIGATE opens the loop: change-first (H1) vs the declared dependency (H2) ──
+    investigate_open = phase("investigate", [
         propose("h1", "rev43 (PR #482, commit 9f2a1e0) removed the required ConfigMap key "
                 "DB_HOST; the container panics on boot, so the pod never reaches Ready",
                 "med", root=COMMIT),
         propose("h2", "checkout-db is overloaded/unreachable, causing the readiness probe "
                 "to fail", "low", root=DB),
     ], "Change-first: the rev43 deploy is the prime suspect (H1); the declared DB "
-       "dependency is a weaker alternative (H2).")
+       "dependency is a weaker alternative (H2).", status="repeat")
 
-    # ── INVESTIGATE: blame + diff pin the commit; DB metrics rule out H2 ────────
+    # ── the loop's confirm turn: blame + diff pin the commit; DB metrics rule out H2 ────
     fixtures["blame"] = {
         "blame": {"sha": "9f2a1e0", "repo": "checkout-api", "file": "config/loader.go",
                   "line": 57, "snippet": 'cfg.MustGet("DB_HOST") // panics if key missing'},
@@ -193,7 +193,7 @@ def build(mitigated: bool = False):
     db_fact = fid(DB, "conn_pool_util", T_INV)
     diff_fact = fid(COMMIT, "lines_deleted", T_INV)
 
-    investigate = phase("investigate", [
+    investigate_confirm = phase("investigate", [
         edge(ET.EMITTED, POD, ERRSIG),
         update("h2", status="refuted", add_refuting=[db_fact],
                basis="pool util 24% — checkout-db is healthy, and the pod panics on boot "
@@ -205,8 +205,8 @@ def build(mitigated: bool = False):
        "removal of DB_HOST from the ConfigMap in commit 9f2a1e0.",
         calls=[call("blame"), call("diff_range"), call("fetch_metrics")])
 
-    # ── REMEDIATE: safest reversible fix — roll back the Deployment ────────────
-    remediate = phase("remediate", [
+    # ── ACT: safest reversible fix — roll back the Deployment (human-gated) ────
+    act = phase("act", [
         update("h1", level="high",
                basis="proposed fix: roll checkout-api back from rev43 to rev42 (revert "
                "PR #482 / commit 9f2a1e0), restoring the DB_HOST ConfigMap key"),
@@ -250,4 +250,4 @@ def build(mitigated: bool = False):
             "DB_HOST; checkout-api panicked on boot -> CrashLoopBackOff, rollout stuck. "
             "Rollback to rev42 resolved it. checkout-db ruled out.", status="done")
 
-    return subject, [frame, triage, hypothesize, investigate, remediate, verify, close], fixtures
+    return subject, [frame, investigate_open, investigate_confirm, act, verify, close], fixtures

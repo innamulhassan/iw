@@ -673,7 +673,7 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape.",
+      "narrative": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape. Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
       "phase": "frame",
       "refs": {
         "edges": [
@@ -681,12 +681,15 @@
           "edge:fired_on:alert:alt-1->service:product-api|prod:discovered",
           "edge:changed_by:service:product-api|prod->change_event:chg-22:discovered",
           "edge:correlated_with:anomaly:anom-1->change_event:chg-22:inferred",
-          "edge:reads_from:service:product-api|prod->cache:product-redis:declared"
+          "edge:reads_from:service:product-api|prod->cache:product-redis:declared",
+          "edge:affects:incident:inc-5500->service:product-api|prod:discovered",
+          "edge:exposes:service:product-api|prod->api_endpoint:product-api|prod|get|-products-{id}:declared"
         ],
         "events": [
           "evt:7d31c58555a3544f",
           "evt:c8488fec6346e53c",
-          "evt:f34ffdf18e63347b"
+          "evt:f34ffdf18e63347b",
+          "evt:5f7354358edb22d1"
         ],
         "facts": [
           "fact:057dad87ced71fb5",
@@ -695,7 +698,9 @@
           "fact:34db49e4d172cbb9",
           "fact:41b04e9c5b005246",
           "fact:f171112575f53dda",
-          "fact:c0b90cff39e21668"
+          "fact:c0b90cff39e21668",
+          "fact:20b8301b8ac8ad52",
+          "fact:ea3b676fabe078ed"
         ],
         "hypotheses": [],
         "nodes": [
@@ -703,39 +708,17 @@
           "service:product-api|prod",
           "cache:product-redis",
           "alert:alt-1",
-          "change_event:chg-22"
+          "change_event:chg-22",
+          "incident:inc-5500",
+          "api_endpoint:product-api|prod|get|-products-{id}"
         ]
       },
       "seq": 1
     },
     {
       "actor": "engine",
-      "narrative": "Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:affects:incident:inc-5500->service:product-api|prod:discovered",
-          "edge:exposes:service:product-api|prod->api_endpoint:product-api|prod|get|-products-{id}:declared"
-        ],
-        "events": [
-          "evt:5f7354358edb22d1"
-        ],
-        "facts": [
-          "fact:20b8301b8ac8ad52",
-          "fact:ea3b676fabe078ed"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "incident:inc-5500",
-          "api_endpoint:product-api|prod|get|-products-{id}"
-        ]
-      },
-      "seq": 2
-    },
-    {
-      "actor": "engine",
       "narrative": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1.",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [
           "edge:similar_to:incident:inc-5500->incident:inc-4210:inferred",
@@ -758,7 +741,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -787,12 +770,12 @@
           "code_commit:9f8e7d6"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: roll back to v3.3.2 (re-enable singleflight). Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -802,7 +785,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -825,7 +808,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -838,16 +821,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -857,36 +839,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape."
+        "text": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape. Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: roll back to v3.3.2 (re-enable singleflight). Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-rollback: p99 back to 140ms, hit-rate 96%, evictions down to 4/min. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: v3.4.0 (9f8e7d6) disabled singleflight in the cache client, causing a 50x read stampede into product-redis; rollback to v3.3.2 resolved it. Code regression ruled out."
       }
     ],

@@ -82,7 +82,7 @@ class _EchoMock:
 
 def _session_with(intent: str) -> InvestigationSession:
     subject, script = s1.build()
-    script[4] = script[4].model_copy(update={"calls": [call(intent)]})
+    script[3] = script[3].model_copy(update={"calls": [call(intent)]})
     layer = CapabilityLayer([*default_adapters(), _MixedAdapter()], source=_EchoMock())
     pb = load_playbook(PLAYBOOK)
     return InvestigationSession(subject, pb, ScriptedPlanner(script), layer=layer,

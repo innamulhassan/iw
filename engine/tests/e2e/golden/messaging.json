@@ -629,18 +629,21 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream.",
+      "narrative": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream. Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind.",
       "phase": "frame",
       "refs": {
         "edges": [
           "edge:changed_by:service:order-processor|prod->change_event:chg-55:discovered",
           "edge:fired_on:alert:alt-7->service:order-processor|prod:discovered",
-          "edge:affects:anomaly:anom-7->service:order-processor|prod:discovered"
+          "edge:affects:anomaly:anom-7->service:order-processor|prod:discovered",
+          "edge:affects:incident:inc-8801->service:order-processor|prod:discovered",
+          "edge:consumes_from:service:order-processor|prod->message_queue:orders.events:declared"
         ],
         "events": [
           "evt:92226d2e45045628",
           "evt:b2ba0b6531012b07",
-          "evt:0e495a58291464df"
+          "evt:0e495a58291464df",
+          "evt:164bc62361c0f748"
         ],
         "facts": [
           "fact:12408b7cc45f0b84",
@@ -649,7 +652,8 @@
           "fact:8e48719385f4c771",
           "fact:d11575184f188aaa",
           "fact:e2c9369ff03cb57c",
-          "fact:0de45606e8aa2304"
+          "fact:0de45606e8aa2304",
+          "fact:6161dabfa64d0f7c"
         ],
         "hypotheses": [],
         "nodes": [
@@ -658,38 +662,17 @@
           "service:order-processor|prod",
           "alert:alt-7",
           "anomaly:anom-7",
-          "service:order-processor|prod"
+          "service:order-processor|prod",
+          "incident:inc-8801",
+          "message_queue:orders.events"
         ]
       },
       "seq": 1
     },
     {
       "actor": "engine",
-      "narrative": "Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:affects:incident:inc-8801->service:order-processor|prod:discovered",
-          "edge:consumes_from:service:order-processor|prod->message_queue:orders.events:declared"
-        ],
-        "events": [
-          "evt:164bc62361c0f748"
-        ],
-        "facts": [
-          "fact:6161dabfa64d0f7c"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "incident:inc-8801",
-          "message_queue:orders.events"
-        ]
-      },
-      "seq": 2
-    },
-    {
-      "actor": "engine",
       "narrative": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation.",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [
           "edge:introduced_by:change_event:chg-55->code_commit:e5f6a7b:discovered",
@@ -717,7 +700,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -743,12 +726,12 @@
           "service:order-processor|prod"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: roll the consumer deploy back to the prior build. Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -758,7 +741,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -779,7 +762,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -792,16 +775,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -811,36 +793,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream."
+        "text": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream. Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "Lag is still climbing (61k) but ingress throughput is flat and the DLQ is empty \u2014 the deficit is purely consumer-side processing rate. get_snapshots shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) refuted; H1 (consumer deploy) confirmed at high confidence."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: roll the consumer deploy back to the prior build. Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-rollback: lag drained to ~300 messages; anomaly cleared. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: CHG-55 (consumer deploy) shipped a slower handler -> consumer processing rate fell below ingress -> lag on orders.events accumulated -> fulfilment SLA breach; rolling the deploy back drained the lag. A broker rebalance / producer surge was investigated and ruled out."
       }
     ],

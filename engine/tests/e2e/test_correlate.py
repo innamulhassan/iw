@@ -1,6 +1,6 @@
 """P4 step 4 — correlate_timeline's executable home, wired: every phase whose playbook
-allowed_intents declare the abstract `correlate_timeline` intent (hypothesize +
-investigate in the core playbook) receives the ENGINE-computed skew-tolerant
+allowed_intents declare the abstract `correlate_timeline` intent (investigate in the
+core playbook) receives the ENGINE-computed skew-tolerant
 change→onset candidates in its PlanContext; phases that do not declare it receive none.
 Driven through the REAL engine with the database twin (CHG-9, a ServiceNow-sourced DB
 migration 8 minutes before a Prometheus-sourced onset), and rendered into the live
@@ -49,23 +49,23 @@ def test_engine_hands_correlations_to_the_declaring_phases_only():
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # phases that do NOT declare correlate_timeline get no candidates
-    for p in ("frame", "triage", "remediate", "verify", "close"):
+    for p in ("frame", "act", "verify", "close"):
         assert probe.seen[p] == [], f"{p} must not receive correlations"
 
-    # hypothesize + investigate declare it — CHG-9's `implemented` (13:57, servicenow)
-    # correlates with the 14:05 prometheus onset: 480s lead, OUTSIDE the 330s combined
-    # skew bound, so ordering may be asserted (R-J2).
-    for p in ("hypothesize", "investigate"):
-        cands = probe.seen[p]
-        assert [c["entity"] for c in cands] == [sdb.CHG], f"{p} correlations: {cands}"
-        c = cands[0]
-        assert c["type"] == "implemented" and c["lead_s"] == 480.0
-        assert c["skew_bound_s"] == 330.0 and c["ordering_certain"] is True
+    # investigate declares it (both loop turns receive candidates; the probe keeps the
+    # last) — CHG-9's `implemented` (13:57, servicenow) correlates with the 14:05
+    # prometheus onset: 480s lead, OUTSIDE the 330s combined skew bound, so ordering
+    # may be asserted (R-J2).
+    cands = probe.seen["investigate"]
+    assert [c["entity"] for c in cands] == [sdb.CHG], f"investigate correlations: {cands}"
+    c = cands[0]
+    assert c["type"] == "implemented" and c["lead_s"] == 480.0
+    assert c["skew_bound_s"] == 330.0 and c["ordering_certain"] is True
 
 
 def test_live_planner_renders_the_correlation_hint_with_rj2_discipline():
     pb = load_playbook(PLAYBOOK)
-    spec = pb.phase(pb.phases[3].id)               # investigate
+    spec = pb.phase(pb.phases[1].id)               # investigate
     planner = LivePlanner(client=None, catalog_text="# CATALOG", tools_text="# TOOLS",
                           tool_intents=set(), verbose=False)
     ctx = PlanContext(

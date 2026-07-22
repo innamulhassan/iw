@@ -946,19 +946,22 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "orders-api p99 latency spiked to 5.2s at 14:05, 8 minutes after CHG-9 (a DB migration) landed at 13:57. ALT-1 (HighLatencyP99) fired. p50 stays flat at 46ms and errors at 1.5% \u2014 the tail alone is blown.",
+      "narrative": "orders-api p99 latency spiked to 5.2s at 14:05, 8 minutes after CHG-9 (a DB migration) landed at 13:57. ALT-1 (HighLatencyP99) fired. p50 stays flat at 46ms and errors at 1.5% \u2014 the tail alone is blown. Declared SEV2. Still bleeding; CMDB shows orders-api's only dependency is orders-pg. Investigate, don't blind-mitigate.",
       "phase": "frame",
       "refs": {
         "edges": [
           "edge:changed_by:service:orders-api|prod->change_event:chg-9:discovered",
           "edge:fired_on:alert:alt-1->service:orders-api|prod:discovered",
           "edge:exposes:service:orders-api|prod->api_endpoint:orders-api|prod|get|-orders-{id}-items:declared",
-          "edge:affects:anomaly:anom-1->service:orders-api|prod:discovered"
+          "edge:affects:anomaly:anom-1->service:orders-api|prod:discovered",
+          "edge:affects:incident:inc-7734->service:orders-api|prod:discovered",
+          "edge:depends_on:service:orders-api|prod->database:orders-pg:declared"
         ],
         "events": [
           "evt:218261f2251a608e",
           "evt:8178b16c07b5caa6",
-          "evt:06ec00f4a1bc7040"
+          "evt:06ec00f4a1bc7040",
+          "evt:9dd820ef10df3e87"
         ],
         "facts": [
           "fact:e499b9282bfa27c7",
@@ -972,7 +975,8 @@
           "fact:c0ed9dfa4f606b27",
           "fact:8791a4251f81e01b",
           "fact:460d512459140524",
-          "fact:601b87f377a6c3aa"
+          "fact:601b87f377a6c3aa",
+          "fact:89c3d1a2c86fb728"
         ],
         "hypotheses": [],
         "nodes": [
@@ -981,38 +985,17 @@
           "service:orders-api|prod",
           "alert:alt-1",
           "anomaly:anom-1",
-          "api_endpoint:orders-api|prod|get|-orders-{id}-items"
+          "api_endpoint:orders-api|prod|get|-orders-{id}-items",
+          "incident:inc-7734",
+          "database:orders-pg"
         ]
       },
       "seq": 1
     },
     {
       "actor": "engine",
-      "narrative": "Declared SEV2. Still bleeding; CMDB shows orders-api's only dependency is orders-pg. Investigate, don't blind-mitigate.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:affects:incident:inc-7734->service:orders-api|prod:discovered",
-          "edge:depends_on:service:orders-api|prod->database:orders-pg:declared"
-        ],
-        "events": [
-          "evt:9dd820ef10df3e87"
-        ],
-        "facts": [
-          "fact:89c3d1a2c86fb728"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "incident:inc-7734",
-          "database:orders-pg"
-        ]
-      },
-      "seq": 2
-    },
-    {
-      "actor": "engine",
       "narrative": "Change-first: CHG-9 (DB migration) landed 8m before onset \u2014 prime suspect (H1). ServiceNow surfaces 3 sibling apps (billing-api, fulfillment-api, returns-api) that filed the SAME latency symptom within the same 5-minute window \u2014 all share orders-pg. A co-firing cluster that tight is a hypothesis prior pointing at the shared DB/migration (H1), not any one app's code. No application deploy is on record; a code regression remains a weaker alternative (H2) pending investigation.",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [
           "edge:introduced_by:change_event:chg-9->code_commit:a1b2c3d:discovered",
@@ -1048,7 +1031,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -1078,12 +1061,12 @@
           "database:orders-pg"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: re-add the dropped index (or roll back CHG-9). Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -1093,7 +1076,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -1114,7 +1097,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -1127,16 +1110,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -1146,36 +1128,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "orders-api p99 latency spiked to 5.2s at 14:05, 8 minutes after CHG-9 (a DB migration) landed at 13:57. ALT-1 (HighLatencyP99) fired. p50 stays flat at 46ms and errors at 1.5% \u2014 the tail alone is blown."
+        "text": "orders-api p99 latency spiked to 5.2s at 14:05, 8 minutes after CHG-9 (a DB migration) landed at 13:57. ALT-1 (HighLatencyP99) fired. p50 stays flat at 46ms and errors at 1.5% \u2014 the tail alone is blown. Declared SEV2. Still bleeding; CMDB shows orders-api's only dependency is orders-pg. Investigate, don't blind-mitigate."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2. Still bleeding; CMDB shows orders-api's only dependency is orders-pg. Investigate, don't blind-mitigate."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "Change-first: CHG-9 (DB migration) landed 8m before onset \u2014 prime suspect (H1). ServiceNow surfaces 3 sibling apps (billing-api, fulfillment-api, returns-api) that filed the SAME latency symptom within the same 5-minute window \u2014 all share orders-pg. A co-firing cluster that tight is a hypothesis prior pointing at the shared DB/migration (H1), not any one app's code. No application deploy is on record; a code regression remains a weaker alternative (H2) pending investigation."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "orders-api's own compute is fine (p50 flat at 42ms) \u2014 the tail is 100% JDBC-bound: get_snapshots pins the exit call to orders-pg, whose connection pool is maxed (200/200 via instant_query). git diff_range on CHG-9 shows the migration dropped an index, forcing full-table scans. H2 (code regression) refuted; H1 (migration/index) confirmed at high confidence."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: re-add the dropped index (or roll back CHG-9). Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-fix: p99 back to 95ms; anomaly cleared. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: CHG-9 (DB migration) dropped an index on orders.order_items -> full-table scans -> JDBC pool exhaustion -> orders-api latency spike; re-adding the index resolved it. An application code regression was investigated and ruled out."
       }
     ],

@@ -275,8 +275,8 @@ def test_engine_hands_the_focus_slice_every_phase():
     res = Engine(pb, probe, clock=lambda: datetime(2026, 7, 19, tzinfo=UTC), layer=layer).run(subject)
 
     assert res.close_outcome.value == "resolved"           # the probe changed nothing
-    assert [p for p, _ in probe.seen] == ["frame", "triage", "hypothesize", "investigate",
-                                          "remediate", "verify", "close"]
+    assert [p for p, _ in probe.seen] == ["frame", "investigate", "investigate", "act",
+                                          "verify", "close"]
     first = probe.seen[0][1]
     assert first["total"] == 0 and first["focus"] is None  # before FRAME: empty, focus-less
     for phase_id, sl in probe.seen[1:]:

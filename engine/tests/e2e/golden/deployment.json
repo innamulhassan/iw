@@ -72,19 +72,6 @@
       },
       {
         "confidence": null,
-        "dst": "service:checkout-api|prod",
-        "established": null,
-        "id": "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered",
-        "invalidated_by": null,
-        "origin": "discovered",
-        "source": null,
-        "src": "anomaly:anom-1",
-        "state": "active",
-        "type": "affects",
-        "valid_to": null
-      },
-      {
-        "confidence": null,
         "dst": "deployment:dep-checkout-api-7f9d8",
         "established": null,
         "id": "edge:deployed_as:release:checkout-api-rev43->deployment:dep-checkout-api-7f9d8:discovered",
@@ -107,6 +94,19 @@
         "src": "pod:pod-checkout-api-7f9d8-x1",
         "state": "active",
         "type": "runs_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:checkout-api|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-1",
+        "state": "active",
+        "type": "affects",
         "valid_to": null
       },
       {
@@ -303,118 +303,6 @@
     ],
     "facts": [
       {
-        "at": "2026-07-19T09:04:00+00:00",
-        "id": "fact:78a5b9e00b4ad73c",
-        "observed_at": "2026-07-19T09:04:00+00:00",
-        "predicate": "onset_value",
-        "source": "prometheus",
-        "source_native_name": "onset_value",
-        "state": "active",
-        "subject": "anomaly:anom-1",
-        "unit": null,
-        "valid_to": null,
-        "value": 0.0,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T09:04:00+00:00",
-        "id": "fact:9921659f9bded670",
-        "observed_at": "2026-07-19T09:04:00+00:00",
-        "predicate": "severity_score",
-        "source": "servicenow",
-        "source_native_name": "severity_score",
-        "state": "active",
-        "subject": "anomaly:anom-1",
-        "unit": null,
-        "valid_to": null,
-        "value": 3,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T09:04:00+00:00",
-        "id": "fact:e0d850baa836c7f6",
-        "observed_at": "2026-07-19T09:04:00+00:00",
-        "predicate": "degraded",
-        "source": "prometheus",
-        "source_native_name": "degraded",
-        "state": "superseded",
-        "subject": "service:checkout-api|prod",
-        "unit": null,
-        "valid_to": "2026-07-19T09:40:00+00:00",
-        "value": true,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T09:04:00+00:00",
-        "id": "fact:4e862b4142f1f7b8",
-        "observed_at": "2026-07-19T09:04:00+00:00",
-        "predicate": "error_rate",
-        "source": "prometheus",
-        "source_native_name": "red_errors",
-        "state": "active",
-        "subject": "service:checkout-api|prod",
-        "unit": null,
-        "valid_to": null,
-        "value": 1.0,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T09:04:00+00:00",
-        "id": "fact:59b269a98aac56fc",
-        "observed_at": "2026-07-19T09:04:00+00:00",
-        "predicate": "request_rate",
-        "source": "prometheus",
-        "source_native_name": "red_rate",
-        "state": "active",
-        "subject": "service:checkout-api|prod",
-        "unit": "rpm",
-        "valid_to": null,
-        "value": 38,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T09:04:00+00:00",
-        "id": "fact:9461065f90a7d895",
-        "observed_at": "2026-07-19T09:04:00+00:00",
-        "predicate": "latency_p99",
-        "source": "appd",
-        "source_native_name": "red_latency_p99",
-        "state": "active",
-        "subject": "service:checkout-api|prod",
-        "unit": "ms",
-        "valid_to": null,
-        "value": 250,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T09:04:00+00:00",
-        "id": "fact:5f4c1d3f84e7d223",
-        "observed_at": "2026-07-19T09:04:00+00:00",
-        "predicate": "tier",
-        "source": "servicenow",
-        "source_native_name": "tier",
-        "state": "active",
-        "subject": "service:checkout-api|prod",
-        "unit": null,
-        "valid_to": null,
-        "value": "tier-1",
-        "where": null
-      },
-      {
-        "at": "2026-07-19T09:04:00+00:00",
-        "id": "fact:138990153cc6a002",
-        "observed_at": "2026-07-19T09:04:00+00:00",
-        "predicate": "slo_availability_target",
-        "source": "servicenow",
-        "source_native_name": "slo_target",
-        "state": "active",
-        "subject": "service:checkout-api|prod",
-        "unit": null,
-        "valid_to": null,
-        "value": 0.999,
-        "where": null
-      },
-      {
         "at": "2026-07-19T09:06:00+00:00",
         "id": "fact:d341910b4693bbbb",
         "observed_at": "2026-07-19T09:06:00+00:00",
@@ -552,6 +440,118 @@
         "unit": null,
         "valid_to": null,
         "value": 0.05,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:04:00+00:00",
+        "id": "fact:78a5b9e00b4ad73c",
+        "observed_at": "2026-07-19T09:04:00+00:00",
+        "predicate": "onset_value",
+        "source": "prometheus",
+        "source_native_name": "onset_value",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.0,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:04:00+00:00",
+        "id": "fact:9921659f9bded670",
+        "observed_at": "2026-07-19T09:04:00+00:00",
+        "predicate": "severity_score",
+        "source": "servicenow",
+        "source_native_name": "severity_score",
+        "state": "active",
+        "subject": "anomaly:anom-1",
+        "unit": null,
+        "valid_to": null,
+        "value": 3,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:04:00+00:00",
+        "id": "fact:e0d850baa836c7f6",
+        "observed_at": "2026-07-19T09:04:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "source_native_name": "degraded",
+        "state": "superseded",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T09:40:00+00:00",
+        "value": true,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:04:00+00:00",
+        "id": "fact:4e862b4142f1f7b8",
+        "observed_at": "2026-07-19T09:04:00+00:00",
+        "predicate": "error_rate",
+        "source": "prometheus",
+        "source_native_name": "red_errors",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 1.0,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:04:00+00:00",
+        "id": "fact:59b269a98aac56fc",
+        "observed_at": "2026-07-19T09:04:00+00:00",
+        "predicate": "request_rate",
+        "source": "prometheus",
+        "source_native_name": "red_rate",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": "rpm",
+        "valid_to": null,
+        "value": 38,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:04:00+00:00",
+        "id": "fact:9461065f90a7d895",
+        "observed_at": "2026-07-19T09:04:00+00:00",
+        "predicate": "latency_p99",
+        "source": "appd",
+        "source_native_name": "red_latency_p99",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 250,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:04:00+00:00",
+        "id": "fact:5f4c1d3f84e7d223",
+        "observed_at": "2026-07-19T09:04:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "source_native_name": "tier",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:04:00+00:00",
+        "id": "fact:138990153cc6a002",
+        "observed_at": "2026-07-19T09:04:00+00:00",
+        "predicate": "slo_availability_target",
+        "source": "servicenow",
+        "source_native_name": "slo_target",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.999,
         "where": null
       },
       {
@@ -892,18 +892,6 @@
         "type": "alert"
       },
       {
-        "first_seen": "2026-07-19T09:04:00+00:00",
-        "first_source": "prometheus",
-        "id": "anomaly:anom-1",
-        "last_seen": "2026-07-19T09:40:00+00:00",
-        "origin": false,
-        "props": {
-          "anomaly_id": "ANOM-1"
-        },
-        "source": "prometheus",
-        "type": "anomaly"
-      },
-      {
         "first_seen": "2026-07-19T09:06:00+00:00",
         "first_source": "ocp",
         "id": "deployment:dep-checkout-api-7f9d8",
@@ -942,6 +930,18 @@
         },
         "source": "prometheus",
         "type": "host"
+      },
+      {
+        "first_seen": "2026-07-19T09:04:00+00:00",
+        "first_source": "prometheus",
+        "id": "anomaly:anom-1",
+        "last_seen": "2026-07-19T09:40:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-1"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
       },
       {
         "first_seen": "2026-07-19T09:06:00+00:00",
@@ -1042,7 +1042,7 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "checkout-api's rev43 rollout (09:00) never reached available replicas; pods crash-looping by 09:04. checkout-db is the only declared dependency.",
+      "narrative": "checkout-api's rev43 rollout (09:00) never reached available replicas; pods crash-looping by 09:04. checkout-db is the only declared dependency. Declared SEV2. Rollout is stuck (ProgressDeadlineExceeded->rollback) and the pod is CrashLoopBackOff \u2014 it has never reached Ready; its host k8s-node-17 is healthy (CPU 31%, no saturation). Investigate before mitigating.",
       "phase": "frame",
       "refs": {
         "edges": [
@@ -1051,48 +1051,14 @@
           "edge:introduced_by:change_event:chg-dep-99->release:checkout-api-rev43:discovered",
           "edge:introduced_by:change_event:chg-dep-99->code_commit:9f2a1e0:discovered",
           "edge:fired_on:alert:alt-1->service:checkout-api|prod:discovered",
-          "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered"
-        ],
-        "events": [
-          "evt:6e22598945fa0829",
-          "evt:a08ef31542081994"
-        ],
-        "facts": [
-          "fact:78a5b9e00b4ad73c",
-          "fact:9921659f9bded670",
-          "fact:e0d850baa836c7f6",
-          "fact:4e862b4142f1f7b8",
-          "fact:59b269a98aac56fc",
-          "fact:9461065f90a7d895",
-          "fact:5f4c1d3f84e7d223",
-          "fact:138990153cc6a002"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "service:checkout-api|prod",
-          "database:checkout-db",
-          "change_event:chg-dep-99",
-          "service:checkout-api|prod",
-          "release:checkout-api-rev43",
-          "code_commit:9f2a1e0",
-          "service:checkout-api|prod",
-          "alert:alt-1",
-          "anomaly:anom-1"
-        ]
-      },
-      "seq": 1
-    },
-    {
-      "actor": "engine",
-      "narrative": "Declared SEV2. Rollout is stuck (ProgressDeadlineExceeded->rollback) and the pod is CrashLoopBackOff \u2014 it has never reached Ready; its host k8s-node-17 is healthy (CPU 31%, no saturation). Investigate before mitigating.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
           "edge:deployed_as:release:checkout-api-rev43->deployment:dep-checkout-api-7f9d8:discovered",
           "edge:runs_on:pod:pod-checkout-api-7f9d8-x1->host:k8s-node-17.prod.internal:discovered",
+          "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered",
           "edge:affects:incident:inc-7731->service:checkout-api|prod:discovered"
         ],
         "events": [
+          "evt:6e22598945fa0829",
+          "evt:a08ef31542081994",
           "evt:c7c766cffe64bc62",
           "evt:5fec78d0fd7c49b8",
           "evt:078a4565c1bb64f2",
@@ -1109,6 +1075,14 @@
           "fact:31ab351458c50ff9",
           "fact:de7b7ee61b9a4fba",
           "fact:94fbced33f165657",
+          "fact:78a5b9e00b4ad73c",
+          "fact:9921659f9bded670",
+          "fact:e0d850baa836c7f6",
+          "fact:4e862b4142f1f7b8",
+          "fact:59b269a98aac56fc",
+          "fact:9461065f90a7d895",
+          "fact:5f4c1d3f84e7d223",
+          "fact:138990153cc6a002",
           "fact:53f1f8733975d027",
           "fact:9ffe6ccf5bff4764",
           "fact:8d9f9fc94accffc2",
@@ -1118,21 +1092,30 @@
         ],
         "hypotheses": [],
         "nodes": [
+          "service:checkout-api|prod",
+          "database:checkout-db",
+          "change_event:chg-dep-99",
+          "service:checkout-api|prod",
+          "release:checkout-api-rev43",
+          "code_commit:9f2a1e0",
+          "service:checkout-api|prod",
+          "alert:alt-1",
           "deployment:dep-checkout-api-7f9d8",
           "release:checkout-api-rev43",
           "pod:pod-checkout-api-7f9d8-x1",
           "host:k8s-node-17.prod.internal",
           "deployment:dep-checkout-api-7f9d8",
           "pod:pod-checkout-api-7f9d8-x1",
+          "anomaly:anom-1",
           "incident:inc-7731"
         ]
       },
-      "seq": 2
+      "seq": 1
     },
     {
       "actor": "engine",
       "narrative": "Change-first: the rev43 deploy is the prime suspect (H1); the declared DB dependency is a weaker alternative (H2).",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [],
         "events": [],
@@ -1146,7 +1129,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -1182,12 +1165,12 @@
           "pull_request:checkout-api|482"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: roll back the Deployment to the prior release rev42. Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -1197,7 +1180,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -1220,7 +1203,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -1233,16 +1216,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -1252,36 +1234,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "checkout-api's rev43 rollout (09:00) never reached available replicas; pods crash-looping by 09:04. checkout-db is the only declared dependency."
+        "text": "checkout-api's rev43 rollout (09:00) never reached available replicas; pods crash-looping by 09:04. checkout-db is the only declared dependency. Declared SEV2. Rollout is stuck (ProgressDeadlineExceeded->rollback) and the pod is CrashLoopBackOff \u2014 it has never reached Ready; its host k8s-node-17 is healthy (CPU 31%, no saturation). Investigate before mitigating."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2. Rollout is stuck (ProgressDeadlineExceeded->rollback) and the pod is CrashLoopBackOff \u2014 it has never reached Ready; its host k8s-node-17 is healthy (CPU 31%, no saturation). Investigate before mitigating."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "Change-first: the rev43 deploy is the prime suspect (H1); the declared DB dependency is a weaker alternative (H2)."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "Ruled out checkout-db (pool 24%, healthy). Blame + diff pin the panic to PR #482's removal of DB_HOST from the ConfigMap in commit 9f2a1e0."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: roll back the Deployment to the prior release rev42. Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-rollback: pod reached Ready, rollout complete, degraded cleared. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: rev43 (PR #482, commit 9f2a1e0) removed the ConfigMap key DB_HOST; checkout-api panicked on boot -> CrashLoopBackOff, rollout stuck. Rollback to rev42 resolved it. checkout-db ruled out."
       }
     ],

@@ -829,19 +829,22 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05.",
+      "narrative": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05. Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy.",
       "phase": "frame",
       "refs": {
         "edges": [
           "edge:fired_on:alert:alt-1->service:checkout-api|prod:discovered",
           "edge:changed_by:service:checkout-api|prod->change_event:chg-3311:discovered",
-          "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered"
+          "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered",
+          "edge:affects:incident:inc-7702->service:checkout-api|prod:discovered",
+          "edge:depends_on:service:checkout-api|prod->external_service:fraud-score-vendor:declared"
         ],
         "events": [
           "evt:226d5b3521e57725",
           "evt:c55c12f25bf4cadc",
           "evt:d0df20f956a7d061",
-          "evt:71e9c9994ed99c98"
+          "evt:71e9c9994ed99c98",
+          "evt:3c1187d784caae09"
         ],
         "facts": [
           "fact:e0521f4f12212213",
@@ -851,32 +854,7 @@
           "fact:61e8f3741f8556e1",
           "fact:7bfb8e059bb2f98b",
           "fact:9725d5f674fcd273",
-          "fact:4fdf7bcc5198de86"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "service:checkout-api|prod",
-          "alert:alt-1",
-          "change_event:chg-3311",
-          "service:checkout-api|prod",
-          "anomaly:anom-1"
-        ]
-      },
-      "seq": 1
-    },
-    {
-      "actor": "engine",
-      "narrative": "Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:affects:incident:inc-7702->service:checkout-api|prod:discovered",
-          "edge:depends_on:service:checkout-api|prod->external_service:fraud-score-vendor:declared"
-        ],
-        "events": [
-          "evt:3c1187d784caae09"
-        ],
-        "facts": [
+          "fact:4fdf7bcc5198de86",
           "fact:edbd72f9672fdb07",
           "fact:a75119bd7f1145f7",
           "fact:9a675c546b4065ce",
@@ -885,16 +863,21 @@
         ],
         "hypotheses": [],
         "nodes": [
+          "service:checkout-api|prod",
+          "alert:alt-1",
+          "change_event:chg-3311",
+          "service:checkout-api|prod",
+          "anomaly:anom-1",
           "incident:inc-7702",
           "external_service:fraud-score-vendor"
         ]
       },
-      "seq": 2
+      "seq": 1
     },
     {
       "actor": "engine",
       "narrative": "Change-first: CHG-3311 tightened the egress ACL 7 minutes before onset \u2014 the firewall rule is the prime suspect (H1). ServiceNow flags this as a RECURRENCE of INC-7699 (last quarter, same FW-EGR-118: an egress-ACL tightening blocked the same vendor, resolved by reverting the ACL) \u2014 a known-recurrence prior that immediately sharpens H1. A raw link-layer flap on the same segment is a weaker alternative (H2).",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [
           "edge:recurrence_of:incident:inc-7702->incident:inc-7699:inferred",
@@ -918,7 +901,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -951,12 +934,12 @@
           "network_segment:egress-payment-gw"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: revert the ACL tightening on FW-EGR-118. This is a security change \u2014 proposed only; execution awaits the human-approved gate.",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -966,7 +949,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -988,7 +971,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -1001,16 +984,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -1020,36 +1002,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05."
+        "text": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05. Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "Change-first: CHG-3311 tightened the egress ACL 7 minutes before onset \u2014 the firewall rule is the prime suspect (H1). ServiceNow flags this as a RECURRENCE of INC-7699 (last quarter, same FW-EGR-118: an egress-ACL tightening blocked the same vendor, resolved by reverting the ACL) \u2014 a known-recurrence prior that immediately sharpens H1. A raw link-layer flap on the same segment is a weaker alternative (H2)."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "Splunk: 214 clean policy denies (action=blocked) at FW-EGR-118 since 09:12, one target only. Prometheus: probe_success=0 on egress-fraud-score alone; egress-geoip and egress-payment-gw stay healthy, and packet_loss on the affected segment is 0.0% \u2014 not a network flap. H2 ruled out; H1 confirmed as leading (supported/high)."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: revert the ACL tightening on FW-EGR-118. This is a security change \u2014 proposed only; execution awaits the human-approved gate."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-revert: denies stopped, egress-fraud-score probe_success recovered, checkout-api red_errors back to 1%. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: CHG-3311 (egress ACL hardening) tightened FW-EGR-118 and blocked egress to fraud-score.vendor.com; the human-approved ACL revert resolved it. Link-layer flap ruled out."
       }
     ],

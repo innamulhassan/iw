@@ -8,7 +8,8 @@ spiking and probe_success flapping on the segment itself. Differential diagnosis
 OUT pricing-svc's own database (pool healthy) and confirms the network change as root
 cause, discriminated by retransmits-at-the-boundary + a healthy callee (not an
 app/DB-side symptom). Reverting the MTU change resolves it. The scripted planner drives
-the real engine through all 7 phases, with appd/prometheus/servicenow capability calls
+the real engine through the 5-phase algebra (6 steps — the investigate loop runs twice),
+with appd/prometheus/servicenow capability calls
 resolved against mocked fixtures.
 """
 from __future__ import annotations
@@ -85,20 +86,19 @@ def build():
         ],
         narrative="checkout-svc probe_success degraded and retransmits climbed from 13:40, "
                   "~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10.")
+    # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
+    frame = frame.model_copy(update={"ops": [*frame.ops,
+        node(NT.INCIDENT, incident_id="INC-9001"),
+        edge(ET.AFFECTS, INC, SVC),
+        event(INC, "declared", T_ONSET, source=S.SERVICENOW),
+        fact(SVC, "degraded", True, T_ONSET, source=S.PROMETHEUS),
+    ], "calls": [*frame.calls, call("bt_health"), call("flowmap")],
+       "narrative": frame.narrative + " Declared SEV2. checkout-svc's CheckoutFlow BT is "
+       "degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. "
+       "Still bleeding; investigate before mitigating."})
 
-    triage = phase("triage",
-        calls=[call("bt_health"), call("flowmap")],
-        ops=[
-            node(NT.INCIDENT, incident_id="INC-9001"),
-            edge(ET.AFFECTS, INC, SVC),
-            event(INC, "declared", T_ONSET, source=S.SERVICENOW),
-            fact(SVC, "degraded", True, T_ONSET, source=S.PROMETHEUS),
-        ],
-        narrative="Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and "
-                  "flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate "
-                  "before mitigating.")
-
-    hypothesize = phase("hypothesize", [
+    # INVESTIGATE opens the hypothesize⇄evidence loop (verdict=repeat keeps looping)
+    investigate_open = phase("investigate", [
         node(NT.DATABASE, db_id="pricing-db", engine="postgresql"),
         edge(ET.DEPENDS_ON, SVC_CALLEE, DB, origin="declared"),
         propose("h1", "MTU/uplink change on network segment SEG-EDGE-12 (CHG-77) is causing packet "
@@ -106,15 +106,16 @@ def build():
         propose("h2", "pricing-svc's own database (pricing-db) is degraded (pool exhaustion / slow "
                 "queries) — a code/db-side cause independent of the network", "low", root=DB),
     ], "Change-first: the network change (H1) lines up with onset and the caller/callee boundary; "
-       "pricing-svc's own DB (H2) is a weaker alternative pending its own health check.")
+       "pricing-svc's own DB (H2) is a weaker alternative pending its own health check.",
+       status="repeat")
 
-    # INVESTIGATE: rule out pricing-db, confirm the network-boundary path.
+    # the loop's confirm turn: rule out pricing-db, confirm the network-boundary path.
     db_fact = fid(DB, "conn_pool_util", T_INV)
     retrans_fact = fid(NETSEG, "retrans_segs", T_INV)
     probe_fact = fid(NETSEG, "probe_success", T_INV)
     callee_clean_fact = fid(SVC_CALLEE, "no_evidence:healthrule_violations", T_INV)
 
-    investigate = phase("investigate",
+    investigate_confirm = phase("investigate",
         calls=[call("instant_query"), call("range_query"), call("healthrule_violations")],
         ops=[
             # pricing-db's full USE pull — healthy, ruling out the DB-side rival (H2).
@@ -146,7 +147,7 @@ def build():
         narrative="Ruled out pricing-db (pool 24%, healthy). Retransmits + flapping probes on "
                   "SEG-EDGE-12, plus a clean callee, pin the fault to the network boundary.")
 
-    remediate = phase("remediate", [
+    act = phase("act", [
         update("h1", level="high", basis="proposed fix: revert the MTU/uplink change on "
                "SEG-EDGE-12 (CHG-77) — restore the prior MTU config"),
     ], "Safest reversible fix: revert the MTU change. Awaiting approval (gated).")
@@ -205,4 +206,4 @@ def build():
         },
     }
 
-    return subject, [frame, triage, hypothesize, investigate, remediate, verify, close], fixtures
+    return subject, [frame, investigate_open, investigate_confirm, act, verify, close], fixtures

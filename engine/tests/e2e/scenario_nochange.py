@@ -3,7 +3,7 @@ Database saturation)" class; the class the critic flagged).
 
 checkout-api's request rate climbs 3.4x baseline and p99 latency spikes to 6.8s at 09:00.
 ServiceNow's change log for the incident window is EMPTY — no deploy, no config change,
-nothing to blame. HYPOTHESIZE falls back from change-first to the USE-saturation signal:
+nothing to blame. INVESTIGATE falls back from change-first to the USE-saturation signal:
 AppD's snapshot exit-calls discover checkout-api's only backend dependency (checkout-db,
 JDBC) and Prometheus shows its connection-pool utilization climbing in lockstep with the
 onset — an organic traffic surge saturating the pool, not a code/deploy regression.
@@ -11,11 +11,12 @@ onset — an organic traffic surge saturating the pool, not a code/deploy regres
 INVESTIGATE rules OUT the rival "an unreported change caused this" hypothesis (the
 find_recent_changes null-result IS the refuting evidence, R-P2) and confirms the pool
 hypothesis to high confidence via the differential-diagnosis gate — but there is no
-change/commit to revert, so REMEDIATE only scales capacity (a mitigation, not a fix) and
+change/commit to revert, so ACT only scales capacity (a gated mitigation, not a fix) and
 VERIFY never promotes the hypothesis to CONFIRMED: the pool trend correlates with the
 symptom but was never causally isolated (no revert experiment is possible for an organic
-no-change incident). The scripted planner drives the real engine through all 7 phases to
-CloseOutcome.MITIGATED with confirmed=None.
+no-change incident). The scripted planner drives the real engine through the 5-phase
+algebra (6 steps — the investigate loop runs twice) to CloseOutcome.MITIGATED with
+confirmed=None.
 """
 from __future__ import annotations
 
@@ -64,7 +65,7 @@ def build():
     range_query) surfaces the organic traffic surge + climbing pool util; appd
     (get_snapshots) discovers the DB dependency at the boundary where the pool times out;
     servicenow (find_recent_changes) comes back with an EMPTY change list — the fallback
-    trigger. HYPOTHESIZE seeds the leading candidate from the saturation signal (root=DB),
+    trigger. INVESTIGATE seeds the leading candidate from the saturation signal (root=DB),
     never a ChangeEvent. Closes MITIGATED: pool scaled up, symptom clears, but the leading
     hypothesis is never promoted past 'supported' — no confirmed root cause."""
     subject = SubjectRef(domain="app-incident", id="INC-9001", kind="incident")
@@ -88,22 +89,21 @@ def build():
         ],
         narrative="checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x "
                   "baseline at 09:00; HighConnPoolUtilization fired on the service.")
+    # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
+    frame = frame.model_copy(update={"ops": [*frame.ops,
+        node(NT.INCIDENT, incident_id="INC-9001"),
+        edge(ET.AFFECTS, INC, SVC),
+        event(INC, "declared", T_TRIAGE, source=S.SERVICENOW),
+        fact(DB, "conn_pool_util", 0.86, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
+        event(DB, "connection_storm", T_TRIAGE, source=S.PROMETHEUS),
+    ], "calls": [*frame.calls, call("get_snapshots")],
+       "narrative": frame.narrative + " Declared SEV2, still bleeding. AppD snapshot "
+       "exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) — pool "
+       "util already at 86% and climbing. Investigate, don't blind-mitigate."})
 
-    triage = phase("triage",
-        calls=[call("get_snapshots")],
-        ops=[
-            node(NT.INCIDENT, incident_id="INC-9001"),
-            edge(ET.AFFECTS, INC, SVC),
-            event(INC, "declared", T_TRIAGE, source=S.SERVICENOW),
-            fact(DB, "conn_pool_util", 0.86, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
-            event(DB, "connection_storm", T_TRIAGE, source=S.PROMETHEUS),
-        ],
-        narrative="Declared SEV2, still bleeding. AppD snapshot exit-calls show "
-                  "checkout-api's only backend dependency is checkout-db (JDBC) — pool "
-                  "util already at 86% and climbing. Investigate, don't blind-mitigate.")
-
-    hypothesize = phase("hypothesize",
+    investigate_open = phase("investigate",
         calls=[call("find_recent_changes")],
+        status="repeat",
         ops=[
             propose("h1", "Organic traffic surge saturated checkout-db's connection pool "
                     "(USE-saturation, no code/deploy change)", "med", root=DB),
@@ -117,7 +117,7 @@ def build():
 
     no_change_fact = fid(SVC, "no_evidence:find_recent_changes", T_INV)
     db_fact = fid(DB, "conn_pool_util", T_INV)
-    investigate = phase("investigate", [
+    investigate_confirm = phase("investigate", [
         fact(DB, "conn_pool_util", 0.97, T_INV, source=S.PROMETHEUS, reliability=0.99),
         # the pool internals that make the saturation concrete: connections at the ceiling and a
         # slow-query surge as everything contends — the USE picture with no change behind it.
@@ -138,7 +138,7 @@ def build():
     ], "Ruled out the phantom change (clean change log). Pool util at 97% tracks the "
        "onset exactly, and checkout-db is the only dependency in play.")
 
-    remediate = phase("remediate", [
+    act = phase("act", [
         update("h1", level="high", basis="mitigation: scale checkout-db's connection "
                "pool and add read capacity — a reversible capacity fix, not a revert "
                "(there's no change to revert)"),
@@ -161,7 +161,7 @@ def build():
                   "resolved the symptom; root cause is the leading, evidence-supported "
                   "but unconfirmed hypothesis — closed MITIGATED.", status="done")
 
-    script = [frame, triage, hypothesize, investigate, remediate, verify, close]
+    script = [frame, investigate_open, investigate_confirm, act, verify, close]
 
     fixtures = {
         "active_alerts": {

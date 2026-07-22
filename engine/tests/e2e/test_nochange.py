@@ -19,8 +19,8 @@ def _run():
 def test_nochange_mitigated_close():
     res = _run()
 
-    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
-                              "remediate", "verify", "close"]
+    assert res.phases_run == ["frame", "investigate", "investigate", "act",
+                              "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
 
     # closed MITIGATED: the symptom cleared but no hypothesis was ever confirmed

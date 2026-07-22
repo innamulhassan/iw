@@ -1,6 +1,17 @@
 # The tuned incident playbook — declarative config for ONE incident class (DESIGN §2.3).
 # WHAT/WHEN only: phases, allowed intents, gates, transitions, and one tunables block.
 # The engine owns all mechanics; the LLM owns all judgment.
+#
+# P7 — the 5-phase algebra (Part III §2, owner-ratified: triage + remediate retired):
+#
+#   frame  →  investigate (ONE loop: hypothesize ⇄ gather evidence ⇄ refute)
+#          →  act (gated — EVERY production-changing action: early mitigation and
+#                  remediation are the same human-gated machinery, not phases)
+#          →  verify  →  close        (verify backtracks to investigate on failed recovery)
+#
+# Triage is gone: its one real decision ("mitigate now vs investigate") is the act-entry
+# decision, available from investigate at any time. Remediate is gone: its real success —
+# an approved, executed, journaled WRITE — is an ACTION inside act, not a stage.
 id: incident-core
 applies_to: app-incident
 entry_phase: frame
@@ -8,43 +19,31 @@ capabilities: [servicenow, splunk, appd, prometheus, cmdb, ocp, artifactory, git
 
 phases:
   - id: frame
-    goal: "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + topology + candidate changes."
-    allowed_intents: [ingest_alert, query_change_log, seed_graph, get_dependencies]
+    goal: "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact."
+    allowed_intents: [ingest_alert, query_change_log, seed_graph, get_dependencies, assess_impact, list_dependencies]
     produces_required: [nodes_touched, facts_added]
     gate: {min_facts: 1}
-    on_verdict: {advance: triage, repeat: frame}
-
-  - id: triage
-    goal: "Still bleeding? Decide mitigate-now vs investigate; narrow the suspect set."
-    allowed_intents: [assess_impact, list_dependencies, apply_mitigation]
-    produces_required: [facts_added]
-    on_verdict: {advance: hypothesize, repeat: triage, backtrack: frame}
-
-  - id: hypothesize
-    goal: "Generate causal explanations, change-first; fall back to saturation/onset when the change set is empty."
-    allowed_intents: [enumerate_changes, propose_hypotheses, correlate_timeline]
-    produces_required: [hypotheses_updated]
-    on_verdict: {advance: investigate, repeat: hypothesize}
+    on_verdict: {advance: investigate, repeat: frame}
 
   - id: investigate
-    goal: "Confirm or refute the leading hypothesis with evidence; rule out rivals."
-    allowed_intents: [fetch_logs, fetch_metrics, fetch_traces, read_diff, blame, query_change_log, correlate_timeline]
-    produces_required: [facts_added]
+    goal: "ONE loop — hypothesize ⇄ gather evidence ⇄ refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals."
+    allowed_intents: [enumerate_changes, propose_hypotheses, correlate_timeline, fetch_logs, fetch_metrics, fetch_traces, read_diff, blame, query_change_log]
+    produces_required: [facts_added, hypotheses_updated]
     gate: {require_confidence_gate: true, require_refutation: true}
-    on_verdict: {advance: remediate, repeat: investigate, backtrack: hypothesize}
+    on_verdict: {advance: act, repeat: investigate, backtrack: investigate}
 
-  - id: remediate
-    goal: "Propose the safest reversible fix (+ mitigation); side-effects are human-gated."
-    allowed_intents: [propose_fix, apply_mitigation]
+  - id: act
+    goal: "Execute the chosen production-changing action through the human approval gate — early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action."
+    allowed_intents: [propose_fix, apply_mitigation, apply_remediation]
     produces_required: [hypotheses_updated]
     writes_allowed: true          # the one phase that may execute write-effect capabilities
-    on_verdict: {advance: verify, repeat: remediate}
+    on_verdict: {advance: verify, repeat: act}
 
   - id: verify
     goal: "Did the symptom clear and does the confirmed chain still hold?"
     allowed_intents: [recheck_symptom, confirm_chain]
     produces_required: [facts_added]
-    on_verdict: {advance: close, backtrack: hypothesize}
+    on_verdict: {advance: close, backtrack: investigate}
 
   - id: close
     goal: "Postmortem: the confirmed causal chain + timeline, folded from the journal."
@@ -57,7 +56,11 @@ tunables:
   max_retries: 2
   delta: 0.15
   confidence_band: {low: 0.3, med: 0.6, high: 0.9}
-  op_ceiling: {frame: 40, triage: 30, hypothesize: 30, investigate: 40, remediate: 15, verify: 20, close: 10}
+  op_ceiling: {frame: 60, investigate: 40, act: 15, verify: 20, close: 10}
+  # P7 focus slice (the bounded reasoning view every plan receives — graph/tools.focus_slice)
+  focus_budget: 40
+  focus_facts_per_node: 6
+  focus_frontier_hops: 1
   # P4 belief arithmetic (DOMAIN-v3 §2.5): evidence weight = reliability x proximity x
   # specificity — every weight/decay is a knob HERE, the engine owns arithmetic only (INV-9).
   # Per-source clock-skew bounds (seconds, R-J2): proximity/correlation never asserts ordering
@@ -135,12 +138,15 @@ doctrine:
     - In verify, once the symptom has cleared, set the leader status "confirmed" and emit verdict
       `advance` (the engine routes verify -> close); reserve verdict `done` for the CLOSE phase only.
   hypothesis_method: |-
-    - In HYPOTHESIZE always propose the leading hypothesis AND at least one distinct RIVAL rooted at
-      a different node. In INVESTIGATE actively gather evidence that could REFUTE a hypothesis and
-      set the loser's status to "refuted" — the gate will not let you advance until a rival is ruled
-      out (or the leader is challenged with refuting evidence). Do not loop re-supporting one idea.
+    - INVESTIGATE is ONE loop: hypothesize ⇄ gather evidence ⇄ refute. Early in the loop propose
+      the leading hypothesis AND at least one distinct RIVAL rooted at a different node; then
+      actively gather evidence that could REFUTE a hypothesis and set the loser's status to
+      "refuted" — the gate will not let you advance until a rival is ruled out (or the leader is
+      challenged with refuting evidence). Do not loop re-supporting one idea.
   progression: |-
     set verdict=advance as soon as this phase's produces_required + gate are
-      satisfied — do NOT loop re-gathering evidence. TRIAGE just decides mitigate-vs-investigate and
-      names the suspect; DEEP evidence (diffs, traces, blame, refuting a rival) belongs in INVESTIGATE.
-      Only verdict=repeat when a REQUIRED output is genuinely still missing this phase.
+      satisfied — do NOT loop re-gathering evidence. In INVESTIGATE, verdict=repeat continues the
+      hypothesize⇄evidence⇄refute loop (propose early, refute before advancing); "stop the
+      bleeding NOW" is not a phase — enter ACT early with a mitigation action when impact demands
+      it (every production-changing action, mitigation or remediation alike, is a human-gated ACT
+      action). Only verdict=repeat when a REQUIRED output is genuinely still missing this phase.

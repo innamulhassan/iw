@@ -20,6 +20,19 @@
       },
       {
         "confidence": null,
+        "dst": "service:pricing-svc|prod",
+        "established": null,
+        "id": "edge:depends_on:service:checkout-svc|prod->service:pricing-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:checkout-svc|prod",
+        "state": "active",
+        "type": "depends_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
         "dst": "service:checkout-svc|prod",
         "established": null,
         "id": "edge:affects:anomaly:anom-1->service:checkout-svc|prod:discovered",
@@ -68,19 +81,6 @@
         "src": "anomaly:anom-1",
         "state": "active",
         "type": "correlated_with",
-        "valid_to": null
-      },
-      {
-        "confidence": null,
-        "dst": "service:pricing-svc|prod",
-        "established": null,
-        "id": "edge:depends_on:service:checkout-svc|prod->service:pricing-svc|prod:discovered",
-        "invalidated_by": null,
-        "origin": "discovered",
-        "source": null,
-        "src": "service:checkout-svc|prod",
-        "state": "active",
-        "type": "depends_on",
         "valid_to": null
       },
       {
@@ -226,6 +226,48 @@
     "facts": [
       {
         "at": "2026-07-19T13:40:00+00:00",
+        "id": "fact:5a7d14591e7942bf",
+        "observed_at": "2026-07-19T13:40:00+00:00",
+        "predicate": "art_p95",
+        "source": "appd",
+        "source_native_name": "art_p95",
+        "state": "active",
+        "subject": "business_transaction:checkout-svc|checkoutflow",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 4800,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T13:40:00+00:00",
+        "id": "fact:50a3adfcc9392eb6",
+        "observed_at": "2026-07-19T13:40:00+00:00",
+        "predicate": "calls_per_min",
+        "source": "appd",
+        "source_native_name": "epm",
+        "state": "active",
+        "subject": "business_transaction:checkout-svc|checkoutflow",
+        "unit": "calls_per_min",
+        "valid_to": null,
+        "value": 57000,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T13:40:00+00:00",
+        "id": "fact:407a2ad86b8886cc",
+        "observed_at": "2026-07-19T13:40:00+00:00",
+        "predicate": "delta_vs_baseline",
+        "source": "appd",
+        "source_native_name": "delta_vs_baseline",
+        "state": "active",
+        "subject": "business_transaction:checkout-svc|checkoutflow",
+        "unit": null,
+        "valid_to": null,
+        "value": 3.2,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T13:40:00+00:00",
         "id": "fact:088370e1c435ebd3",
         "observed_at": "2026-07-19T13:40:00+00:00",
         "predicate": "onset_value",
@@ -334,48 +376,6 @@
         "unit": "ms",
         "valid_to": null,
         "value": 500,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T13:40:00+00:00",
-        "id": "fact:5a7d14591e7942bf",
-        "observed_at": "2026-07-19T13:40:00+00:00",
-        "predicate": "art_p95",
-        "source": "appd",
-        "source_native_name": "art_p95",
-        "state": "active",
-        "subject": "business_transaction:checkout-svc|checkoutflow",
-        "unit": "ms",
-        "valid_to": null,
-        "value": 4800,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T13:40:00+00:00",
-        "id": "fact:50a3adfcc9392eb6",
-        "observed_at": "2026-07-19T13:40:00+00:00",
-        "predicate": "calls_per_min",
-        "source": "appd",
-        "source_native_name": "epm",
-        "state": "active",
-        "subject": "business_transaction:checkout-svc|checkoutflow",
-        "unit": "calls_per_min",
-        "valid_to": null,
-        "value": 57000,
-        "where": null
-      },
-      {
-        "at": "2026-07-19T13:40:00+00:00",
-        "id": "fact:407a2ad86b8886cc",
-        "observed_at": "2026-07-19T13:40:00+00:00",
-        "predicate": "delta_vs_baseline",
-        "source": "appd",
-        "source_native_name": "delta_vs_baseline",
-        "state": "active",
-        "subject": "business_transaction:checkout-svc|checkoutflow",
-        "unit": null,
-        "valid_to": null,
-        "value": 3.2,
         "where": null
       },
       {
@@ -665,32 +665,6 @@
       },
       {
         "first_seen": "2026-07-19T13:40:00+00:00",
-        "first_source": "prometheus",
-        "id": "anomaly:anom-1",
-        "last_seen": "2026-07-19T14:20:00+00:00",
-        "origin": false,
-        "props": {
-          "anomaly_id": "ANOM-1"
-        },
-        "source": "prometheus",
-        "type": "anomaly"
-      },
-      {
-        "first_seen": "2026-07-19T13:55:00+00:00",
-        "first_source": "prometheus",
-        "id": "network_segment:seg-edge-12",
-        "last_seen": "2026-07-19T14:20:00+00:00",
-        "origin": false,
-        "props": {
-          "cidr": "10.20.4.0/24",
-          "segment_id": "SEG-EDGE-12",
-          "vlan": 204
-        },
-        "source": "prometheus",
-        "type": "network_segment"
-      },
-      {
-        "first_seen": "2026-07-19T13:40:00+00:00",
         "first_source": "appd",
         "id": "business_transaction:checkout-svc|checkoutflow",
         "last_seen": "2026-07-19T13:40:00+00:00",
@@ -714,6 +688,32 @@
         },
         "source": "appd",
         "type": "service"
+      },
+      {
+        "first_seen": "2026-07-19T13:40:00+00:00",
+        "first_source": "prometheus",
+        "id": "anomaly:anom-1",
+        "last_seen": "2026-07-19T14:20:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-1"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
+      },
+      {
+        "first_seen": "2026-07-19T13:55:00+00:00",
+        "first_source": "prometheus",
+        "id": "network_segment:seg-edge-12",
+        "last_seen": "2026-07-19T14:20:00+00:00",
+        "origin": false,
+        "props": {
+          "cidr": "10.20.4.0/24",
+          "segment_id": "SEG-EDGE-12",
+          "vlan": 204
+        },
+        "source": "prometheus",
+        "type": "network_segment"
       },
       {
         "first_seen": "2026-07-19T13:40:00+00:00",
@@ -799,21 +799,27 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10.",
+      "narrative": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10. Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating.",
       "phase": "frame",
       "refs": {
         "edges": [
           "edge:fired_on:alert:alt-1->service:checkout-svc|prod:discovered",
+          "edge:depends_on:service:checkout-svc|prod->service:pricing-svc|prod:discovered",
           "edge:affects:anomaly:anom-1->service:checkout-svc|prod:discovered",
           "edge:connects_to:service:checkout-svc|prod->network_segment:seg-edge-12:discovered",
           "edge:changed_by:network_segment:seg-edge-12->change_event:chg-77:discovered",
-          "edge:correlated_with:anomaly:anom-1->change_event:chg-77:inferred"
+          "edge:correlated_with:anomaly:anom-1->change_event:chg-77:inferred",
+          "edge:affects:incident:inc-9001->service:checkout-svc|prod:discovered"
         ],
         "events": [
           "evt:6dd885dbaf1f7bff",
-          "evt:9a82bbd24807a435"
+          "evt:9a82bbd24807a435",
+          "evt:8a7fd46c17bf85f8"
         ],
         "facts": [
+          "fact:5a7d14591e7942bf",
+          "fact:50a3adfcc9392eb6",
+          "fact:407a2ad86b8886cc",
           "fact:088370e1c435ebd3",
           "fact:ec87b9057f04987b",
           "fact:afad718d110ec49f",
@@ -821,53 +827,30 @@
           "fact:a7d87fd1f5ad1c88",
           "fact:13ca827cb0e2feba",
           "fact:5b7f868f474d2325",
-          "fact:eb08fc50d4411c9d"
+          "fact:eb08fc50d4411c9d",
+          "fact:0ee841921628d9f7"
         ],
         "hypotheses": [],
         "nodes": [
           "service:checkout-svc|prod",
           "alert:alt-1",
           "change_event:chg-77",
+          "service:checkout-svc|prod",
+          "business_transaction:checkout-svc|checkoutflow",
+          "service:checkout-svc|prod",
+          "service:checkout-svc|prod",
+          "service:pricing-svc|prod",
           "anomaly:anom-1",
-          "network_segment:seg-edge-12"
+          "network_segment:seg-edge-12",
+          "incident:inc-9001"
         ]
       },
       "seq": 1
     },
     {
       "actor": "engine",
-      "narrative": "Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:depends_on:service:checkout-svc|prod->service:pricing-svc|prod:discovered",
-          "edge:affects:incident:inc-9001->service:checkout-svc|prod:discovered"
-        ],
-        "events": [
-          "evt:8a7fd46c17bf85f8"
-        ],
-        "facts": [
-          "fact:5a7d14591e7942bf",
-          "fact:50a3adfcc9392eb6",
-          "fact:407a2ad86b8886cc",
-          "fact:0ee841921628d9f7"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "service:checkout-svc|prod",
-          "business_transaction:checkout-svc|checkoutflow",
-          "service:checkout-svc|prod",
-          "service:checkout-svc|prod",
-          "service:pricing-svc|prod",
-          "incident:inc-9001"
-        ]
-      },
-      "seq": 2
-    },
-    {
-      "actor": "engine",
       "narrative": "Change-first: the network change (H1) lines up with onset and the caller/callee boundary; pricing-svc's own DB (H2) is a weaker alternative pending its own health check.",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [
           "edge:depends_on:service:pricing-svc|prod->database:pricing-db:declared"
@@ -884,7 +867,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -918,12 +901,12 @@
           "service:pricing-svc|prod"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: revert the MTU change. Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -933,7 +916,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -955,7 +938,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -968,16 +951,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -987,36 +969,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10."
+        "text": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10. Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "Change-first: the network change (H1) lines up with onset and the caller/callee boundary; pricing-svc's own DB (H2) is a weaker alternative pending its own health check."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "Ruled out pricing-db (pool 24%, healthy). Retransmits + flapping probes on SEG-EDGE-12, plus a clean callee, pin the fault to the network boundary."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: revert the MTU change. Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-revert: retransmits back to 8/s, probe_success 99%, anomaly cleared. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: an MTU/uplink change on SEG-EDGE-12 (CHG-77) caused retransmits and probe failures on the checkout-svc -> pricing-svc path; pricing-svc's own BT/DB were healthy throughout. Reverting the change resolved it. pricing-db ruled out."
       }
     ],

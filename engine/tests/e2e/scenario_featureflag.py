@@ -9,8 +9,8 @@ in the flag-gated branch. Discriminator: the flag flip time (14:05) correlates e
 with onset (14:05:30), no build/deploy event in the window, and flipping the flag OFF
 (recycling to 0%) clears the errors. Teaches the lesson that "not every correlated change
 is a release" — a config/flag flip can be the cause. The scripted planner drives the REAL
-engine through all 7 phases, exercising appd, prometheus, servicenow and git via
-CapabilityCall + fixtures.
+engine through the 5-phase algebra (6 steps — the investigate loop runs twice), exercising
+appd, prometheus, servicenow and git via CapabilityCall + fixtures.
 """
 from __future__ import annotations
 
@@ -88,29 +88,28 @@ def build():
                   "window is CHG-77 — a feature-flag flip (new-tax-engine 5% → 100%) at "
                   "14:05:00, 30 seconds before onset. No build/deploy event in the window.")
 
-    # ── TRIAGE ───────────────────────────────────────────────────────────────────
-    triage = phase("triage",
-        calls=[call("appd_bt_metrics", bt="/cart/checkout", window="10m")],
-        ops=[
-            node(NT.INCIDENT, incident_id="INC-5600"),
-            node(NT.API_ENDPOINT, service_name="cart-api", env="prod", method="POST",
-                 route_template="/cart/checkout"),
-            # the checkout endpoint's status-code distribution: 34% 5xx — the triage evidence
-            # that narrows the suspect set to the checkout path and satisfies produces_required.
-            fact(EP, "status_code_dist", {"500": 0.34, "200": 0.64, "4xx": 0.02}, T_ONSET,
-                 source=S.APPD, reliability=0.95),
-            edge(ET.AFFECTS, INC, SVC),
-            edge(ET.EXPOSES, SVC, EP, origin="declared"),
-            event(INC, "declared", T_ONSET, source=S.SERVICENOW),
-        ],
-        narrative="Declared SEV2. /cart/checkout is returning 34% 5xx. The flag flip is the "
-                  "prime suspect — but investigate the actual code path before blindly "
-                  "reverting a flag that other teams may depend on.")
+    # ── scope/impact framing folded into FRAME (the retired TRIAGE — P7 5-phase algebra) ──
+    frame = frame.model_copy(update={"ops": [*frame.ops,
+        node(NT.INCIDENT, incident_id="INC-5600"),
+        node(NT.API_ENDPOINT, service_name="cart-api", env="prod", method="POST",
+             route_template="/cart/checkout"),
+        # the checkout endpoint's status-code distribution: 34% 5xx — the scope evidence
+        # that narrows the suspect set to the checkout path.
+        fact(EP, "status_code_dist", {"500": 0.34, "200": 0.64, "4xx": 0.02}, T_ONSET,
+             source=S.APPD, reliability=0.95),
+        edge(ET.AFFECTS, INC, SVC),
+        edge(ET.EXPOSES, SVC, EP, origin="declared"),
+        event(INC, "declared", T_ONSET, source=S.SERVICENOW),
+    ], "calls": [*frame.calls, call("appd_bt_metrics", bt="/cart/checkout", window="10m")],
+       "narrative": frame.narrative + " Declared SEV2. /cart/checkout is returning 34% 5xx. "
+       "The flag flip is the prime suspect — but investigate the actual code path before "
+       "blindly reverting a flag that other teams may depend on."})
 
-    # ── HYPOTHESIZE ──────────────────────────────────────────────────────────────
-    hypothesize = phase("hypothesize",
+    # ── INVESTIGATE opens the hypothesize⇄evidence loop ─────────────────────────
+    investigate_open = phase("investigate",
         calls=[call("git_log", path="services/cart-api/src/tax", limit=5),
                call("list_related_incidents", cmdb_ci="cart-api")],
+        status="repeat",
         ops=[
             node(NT.CODE_COMMIT, sha="c3d4e5f"),  # the last deploy — 3 days ago, pre-flag
             # NOTE: feature_flag is edge-isolated in the model (no typed edges to/from it);
@@ -132,12 +131,12 @@ def build():
                   "with no errors. pricing-api filed the same flag-onset shape when its flag "
                   "rolled out — a related prior reinforcing H1.")
 
-    # ── INVESTIGATE ──────────────────────────────────────────────────────────────
+    # ── the loop.s confirm turn ─────────────────────────────────────────────────
     # rule OUT the deploy (last deploy was 3 days ago; the error signature is NEW),
     # confirm the flag (signature only in the flag-gated branch; bulk carts only).
     err_fact = fid(ERRSIG, "count", T_INV)
     p50_fact = fid(SVC, "red_latency_p50", T_INV)
-    investigate = phase("investigate",
+    investigate_confirm = phase("investigate",
         calls=[call("appd_bt_metrics", bt="/cart/checkout", window="10m"),
                call("git_blame", sha="c3d4e5f", file="services/cart-api/src/tax/engine.py",
                     line=142),
@@ -170,8 +169,8 @@ def build():
                   "the flag: TaxEngineException at engine.py:142, first_seen at the flip, "
                   "312 occurrences on bulk carts — the signature exists only behind the flag.")
 
-    # ── REMEDIATE ────────────────────────────────────────────────────────────────
-    remediate = phase("remediate",
+    # ── ACT (human-gated) ────────────────────────────────────────────────────────
+    act = phase("act",
         ops=[
             update("h1", level="high",
                    basis="proposed fix: recycle new-tax-engine to 0% rollout (disable the flag)"),
@@ -201,7 +200,7 @@ def build():
                   "recycling the flag to 0% resolved it. Deploy ruled out — the cause was a "
                   "flag flip, not a release.")
 
-    script = [frame, triage, hypothesize, investigate, remediate, verify, close]
+    script = [frame, investigate_open, investigate_confirm, act, verify, close]
 
     # ── fixtures: what the capability calls resolve to ────────────────────────────
     fixtures = {

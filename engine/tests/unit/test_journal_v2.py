@@ -26,13 +26,13 @@ def _clock() -> datetime:
 
 
 def _gated_session():
-    """The code_regression twin with a WRITE injected into REMEDIATE (the test_session rig)."""
+    """The code_regression twin with a WRITE injected into ACT (the test_session rig)."""
     from unit.test_session import _layer
 
     subject, script = s1.build()
     # a READ alongside the WRITE, so the journal-every-call unification is provable on both
     # effects in one phase (the mock transport serves the read fixture-less → clean-empty)
-    script[4] = script[4].model_copy(
+    script[3] = script[3].model_copy(
         update={"calls": [call("fetch_metrics", service="payments-api"),
                           call("rollback_release", to_version="v4.11.3")]})
     pb = load_playbook(PLAYBOOK)

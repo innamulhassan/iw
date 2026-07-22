@@ -109,7 +109,7 @@ def test_retract_tombstones_a_fact_and_replays_bit_for_bit():
             node(NodeType.ANOMALY, anomaly_id="ANOM-1"),
             fact(anom, "onset_value", 9999, T0, source=Source.PROMETHEUS),
         ], narrative="frame with a mis-read onset"),
-        phase("triage", ops=[
+        phase("investigate", ops=[
             fact(anom, "severity_score", 2, T1, source=Source.SERVICENOW),
             Retract(target=wrong_fact, reason="flaky exporter — onset re-read as 42"),
         ], narrative="tombstone the wrong observation"),

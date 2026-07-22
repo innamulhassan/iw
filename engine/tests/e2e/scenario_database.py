@@ -6,8 +6,9 @@ on orders.order_items. Differential diagnosis rules OUT an application code regr
 traced via AppD's JDBC exit-call boundary -> Prometheus's maxed connection pool -> the
 git diff that shows the index-drop line. Discriminator: the exit call is JDBC-classified
 and slow (DB-boundary bound); the service's own request-handling (p50) is unaffected.
-The scripted planner drives the REAL engine through all 7 phases, exercising appd,
-prometheus, servicenow and git via CapabilityCall + fixtures for the headline evidence.
+The scripted planner drives the REAL engine through the 5-phase algebra (6 steps — the
+investigate loop runs twice: hypothesize⇄evidence), exercising appd, prometheus,
+servicenow and git via CapabilityCall + fixtures for the headline evidence.
 """
 from __future__ import annotations
 
@@ -81,20 +82,24 @@ def build():
         narrative="orders-api p99 latency spiked to 5.2s at 14:05, 8 minutes after CHG-9 "
                   "(a DB migration) landed at 13:57. ALT-1 (HighLatencyP99) fired. p50 stays "
                   "flat at 46ms and errors at 1.5% — the tail alone is blown.")
-
-    triage = phase("triage", [
+    # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra): the
+    # subject incident node, the declared topology, and the still-bleeding severity read.
+    frame = frame.model_copy(update={"ops": [*frame.ops,
         node(NT.INCIDENT, incident_id="INC-7734"),
         node(NT.DATABASE, db_id="orders-pg"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.DEPENDS_ON, SVC, DB, origin="declared"),
         fact(SVC, "red_latency_p99", 4800, T_ONSET, unit="ms", source=S.APPD, reliability=0.9),
         event(INC, "declared", T_ONSET, source=S.SERVICENOW),
-    ], "Declared SEV2. Still bleeding; CMDB shows orders-api's only dependency is orders-pg. "
-       "Investigate, don't blind-mitigate.")
+    ], "narrative": frame.narrative + " Declared SEV2. Still bleeding; CMDB shows "
+       "orders-api's only dependency is orders-pg. Investigate, don't blind-mitigate."})
 
-    hypothesize = phase("hypothesize",
+    # INVESTIGATE opens the hypothesize⇄evidence loop (verdict=repeat keeps looping):
+    # change-first hypotheses + the related-incident prior.
+    investigate_open = phase("investigate",
         calls=[call("diff_range", change="CHG-9", repo="db-migrations"),
                    call("list_related_incidents", shared_dependency="orders-pg", window="5m")],
+        status="repeat",
         ops=[
             node(NT.SCHEMA, db_id="orders-pg", schema_name="orders"),
             fact(SCHEMA, "index_health", 0.4, T_ONSET, source=S.PROMETHEUS, reliability=0.9),
@@ -115,13 +120,14 @@ def build():
                   "any one app's code. No application deploy is on record; a code regression "
                   "remains a weaker alternative (H2) pending investigation.")
 
-    # INVESTIGATE: pin the JDBC exit-call boundary + maxed pool (H1), rule out code (H2).
+    # the loop's confirm/refute turn: pin the JDBC exit-call boundary + maxed pool (H1),
+    # rule out code (H2) — the gate (promotion + refutation) passes, so the loop advances.
     p99_fact = fid(SVC, "red_latency_p99", T_INV)
     p50_fact = fid(SVC, "red_latency_p50", T_INV)
     conn_fact = fid(DB, "active_connections", T_INV)
     diff_fact = fid(COMMIT, "lines_added", T_CHANGE)
 
-    investigate = phase("investigate",
+    investigate_confirm = phase("investigate",
         calls=[call("get_snapshots", service="orders-api", bt="GetOrderItems"),
                     call("instant_query", query="conn_pool_util{db='orders-pg'}")],
         ops=[
@@ -144,7 +150,7 @@ def build():
                   "H2 (code regression) refuted; H1 (migration/index) confirmed at high "
                   "confidence.")
 
-    remediate = phase("remediate", [
+    act = phase("act", [
         update("h1", level="high",
                basis="proposed fix: re-create the dropped index on orders.order_items "
                "(equivalently, roll back CHG-9) — removes the full-scan load and drains "
@@ -168,7 +174,7 @@ def build():
                   "application code regression was investigated and ruled out.",
                   status="done")
 
-    script = [frame, triage, hypothesize, investigate, remediate, verify, close]
+    script = [frame, investigate_open, investigate_confirm, act, verify, close]
 
     fixtures = {
         "find_recent_changes": {

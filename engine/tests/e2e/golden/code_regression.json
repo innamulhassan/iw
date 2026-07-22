@@ -709,19 +709,22 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47.",
+      "narrative": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
       "phase": "frame",
       "refs": {
         "edges": [
           "edge:affects:anomaly:anom-1->service:payments-api|prod:discovered",
           "edge:fired_on:alert:alt-1->service:payments-api|prod:discovered",
           "edge:changed_by:service:payments-api|prod->change_event:chg-1:discovered",
-          "edge:correlated_with:anomaly:anom-1->change_event:chg-1:inferred"
+          "edge:correlated_with:anomaly:anom-1->change_event:chg-1:inferred",
+          "edge:affects:incident:inc-4821->service:payments-api|prod:discovered",
+          "edge:depends_on:service:payments-api|prod->database:payments-ora:declared"
         ],
         "events": [
           "evt:81e181ebac96fa73",
           "evt:674c1ef24ed73a69",
-          "evt:f11f7436dca6c5f8"
+          "evt:f11f7436dca6c5f8",
+          "evt:8ad3f3d52cdecb52"
         ],
         "facts": [
           "fact:88c0c2c371a465b2",
@@ -731,45 +734,25 @@
           "fact:bb5e757aef06772b",
           "fact:dc94854d6b8faf39",
           "fact:6ac933d081e39eea",
-          "fact:29399f0484f294c0"
+          "fact:29399f0484f294c0",
+          "fact:8d304a434d6b3f97"
         ],
         "hypotheses": [],
         "nodes": [
           "service:payments-api|prod",
           "anomaly:anom-1",
           "alert:alt-1",
-          "change_event:chg-1"
+          "change_event:chg-1",
+          "incident:inc-4821",
+          "database:payments-ora"
         ]
       },
       "seq": 1
     },
     {
       "actor": "engine",
-      "narrative": "Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:affects:incident:inc-4821->service:payments-api|prod:discovered",
-          "edge:depends_on:service:payments-api|prod->database:payments-ora:declared"
-        ],
-        "events": [
-          "evt:8ad3f3d52cdecb52"
-        ],
-        "facts": [
-          "fact:8d304a434d6b3f97"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "incident:inc-4821",
-          "database:payments-ora"
-        ]
-      },
-      "seq": 2
-    },
-    {
-      "actor": "engine",
       "narrative": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1.",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [
           "edge:introduced_by:change_event:chg-1->code_commit:abc123:discovered",
@@ -793,7 +776,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -822,12 +805,12 @@
           "error_signature:npe-taxcalc"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -837,7 +820,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -858,7 +841,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -871,16 +854,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -890,36 +872,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47."
+        "text": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: v4.12.0 (abc123) NPE in TaxCalculator \u2192 5xx; rollback to v4.11.3 resolved it. DB ruled out."
       }
     ],

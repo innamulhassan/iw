@@ -3,7 +3,8 @@
 payments-api throws 5xx after the v4.12.0 deploy. Differential diagnosis rules OUT the
 database (pool healthy) and confirms a NullPointerException introduced by commit abc123,
 traced via error signature → deploy → commit. Discriminator: pods Ready but throwing.
-The scripted planner drives the real engine through all 7 phases.
+The scripted planner drives the real engine through the 5-phase algebra (6 steps — the
+investigate loop runs twice: hypothesize⇄evidence).
 """
 from __future__ import annotations
 
@@ -70,17 +71,19 @@ def build(refuted_variant: bool = False):
         edge(ET.CHANGED_BY, SVC, CHG),
         edge(ET.CORRELATED_WITH, ANOM, CHG, level="med"),
     ], "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47.")
-
-    triage = phase("triage", [
+    # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
+    frame = frame.model_copy(update={"ops": [*frame.ops,
         node(NT.INCIDENT, incident_id="INC-4821"),
         node(NT.DATABASE, db_id="payments-ora"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.DEPENDS_ON, SVC, DB, origin="declared"),
         fact(SVC, "red_latency_p99", 4200, T_ONSET, unit="ms", source=S.APPD, reliability=0.95),
         event(INC, "declared", T_ONSET, source=S.SERVICENOW),
-    ], "Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.")
+    ], "narrative": frame.narrative + " Declared SEV2. Still bleeding; the only dependency "
+       "is payments-ora. Investigate, don't blind-mitigate."})
 
-    hypothesize = phase("hypothesize", [
+    # INVESTIGATE opens the hypothesize⇄evidence loop (verdict=repeat keeps looping)
+    investigate_open = phase("investigate", [
         node(NT.CODE_COMMIT, sha="abc123"),
         edge(ET.INTRODUCED_BY, CHG, COMMIT),
         # related priors (ServiceNow list_related_incidents): billing-api + invoicing-api filed
@@ -97,13 +100,14 @@ def build(refuted_variant: bool = False):
         propose("h2", "payments-ora connection-pool exhaustion", "low", root=DB),
     ], "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). "
        "2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the "
-       "shared taxcalc lib in v4.12.0 — a related prior reinforcing H1.")
+       "shared taxcalc lib in v4.12.0 — a related prior reinforcing H1.",
+       status="repeat")
 
-    # INVESTIGATE: rule out the DB, confirm the code path.
+    # the loop's confirm/refute turn: rule out the DB, confirm the code path.
     db_fact = fid(DB, "conn_pool_util", T_INV)
     err_fact = fid(ERRSIG, "count", T_INV)
     if not refuted_variant:
-        investigate = phase("investigate", [
+        investigate_confirm = phase("investigate", [
             # the full DB USE pull that rules payments-ora OUT: pool a quarter full, connections
             # well under the ceiling, replication current, no slow-query surge — a healthy store.
             fact(DB, "conn_pool_util", 0.28, T_INV, source=S.PROMETHEUS, reliability=0.99),
@@ -127,17 +131,19 @@ def build(refuted_variant: bool = False):
         ], "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE "
            "in TaxCalculator introduced by abc123.")
     else:
-        # the variant: first investigation refutes H1 (NPE predates the deploy) -> backtrack
-        investigate = phase("investigate", [
+        # the variant: the loop's evidence turn refutes H1 (NPE predates the deploy) ->
+        # backtrack RE-ENTERS investigate (the hypothesize⇄evidence loop starts over)
+        investigate_confirm = phase("investigate", [
             fact(DB, "conn_pool_util", 0.28, T_INV, source=S.PROMETHEUS, reliability=0.99),
             node(NT.ERROR_SIGNATURE, signature_hash="npe-taxcalc"),
             fact(ERRSIG, "count", 152, T_INV, source=S.SPLUNK, reliability=0.98),
             update("h1", status="refuted", add_refuting=[err_fact],
                    basis="the NPE signature predates v4.12.0 — deploy is not the cause"),
-        ], "The NPE predates the deploy — H1 refuted. Backtrack to re-hypothesize.",
+        ], "The NPE predates the deploy — H1 refuted. Backtrack: re-enter the loop and "
+           "re-hypothesize.",
             status="backtrack")
 
-    remediate = phase("remediate", [
+    act = phase("act", [
         update("h1", level="high", basis="proposed fix: roll payments-api back to v4.11.3 (revert abc123)"),
     ], "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).")
 
@@ -154,10 +160,11 @@ def build(refuted_variant: bool = False):
                   "rollback to v4.11.3 resolved it. DB ruled out.", status="done")
 
     if refuted_variant:
-        # after backtrack: re-hypothesize (the deploy is exonerated), then a shortened confirm path
-        rehypothesize = phase("hypothesize", [
+        # after backtrack the SAME investigate phase re-enters: the loop re-anchors on the
+        # surviving rival (a fresh hypothesize turn), then the run ends blocked (shortened path)
+        reanchor = phase("investigate", [
             update("h2", level="high", basis="with the deploy exonerated, the pool is the leading candidate"),
         ], "Deploy exonerated; DB pool is now the leading hypothesis.", status="blocked")
-        return subject, [frame, triage, hypothesize, investigate, rehypothesize]
+        return subject, [frame, investigate_open, investigate_confirm, reanchor]
 
-    return subject, [frame, triage, hypothesize, investigate, remediate, verify, close]
+    return subject, [frame, investigate_open, investigate_confirm, act, verify, close]

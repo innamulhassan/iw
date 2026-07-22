@@ -180,7 +180,7 @@ def test_blocked_verdict_closes_with_lifecycle():
     terminal lifecycle record (outcome open), never hang. (Routing BLOCKED somewhere better
     is P7's phase work; the diagnosable-close half lands here.)"""
     subject, base = s1.build()
-    script = [base[0], phase("triage", [], "cannot proceed: access denied", status="blocked")]
+    script = [base[0], phase("investigate", [], "cannot proceed: access denied", status="blocked")]
     pb = load_playbook(PLAYBOOK)
     session = InvestigationSession(subject, pb, ScriptedPlanner(script), clock=_clock)
     session.advance()

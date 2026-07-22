@@ -14,8 +14,8 @@ def test_database_happy_path():
     subject, script, fixtures = s2.build()
     res = run(subject, script, fixtures)
 
-    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
-                              "remediate", "verify", "close"]
+    assert res.phases_run == ["frame", "investigate", "investigate", "act",
+                              "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"

@@ -94,7 +94,7 @@ def test_next_plan_context_carries_previous_rejections():
             self.seen.append(list(ctx.rejections))
             return self._inner.plan(ctx)
 
-    script = [*_script_with_bad_op(), phase("triage", ops=[
+    script = [*_script_with_bad_op(), phase("investigate", ops=[
         fact(ANOM, "severity_score", 2, T0, source=Source.SERVICENOW),
     ], narrative="second phase")]
     planner = _Capture(script)

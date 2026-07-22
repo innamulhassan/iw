@@ -2,7 +2,7 @@
 capability outputs (prometheus, splunk, servicenow fixtures). Asserts the OUTCOME, the
 differential diagnosis (a link-flap rival is ruled out via clean policy denies, not
 drops), and — since the fix is a security change — that the write-gate holds: a capability
-write attempted outside the human-gated REMEDIATE phase is blocked by the real
+write attempted outside the human-gated ACT phase is blocked by the real
 CapabilityLayer, never silently applied.
 """
 from __future__ import annotations
@@ -41,8 +41,8 @@ def test_firewall_acl_revert_resolves():
     subject, script, fixtures = s5.build()
     res, invocations = _run(subject, script, fixtures)
 
-    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
-                              "remediate", "verify", "close"]
+    assert res.phases_run == ["frame", "investigate", "investigate", "act",
+                              "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
@@ -89,9 +89,9 @@ def test_firewall_acl_revert_resolves():
 
 
 def test_write_gate_blocks_premature_remediation():
-    """A security fix is proposed in REMEDIATE (an UpdateHypothesis, no capability write)
+    """A security fix is proposed in ACT (an UpdateHypothesis, no capability write)
     and only ever applies through the human-approved gate. Prove the gate is real: an
-    on-call's premature `ocp__restart` fired in TRIAGE (before REMEDIATE) must be blocked
+    on-call's premature `ocp__restart` fired in FRAME (before ACT) must be blocked
     by the CapabilityLayer's per-intent effect — outcome is unaffected, and the run still
     resolves cleanly."""
     subject, script, fixtures = s5.build(premature_write=True)
@@ -106,12 +106,12 @@ def test_write_gate_blocks_premature_remediation():
     assert inv.reason is not None and "write blocked" in inv.reason
 
     # the gate is categorical: across the WHOLE run, no write-effect capability ever
-    # executed un-blocked (REMEDIATE itself never calls one — the fix stays proposed)
+    # executed un-blocked (ACT itself never calls one — the fix stays proposed)
     assert all(i.blocked for i in invocations if i.effect == Effect.WRITE)
 
     # blocking the stray write didn't corrupt or derail the investigation
     assert res.rejections == []
-    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
-                              "remediate", "verify", "close"]
+    assert res.phases_run == ["frame", "investigate", "investigate", "act",
+                              "verify", "close"]
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"

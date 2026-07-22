@@ -6,7 +6,8 @@ SLA breaches. Differential diagnosis rules OUT a broker/producer fault (the topi
 empty and producer throughput is steady — the backlog is purely on the consumer side) and
 confirms the consumer deploy as root cause. Discriminator: consumer_lag climbs while dlq_depth
 and producer throughput are flat — a consumer-side slowdown, not a broker rebalance or a
-poison-message flood. The scripted planner drives the REAL engine through all 7 phases.
+poison-message flood. The scripted planner drives the REAL engine through the 5-phase
+algebra (6 steps — the investigate loop runs twice).
 """
 from __future__ import annotations
 
@@ -62,18 +63,21 @@ def build():
                   "deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is "
                   "breaching downstream.")
 
-    triage = phase("triage", [
+    # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
+    frame = frame.model_copy(update={"ops": [*frame.ops,
         node(NT.INCIDENT, incident_id="INC-8801"),
         node(NT.MESSAGE_QUEUE, topic_id="orders.events"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.CONSUMES_FROM, SVC, MQ, origin="declared"),
         fact(MQ, "consumer_lag", 42000, T_ONSET, unit="msgs", source=S.PROMETHEUS, reliability=0.97),
         event(INC, "declared", T_ONSET, source=S.SERVICENOW),
-    ], "Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but "
-       "the topic itself is up. Investigate the consumer path, don't restart the broker blind.")
+    ], "narrative": frame.narrative + " Declared SEV2. order-processor consumes the "
+       "orders.events topic; lag is climbing but the topic itself is up. Investigate the "
+       "consumer path, don't restart the broker blind."})
 
-    hypothesize = phase("hypothesize",
+    investigate_open = phase("investigate",
         calls=[call("diff_range"), call("list_related_incidents")],
+        status="repeat",
         ops=[
             node(NT.CHANGE_EVENT, change_id="CHG-55"),
             edge(ET.CHANGED_BY, SVC, CHG),
@@ -92,7 +96,7 @@ def build():
     dlq_fact = fid(MQ, "dlq_depth", T_INV)
     tput_fact = fid(MQ, "throughput", T_INV)
 
-    investigate = phase("investigate",
+    investigate_confirm = phase("investigate",
         calls=[call("get_snapshots"), call("instant_query")],
         ops=[
             fact(MQ, "consumer_lag", 61000, T_INV, unit="msgs", source=S.PROMETHEUS, reliability=0.97),
@@ -116,7 +120,7 @@ def build():
                   "shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) "
                   "refuted; H1 (consumer deploy) confirmed at high confidence.")
 
-    remediate = phase("remediate", [
+    act = phase("act", [
         update("h1", level="high",
                basis="proposed fix: roll back CHG-55 to the prior consumer build (restores "
                "the faster handler) so the group's processing rate recovers and lag drains"),
@@ -139,7 +143,7 @@ def build():
                   "lag. A broker rebalance / producer surge was investigated and ruled out.",
                   status="done")
 
-    script = [frame, triage, hypothesize, investigate, remediate, verify, close]
+    script = [frame, investigate_open, investigate_confirm, act, verify, close]
 
     fixtures = {
         "find_recent_changes": {

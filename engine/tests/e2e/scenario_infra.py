@@ -7,7 +7,8 @@ diagnosis rules OUT an application memory leak in checkout-svc (the pod's OWN me
 moderate right up to eviction; the pressure is node-level) and confirms the noisy-neighbor batch
 job as root cause. Discriminator: HOST mem_utilization is pegged while the victim POD's own
 mem_utilization is normal — a platform (co-tenancy) fault, not the app leaking. The scripted
-planner drives the REAL engine through all 7 phases.
+planner drives the REAL engine through the 5-phase algebra (6 steps — the investigate
+loop runs twice).
 """
 from __future__ import annotations
 
@@ -66,18 +67,20 @@ def build():
                   "reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the "
                   "pod was rescheduled. Something on that node exhausted its memory.")
 
-    triage = phase("triage", [
+    # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
+    frame = frame.model_copy(update={"ops": [*frame.ops,
         node(NT.INCIDENT, incident_id="INC-8900"),
         node(NT.HOST, fqdn="node-prod-17"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.RUNS_ON, POD, HOST, origin="declared"),
         fact(HOST, "mem_utilization", 0.97, T_ONSET, source=S.PROMETHEUS, reliability=0.97),
         event(INC, "declared", T_ONSET, source=S.SERVICENOW),
-    ], "Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. "
-       "Find what on the node ate the memory before mitigating.")
+    ], "narrative": frame.narrative + " Declared SEV2. The evicted pod ran on node-prod-17, "
+       "whose memory is pegged at 97%. Find what on the node ate the memory before mitigating."})
 
-    hypothesize = phase("hypothesize",
+    investigate_open = phase("investigate",
         calls=[call("find_recent_changes"), call("list_related_incidents")],
+        status="repeat",
         ops=[
             node(NT.BATCH_JOB, job_name="etl-nightly", schedule_id="sched-3"),
             edge(ET.RUNS_ON, BATCH, HOST, origin="discovered"),
@@ -97,7 +100,7 @@ def build():
     pod_mem_fact = fid(POD, "mem_utilization", T_INV)
     batch_mem_fact = fid(BATCH, "last_duration", T_INV)
 
-    investigate = phase("investigate",
+    investigate_confirm = phase("investigate",
         calls=[call("get_snapshots"), call("instant_query")],
         ops=[
             fact(HOST, "mem_utilization", 0.98, T_INV, source=S.PROMETHEUS, reliability=0.97),
@@ -122,7 +125,7 @@ def build():
                   "job overran ~4x its window on the same node, holding the memory. H2 (app "
                   "leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence.")
 
-    remediate = phase("remediate", [
+    act = phase("act", [
         update("h1", level="high",
                basis="proposed fix: reschedule etl-nightly off the tier-1 node (node "
                "anti-affinity + a memory limit on the job) so it can never starve a tier-1 "
@@ -148,7 +151,7 @@ def build():
                   "An application memory leak was investigated and ruled out.",
                   status="done")
 
-    script = [frame, triage, hypothesize, investigate, remediate, verify, close]
+    script = [frame, investigate_open, investigate_confirm, act, verify, close]
 
     fixtures = {
         "active_alerts": {

@@ -27,8 +27,8 @@ def _run(build_fn, **kw):
 def test_code_regression_happy_path():
     res = _run(s1.build)
 
-    assert res.phases_run == ["frame", "triage", "hypothesize", "investigate",
-                              "remediate", "verify", "close"]
+    assert res.phases_run == ["frame", "investigate", "investigate", "act",
+                              "verify", "close"]
     assert res.rejections == [], f"unexpected rejected ops: {res.rejections}"
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
@@ -57,9 +57,9 @@ def test_code_regression_happy_path():
 
 def test_refuted_variant_backtracks():
     res = _run(s1.build, refuted_variant=True)
-    # the engine returned from INVESTIGATE to HYPOTHESIZE when the leading hypothesis was refuted
-    assert res.phases_run.count("hypothesize") >= 2
-    assert "investigate" in res.phases_run
+    # 5-phase algebra: backtrack RE-ENTERS investigate — the hypothesize⇄evidence loop starts
+    # over on the surviving rival (open + refute + re-anchor = at least 3 loop turns)
+    assert res.phases_run == ["frame", "investigate", "investigate", "investigate"]
     assert res.hypothesis_store.hypotheses["hyp:h1"].status == HypothesisStatus.REFUTED
 
 

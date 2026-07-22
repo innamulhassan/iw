@@ -612,17 +612,20 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory.",
+      "narrative": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory. Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating.",
       "phase": "frame",
       "refs": {
         "edges": [
           "edge:fired_on:alert:alt-9->service:checkout-svc|prod:discovered",
           "edge:runs_on:pod:checkout-7c9f-abc12->host:node-prod-17:discovered",
-          "edge:affects:anomaly:anom-9->service:checkout-svc|prod:discovered"
+          "edge:affects:anomaly:anom-9->service:checkout-svc|prod:discovered",
+          "edge:affects:incident:inc-8900->service:checkout-svc|prod:discovered",
+          "edge:runs_on:pod:checkout-7c9f-abc12->host:node-prod-17:declared"
         ],
         "events": [
           "evt:2f0ba1cc656009a5",
-          "evt:a562aef61d640ae8"
+          "evt:a562aef61d640ae8",
+          "evt:8482e6dd95ed4731"
         ],
         "facts": [
           "fact:1b3308072553efaa",
@@ -632,7 +635,8 @@
           "fact:e6f21ff38cf9a74f",
           "fact:84becd60ab1745db",
           "fact:88048479c1ba33e3",
-          "fact:38d1fd2649a0e0cf"
+          "fact:38d1fd2649a0e0cf",
+          "fact:54afdf6ba75e64be"
         ],
         "hypotheses": [],
         "nodes": [
@@ -642,38 +646,17 @@
           "host:node-prod-17",
           "anomaly:anom-9",
           "service:checkout-svc|prod",
-          "pod:checkout-7c9f-abc12"
+          "pod:checkout-7c9f-abc12",
+          "incident:inc-8900",
+          "host:node-prod-17"
         ]
       },
       "seq": 1
     },
     {
       "actor": "engine",
-      "narrative": "Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:affects:incident:inc-8900->service:checkout-svc|prod:discovered",
-          "edge:runs_on:pod:checkout-7c9f-abc12->host:node-prod-17:declared"
-        ],
-        "events": [
-          "evt:8482e6dd95ed4731"
-        ],
-        "facts": [
-          "fact:54afdf6ba75e64be"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "incident:inc-8900",
-          "host:node-prod-17"
-        ]
-      },
-      "seq": 2
-    },
-    {
-      "actor": "engine",
       "narrative": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation.",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [
           "edge:similar_to:incident:inc-8900->incident:inc-8901:inferred",
@@ -696,7 +679,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -722,12 +705,12 @@
           "service:checkout-svc|prod"
         ]
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "Safest reversible fix: reschedule etl-nightly off the tier-1 node and cap its memory. Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -737,7 +720,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -758,7 +741,7 @@
         ],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -771,16 +754,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "resolved",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -790,36 +772,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory."
+        "text": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory. Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "The node's memory is exhausted (98%) but checkout-svc's OWN pod memory was only 55% at eviction \u2014 this is not the app leaking. The etl-nightly batch job overran ~4x its window on the same node, holding the memory. H2 (app leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "Safest reversible fix: reschedule etl-nightly off the tier-1 node and cap its memory. Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-reschedule: node memory back to 61%; checkout pod Ready, no evictions. Root cause confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: the unbounded etl-nightly batch job co-scheduled on node-prod-17 grew its heap and starved the node's memory -> the kubelet evicted the lowest-priority tenant (checkout-svc's tier-1 pod) -> checkout 5xx; rescheduling the batch job off the node with a memory cap resolved it. An application memory leak was investigated and ruled out."
       }
     ],

@@ -20,19 +20,6 @@
       },
       {
         "confidence": null,
-        "dst": "service:checkout-api|prod",
-        "established": null,
-        "id": "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered",
-        "invalidated_by": null,
-        "origin": "discovered",
-        "source": null,
-        "src": "anomaly:anom-1",
-        "state": "active",
-        "type": "affects",
-        "valid_to": null
-      },
-      {
-        "confidence": null,
         "dst": "database:checkout-db",
         "established": null,
         "id": "edge:depends_on:service:checkout-api|prod->database:checkout-db:discovered",
@@ -42,6 +29,19 @@
         "src": "service:checkout-api|prod",
         "state": "active",
         "type": "depends_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:checkout-api|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-1",
+        "state": "active",
+        "type": "affects",
         "valid_to": null
       },
       {
@@ -463,18 +463,6 @@
         "type": "alert"
       },
       {
-        "first_seen": "2026-07-19T09:00:00+00:00",
-        "first_source": "prometheus",
-        "id": "anomaly:anom-1",
-        "last_seen": "2026-07-19T09:45:00+00:00",
-        "origin": false,
-        "props": {
-          "anomaly_id": "ANOM-1"
-        },
-        "source": "prometheus",
-        "type": "anomaly"
-      },
-      {
         "first_seen": "2026-07-19T09:08:00+00:00",
         "first_source": "prometheus",
         "id": "database:checkout-db",
@@ -486,6 +474,18 @@
         },
         "source": "prometheus",
         "type": "database"
+      },
+      {
+        "first_seen": "2026-07-19T09:00:00+00:00",
+        "first_source": "prometheus",
+        "id": "anomaly:anom-1",
+        "last_seen": "2026-07-19T09:45:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-1"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
       },
       {
         "first_seen": "2026-07-19T09:08:00+00:00",
@@ -556,16 +556,20 @@
   "journal": [
     {
       "actor": "engine",
-      "narrative": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service.",
+      "narrative": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
       "phase": "frame",
       "refs": {
         "edges": [
           "edge:fired_on:alert:alt-1->service:checkout-api|prod:discovered",
-          "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered"
+          "edge:depends_on:service:checkout-api|prod->database:checkout-db:discovered",
+          "edge:affects:anomaly:anom-1->service:checkout-api|prod:discovered",
+          "edge:affects:incident:inc-9001->service:checkout-api|prod:discovered"
         ],
         "events": [
           "evt:3261a06b2331ebb7",
-          "evt:de7a9c47c46a22a9"
+          "evt:de7a9c47c46a22a9",
+          "evt:2b5378a9eb965dd7",
+          "evt:2c70d6efefee8a5d"
         ],
         "facts": [
           "fact:66d3c10edb398567",
@@ -576,47 +580,26 @@
           "fact:092e63989deb01d7",
           "fact:dfe59811ec90764e",
           "fact:9f5f57f61595005c",
-          "fact:6ca00899491f2f63"
+          "fact:6ca00899491f2f63",
+          "fact:c84640160ee599e9"
         ],
         "hypotheses": [],
         "nodes": [
           "service:checkout-api|prod",
           "alert:alt-1",
           "service:checkout-api|prod",
-          "anomaly:anom-1"
+          "service:checkout-api|prod",
+          "database:checkout-db",
+          "anomaly:anom-1",
+          "incident:inc-9001"
         ]
       },
       "seq": 1
     },
     {
       "actor": "engine",
-      "narrative": "Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
-      "phase": "triage",
-      "refs": {
-        "edges": [
-          "edge:depends_on:service:checkout-api|prod->database:checkout-db:discovered",
-          "edge:affects:incident:inc-9001->service:checkout-api|prod:discovered"
-        ],
-        "events": [
-          "evt:2b5378a9eb965dd7",
-          "evt:2c70d6efefee8a5d"
-        ],
-        "facts": [
-          "fact:c84640160ee599e9"
-        ],
-        "hypotheses": [],
-        "nodes": [
-          "service:checkout-api|prod",
-          "database:checkout-db",
-          "incident:inc-9001"
-        ]
-      },
-      "seq": 2
-    },
-    {
-      "actor": "engine",
       "narrative": "ServiceNow's change log for the incident window is EMPTY \u2014 change-first comes up dry. Falling back to the onset-correlated saturation signal: H1 (the pool) leads on the USE trend; H2 (a change nobody logged) stays alive as the rival until we can rule it out.",
-      "phase": "hypothesize",
+      "phase": "investigate",
       "refs": {
         "edges": [],
         "events": [],
@@ -630,7 +613,7 @@
           "hyp:h2"
         ]
       },
-      "seq": 3
+      "seq": 2
     },
     {
       "actor": "engine",
@@ -655,12 +638,12 @@
         ],
         "nodes": []
       },
-      "seq": 4
+      "seq": 3
     },
     {
       "actor": "engine",
       "narrative": "No change to roll back, so the safest reversible action is capacity: scale the pool and add a read replica. Awaiting approval (gated).",
-      "phase": "remediate",
+      "phase": "act",
       "refs": {
         "edges": [],
         "events": [],
@@ -670,7 +653,7 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 4
     },
     {
       "actor": "engine",
@@ -690,7 +673,7 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 6
+      "seq": 5
     },
     {
       "actor": "engine",
@@ -703,16 +686,15 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 7
+      "seq": 6
     }
   ],
   "outcome": "mitigated",
   "phases": [
     "frame",
-    "triage",
-    "hypothesize",
     "investigate",
-    "remediate",
+    "investigate",
+    "act",
     "verify",
     "close"
   ],
@@ -727,36 +709,31 @@
       {
         "phase": "frame",
         "seq": 1,
-        "text": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service."
+        "text": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate."
       },
       {
-        "phase": "triage",
+        "phase": "investigate",
         "seq": 2,
-        "text": "Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate."
-      },
-      {
-        "phase": "hypothesize",
-        "seq": 3,
         "text": "ServiceNow's change log for the incident window is EMPTY \u2014 change-first comes up dry. Falling back to the onset-correlated saturation signal: H1 (the pool) leads on the USE trend; H2 (a change nobody logged) stays alive as the rival until we can rule it out."
       },
       {
         "phase": "investigate",
-        "seq": 4,
+        "seq": 3,
         "text": "Ruled out the phantom change (clean change log). Pool util at 97% tracks the onset exactly, and checkout-db is the only dependency in play."
       },
       {
-        "phase": "remediate",
-        "seq": 5,
+        "phase": "act",
+        "seq": 4,
         "text": "No change to roll back, so the safest reversible action is capacity: scale the pool and add a read replica. Awaiting approval (gated)."
       },
       {
         "phase": "verify",
-        "seq": 6,
+        "seq": 5,
         "text": "Post-scale-up: pool util back to 52%, symptom cleared. The saturation trend still only correlates with the onset \u2014 there is no revert experiment to run for an organic surge, so the hypothesis stays 'supported', not confirmed."
       },
       {
         "phase": "close",
-        "seq": 7,
+        "seq": 6,
         "text": "Postmortem: checkout-api degraded under an organic 3.4x traffic surge that saturated checkout-db's connection pool. No change or deploy was found in the window (ruled out). Scaling the pool resolved the symptom; root cause is the leading, evidence-supported but unconfirmed hypothesis \u2014 closed MITIGATED."
       }
     ],

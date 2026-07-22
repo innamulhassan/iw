@@ -75,9 +75,10 @@ def _session(script: list, subject) -> InvestigationSession:
 
 
 def _approve_script():
-    """The happy path with a WRITE-effect rollback injected into REMEDIATE."""
+    """The happy path with a WRITE-effect rollback injected into ACT (the writes_allowed
+    phase of the 5-phase algebra — script index 3: frame, investigate x2, act, ...)."""
     subject, script = s1.build()
-    script[4] = script[4].model_copy(update={"calls": [call(ROLLBACK_INTENT, to_version="v4.11.3")]})
+    script[3] = script[3].model_copy(update={"calls": [call(ROLLBACK_INTENT, to_version="v4.11.3")]})
     return subject, script
 
 
@@ -85,7 +86,7 @@ def _deny_script():
     """Diverges after the gate: the rollback is refused, the symptom persists, h1 is never
     confirmed → the investigation closes MITIGATED rather than RESOLVED."""
     subject, base = s1.build()
-    remediate = base[4].model_copy(update={"calls": [call(ROLLBACK_INTENT, to_version="v4.11.3")]})
+    act = base[3].model_copy(update={"calls": [call(ROLLBACK_INTENT, to_version="v4.11.3")]})
     verify = phase("verify", [
         fact(s1.SVC, "red_errors", 0.35, s1.T_FIX, source=Source.PROMETHEUS, reliability=0.98),
         update("h1", status="supported", level="high",
@@ -93,7 +94,7 @@ def _deny_script():
     ], "Rollback declined; symptom persists. Cause identified but incident not resolved.")
     close = phase("close", [], "Closed MITIGATED: root cause identified (abc123 NPE) but the "
                   "proposed remediation was declined.", status="done")
-    return subject, [base[0], base[1], base[2], base[3], remediate, verify, close]
+    return subject, [base[0], base[1], base[2], act, verify, close]
 
 
 # ── the gate suspension + event stream ─────────────────────────────────────────
@@ -104,8 +105,8 @@ def test_session_suspends_at_write_gate():
     events = session.advance()   # runs FRAME..INVESTIGATE, then pauses BEFORE the write
     assert session.state == SessionState.SUSPENDED
 
-    # the run got as far as REMEDIATE and no further (the write was NOT applied)
-    assert session._engine.current_phase == "remediate"
+    # the run got as far as ACT and no further (the write was NOT applied)
+    assert session._engine.current_phase == "act"
     assert not any(e.type == "deployed" for e in session._engine.graph.events.values())
 
     # exactly one gate is open, carrying the proposed action + the serving hypothesis + evidence
@@ -185,8 +186,8 @@ def test_session_deny_diverges():
     assert not any(e.type == "deployed" for e in denied._engine.graph.events.values())
 
     # the denial was recorded as a synthetic ledger result fed back (visible in the journal)
-    remediate = [e for e in denied._engine.journal.phase_entries() if e.phase_id == "remediate"]
-    assert remediate and "DENIED" in remediate[0].reasoning
+    act_entries = [e for e in denied._engine.journal.phase_entries() if e.phase_id == "act"]
+    assert act_entries and "DENIED" in act_entries[0].reasoning
 
     # the outcome + the journals genuinely DIVERGE from the approve branch
     assert denied.outcome == "mitigated" and approved.outcome == "resolved"

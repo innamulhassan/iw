@@ -7,11 +7,11 @@ while sibling egress paths stay healthy; Splunk shows CLEAN policy denies
 (action="blocked") hitting FirewallRule FW-EGR-118 — not packet loss/retransmits.
 Differential diagnosis rules OUT a physical-layer link flap (packet_loss stays 0.0%)
 and confirms the ACL change as root cause. The fix (revert CHG-3311 on FW-EGR-118) is a
-SECURITY change: REMEDIATE only PROPOSES it (an UpdateHypothesis, no capability call) —
+SECURITY change: ACT only PROPOSES it (an UpdateHypothesis, no capability call) —
 the write-gate (CapabilityLayer.invoke, allow_write only in the writes_allowed phase) is exercised
 directly by a premature auto-remediation attempt (`ocp__restart`) fired outside the
 gated phase, which the engine must block. The scripted planner drives the real engine
-through all 7 phases to a RESOLVED close.
+through the 5-phase algebra (6 steps — the investigate loop runs twice) to a RESOLVED close.
 """
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ H1, H2 = hid("h1"), hid("h2")
 
 
 def build(premature_write: bool = False):
-    """Returns (subject, script, fixtures). When `premature_write` is True, TRIAGE fires an
+    """Returns (subject, script, fixtures). When `premature_write` is True, FRAME fires an
     extra `ocp__restart` capability call (an over-eager auto-remediation attempt) — proving
     the write-gate (CapabilityLayer: writes only execute with allow_write, granted only in
     the writes_allowed phase) blocks it outside the approved gate without disturbing the rest of the
@@ -77,7 +77,8 @@ def build(premature_write: bool = False):
                    "at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on "
                    "prod-vpc') was implemented at 09:05."))
 
-    triage_ops = [
+    # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
+    scope_ops = [
         node(NT.INCIDENT, incident_id="INC-7702"),
         node(NT.EXTERNAL_SERVICE, service_name="fraud-score-vendor", vendor="FraudScoreCo"),
         edge(ET.AFFECTS, INC, SVC),
@@ -95,17 +96,21 @@ def build(premature_write: bool = False):
     if premature_write:
         # an impatient on-call tries an auto-remediation restart before root-causing —
         # the write-gate (allow_write only in the writes_allowed phase) must block it here.
-        triage = phase("triage", triage_ops,
-            "Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared "
-            "in CMDB). An on-call engineer, impatient, tries an auto-remediation restart "
-            "before root-causing — the write-gate must hold: only REMEDIATE may execute "
-            "a write.", calls=[call("ocp__restart")])
+        frame = frame.model_copy(update={
+            "ops": [*frame.ops, *scope_ops],
+            "calls": [*frame.calls, call("ocp__restart")],
+            "narrative": frame.narrative + " Declared SEV3. checkout-api depends on the "
+            "fraud-scoring vendor (declared in CMDB). An on-call engineer, impatient, tries "
+            "an auto-remediation restart before root-causing — the write-gate must hold: "
+            "only the human-gated ACT phase may execute a write."})
     else:
-        triage = phase("triage", triage_ops,
-            "Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared "
-            "in CMDB). Still failing; investigate before touching network policy.")
+        frame = frame.model_copy(update={
+            "ops": [*frame.ops, *scope_ops],
+            "narrative": frame.narrative + " Declared SEV3. checkout-api depends on the "
+            "fraud-scoring vendor (declared in CMDB). Still failing; investigate before "
+            "touching network policy."})
 
-    hypothesize = phase("hypothesize",
+    investigate_open = phase("investigate",
         calls=[call("list_related_incidents")],
         ops=[
             node(NT.NETWORK_SEGMENT, segment_id="egress-fraud-score", cidr="10.20.0.0/24"),
@@ -125,13 +130,14 @@ def build(premature_write: bool = False):
                   "RECURRENCE of INC-7699 (last quarter, same FW-EGR-118: an egress-ACL "
                   "tightening blocked the same vendor, resolved by reverting the ACL) — a "
                   "known-recurrence prior that immediately sharpens H1. A raw link-layer flap "
-                  "on the same segment is a weaker alternative (H2).")
+                  "on the same segment is a weaker alternative (H2).",
+        status="repeat")
 
-    # INVESTIGATE: clean policy denies (not drops) confirm the ACL; sibling segments +
-    # normal packet-loss on this segment rule out a physical-layer flap.
+    # the loop's confirm turn: clean policy denies (not drops) confirm the ACL; sibling
+    # segments + normal packet-loss on this segment rule out a physical-layer flap.
     deny_fact = fid(RULE, "deny_count", T_INV)
     seg_fact = fid(SEG_FRAUD, "packet_loss", T_INV)
-    investigate = phase("investigate",
+    investigate_confirm = phase("investigate",
         calls=[call("fetch_metrics"), call("search_fw_denies")],
         ops=[
             node(NT.NETWORK_SEGMENT, segment_id="egress-geoip", cidr="10.20.1.0/24"),
@@ -153,7 +159,7 @@ def build(premature_write: bool = False):
                    "packet_loss on the affected segment is 0.0% — not a network flap. H2 "
                    "ruled out; H1 confirmed as leading (supported/high)."))
 
-    remediate = phase("remediate", [
+    act = phase("act", [
         update("h1", level="high",
                basis="proposed fix: revert CHG-3311 on FW-EGR-118 (restore the prior "
                      "egress ACL) via emergency change — a security-policy write, "
@@ -237,5 +243,5 @@ def build(premature_write: bool = False):
         "ocp__restart": {},  # never reached — the write-gate blocks before normalize()
     }
 
-    script = [frame, triage, hypothesize, investigate, remediate, verify, close]
+    script = [frame, investigate_open, investigate_confirm, act, verify, close]
     return subject, script, fixtures

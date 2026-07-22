@@ -32,7 +32,9 @@ def test_packaged_playbook_carries_the_full_doctrine():
     assert "onset_value" in pb.doctrine.frame_contract          # the FRAME Anomaly+onset contract
     assert "CODE_COMMIT" in pb.doctrine.rooting                 # fault-class rooting conventions
     assert "FIREWALL_RULE" in pb.doctrine.rooting
-    assert "TRIAGE just decides mitigate-vs-investigate" in pb.doctrine.progression
+    # P7 5-phase algebra: the progression prose teaches the investigate LOOP + act-entry
+    assert "hypothesize⇄evidence⇄refute loop" in pb.doctrine.progression
+    assert "human-gated ACT" in pb.doctrine.progression
 
 
 def test_system_prompt_is_doctrine_plus_derived_validity_lists():

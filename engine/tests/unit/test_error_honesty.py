@@ -112,7 +112,7 @@ def test_error_bar_carries_across_phases_until_a_clean_call():
             node(NodeType.ANOMALY, anomaly_id="ANOM-1"),
             fact(ANOM, "onset_value", 42, T0, source=Source.PROMETHEUS),
         ], narrative="errored read"),
-        phase("triage", ops=[
+        phase("investigate", ops=[
             fact(ANOM, "severity_score", 2, T0, source=Source.SERVICENOW),
             no_evidence("find_recent_changes", ANOM, T0, basis="claimed clean"),
         ], narrative="tries to cash the errored read in as null evidence"),
@@ -126,7 +126,7 @@ def test_error_bar_carries_across_phases_until_a_clean_call():
                  layer=CapabilityLayer(default_adapters(), source=_FlakySource()))
     eng.start(scenario_nochange.build()[0])
     eng.step()      # frame: the read errors
-    eng.step()      # triage: the NoEvidence naming it must be rejected
+    eng.step()      # investigate: the NoEvidence naming it must be rejected
     assert not any(f.predicate.startswith("no_evidence:") for f in eng.graph.facts.values())
     assert any("no evidentiary weight" in r.reason for r in eng.rejections)
 
