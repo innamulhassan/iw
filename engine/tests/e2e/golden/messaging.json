@@ -723,7 +723,8 @@
           "hyp:h1"
         ],
         "nodes": [
-          "service:order-processor|prod"
+          "service:order-processor|prod",
+          "message_queue:orders.events"
         ]
       },
       "seq": 3

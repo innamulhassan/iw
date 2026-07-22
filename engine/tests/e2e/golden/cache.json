@@ -767,6 +767,9 @@
           "hyp:h1"
         ],
         "nodes": [
+          "cache:product-redis",
+          "cache:product-redis",
+          "cache:product-redis",
           "code_commit:9f8e7d6"
         ]
       },

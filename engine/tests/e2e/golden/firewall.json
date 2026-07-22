@@ -929,6 +929,13 @@
           "hyp:h1"
         ],
         "nodes": [
+          "network_segment:egress-fraud-score",
+          "network_segment:egress-fraud-score",
+          "network_segment:egress-fraud-score",
+          "network_segment:egress-geoip",
+          "network_segment:egress-geoip",
+          "network_segment:egress-payment-gw",
+          "network_segment:egress-payment-gw",
           "firewall_rule:fw-egr-118",
           "network_segment:egress-geoip",
           "network_segment:egress-payment-gw"

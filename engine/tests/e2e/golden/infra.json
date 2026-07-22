@@ -702,7 +702,8 @@
           "hyp:h1"
         ],
         "nodes": [
-          "service:checkout-svc|prod"
+          "service:checkout-svc|prod",
+          "host:node-prod-17"
         ]
       },
       "seq": 3

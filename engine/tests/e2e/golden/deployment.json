@@ -1162,7 +1162,12 @@
           "code_commit:9f2a1e0",
           "error_signature:cfg-missing-dbhost",
           "code_commit:9f2a1e0",
-          "pull_request:checkout-api|482"
+          "pull_request:checkout-api|482",
+          "database:checkout-db",
+          "database:checkout-db",
+          "database:checkout-db",
+          "database:checkout-db",
+          "database:checkout-db"
         ]
       },
       "seq": 3

@@ -45,6 +45,16 @@ class PrometheusAdapter:
             subject = m.get("subject", svc_id)
             if not subject:
                 continue
+            if "subject" in m:
+                # An explicitly-subjected metric NAMES the entity the exporter probes —
+                # that naming IS discovery (a blackbox probe of certificate:X watches X).
+                # Mint the typed node so the reading can land even when the entity's
+                # primary discoverer (artifactory for certs, servicenow for flags) has
+                # not been called yet: the live retest (2026-07-22) lost 5 days_to_expiry
+                # readings to 'unknown subject' ordering — the very facts hinting the
+                # planner to look at the cert. node_id is idempotent, so re-minting an
+                # already-discovered entity is a no-op upsert.
+                self._discover(ops, subject)
             # telemetry gauge/rate/ratio → a READING (measured with a window). The fixtures state
             # neither stat nor window, so stat=gauge + a point window at the observation time —
             # matches the P1a shim's default so the reducer's Fact (which carries neither) is
@@ -56,3 +66,22 @@ class PrometheusAdapter:
                                     source=Source.PROMETHEUS, source_reliability=m.get("reliability"),
                                     source_native_name=m["predicate"]))
         return ops
+
+    @staticmethod
+    def _discover(ops: list[Operation], subject: str) -> None:
+        """Mint the typed node an explicit metric subject names ("<type>:<identity>",
+        identity parts |-separated in identity-key order). Only a subject that parses to
+        a known NodeType with a matching identity-arity is minted — anything else is left
+        to the reducer's referential-integrity rejection."""
+        tname, _, ident = subject.partition(":")
+        if not ident:
+            return
+        try:
+            nt = NodeType(tname)
+        except ValueError:
+            return
+        keys = registry.node_spec(nt).identity_keys
+        parts = ident.split("|")
+        if not keys or len(parts) != len(keys) or not all(parts):
+            return
+        ops.append(AddNode(type=nt, props=dict(zip(keys, parts))))

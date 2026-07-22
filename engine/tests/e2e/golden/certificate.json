@@ -744,6 +744,7 @@
           "hyp:h1"
         ],
         "nodes": [
+          "certificate:auth-tls-intermediate",
           "incident:inc-3344",
           "error_signature:pkix-path-building-failed"
         ]

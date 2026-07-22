@@ -709,7 +709,7 @@
         "origin": false,
         "props": {
           "cidr": "10.20.4.0/24",
-          "segment_id": "SEG-EDGE-12",
+          "segment_id": "seg-edge-12",
           "vlan": 204
         },
         "source": "prometheus",
@@ -898,6 +898,8 @@
           "hyp:h1"
         ],
         "nodes": [
+          "network_segment:seg-edge-12",
+          "network_segment:seg-edge-12",
           "service:pricing-svc|prod"
         ]
       },
