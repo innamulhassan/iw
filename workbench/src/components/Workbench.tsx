@@ -8,6 +8,7 @@ import LiveGraph from "./LiveGraph";
 import JournalPane from "./JournalPane";
 import IncidentList from "./IncidentList";
 import HypothesisPanel from "./HypothesisPanel";
+import DiscoveryPanel from "./DiscoveryPanel";
 
 interface Props {
   live: LiveState;
@@ -64,6 +65,12 @@ export default function Workbench({
               onSelect={setSelection}
             />
           </section>
+          {(Object.keys(live.discovery.class_hints).length > 0 ||
+            Object.keys(live.discovery.quarantined_names).length > 0) && (
+            <section className="pane pane--discovery">
+              <DiscoveryPanel discovery={live.discovery} />
+            </section>
+          )}
           <section className="pane pane--journal">
             <JournalPane live={live} />
           </section>
