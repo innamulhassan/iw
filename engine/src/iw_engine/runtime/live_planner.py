@@ -41,8 +41,6 @@ from ..domain.operations import (
 from ..domain.phase_result import PhaseVerdict
 from .planner import PlanContext, PlanOutput
 
-_BAND = {"low": 0.3, "med": 0.6, "high": 0.9}
-
 
 def _hid(x) -> str:
     """Normalize a hypothesis local id. The graph shows a hypothesis NODE as `hyp:h1`; if the
@@ -383,7 +381,8 @@ Plan this phase. Return ONLY the JSON object."""
                 self.repairs.append(m)
 
         narrative = trace.narrative or trace.reasoning or f"{phase} phase"
-        verdict = self._parse_verdict(raw.get("verdict"), narrative)
+        verdict = self._parse_verdict(raw.get("verdict"), narrative,
+                                      ctx.tunables.confidence_band)
         trace.verdict = verdict.status.value
         self.traces.append(trace)
         if self.verbose:
@@ -445,7 +444,8 @@ Plan this phase. Return ONLY the JSON object."""
         except Exception as e:  # any bad field => repair (drop) this op
             return None, f"{type(e).__name__}: {e}"
 
-    def _parse_verdict(self, v: dict | None, narrative: str) -> PhaseVerdict:
+    def _parse_verdict(self, v: dict | None, narrative: str,
+                       band: dict[str, float]) -> PhaseVerdict:
         if isinstance(v, str):
             # a bare-string verdict ("advance") is a status, not an object — repair it
             self.repairs.append(f"coerced bare-string verdict {v!r} -> {{status: ...}}")
@@ -460,8 +460,10 @@ Plan this phase. Return ONLY the JSON object."""
         except ValueError:
             status = VerdictStatus.ADVANCE
             self.repairs.append(f"coerced bad verdict status {v.get('status')!r} -> advance")
+        # the coarse level maps to a numeric via the playbook's confidence_band tunable
+        # (the same band the reducer uses) — no hardcoded band constant in the planner
         level = (str(v.get("confidence_level", "med")).strip().lower())
-        value = _BAND.get(level, 0.6)
+        value = band.get(level, 0.6)
         basis = str(v.get("basis") or narrative or "llm verdict")[:400] or "llm verdict"
         return PhaseVerdict(status=status, confidence=Confidence(value=value, basis=basis))
 

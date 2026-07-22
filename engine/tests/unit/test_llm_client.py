@@ -218,6 +218,24 @@ def test_factory_model_pin_via_env():
     assert c.model == "grok-custom"
 
 
+# ── the verdict band comes from the playbook tunables, not a planner constant ──
+def test_verdict_confidence_uses_tunables_confidence_band():
+    """The coarse verdict level maps to a numeric via ctx.tunables.confidence_band —
+    a playbook that re-tunes the band moves the planner's verdict confidence with it
+    (no hardcoded _BAND constant in the planner)."""
+    from dataclasses import replace
+
+    from iw_engine.domain.playbook import Tunables
+
+    payload = {"reasoning": "r", "narrative": "n",
+               "verdict": {"status": "advance", "confidence_level": "high"}}
+    ctx = replace(_ctx(), tunables=Tunables(
+        confidence_band={"low": 0.2, "med": 0.5, "high": 0.95}))
+    planner = LivePlanner(_StubClient(payload), "catalog", "tools", set(), verbose=False)
+    out = planner.plan(ctx)
+    assert out.verdict.confidence.value == 0.95   # the playbook's band, not 0.9
+
+
 # ── loads_salvage on adversarial model output (never re-calls the API) ─────────
 def test_salvage_fenced_json_block():
     """A ```json fenced block (the classic markdown-wrapped answer) parses cleanly."""
