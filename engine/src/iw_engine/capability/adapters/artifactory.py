@@ -12,8 +12,8 @@ normalize is intent-agnostic, presence-driven, same pattern as the Prometheus re
 from __future__ import annotations
 
 from ...domain import registry
-from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source
-from ...domain.operations import AddEdge, AddEvent, AddNode, Operation
+from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source, Species
+from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
 
@@ -45,9 +45,10 @@ class ArtifactoryAdapter:
 
             if art.get("created"):
                 built_payload = {"repo": art.get("repo"), "build_number": art.get("build_number")}
-                ops.append(AddEvent(entity=art_id, type="built", occurred_at=art["created"],
-                                    observed_at=art["created"], payload=built_payload,
-                                    source=Source.ARTIFACTORY))
+                ops.append(AddAssertion(subject=art_id, name="built", species=Species.EVENT,
+                                        occurred_at=art["created"], observed_at=art["created"],
+                                        value=built_payload, source=Source.ARTIFACTORY,
+                                        source_native_name="built"))
 
             properties = art.get("properties", {})
             git_rev = properties.get("git.revision")
@@ -73,13 +74,14 @@ class ArtifactoryAdapter:
                 ops.append(AddEdge(type=EdgeType.RELEASED_AS, src=art_id, dst=rel_id))
                 promoted_at = properties.get("promoted.at")
                 if promoted_at:
-                    ops.append(AddEvent(entity=rel_id, type="released", occurred_at=promoted_at,
-                                        observed_at=promoted_at, payload={"digest": digest},
-                                        source=Source.ARTIFACTORY))
-                    ops.append(AddEvent(entity=art_id, type="promoted", occurred_at=promoted_at,
-                                        observed_at=promoted_at,
-                                        payload={"release_id": promoted_to},
-                                        source=Source.ARTIFACTORY))
+                    ops.append(AddAssertion(subject=rel_id, name="released", species=Species.EVENT,
+                                            occurred_at=promoted_at, observed_at=promoted_at,
+                                            value={"digest": digest}, source=Source.ARTIFACTORY,
+                                            source_native_name="released"))
+                    ops.append(AddAssertion(subject=art_id, name="promoted", species=Species.EVENT,
+                                            occurred_at=promoted_at, observed_at=promoted_at,
+                                            value={"release_id": promoted_to},
+                                            source=Source.ARTIFACTORY, source_native_name="promoted"))
 
         for promo in raw.get("promotions", []):
             digest = promo.get("sha256") or promo.get("digest")
@@ -105,10 +107,12 @@ class ArtifactoryAdapter:
             promoted_at = promo.get("promoted_at")
             if promoted_at:
                 rel_payload = {"digest": digest, "environment": promo.get("environment")}
-                ops.append(AddEvent(entity=rel_id, type="released", occurred_at=promoted_at,
-                                    observed_at=promoted_at, payload=rel_payload,
-                                    source=Source.ARTIFACTORY))
-                ops.append(AddEvent(entity=art_id, type="promoted", occurred_at=promoted_at,
-                                    observed_at=promoted_at, payload={"release_id": release_id},
-                                    source=Source.ARTIFACTORY))
+                ops.append(AddAssertion(subject=rel_id, name="released", species=Species.EVENT,
+                                        occurred_at=promoted_at, observed_at=promoted_at,
+                                        value=rel_payload, source=Source.ARTIFACTORY,
+                                        source_native_name="released"))
+                ops.append(AddAssertion(subject=art_id, name="promoted", species=Species.EVENT,
+                                        occurred_at=promoted_at, observed_at=promoted_at,
+                                        value={"release_id": release_id}, source=Source.ARTIFACTORY,
+                                        source_native_name="promoted"))
         return ops
