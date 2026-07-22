@@ -13,7 +13,7 @@ from datetime import datetime
 import networkx as nx
 
 from ..domain.edge import Edge
-from ..domain.enums import EdgeType, FactState, NodeType
+from ..domain.enums import EdgeType, FactState, NodeType, Origin
 from ..domain.event import Event
 from ..domain.fact import Fact
 from ..domain.node import Node
@@ -127,6 +127,42 @@ class Graph:
         return [f for f in self.facts.values()
                 if f.state != FactState.RETRACTED and f.valid_from <= ts
                 and (f.valid_to is None or ts < f.valid_to)]
+
+    def structural_distances(self, anchor: str) -> dict[str, int]:
+        """Hop distance from `anchor` to every structurally-connected node — a read-only,
+        UNDIRECTED breadth-first walk over the ACTIVE structural spine (declared/discovered
+        edges: DEPENDS_ON/RUNS_ON/CHANGED_BY/AFFECTS/...). The causal/evidence layer — any
+        edge whose origin is INFERRED (CAUSED_BY, the derived SUPPORTS/REFUTES, ...) — is
+        NEVER traversed, and hypothesis nodes are never entered: topological specificity
+        (P4 belief arithmetic, DOMAIN-v3 §2.5) must come from OBSERVED structure, so a
+        hypothesis's own causal claims can never shorten the distance of its own evidence.
+        Level-order BFS: hop counts are independent of intra-level iteration order, so the
+        result is deterministic under journal replay."""
+        if anchor not in self.nodes:
+            return {}
+        adj: dict[str, list[str]] = {}
+        for e in self.edges.values():
+            if e.state != FactState.ACTIVE or e.origin == Origin.INFERRED:
+                continue
+            s, d = self.nodes.get(e.src), self.nodes.get(e.dst)
+            if s is None or d is None:
+                continue
+            if s.type == NodeType.HYPOTHESIS or d.type == NodeType.HYPOTHESIS:
+                continue
+            adj.setdefault(e.src, []).append(e.dst)
+            adj.setdefault(e.dst, []).append(e.src)
+        dist = {anchor: 0}
+        frontier, hops = [anchor], 0
+        while frontier:
+            hops += 1
+            nxt: list[str] = []
+            for n in frontier:
+                for m in adj.get(n, ()):
+                    if m not in dist:
+                        dist[m] = hops
+                        nxt.append(m)
+            frontier = nxt
+        return dist
 
     def reachable_from(self, nid: str, *, max_hops: int = 4) -> set[str]:
         seen, frontier = {nid}, [nid]

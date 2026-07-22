@@ -36,11 +36,37 @@ class Tunables(BaseModel):
     # generic_ci substituted into a structural pair, or a CAUSED_BY blaming a generic_ci) —
     # provisional knowledge is admitted, never at full weight (DOMAIN-v3 §2.4 row 2).
     discovery_penalty: float = 0.75
-    # theta / evidence_floors / max_items / clock_skew_bound_s were DELETED as dead,
-    # never-read knobs (2026-07-22 review, findings 8/4/9/10): gate.min_facts is the live
-    # per-phase evidence floor and op_ceiling the live per-phase bound; a clock-skew bound
-    # returns properly when temporal-join enforcement lands (extra="forbid" makes any
-    # lingering yaml key a loud load error, not a silent no-op).
+    # theta / evidence_floors / max_items were DELETED as dead, never-read knobs
+    # (2026-07-22 review, findings 8/4/9): gate.min_facts is the live per-phase evidence
+    # floor and op_ceiling the live per-phase bound (extra="forbid" makes any lingering
+    # yaml key a loud load error, not a silent no-op).
+    #
+    # ── P4 belief arithmetic (DOMAIN-v3 §2.5 / DESIGN R-C4) — every weight/decay is a
+    # tunable; the engine owns arithmetic only (INV-9). clock_skew_bound_s RETURNS here
+    # (deleted as dead in P0, finding 10) now that temporal-join enforcement lands: it is
+    # read by hypothesis/belief.py (proximity) and correlate_timeline.
+    # Per-source clock-skew bound (seconds), R-J2: a temporal proximity/join between two
+    # sources never asserts ordering tighter than the COMBINED bound of the pair;
+    # "default" covers a source without an explicit entry. Monitoring stacks are
+    # NTP-tight; ticket/CMDB/human records are minute-granular; vcs/build stamps ride
+    # client clocks; llm/engine stamps are the engine's own clock.
+    clock_skew_bound_s: dict[str, float] = Field(
+        default_factory=lambda: {
+            "prometheus": 30.0, "ocp": 30.0, "appd": 60.0, "splunk": 60.0,
+            "bigpanda": 60.0, "git": 120.0, "artifactory": 120.0, "servicenow": 300.0,
+            "cmdb": 300.0, "human": 300.0, "llm": 0.0, "engine": 0.0, "default": 300.0})
+    # temporal-proximity decay half-life (seconds) BEYOND the combined skew window: at
+    # `excess = proximity_halflife_s` past the window, proximity halves.
+    proximity_halflife_s: float = Field(default=1800.0, gt=0)
+    # topological specificity: per-structural-hop decay from the anomaly, floored for a
+    # subject unreachable over the structural spine (never zero — evidence about an
+    # unplaced entity still weighs, dimly).
+    specificity_decay: float = Field(default=0.8, gt=0, le=1.0)
+    specificity_floor: float = Field(default=0.25, ge=0, le=1.0)
+    # the LLM band's pseudo-evidence mass in the weighted blend: a hypothesis with no
+    # resolvable evidence scores exactly its band; evidence mass beyond this pulls the
+    # score toward the for/against split.
+    prior_weight: float = Field(default=1.0, gt=0)
 
 
 class GateSpec(BaseModel):

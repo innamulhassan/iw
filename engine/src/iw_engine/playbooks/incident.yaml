@@ -58,3 +58,14 @@ tunables:
   delta: 0.15
   confidence_band: {low: 0.3, med: 0.6, high: 0.9}
   op_ceiling: {frame: 40, triage: 30, hypothesize: 30, investigate: 40, remediate: 15, verify: 20, close: 10}
+  # P4 belief arithmetic (DOMAIN-v3 §2.5): evidence weight = reliability x proximity x
+  # specificity — every weight/decay is a knob HERE, the engine owns arithmetic only (INV-9).
+  # Per-source clock-skew bounds (seconds, R-J2): proximity/correlation never asserts ordering
+  # tighter than the COMBINED bound of the two sources involved.
+  clock_skew_bound_s: {prometheus: 30, ocp: 30, appd: 60, splunk: 60, bigpanda: 60,
+                       git: 120, artifactory: 120, servicenow: 300, cmdb: 300, human: 300,
+                       llm: 0, engine: 0, default: 300}
+  proximity_halflife_s: 1800      # decay half-life beyond the skew window
+  specificity_decay: 0.8          # per structural hop from the anomaly
+  specificity_floor: 0.25         # subjects unreachable over the structural spine
+  prior_weight: 1.0               # the LLM band's pseudo-evidence mass in the blend
