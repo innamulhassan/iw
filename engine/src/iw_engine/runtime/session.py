@@ -41,6 +41,7 @@ from ..domain.registry import node_id
 from ..domain.subject import SubjectRef
 from .engine import Engine
 from .planner import PlanContext, Planner, PlanOutput
+from .store import InvestigationStore
 
 
 class SessionState(StrEnum):
@@ -105,7 +106,8 @@ class InvestigationSession:
     def __init__(self, subject: SubjectRef, playbook: Playbook, planner: Planner, *,
                  layer: CapabilityLayer | None = None,
                  clock: Callable[[], datetime] | None = None, max_steps: int = 60,
-                 background_drive: bool = False) -> None:
+                 background_drive: bool = False,
+                 store: InvestigationStore | None = None) -> None:
         self.subject = subject
         self.id = subject.key
         # the ServiceNow incident under investigation → renders as node #1 (obs 1)
@@ -131,6 +133,13 @@ class InvestigationSession:
         self._background = background_drive
         self._drive_lock = threading.Lock()
         self._driving = False
+        # durability: land the journal on disk as the session drives so it survives a restart
+        # (a read-only reopen is served from disk by the SessionManager). None = no persistence,
+        # so a directly-constructed session (the hermetic unit tests) is unchanged.
+        self._store = store
+        self._persisted_journal = 0
+        if self._store is not None:
+            self._store.reset(self.id)   # fresh run overwrites any prior on-disk run of this id
 
     # ── public driving surface ─────────────────────────────────────────────────
     def advance(self, *, after: int | None = None) -> list[dict]:
@@ -222,6 +231,7 @@ class InvestigationSession:
             decision=None, actor=actor, source=Source.HUMAN)
         self._emit("user_message", text=text, kind=kind, actor=actor,
                    source=Source.HUMAN.value, phase=phase.value if phase else None)
+        self._persist()                      # operator turns are journal entries — keep them durable
         return msg
 
     # ── event access ────────────────────────────────────────────────────────────
@@ -280,6 +290,7 @@ class InvestigationSession:
             if resolving_gate:
                 self._pending = None
                 self._decision = None
+            self._persist()                  # durable after every fold/step
         if self._engine.current_phase is None:
             self._close()
 
@@ -304,6 +315,7 @@ class InvestigationSession:
         self._emit("phase_started", phase=ctx.phase.value)
         self._emit("gate_opened", **self._gate_payload(ctx, write_calls, gate_id, out.narrative))
         self._emit("session_state", state=self.state.value, phase=ctx.phase.value)
+        self._persist()                      # a suspended run is durable at the open gate
 
     def _gate_payload(self, ctx: PlanContext, write_calls: list[CapabilityCall],
                       gate_id: str, narrative: str) -> dict:
@@ -415,6 +427,7 @@ class InvestigationSession:
         res = self._engine.result()
         self._outcome = res.close_outcome.value if res.close_outcome else "open"
         self._emit("session_state", state=self.state.value, phase=None, outcome=self._outcome)
+        self._persist()                      # final durable write on close
 
     def _emit(self, etype: str, **payload) -> dict:
         self._event_seq += 1
@@ -424,6 +437,16 @@ class InvestigationSession:
 
     def _now(self) -> str:
         return self._clock().isoformat()
+
+    # ── durability ───────────────────────────────────────────────────────────────
+    def _persist(self) -> None:
+        """Append the journal + rewrite the graph/meta on disk (no-op without a store). Called
+        after each fold/step, when a gate opens, on close, and on an operator message — the
+        journal is append-only so this is cheap and crash-safe."""
+        if self._store is None:
+            return
+        self._persisted_journal = self._store.persist(
+            self.subject, self._engine, prior=self._persisted_journal, state=self.state.value)
 
 
 class SessionManager:
@@ -435,20 +458,28 @@ class SessionManager:
     def __init__(self, playbook: Playbook, planner_factory: Callable[[SubjectRef], Planner], *,
                  layer_factory: Callable[[SubjectRef], CapabilityLayer | None] | None = None,
                  clock: Callable[[], datetime] | None = None, max_steps: int = 60,
-                 background_drive: bool = False) -> None:
+                 background_drive: bool = False,
+                 store: InvestigationStore | None = None) -> None:
         self.playbook = playbook
         self._planner_factory = planner_factory
         self._layer_factory = layer_factory
         self._clock = clock
         self._max_steps = max_steps
         self._background_drive = background_drive     # live path: drive off the HTTP thread
+        # durability (opt-in): when set, sessions persist as they drive and reopen read-only from
+        # disk after a restart. None keeps the pure in-memory behaviour (the hermetic suite).
+        self._store = store
         self._sessions: dict[str, InvestigationSession] = {}
+
+    @property
+    def store(self) -> InvestigationStore | None:
+        return self._store
 
     def create(self, subject: SubjectRef, *, advance: bool = True) -> InvestigationSession:
         layer = self._layer_factory(subject) if self._layer_factory else None
         session = InvestigationSession(subject, self.playbook, self._planner_factory(subject),
                                        layer=layer, clock=self._clock, max_steps=self._max_steps,
-                                       background_drive=self._background_drive)
+                                       background_drive=self._background_drive, store=self._store)
         self._sessions[session.id] = session       # register (overwrites a prior run of the same id)
         if advance:
             session.advance()                      # run to the first pause / gate
@@ -457,5 +488,23 @@ class SessionManager:
     def get(self, session_id: str) -> InvestigationSession | None:
         return self._sessions.get(session_id)
 
+    def reopen(self, session_id: str) -> dict | None:
+        """A read-only reopen after a restart: when `get()` misses in memory, lazy-load the
+        investigation from disk (journal replay via `rebuild`) and return its export_bundle-shaped
+        snapshot. Returns None when the id is neither in memory nor on disk. Continue-driving a
+        reopened session is out of scope — this serves the durable read only."""
+        live = self._sessions.get(session_id)
+        if live is not None:
+            return live.snapshot()
+        if self._store is not None:
+            return self._store.load_bundle(session_id)
+        return None
+
     def list(self) -> list[dict]:
-        return [s.list_view() for s in self._sessions.values()]
+        """Every investigation, in-memory first then disk-only ones merged in (a live session
+        shadows its own on-disk copy, so no duplicates)."""
+        rows = [s.list_view() for s in self._sessions.values()]
+        if self._store is not None:
+            seen = {r["id"] for r in rows}
+            rows += [r for r in self._store.list_disk() if r["id"] not in seen]
+        return rows
