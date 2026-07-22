@@ -1,6 +1,15 @@
-"""The P1a compatibility shim (build-spec step 2) — maps today's AddFact/AddEvent ops onto
-the AddAssertion atom so the whole system keeps working while the atom changes underneath it.
-Removed in P1b when the adapters + scenarios emit AddAssertion natively.
+"""The AddFact/AddEvent → AddAssertion compatibility shim (P1a build-spec step 2) — maps the
+legacy AddFact/AddEvent ops onto the AddAssertion atom so the reducer has one materialization
+path.
+
+P1b RETAINED this thin + deprecated (step 4 "else" branch), NOT removed: the adapters and the
+scenario twins now emit AddAssertion natively, but two callers of the legacy ops remain —
+  1. `runtime.live_planner` parses a model's `add_fact`/`add_event` JSON into AddFact/AddEvent
+     (the LivePlanner is out of P1b scope per the build-spec anti-scope: "Planner/gates/UI must
+     not need changes"); the reducer routes those through this shim.
+  2. the reducer/shim compat unit tests (`test_shim`, `test_reducer`, `test_projection`,
+     `test_session`) exercise this path directly.
+The op classes + this routing are deleted only once the planner emits AddAssertion (a later phase).
 
 The species classifier is the §9.1 Descriptor-vs-State boundary test shipped **as data** (a
 module dict now; becomes dictionary data in P2). Its choice is intentionally low-risk: the

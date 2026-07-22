@@ -61,6 +61,11 @@ class AddAssertion(_Op):
 
 
 class AddFact(_Op):
+    """DEPRECATED compat op — a state/descriptor/reading assertion in the pre-atom shape. Retained
+    post-P1b (adapters + scenarios now emit AddAssertion) solely as the LivePlanner's model-JSON
+    parse target (`add_fact`) + the reducer compat tests; routed onto AddAssertion via domain.shim.
+    Deleted once the planner emits AddAssertion natively (a later phase)."""
+
     op: Literal[OpKind.ADD_FACT] = OpKind.ADD_FACT
     subject: str                       # NodeId (or EdgeId)
     predicate: str
@@ -76,6 +81,11 @@ class AddFact(_Op):
 
 
 class AddEvent(_Op):
+    """DEPRECATED compat op — an occurrence in the pre-atom shape. Retained post-P1b (adapters +
+    scenarios now emit AddAssertion with species=event) solely as the LivePlanner's model-JSON
+    parse target (`add_event`) + the reducer compat tests; routed onto AddAssertion via domain.shim.
+    Deleted once the planner emits AddAssertion natively (a later phase)."""
+
     op: Literal[OpKind.ADD_EVENT] = OpKind.ADD_EVENT
     entity: str                        # NodeId
     type: str
