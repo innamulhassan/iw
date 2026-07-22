@@ -73,6 +73,30 @@ class Tunables(BaseModel):
     correlation_window_s: float = Field(default=3600.0, ge=0)
 
 
+class Doctrine(BaseModel):
+    """The playbook-authored investigation METHOD the live planner's prompt carries — persona,
+    evidence contracts, fault-class rooting conventions, progression prose — as versioned DATA
+    (Part III §3: "prompt doctrine as playbook data"). The planner ASSEMBLES its system prompt
+    from these fragments + the derived catalog/validity lists; the engine never restates domain
+    doctrine in code, so a doctrine change is a playbook edit, not an engine release (and a
+    derived list can't drift the way the hand-restated source list dropped `bigpanda`).
+    Each fragment is verbatim prompt text — the `- ` bullet prefix and two-space continuation
+    indents included — so assembly is pure concatenation, never re-wrapping."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    persona: str              # who the reasoner is + the per-turn loop + the diagnostic stance
+    evidence_ops: str         # ops-vs-calls contract: the direct-op whitelist (symptom node +
+                              #   onset facts, hypotheses, no_evidence) — everything else via tools
+    fact_rules: str           # which facts may be hand-authored (symptom + service RED predicates)
+    frame_contract: str       # the FRAME same-turn contract (call tools AND seed symptom + onset)
+    rooting: str              # fault-class rooting conventions (root at the actionable cause)
+    investigate_advance: str  # when INVESTIGATE may advance (direct evidence + rival ruled out)
+    verify_advance: str       # when VERIFY confirms and advances (symptom cleared)
+    hypothesis_method: str    # always a leader + a distinct rival; actively refute
+    progression: str          # the per-turn progression rule (phase scope; advance on gate-pass)
+
+
 class GateSpec(BaseModel):
     """Declarative guard the engine applies to the planner's proposed 'advance' verdict."""
 
@@ -107,6 +131,9 @@ class Playbook(BaseModel):
     # domain role-bindings (retire the engine's hardcoded constants — DESIGN depth §E):
     symptom_node: NodeType = NodeType.ANOMALY      # the FRAME symptom anchor captured for node-expansion
     terminal_phase: Phase = Phase.CLOSE            # reaching it closes the investigation
+    # the live planner's prompt doctrine (Part III §3). Optional: scripted/batch runs never read
+    # it; a live planner without one falls back to the packaged incident playbook's doctrine.
+    doctrine: Doctrine | None = None
 
     def phase(self, pid: Phase) -> PhaseSpec:
         for p in self.phases:

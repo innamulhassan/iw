@@ -17,60 +17,9 @@ from .edges import EDGE_SPECS
 from .nodes import NODE_SPECS
 from .playbook import Playbook
 
-# One-line docs for the concrete tool intents (what each returns), so the planner can pick
-# the right verb. Neutral tool documentation — describes the capability, not any answer.
-INTENT_HINTS: dict[str, str] = {
-    # servicenow
-    "get_incident": "the incident record + the affected CI",
-    "find_recent_changes": "recent change tickets (CHG-*) near the incident window -> change_event "
-                           "nodes (+ commit/release if the ticket names one)",
-    "query_change_log": "change history for a CI",
-    "get_ci": "a single CI record",
-    "list_related_incidents": "other incidents on the same CI",
-    "assess_impact": "the impacted-service blast radius",
-    "ingest_alert": "normalize an inbound alert into the graph",
-    # cmdb
-    "get_dependencies": "declared topology: a CI's downstream dependencies (DEPENDS_ON/RUNS_ON, origin=declared)",
-    "impact_analysis": "declared topology: upstream blast radius of a CI",
-    "seed_graph": "declared topology around the subject",
-    "get_ci_class": "a CI's class",
-    "find_ci_by_attr": "CIs matching an attribute",
-    # prometheus
-    "active_alerts": "firing alerts for a service -> alert nodes + fired events",
-    "instant_query": "a point-in-time metric value (e.g. connection-pool util, active_connections, retrans_segs)",
-    "range_query": "a metric over a time range (e.g. probe_success flapping)",
-    "fetch_metrics": "RED metrics (errors/latency/traffic) for a service",
-    # appd
-    "bt_health": "business-transaction health: art_p95 / epm / delta_vs_baseline",
-    "get_snapshots": "transaction snapshots incl. exit-call boundaries (JDBC->db, HTTP->service) "
-                     "— pins where the time goes",
-    "healthrule_violations": "AppD health-rule violations for a service (an EMPTY result is a "
-                             "clean callee — first-class null evidence)",
-    "flowmap": "the observed call flowmap — discovers callees (downstream services)",
-    "fetch_traces": "distributed traces for a BT/service",
-    # splunk
-    "search_errors": "raw error-log search",
-    "error_signature_topk": "top deduped exception signatures -> error_signature nodes + count fact",
-    "search_fw_denies": "firewall deny events -> firewall_rule deny_count",
-    "transaction_trace": "a single transaction trace",
-    "fetch_logs": "service logs",
-    # git
-    "get_commit": "commit metadata",
-    "diff_range": "diff stats for a change/commit (lines_added/deleted on the commit)",
-    "read_diff": "read a commit diff",
-    "get_pr_for_commit": "the PR that merged a commit",
-    "blame": "blame a file:line to the commit that introduced it -> CAUSED_BY error_signature->commit",
-    # ocp
-    "rollout_status": "deployment rollout status",
-    "pod_status": "pod readiness / restart counts",
-    "events": "kubernetes events",
-    "pod_logs": "pod logs",
-    # artifactory
-    "get_artifact_by_digest": "build artifact by digest",
-    "get_build": "CI build record",
-    "list_promotions": "artifact promotion history",
-    "aql_search": "artifact query",
-}
+# (INTENT_HINTS — 50 lines of hand-written per-tool one-liners — was deleted as dead code:
+# referenced nowhere, and per-tool docs already derive from each capability's own `meta`
+# via render_tools(), so a hand-restated copy could only drift.)
 
 
 def render_nodes() -> str:

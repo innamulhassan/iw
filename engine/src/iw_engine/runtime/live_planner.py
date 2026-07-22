@@ -1,10 +1,11 @@
 """live_planner.py — a REAL-LLM Planner behind the same `Planner` Protocol the deterministic
 `ScriptedPlanner` implements (principle 11: JUDGMENT is a swappable seam). `plan(ctx)` builds
-a prompt from {phase goal + gate, the catalog grammar, the concrete tool list, the current
-graph slice, the ranked hypotheses}, asks the LLM for ONE JSON plan, and maps that plan to a
-`PlanOutput` (typed ops only — prose is a field, not the channel). Off-catalog output is
-rejected+repaired here (invalid enum member, unparseable op, unknown tool) BEFORE it reaches
-the reducer, which is the second, authoritative guard.
+a prompt from {the playbook's DOCTRINE (persona, evidence contracts, rooting conventions —
+data, never engine code: Part III §3), phase goal + gate, the catalog grammar, the concrete
+tool list, the current graph slice, the ranked hypotheses}, asks the LLM for ONE JSON plan,
+and maps that plan to a `PlanOutput` (typed ops only — prose is a field, not the channel).
+Off-catalog output is rejected+repaired here (invalid enum member, unparseable op, unknown
+tool) BEFORE it reaches the reducer, which is the second, authoritative guard.
 
 The LLM never emits free-form graph mutations except through the closed op set:
   calls:[{intent,params}]        -> CapabilityCall  (tool -> data ops via the layer)
@@ -16,6 +17,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import lru_cache
+from pathlib import Path
 
 from ..capability.layer import CapabilityCall
 from ..domain import dictionary
@@ -23,7 +26,9 @@ from ..domain.common import Confidence
 from ..domain.enums import (
     ConfidenceLevel,
     EdgeType,
+    HypothesisStatus,
     NodeType,
+    OpKind,
     Origin,
     Source,
     VerdictStatus,
@@ -40,6 +45,7 @@ from ..domain.operations import (
     UpdateHypothesis,
 )
 from ..domain.phase_result import PhaseVerdict
+from ..domain.playbook import Doctrine
 from .planner import PlanContext, PlanOutput
 
 
@@ -107,80 +113,44 @@ _retry_delay = retry_delay
 
 
 
-# ── the planner ───────────────────────────────────────────────────────────────
-_SYSTEM = """\
-You are a senior SRE running a disciplined root-cause investigation of a production incident.
-A deterministic engine drives you ONE phase at a time. Each turn you: (1) gather evidence by
-calling tools, (2) mutate the incident graph ONLY through the closed typed-op grammar,
-(3) maintain ranked, evidence-backed hypotheses, and (4) return a verdict that routes the
-engine. You reason like a differential diagnostician: change-first, actively try to REFUTE
-your leading hypothesis and rule OUT rivals — confirmation is Popperian, not vibes.
+# ── the system prompt — ENGINE constitution assembled around PLAYBOOK doctrine ──
+# The engine owns only the MECHANICS of the closed grammar: vocabulary discipline, the edge
+# ban, graph-lag, id/hid conventions, the abstract-vs-concrete intent rule, and the JSON
+# envelope. Every piece of DOMAIN method — persona, evidence contracts, fault-class rooting,
+# progression — is `Playbook.doctrine` (Part III §3: prompt doctrine as playbook data), and
+# every validity list is DERIVED from its enum, so the prompt can never again drift from the
+# grammar the way the hand-restated source list dropped `bigpanda`.
 
-HARD RULES
+_RULE_CLOSED_VOCAB = """\
 - Use ONLY node/edge types and intents from the provided grammar/tool list. Inventing a
-  label, an illegal edge pair, or an unknown tool wastes the turn (it is rejected).
-- Graph structure (services, changes, commits, databases, segments, metrics, error signatures)
-  comes from TOOL CALLS — prefer `calls`. Emit direct graph `ops` only for: (a) the Anomaly
-  symptom node + its onset_value/severity_score facts in FRAME (and, in VERIFY, the recovery
-  fact `degraded=false` on the SERVICE — the Anomaly takes ONLY onset_value/severity_score,
-  never `degraded`), (b) hypotheses (propose/update), (c) no_evidence null results. Do NOT
-  hand-fabricate a service/db/commit/segment/change/error node a tool returns.
+  label, an illegal edge pair, or an unknown tool wastes the turn (it is rejected)."""
+
+_RULE_EDGE_BAN = """\
 - NEVER emit `add_edge`. Every structural edge (depends_on, connects_to, ...) comes from a tool
   and every causal/evidence edge (caused_by, supports, refutes) is DERIVED by the engine from
   your hypothesis's root_candidate + supporting/refuting basis. A hand-authored edge is rejected
-  and wastes the turn — encode causation in the hypothesis, not an edge.
-- Only emit `add_fact` on the Anomaly (onset_value/severity_score) or a Service (red_errors,
-  red_latency_p50, red_latency_p99, degraded). All other facts (pool util, retransmits, diff
-  lines, blame, error counts) come from the tools — never author them by hand (a fact whose
-  predicate is illegal for the node, or whose subject you mis-copied, is rejected).
-- IN FRAME you MUST, in the SAME turn, (1) call the change/alert tools that are wired for this
-  incident, AND (2) emit `add_node` for the Anomaly PLUS at least one `add_fact` onset_value on
-  it (the wired alert/change tools return nodes+events but NO facts, so the gate's min_facts is
-  satisfied ONLY by your Anomaly onset fact). Anomaly onset facts are the symptom you framed;
-  their exact value is your best read of the alert.
+  and wastes the turn — encode causation in the hypothesis, not an edge."""
+
+_RULE_GRAPH_LAG = """\
 - A tool's data lands in the graph you see on your NEXT turn — so read the CURRENT GRAPH
-  slice carefully; it holds the evidence from everything you called before.
+  slice carefully; it holds the evidence from everything you called before."""
+
+_RULE_ID_COPY = """\
 - root_candidate of a hypothesis MUST be a node id copied from the graph slice (the
-  initiating change/commit/segment/db), never prose.
+  initiating change/commit/segment/db), never prose."""
+
+_RULE_HID = """\
 - A hypothesis `hid` is a SHORT local id like "h1"/"h2" (NOT "hyp:h1"). The graph shows a
   hypothesis node as "hyp:h1" — to update it, pass hid "h1". Refute a rival by updating its
-  hid with new_status "refuted"; do NOT re-propose it under a new id.
-- The `root_candidate` is the ROOT (the initiating change/commit/segment/fault) — trace the
-  causal chain back to what INITIATED it, not the intermediate mechanism/resource it saturates
-  along the way. A saturated resource is often a symptom of an upstream change, not the root.
-  GENERAL PRINCIPLE — root at the ACTIONABLE CAUSE you would revert or fix (a change, a commit,
-  a config, a security policy/rule, or the load that saturates a limit). NEVER root at a resource
-  that is merely the CONDUIT the traffic passes through or the SYMPTOM it shows: if a resource on
-  the path is itself HEALTHY, it is a conduit, not the root. Ask "what is the ONE thing I would
-  change to fix this?" — that is the root.
-  Rooting convention by fault class: an application code defect roots at the CODE_COMMIT the
-  error/blame resolves to (the deploy that shipped it is the vehicle, not the root); a schema/
-  index/DB-migration or config change roots at the CHANGE_EVENT that made it (NOT the database
-  whose pool it later saturates — the pool is the mechanism); a TRANSPORT fault — the link ITSELF
-  is degraded (packet_loss > 0, retransmits climbing) — roots at the NETWORK_SEGMENT; but a
-  FIREWALL / SECURITY-POLICY block — the link is HEALTHY (packet_loss ~ 0, no retransmits) yet
-  traffic is cleanly DENIED — roots at the POLICY CHANGE that tightened it (or the FIREWALL_RULE
-  it modified), NEVER the healthy segment the denied traffic merely crosses. Distinguish the two
-  by the link's health: degraded link → segment; clean denials on a healthy link → the policy.
-  Copy that node's exact id from the graph as root_candidate.
-- Advance only when the phase's GATE is satisfied. In investigate you must reach a
-  high-confidence leader AND have ruled out a rival (or challenged the leader). A leader is
-  HIGH confidence once the root resource shows the fault DIRECTLY (the blame line on the commit,
-  the DROP INDEX in the diff, the retransmits/packet-loss on the segment, the saturation on the
-  host) AND the rival is ruled out — you do NOT need a separate change ticket to confirm. When
-  you have that, set the leader to status "supported" at "high" and ADVANCE; do not keep
-  re-investigating for more corroboration (repeating the same query is a wasted turn).
-- In verify, once the symptom has cleared, set the leader status "confirmed" and emit verdict
-  `advance` (the engine routes verify -> close); reserve verdict `done` for the CLOSE phase only.
+  hid with new_status "refuted"; do NOT re-propose it under a new id."""
+
+_RULE_ABSTRACT_INTENTS = """\
 - The phase's `allowed_intents` are ABSTRACT CATEGORIES, not tool names. Always call CONCRETE
   tools from the AVAILABLE TOOLS list. If a set of calls added NO new nodes/facts to the graph
   last turn, that tool was not wired for this incident — switch to a DIFFERENT wired tool; never
-  repeat a call that returned nothing.
-- In HYPOTHESIZE always propose the leading hypothesis AND at least one distinct RIVAL rooted at
-  a different node. In INVESTIGATE actively gather evidence that could REFUTE a hypothesis and
-  set the loser's status to "refuted" — the gate will not let you advance until a rival is ruled
-  out (or the leader is challenged with refuting evidence). Do not loop re-supporting one idea.
+  repeat a call that returned nothing."""
 
+_OUTPUT_CONTRACT = """\
 OUTPUT: a single JSON object, no markdown, exactly:
 {
   "reasoning": "your differential reasoning for THIS phase (2-5 sentences)",
@@ -195,11 +165,63 @@ OUTPUT: a single JSON object, no markdown, exactly:
   "narrative": "concise phase narrative for the journal",
   "verdict": {"status":"advance|repeat|backtrack|blocked|done","confidence_level":"low|med|high","basis":"why this verdict"},
   "next_actions": ["what the next phase should do"]
-}
-valid op kinds: add_node, add_fact, add_event, add_edge, propose_hypothesis, update_hypothesis, no_evidence, retract.
-(`retract` tombstones a WRONG fact/event you previously folded — {"op":"retract","target":"<fact/event/edge id>","reason":"..."}; use it only for observations proven wrong, never to hide refuting evidence.)
-valid sources: prometheus, splunk, appd, servicenow, cmdb, ocp, artifactory, git, llm, human, engine.
-valid hypothesis statuses: proposed, investigating, supported, confirmed, refuted, superseded."""
+}"""
+
+_RETRACT_NOTE = """\
+(`retract` tombstones a WRONG fact/event you previously folded — {"op":"retract","target":"<fact/event/edge id>","reason":"..."}; use it only for observations proven wrong, never to hide refuting evidence.)"""
+
+# The op kinds the model may author = exactly `_parse_op`'s dispatch set, derived from the
+# enum. ADD_ASSERTION is excluded on purpose: it is the adapters' NATIVE atom (P1b); the
+# model authors facts/events through the add_fact/add_event compat shims — advertising the
+# atom would invite ops the parser drops.
+_PLANNER_OP_KINDS: tuple[str, ...] = tuple(
+    k.value for k in OpKind if k is not OpKind.ADD_ASSERTION)
+
+
+def render_system(doctrine: Doctrine) -> str:
+    """Assemble the live planner's system prompt: the engine constitution (grammar discipline,
+    turn/id mechanics, the JSON envelope) interleaved — in the exact battle-tested order the
+    former `_SYSTEM` constant used — with the playbook's doctrine fragments, closed by
+    validity lists DERIVED from OpKind/Source/HypothesisStatus. Content-equivalent to the old
+    constant, with ONE deliberate fix: the derived source list carries `bigpanda` (the proven
+    drift the hand-restated list had)."""
+    return "\n".join([
+        doctrine.persona,
+        "",
+        "HARD RULES",
+        _RULE_CLOSED_VOCAB,
+        doctrine.evidence_ops,
+        _RULE_EDGE_BAN,
+        doctrine.fact_rules,
+        doctrine.frame_contract,
+        _RULE_GRAPH_LAG,
+        _RULE_ID_COPY,
+        _RULE_HID,
+        doctrine.rooting,
+        doctrine.investigate_advance,
+        doctrine.verify_advance,
+        _RULE_ABSTRACT_INTENTS,
+        doctrine.hypothesis_method,
+        "",
+        _OUTPUT_CONTRACT,
+        "valid op kinds: " + ", ".join(_PLANNER_OP_KINDS) + ".",
+        _RETRACT_NOTE,
+        "valid sources: " + ", ".join(s.value for s in Source) + ".",
+        "valid hypothesis statuses: " + ", ".join(s.value for s in HypothesisStatus) + ".",
+    ])
+
+
+@lru_cache(maxsize=1)
+def _default_doctrine() -> Doctrine:
+    """The packaged incident playbook's doctrine — the fallback for a LivePlanner constructed
+    without an explicit one (every current wiring site), so doctrine-as-data lands with zero
+    call-site churn. A playbook that drives the live planner with a DIFFERENT method passes
+    its own `doctrine=` instead."""
+    from .loader import load_playbook  # runtime sibling; imported lazily to stay cycle-proof
+    pb = load_playbook(Path(__file__).resolve().parents[1] / "playbooks" / "incident.yaml")
+    if pb.doctrine is None:  # the packaged playbook always carries one — fail loudly, not silently
+        raise ValueError("packaged incident playbook carries no doctrine block")
+    return pb.doctrine
 
 
 @dataclass
@@ -223,11 +245,16 @@ class LivePlanner:
 
     def __init__(self, client, catalog_text: str, tools_text: str, tool_intents: set[str],
                  *, available_sources: set[str] | None = None,
+                 doctrine: Doctrine | None = None,
                  default_at: datetime | None = None, verbose: bool = True):
         self.client = client
         self.catalog_text = catalog_text
         self.tools_text = tools_text
         self.tool_intents = set(tool_intents)
+        # the playbook-authored method (persona/contracts/rooting/progression). The system
+        # prompt is ASSEMBLED from it + the engine constitution — no doctrine in engine code.
+        self.doctrine = doctrine or _default_doctrine()
+        self.system = render_system(self.doctrine)
         # the tool intents actually wired with data this incident (like "connected integrations").
         self.available_sources = set(available_sources) if available_sources is not None else None
         self.default_at = default_at or datetime(2026, 7, 19, 14, tzinfo=UTC)
@@ -242,7 +269,7 @@ class LivePlanner:
     def plan(self, ctx: PlanContext) -> PlanOutput:
         self._attempts[ctx.phase.value] = self._attempts.get(ctx.phase.value, 0) + 1
         user = self._build_prompt(ctx)
-        raw = self.client.complete_json(_SYSTEM, user)
+        raw = self.client.complete_json(self.system, user)
         out = self._to_plan_output(ctx, raw)
         self._called.update(c.intent for c in out.calls)
         return out
@@ -336,10 +363,7 @@ allowed_intents this phase (ABSTRACT categories — fulfil them with the WIRED t
   emitting these words as tool names): {spec.allowed_intents}
 produces_required (must be non-empty to advance): {spec.produces_required or '(none)'}
 GATE to ADVANCE: {gate}{remediate_hint}{correlated}{steer}{dropped}{feedback}
-PROGRESSION RULE: set verdict=advance as soon as this phase's produces_required + gate are
-  satisfied — do NOT loop re-gathering evidence. TRIAGE just decides mitigate-vs-investigate and
-  names the suspect; DEEP evidence (diffs, traces, blame, refuting a rival) belongs in INVESTIGATE.
-  Only verdict=repeat when a REQUIRED output is genuinely still missing this phase.
+PROGRESSION RULE: {self.doctrine.progression}
 
 # CURRENT GRAPH (everything your prior tool calls have discovered — read it for evidence)
 {render_graph_full(self.graph) if self.graph is not None else json.dumps(ctx.graph_view, default=str, indent=1)}
