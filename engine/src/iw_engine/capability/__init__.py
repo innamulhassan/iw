@@ -12,6 +12,11 @@ from .layer import (
     Source,
 )
 from .mapping import MappingSource, map_response
+from .sources import (
+    ProviderRoutedSource,
+    build_provider_transports,
+    provider_config,
+)
 
 __all__ = [
     "Adapter",
@@ -21,9 +26,12 @@ __all__ = [
     "MappingSource",
     "McpSource",
     "MockSource",
+    "ProviderRoutedSource",
     "RestSource",
     "RoutedSource",
     "ScenarioSource",
     "Source",
+    "build_provider_transports",
     "map_response",
+    "provider_config",
 ]
