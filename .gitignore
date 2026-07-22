@@ -35,3 +35,7 @@ dist/
 
 # iw.py controller runtime (pids + logs — local only)
 .iw/
+
+# Investigation runtime state — file-backed sessions (journal/graph/meta per investigation).
+# Durable across a backend restart, but local runtime data, not source; never committed.
+engine/data/investigations/
