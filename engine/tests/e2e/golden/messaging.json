@@ -600,7 +600,7 @@
     {
       "basis": "post-rollback: consumer_lag drained to ~300 and the group is keeping up, anomaly cleared \u2014 confirms the consumer deploy was the cause",
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.9478,
       "id": "hyp:h1",
       "refuting": [],
       "root_candidate": "change_event:chg-55",
@@ -614,7 +614,7 @@
     {
       "basis": "The broker is unhealthy (a partition rebalance storm) OR upstream producers floo",
       "chain": [],
-      "confidence": 0.3,
+      "confidence": 0.1567,
       "id": "hyp:h2",
       "refuting": [
         "fact:5170bdb64edd0bc4",
@@ -847,7 +847,7 @@
     "outcome": "resolved",
     "root_cause": {
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.9478,
       "root_candidate": "change_event:chg-55",
       "statement": "CHG-55 (consumer deploy) shipped a slower per-message handler, dropping the consumer group's processing rate below the ingress rate so lag on orders.events accumulates"
     },

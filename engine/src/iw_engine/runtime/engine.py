@@ -48,6 +48,10 @@ class Engine:
         self.layer = layer   # owns the fetch transport (Source) since the §C re-seam
         self.graph = Graph()
         self.hypothesis_store = HypothesisStore()
+        # P4 (DOMAIN-v3 §2.5): the store ranks/promotes on ENGINE-earned weighted evidence;
+        # the anomaly ref is a closure so the bind survives the symptom being framed later.
+        self.hypothesis_store.bind_scoring(self.graph, playbook.tunables,
+                                           anomaly_ref=lambda: self._anomaly_ref)
         self.journal = Journal(clock=clock)
         self.subject: SubjectRef | None = None
         self._anomaly_ref: str | None = None
@@ -123,7 +127,8 @@ class Engine:
             subject=self.subject, phase=phase, phase_spec=spec, goal=spec.goal,
             graph_view=render_slice(self.graph, self._anomaly_ref),
             hypotheses=[{"id": h.id, "statement": h.statement, "status": h.status.value,
-                         "confidence": h.confidence.value} for h in self.hypothesis_store.ranked()],
+                         "confidence": self.hypothesis_store.score(h)}
+                        for h in self.hypothesis_store.ranked()],
             tunables=self.playbook.tunables, gate_feedback=self._gate_feedback,
             rejections=list(self._last_rejections))
         plan = self.planner.plan(ctx)

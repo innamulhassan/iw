@@ -624,7 +624,7 @@
     {
       "basis": "cert renewed (90 days to expiry), 5xx back to 0.2% \u2014 recovery confirms the expired intermediate as root cause",
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.9392,
       "id": "hyp:h1",
       "refuting": [],
       "root_candidate": "certificate:auth-tls-intermediate",
@@ -638,7 +638,7 @@
     {
       "basis": "auth-svc service-side outage (pod crash / resource exhaustion)",
       "chain": [],
-      "confidence": 0.3,
+      "confidence": 0.1928,
       "id": "hyp:h2",
       "refuting": [
         "fact:b1a8996a6a0c5e80"
@@ -871,7 +871,7 @@
     "outcome": "resolved",
     "root_cause": {
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.9392,
       "root_candidate": "certificate:auth-tls-intermediate",
       "statement": "the Corp Intermediate CA cert expired, breaking the TLS chain for clients that validate the intermediate (~40%)"
     },

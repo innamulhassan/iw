@@ -6,12 +6,22 @@ what journal is for"). Belief moves only via HypDelta carrying a basis; refuted 
 are KEPT (they are evidence). Confirmation is Popperian (DESIGN §2.3 R-C4): a hypothesis is
 promotable when it crosses the confidence gate, leads the field by the margin, and has no
 unrefuted competitor.
+
+P4 (DOMAIN-v3 §2.5): belief is EARNED — a store bound to its scoring context (graph +
+tunables, via `bind_scoring`) ranks and promotes on the ENGINE-computed weighted
+for-minus-against evidence score (`belief.weighted_score`), with the LLM's banded
+confidence as the prior a no-evidence hypothesis falls back to. An UNBOUND store (bare
+unit tests, raw `rebuild`) scores every hypothesis at exactly its band — the pre-P4
+behavior.
 """
 from __future__ import annotations
+
+from collections.abc import Callable
 
 from ..domain.enums import HypothesisStatus
 from ..domain.hypothesis import HypAction, HypDelta, Hypothesis
 from ..domain.playbook import Tunables
+from . import belief
 
 _STATUS_RANK = {
     HypothesisStatus.CONFIRMED: 5,
@@ -32,6 +42,31 @@ _TERMINAL = frozenset({HypothesisStatus.REFUTED, HypothesisStatus.CONFIRMED,
 class HypothesisStore:
     def __init__(self) -> None:
         self.hypotheses: dict[str, Hypothesis] = {}
+        # P4 scoring context (bind_scoring) — None ⇒ unbound ⇒ band-only scoring
+        self._graph = None
+        self._tunables: Tunables | None = None
+        self._anomaly: str | Callable[[], str | None] | None = None
+
+    # ── P4 scoring context ────────────────────────────────────────────────────
+    def bind_scoring(self, graph, tunables: Tunables,
+                     anomaly_ref: str | Callable[[], str | None] | None = None) -> None:
+        """Attach the belief-arithmetic context (DOMAIN-v3 §2.5): the graph the evidence
+        lives in + the tunables holding every weight/decay knob. `anomaly_ref` may be a
+        callable (the engine passes a closure over its captured symptom ref, so the bind
+        survives the anomaly being framed later) or a fixed id; None lets belief derive
+        the anchor from the graph (the disk-reopen path). Scoring is query-time and pure,
+        so a bound store needs no invalidation — every read reflects the current graph."""
+        self._graph = graph
+        self._tunables = tunables
+        self._anomaly = anomaly_ref
+
+    def score(self, h: Hypothesis) -> float:
+        """The engine-earned belief in `h` (P4): the weighted for-minus-against evidence
+        blend when the scoring context is bound, the raw LLM band otherwise."""
+        if self._graph is None or self._tunables is None:
+            return h.confidence.value
+        ref = self._anomaly() if callable(self._anomaly) else self._anomaly
+        return belief.weighted_score(h, self._graph, self._tunables, anomaly_ref=ref)
 
     def apply(self, deltas: list[HypDelta], seq: int) -> None:
         for d in deltas:
@@ -80,7 +115,9 @@ class HypothesisStore:
 
     # ── queries ───────────────────────────────────────────────────────────────
     def _key(self, h: Hypothesis) -> tuple[int, float]:
-        return (_STATUS_RANK.get(h.status, 1), h.confidence.value)
+        # rank by lifecycle status, then by the EARNED weighted score (P4) — the band when
+        # unbound. Refuted hypotheses stay ranked-but-kept (they are evidence).
+        return (_STATUS_RANK.get(h.status, 1), self.score(h))
 
     def ranked(self) -> list[Hypothesis]:
         return sorted(self.hypotheses.values(), key=self._key, reverse=True)

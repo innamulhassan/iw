@@ -644,7 +644,7 @@
     {
       "basis": "rollback restored singleflight: hit-rate back to 96%, evictions down to 4/min, p99 back to 140ms \u2014 recovery confirms the causal chain",
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.9572,
       "id": "hyp:h1",
       "refuting": [],
       "root_candidate": "code_commit:9f8e7d6",
@@ -659,7 +659,7 @@
     {
       "basis": "application code regression in product-api v3.4.0 request handler",
       "chain": [],
-      "confidence": 0.3,
+      "confidence": 0.1928,
       "id": "hyp:h2",
       "refuting": [
         "fact:814574990eaa3ea6"
@@ -893,7 +893,7 @@
     "outcome": "resolved",
     "root_cause": {
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.9572,
       "root_candidate": "code_commit:9f8e7d6",
       "statement": "v3.4.0 (commit 9f8e7d6) disabled client-side cache coalescing (singleflight), causing a read stampede into product-redis"
     },

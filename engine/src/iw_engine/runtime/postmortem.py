@@ -22,15 +22,16 @@ def render_postmortem(subject: SubjectRef, graph: Graph, store: HypothesisStore,
     return {
         "subject": subject.model_dump(),
         "outcome": outcome.value if outcome else "open",
+        # confidence values are the ENGINE-EARNED weighted scores (P4, DOMAIN-v3 §2.5)
         "root_cause": (
             {"statement": confirmed.statement, "root_candidate": confirmed.root_candidate,
-             "confidence": confirmed.confidence.value,
+             "confidence": store.score(confirmed),
              "chain": [c.model_dump(mode="json") for c in confirmed.causal_chain]}
             if confirmed else None),
         "ruled_out": [{"statement": h.statement, "basis": h.confidence.basis}
                       for h in store.hypotheses.values()
                       if h.status == HypothesisStatus.REFUTED],
-        "contributing": [{"statement": h.statement, "confidence": h.confidence.value}
+        "contributing": [{"statement": h.statement, "confidence": store.score(h)}
                          for h in store.alive()
                          if not confirmed or h.id != confirmed.id],
         "timeline": timeline,

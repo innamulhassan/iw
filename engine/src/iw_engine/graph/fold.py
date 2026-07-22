@@ -105,10 +105,17 @@ def fold(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore,
     journal.append_phase(seq, result)
 
 
-def rebuild(journal: Journal) -> tuple[Graph, HypothesisStore]:
-    """Replay the journal → (graph, hypothesis store). Must equal the live projections."""
+def rebuild(journal: Journal, *, tunables=None) -> tuple[Graph, HypothesisStore]:
+    """Replay the journal → (graph, hypothesis store). Must equal the live projections.
+
+    `tunables` (P4, optional): bind the rebuilt store's belief-scoring context so a
+    replayed store RANKS exactly as the live engine's did (weighted evidence, DOMAIN-v3
+    §2.5). Scoring is a pure query-time projection — the replayed STATE is identical
+    either way; without tunables the store scores at the raw bands (pre-P4 behavior)."""
     graph, store = Graph(), HypothesisStore()
     for entry in journal.phase_entries():
         assert entry.delta is not None
         apply_delta(entry.delta, entry.seq, graph, store)
+    if tunables is not None:
+        store.bind_scoring(graph, tunables)
     return graph, store

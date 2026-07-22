@@ -334,7 +334,8 @@ class InvestigationSession:
         evidence: list[dict] = []
         if lead is not None:
             hypothesis = {"id": lead.id, "statement": lead.statement,
-                          "status": lead.status.value, "confidence": lead.confidence.value,
+                          "status": lead.status.value,
+                          "confidence": self._engine.hypothesis_store.score(lead),
                           "root_candidate": lead.root_candidate}
             evidence = [self._fact_view(fid) for fid in lead.supporting_facts]
         return {"gate_id": gate_id, "phase": ctx.phase.value, "reasoning": narrative,
@@ -416,7 +417,7 @@ class InvestigationSession:
         # on a snapshot backfill.
         return {"id": hid, "action": delta.action.value,
                 "status": h.status.value if h else None,
-                "confidence": h.confidence.value if h else None,
+                "confidence": self._engine.hypothesis_store.score(h) if h else None,
                 "basis": delta.basis or (h.confidence.basis if h else ""),
                 "statement": h.statement if h else "",
                 "root_candidate": h.root_candidate if h else None,

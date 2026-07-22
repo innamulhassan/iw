@@ -29,12 +29,15 @@ so live scoring and journal replay agree bit-for-bit.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from ..domain.enums import FactState, NodeType, Source
 from ..domain.fact import Fact
 from ..domain.hypothesis import Hypothesis
 from ..domain.playbook import Tunables
-from ..graph.graph import Graph
+
+if TYPE_CHECKING:   # annotation-only: a runtime import would cycle graph.fold ↔ this package
+    from ..graph.graph import Graph
 
 
 # ── skew (R-J2) ───────────────────────────────────────────────────────────────

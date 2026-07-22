@@ -24,6 +24,7 @@ from pathlib import Path
 import iw_engine
 
 from ..domain.enums import CloseOutcome
+from ..domain.playbook import Tunables
 from ..domain.subject import SubjectRef
 from ..graph.fold import rebuild
 from ..graph.persistence import _atomic_write, save_graph
@@ -112,6 +113,10 @@ class InvestigationStore:
             "outcome": res.close_outcome.value if res.close_outcome else "open",
             "close_outcome": res.close_outcome.value if res.close_outcome else None,
             "phases_run": [p.value for p in res.phases_run],
+            # P4: the playbook tunables the run scored under — a disk reopen re-binds the
+            # rebuilt store's belief arithmetic with EXACTLY these knobs, so the reopened
+            # bundle's earned confidence equals the live one field-for-field.
+            "tunables": engine.playbook.tunables.model_dump(),
             "created_at": created or datetime.now(UTC).isoformat(),
             "updated_at": datetime.now(UTC).isoformat(),
         }
@@ -139,7 +144,11 @@ class InvestigationStore:
         journal = Journal.from_ndjson(jp.read_text())
         meta = json.loads(mp.read_text())
         subject = SubjectRef.model_validate(meta["subject"])
-        graph, store = rebuild(journal)
+        # P4: rebind belief scoring with the tunables the run was persisted under (older
+        # metas without the key fall back to the model defaults).
+        tun = (Tunables.model_validate(meta["tunables"]) if meta.get("tunables")
+               else Tunables())
+        graph, store = rebuild(journal, tunables=tun)
         co = meta.get("close_outcome")
         close_outcome = CloseOutcome(co) if co else None
         phases_run = [e.phase_id for e in journal.phase_entries() if e.phase_id]

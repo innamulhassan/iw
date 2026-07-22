@@ -117,8 +117,10 @@ def export_bundle(res: RunResult) -> dict:
                         **({"provisional": True} if e.provisional else {})}
                        for e in g.events.values()],
         },
+        # `confidence` is the ENGINE-EARNED weighted evidence score (P4, DOMAIN-v3 §2.5) —
+        # the band the LLM reported survives as the prior inside it and as the `basis` text.
         "hypotheses": [{"id": h.id, "statement": h.statement, "status": h.status.value,
-                    "confidence": h.confidence.value, "basis": h.confidence.basis,
+                    "confidence": store.score(h), "basis": h.confidence.basis,
                     "root_candidate": h.root_candidate, "supporting": h.supporting_facts,
                     "refuting": h.refuting_facts,
                     "chain": [c.model_dump(mode="json") for c in h.causal_chain]}

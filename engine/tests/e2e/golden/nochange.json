@@ -529,7 +529,7 @@
     {
       "basis": "mitigation: scale checkout-db's connection pool and add read capacity \u2014 a reversible capacity fix, not a revert (there's no change to revert)",
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.929,
       "id": "hyp:h1",
       "refuting": [],
       "root_candidate": "database:checkout-db",
@@ -542,7 +542,7 @@
     {
       "basis": "An unreported deploy or config change to checkout-api caused the regression",
       "chain": [],
-      "confidence": 0.3,
+      "confidence": 0.1987,
       "id": "hyp:h2",
       "refuting": [
         "fact:ba27f114089e1f33"
@@ -719,7 +719,7 @@
   "postmortem": {
     "contributing": [
       {
-        "confidence": 0.9,
+        "confidence": 0.929,
         "statement": "Organic traffic surge saturated checkout-db's connection pool (USE-saturation, no code/deploy change)"
       }
     ],

@@ -917,7 +917,7 @@
     {
       "basis": "post-fix: p99 back to ~95ms, JDBC exit-call latency and pool pressure gone, anomaly cleared \u2014 confirms the causal chain",
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.959,
       "id": "hyp:h1",
       "refuting": [],
       "root_candidate": "change_event:chg-9",
@@ -932,7 +932,7 @@
     {
       "basis": "A recent orders-api application code deploy introduced an inefficient/blocking c",
       "chain": [],
-      "confidence": 0.3,
+      "confidence": 0.1928,
       "id": "hyp:h2",
       "refuting": [
         "fact:8ed5e6be3dd2f760"
@@ -1182,7 +1182,7 @@
     "outcome": "resolved",
     "root_cause": {
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.959,
       "root_candidate": "change_event:chg-9",
       "statement": "CHG-9 (DB migration) dropped an index on orders.order_items, forcing full-table scans that exhaust the JDBC connection pool and spike orders-api latency"
     },

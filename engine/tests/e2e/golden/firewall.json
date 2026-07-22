@@ -802,7 +802,7 @@
     {
       "basis": "post-approval revert of CHG-3311 applied to FW-EGR-118: denies stopped, probe_success back to 1, red_errors back to 1% \u2014 confirms the causal chain",
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.9276,
       "id": "hyp:h1",
       "refuting": [],
       "root_candidate": "firewall_rule:fw-egr-118",
@@ -815,7 +815,7 @@
     {
       "basis": "Physical-layer link flapping/packet loss on network segment egress-fraud-score",
       "chain": [],
-      "confidence": 0.3,
+      "confidence": 0.204,
       "id": "hyp:h2",
       "refuting": [
         "fact:a68a8d983f35e0ba"
@@ -1056,7 +1056,7 @@
     "outcome": "resolved",
     "root_cause": {
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.9276,
       "root_candidate": "firewall_rule:fw-egr-118",
       "statement": "FirewallRule FW-EGR-118 (tightened by CHG-3311, 'egress ACL hardening on prod-vpc') is blocking egress to fraud-score.vendor.com"
     },

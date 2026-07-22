@@ -207,3 +207,33 @@ def test_score_is_deterministic_across_recomputation():
     g.add_fact(fact("f-b", DB, "conn_pool_util", 1.0, T0, reliability=0.95))
     h = hyp(supporting=["f-a", "f-b"])
     assert belief.weighted_score(h, g, Tunables()) == belief.weighted_score(h, g, Tunables())
+
+
+# ── the store ranks on the EARNED score when bound (P4 step 2) ─────────────────
+def _store_with(g: Graph, *hyps: Hypothesis):
+    from iw_engine.domain.hypothesis import HypAction, HypDelta
+    from iw_engine.hypothesis import HypothesisStore
+    store = HypothesisStore()
+    store.apply([HypDelta(action=HypAction.CREATE, hypothesis=h) for h in hyps], seq=1)
+    return store
+
+
+def test_bound_store_ranks_by_earned_evidence_not_band():
+    """Two same-status hypotheses, same band: the one whose evidence weighs more leads.
+    Unbound, the tie falls back to band order (insertion-stable) — the pre-P4 behavior."""
+    g = graph_fixture()
+    g.add_fact(fact("f-strong", SVC, "red_errors", 0.4, T0, reliability=0.99))
+    ha = hyp("hyp:ha", band=0.6)
+    hb = hyp("hyp:hb", band=0.6, supporting=["f-strong"])
+    store = _store_with(g, ha, hb)
+    assert store.leading().id == "hyp:ha"          # unbound: equal bands, insertion order
+    store.bind_scoring(g, Tunables())
+    assert store.leading().id == "hyp:hb"          # bound: earned evidence outranks
+    assert store.score(hb) > store.score(ha) == 0.6
+
+
+def test_unbound_store_scores_at_exactly_the_band():
+    g = graph_fixture()
+    h = hyp(band=0.9, supporting=["f-onset"])
+    store = _store_with(g, h)
+    assert store.score(store.hypotheses["hyp:h1"]) == 0.9

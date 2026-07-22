@@ -682,7 +682,7 @@
     {
       "basis": "rollback cleared 5xx to 1% \u2014 recovery confirms the causal chain",
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.933,
       "id": "hyp:h1",
       "refuting": [],
       "root_candidate": "code_commit:abc123",
@@ -695,7 +695,7 @@
     {
       "basis": "payments-ora connection-pool exhaustion",
       "chain": [],
-      "confidence": 0.3,
+      "confidence": 0.2012,
       "id": "hyp:h2",
       "refuting": [
         "fact:f09f2c94be57f5d3"
@@ -926,7 +926,7 @@
     "outcome": "resolved",
     "root_cause": {
       "chain": [],
-      "confidence": 0.9,
+      "confidence": 0.933,
       "root_candidate": "code_commit:abc123",
       "statement": "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator"
     },
