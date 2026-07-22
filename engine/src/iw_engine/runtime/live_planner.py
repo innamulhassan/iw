@@ -176,6 +176,7 @@ OUTPUT: a single JSON object, no markdown, exactly:
   "ops": [
     {"op":"add_node","type":"anomaly","props":{"anomaly_id":"ANOM-1"}},
     {"op":"add_fact","subject":"anomaly:anom-1","predicate":"onset_value","value":5200,"unit":"ms","source":"prometheus","at":"2026-07-19T14:05:00+00:00"},
+    {"op":"add_event","entity":"anomaly:anom-1","type":"cleared","source":"prometheus","at":"2026-07-19T14:50:00+00:00"},
     {"op":"propose_hypothesis","hid":"h1","statement":"...","root_candidate":"<node id>","confidence_level":"med"},
     {"op":"update_hypothesis","hid":"h2","new_status":"refuted","basis":"...","add_refuting":[]},
     {"op":"no_evidence","intent":"healthrule_violations","scope":"<node id>","basis":"...","at":"2026-07-19T14:20:00+00:00"}
@@ -551,7 +552,14 @@ Plan this phase. Return ONLY the JSON object."""
                 ), None
             if kind == "add_event":
                 at = self._dt(o.get("at") or o.get("occurred_at"))
-                return AddEvent(entity=o["entity"], type=o["type"], occurred_at=at,
+                # add_fact's twin shim: models mirror add_fact's `subject` field here (the
+                # live grok runs KeyError'd on 'entity' every verify turn until the contract
+                # gained an add_event example) — accept the alias, and canon the ref exactly
+                # like add_fact does so a cleared event lands on the canonical symptom node.
+                entity = o.get("entity") or o.get("subject")
+                if not entity:
+                    return None, "add_event missing entity/subject"
+                return AddEvent(entity=self._canon(entity), type=o["type"], occurred_at=at,
                                 observed_at=self._dt(o.get("observed_at"), at),
                                 payload=o.get("payload") or {}, source=Source(o.get("source", "llm"))), None
             if kind == "add_edge":
