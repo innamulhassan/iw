@@ -801,7 +801,10 @@ def cache() -> tuple[SubjectRef, dict, str]:
                                        "reliability": 0.98, "unit": "ms"}]}},
         "appd": {"*": {
             "service": {"name": "product-api", "env": "prod"},
-            "bt": {"name": "/products/{id}"},
+            # no "bt" key: red_latency_p50 must fold onto the SERVICE (the docstring's
+            # "service's p50 flat" discriminator) — under a BT subject the dictionary
+            # rejects latency_p50 as not-allowed-on-business_transaction (live retest
+            # 2026-07-22; the database scenario's blob has the same shape).
             "bt_metrics": [{"predicate": "red_latency_p50", "value": 67, "unit": "ms",
                             "at": t_inv, "reliability": 0.95}],
             "snapshots": [{"exit_calls": [{"type": "REDIS", "cache_id": "product-redis"}]}]}},

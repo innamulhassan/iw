@@ -115,6 +115,17 @@ class AppDAdapter:
                 dst = registry.node_id(NodeType.DATABASE, props)
                 ops.append(AddEdge(type=EdgeType.DEPENDS_ON, src=src_id, dst=dst,
                                    origin=Origin.DISCOVERED))
+            elif ctype == "REDIS":
+                # REDIS discovers a Cache exactly as JDBC discovers a Database (live retest
+                # 2026-07-22: the branch was missing, so no tool could ever create the cache
+                # node and every prometheus cache:<id> fact rejected 'unknown subject' — the
+                # scripted twin masked it by hand-authoring the node, which a live planner
+                # is forbidden to do).
+                props = {"cache_id": call["cache_id"]}
+                ops.append(AddNode(type=NodeType.CACHE, props=props))
+                dst = registry.node_id(NodeType.CACHE, props)
+                ops.append(AddEdge(type=EdgeType.DEPENDS_ON, src=src_id, dst=dst,
+                                   origin=Origin.DISCOVERED))
             elif ctype == "HTTP":
                 if "target_external" in call:
                     props = {"service_name": call["target_external"], "vendor": call.get("vendor")}
