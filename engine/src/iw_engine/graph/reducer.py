@@ -13,7 +13,15 @@ from dataclasses import dataclass, field
 from ..domain import dictionary, registry
 from ..domain.common import Confidence
 from ..domain.edge import Edge
-from ..domain.enums import ConfidenceLevel, HypothesisStatus, NodeType, Source, Species
+from ..domain.enums import (
+    ConfidenceLevel,
+    EdgeType,
+    HypothesisStatus,
+    NodeType,
+    Origin,
+    Source,
+    Species,
+)
 from ..domain.event import Event
 from ..domain.fact import Fact
 from ..domain.hypothesis import HypAction, HypDelta, Hypothesis, Prediction
@@ -197,7 +205,17 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                                                 f"illegal edge {st.value}-{op.type.value}->{dt.value}"))
                 continue
             spec = registry.edge_spec(op.type)
+            # P3 TYPE AIRLOCK (DOMAIN-v3 §2.4 row 2): everything P3 newly admits is PROVISIONAL —
+            # a generic_ci substituted into a structural pair (edge_airlocked; origin FORCED to
+            # discovered: it is an observation about an unclassified CI, whatever the op claimed)
+            # or a CAUSED_BY blaming a generic_ci (declared pair, origin stays inferred per spec).
+            # Pre-P3 generic_ci bookkeeping pairs (AFFECTS/CHANGED_BY/REMEDIATED_BY) are untouched.
+            declared = bool(st and dt and (st, dt) in spec.allowed)
+            airlocked = (NodeType.GENERIC_CI in (st, dt)
+                         and (not declared or op.type is EdgeType.CAUSED_BY))
             origin = op.origin or spec.default_origin
+            if airlocked and op.type is not EdgeType.CAUSED_BY:
+                origin = Origin.DISCOVERED
             conf = None
             if op.confidence_level is not None:
                 conf = _level_conf(op.confidence_level, tunables, f"{op.type.value} edge")
@@ -205,10 +223,14 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
                                                 f"edge {op.type.value} requires confidence"))
                 continue
+            if airlocked and conf is not None:
+                # provisional knowledge is admitted, never at full weight (the airlock's penalty)
+                conf = Confidence(value=round(conf.value * tunables.discovery_penalty, 4),
+                                  basis=f"{conf.basis} [provisional: generic_ci endpoint]")
             eid = registry.edge_id(op.type, op.src, op.dst, origin)
             out.edges.append(Edge(id=eid, type=op.type, src=op.src, dst=op.dst, origin=origin,
                                   props=op.props, confidence=conf, evidence=op.evidence,
-                                  created_by=seq))
+                                  provisional=airlocked, created_by=seq))
             batch_edges.add(eid)   # so a later same-batch edge-borne assertion resolves (F11)
 
         elif isinstance(op, ProposeHypothesis):

@@ -37,4 +37,8 @@ class Edge(BaseModel):
     state: FactState = FactState.ACTIVE
     valid_to: datetime | None = None                # None = still holds (open interval)
     invalidated_by: str | None = None               # id of the fact/hypothesis/edge that retracted it
+    # P3 type airlock (DOMAIN-v3 §2.4 row 2): True for an edge the airlock admitted — a
+    # generic_ci substituted into a structural pair, or a CAUSED_BY blaming a generic_ci.
+    # Rendered dimly; carries a reduced confidence; a human RETYPE promotes it out.
+    provisional: bool = False
     created_by: int

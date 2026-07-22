@@ -32,6 +32,10 @@ class Tunables(BaseModel):
             "bigpanda": 0.8, "llm": 0.9, "human": 0.8, "engine": 1.0})
     confidence_band: dict[str, float] = Field(
         default_factory=lambda: {"low": 0.3, "med": 0.6, "high": 0.9})
+    # P3 type airlock: the multiplicative confidence penalty on an airlock-admitted edge (a
+    # generic_ci substituted into a structural pair, or a CAUSED_BY blaming a generic_ci) —
+    # provisional knowledge is admitted, never at full weight (DOMAIN-v3 §2.4 row 2).
+    discovery_penalty: float = 0.75
     # theta / evidence_floors / max_items / clock_skew_bound_s were DELETED as dead,
     # never-read knobs (2026-07-22 review, findings 8/4/9/10): gate.min_facts is the live
     # per-phase evidence floor and op_ceiling the live per-phase bound; a clock-skew bound

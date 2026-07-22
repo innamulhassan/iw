@@ -238,6 +238,12 @@ SPECS: tuple[EdgeSpec, ...] = (
             (NodeType.ANOMALY, NodeType.LOAD_BALANCER),
             (NodeType.ANOMALY, NodeType.DNS),
             (NodeType.ANOMALY, NodeType.ROUTE),
+            # P3 TYPE AIRLOCK (DOMAIN-v3 §2.4 row 2): an unknown CI is finally BLAMABLE — a
+            # generic_ci can be named the cause instead of being unblamable-but-remediable.
+            # The reducer marks these provisional with a confidence penalty; promotion of the
+            # CI to a real type (the RETYPE op) is a later phase.
+            (NodeType.HYPOTHESIS, NodeType.GENERIC_CI),
+            (NodeType.ANOMALY, NodeType.GENERIC_CI),
         ),
         default_origin=Origin.INFERRED,
         symmetric=False,
@@ -248,7 +254,8 @@ SPECS: tuple[EdgeSpec, ...] = (
             "Covers all 6 scenario root-cause classes: code (CodeCommit), deployment "
             "(ChangeEvent), network (NetworkSegment), database (Database), firewall "
             "(FirewallRule), and no-change (Host/BatchJob saturation), plus the L4 "
-            "edge/security path devices (LoadBalancer/Proxy/ApiGateway/Cdn/Waf/Dns/Route)."
+            "edge/security path devices (LoadBalancer/Proxy/ApiGateway/Cdn/Waf/Dns/Route), "
+            "plus a provisional generic_ci (the P3 airlock's unknown-CI-as-cause lane)."
         ),
     ),
     EdgeSpec(

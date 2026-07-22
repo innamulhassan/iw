@@ -66,7 +66,8 @@ def export_bundle(res: RunResult) -> dict:
                        "source": e.source.value if e.source else None,
                        "established": e.valid_from.isoformat() if e.valid_from else None,
                        "valid_to": e.valid_to.isoformat() if e.valid_to else None,
-                       "invalidated_by": e.invalidated_by}
+                       "invalidated_by": e.invalidated_by,
+                       **({"provisional": True} if e.provisional else {})}
                       for e in g.edges.values()],
             # `provisional` (P3 airlock) is emitted ONLY when true: airlock-admitted knowledge
             # is marked (the UI renders it dimly), while every closed-vocabulary fact/event

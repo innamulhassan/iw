@@ -388,7 +388,8 @@ class InvestigationSession:
                    edges=[{"id": e.id, "type": e.type.value, "src": e.src, "dst": e.dst,
                            "origin": e.origin.value,
                            "source": e.source.value if e.source else None,
-                           "established": e.valid_from.isoformat() if e.valid_from else None}
+                           "established": e.valid_from.isoformat() if e.valid_from else None,
+                           **({"provisional": True} if e.provisional else {})}
                           for e in result.edges_added],
                    facts=[{"id": f.id, "subject": f.subject_ref, "predicate": f.predicate,
                            "value": f.value, "unit": f.unit, "where": f.where,

@@ -131,6 +131,9 @@ def render_catalog(registry, playbook: Playbook) -> str:
 {render_nodes()}
 
 ## EDGE TYPES  (legal (src_type -> dst_type) pairs; an illegal triple is REJECTED)
+##   AIRLOCK: `generic_ci` may stand in for either end of a STRUCTURAL edge (depends_on, calls,
+##   runs_on, ...) when its other end is legal there — the edge lands provisional at reduced
+##   confidence, origin=discovered. A generic_ci may also be NAMED A CAUSE via caused_by.
 {render_edges()}
 
 ## NODE-ID CONVENTION (how to reference a node in a fact/edge/hypothesis)

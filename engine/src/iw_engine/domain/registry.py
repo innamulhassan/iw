@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime
 
-from .edges import EDGE_SPECS  # dict[EdgeType, EdgeSpec]
+from .edges import EDGE_SPECS, STRUCTURAL_EDGE_TYPES  # dict[EdgeType, EdgeSpec] + spine set
 from .enums import EdgeType, NodeType, Origin
 from .nodes import NODE_SPECS  # dict[NodeType, NodeSpec]
 from .spec import EdgeSpec, NodeSpec
@@ -59,8 +59,28 @@ def edge_id(etype: EdgeType, src: str, dst: str, origin: Origin) -> str:
 
 
 # ── validation predicates (reducer uses these) ────────────────────────────────
+def edge_airlocked(etype: EdgeType, src_type: NodeType, dst_type: NodeType) -> bool:
+    """P3 TYPE AIRLOCK (DOMAIN-v3 §2.4 row 2 — "generic structural participation"): `generic_ci`
+    may SUBSTITUTE for either endpoint of a STRUCTURAL edge, so an unknown CI can be placed in
+    the topology instead of staying edge-isolated (3/316 pairs). Governed, not open: the edge
+    type stays a closed member, the layer is the structural spine only (never causal/evidence),
+    and the NON-generic endpoint must already be legal on its side of that edge type — generic_ci
+    stands in for one half of an existing pair, it does not mint new pair semantics. Both-generic
+    is allowed (two undiscovered CIs can still be topologically linked). The reducer marks every
+    such edge provisional + origin=discovered with a confidence penalty."""
+    if etype not in STRUCTURAL_EDGE_TYPES or NodeType.GENERIC_CI not in (src_type, dst_type):
+        return False
+    allowed = EDGE_SPECS[etype].allowed
+    if src_type is NodeType.GENERIC_CI and dst_type is NodeType.GENERIC_CI:
+        return True
+    if src_type is NodeType.GENERIC_CI:
+        return any(d is dst_type for _, d in allowed)
+    return any(s is src_type for s, _ in allowed)
+
+
 def edge_allowed(etype: EdgeType, src_type: NodeType, dst_type: NodeType) -> bool:
-    return (src_type, dst_type) in EDGE_SPECS[etype].allowed
+    return ((src_type, dst_type) in EDGE_SPECS[etype].allowed
+            or edge_airlocked(etype, src_type, dst_type))
 
 
 def predicate_allowed(ntype: NodeType, predicate: str) -> bool:
