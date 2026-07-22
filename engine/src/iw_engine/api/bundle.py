@@ -67,9 +67,10 @@ def discovery_counters(g: Graph) -> dict:
 
 def _journal_entry(e: JournalEntry) -> dict:
     """Flatten one journal entry for the workbench timeline. Phase entries keep their existing
-    shape (unchanged goldens); step entries additionally carry the gate decision + approver."""
-    if e.kind == "step":
-        return {"seq": e.seq, "kind": "step", "phase": e.phase_id.value if e.phase_id else None,
+    shape (unchanged goldens); the human-step kinds (v2 gate_decision/message + the v1 "step"
+    union) additionally carry the gate decision + approver, under their real kind."""
+    if e.kind in ("step", "gate_decision", "message"):
+        return {"seq": e.seq, "kind": e.kind, "phase": e.phase_id.value if e.phase_id else None,
                 "actor": e.actor, "source": e.source.value if e.source else None,
                 "decision": e.decision, "intent": e.intent, "narrative": e.reasoning,
                 "action": e.action}
@@ -130,11 +131,14 @@ def export_bundle(res: RunResult) -> dict:
                     "chain": [c.model_dump(mode="json") for c in h.causal_chain]}
                    for h in store.ranked()],
         # phase entries (the folded PhaseResult narrative) interleaved by seq with the
-        # human-in-the-loop `step` decisions (who approved/denied a gated write, and when) —
-        # so the journal shows the human's role, not just the phase the approval unblocked.
-        # A batch run produces no step entries, so its journal is unchanged.
+        # human-in-the-loop decisions (v2 gate_decision/message + the v1 "step" union) — so
+        # the journal shows the human's role, not just the phase the approval unblocked.
+        # invocation/gate_opened/lifecycle/rejection/repair entries are RECORD kinds, excluded
+        # from this view exactly as P3 excluded invocations — a batch run therefore stays
+        # phases-only and the goldens are byte-stable.
         "journal": [_journal_entry(e) for e in sorted(jr.entries, key=lambda e: e.seq)
-                    if (e.kind == "phase" and e.delta is not None) or e.kind == "step"],
+                    if (e.kind == "phase" and e.delta is not None)
+                    or e.kind in ("step", "gate_decision", "message")],
         # every reducer rejection, derived from the JOURNALED deltas (P3 step 2 — R-K2's
         # bounded repair loop): what was dropped, in which phase, and WHY. Never memory-only,
         # so a reopened/replayed investigation shows the same list.

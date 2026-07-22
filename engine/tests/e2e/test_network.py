@@ -7,10 +7,9 @@ pricing-db is ruled out; reverting the change resolves it.
 from __future__ import annotations
 
 from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Phase
-from iw_engine.graph import rebuild
 
 from . import scenario_network as s2
-from ._helpers import run
+from ._helpers import assert_replay_equivalent, run
 
 
 def test_network_mtu_change_resolves_incident():
@@ -32,8 +31,7 @@ def test_network_mtu_change_resolves_incident():
     assert caused and caused[0].dst == s2.CHG
 
     # the journal alone rebuilds the graph exactly (source-of-truth guarantee)
-    g2, _ = rebuild(res.journal)
-    assert g2.to_dict() == res.graph.to_dict()
+    assert_replay_equivalent(res)   # graph AND hypothesis store (journal v2)
 
 
 def test_network_boundary_discriminator_and_recovery():

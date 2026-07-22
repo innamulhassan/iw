@@ -123,7 +123,6 @@ class Engine:
 
     # ── one phase ─────────────────────────────────────────────────────────────
     def _run_phase(self, phase: Phase, spec) -> PhaseResult:
-        seq = self.journal.reserve_seq()
         # P4: the abstract `correlate_timeline` intent resolves to ENGINE code — every
         # phase whose playbook declares it (hypothesize/investigate in the core playbook)
         # receives the deterministic skew-tolerant change→onset candidates as a plan hint.
@@ -139,6 +138,12 @@ class Engine:
             tunables=self.playbook.tunables, gate_feedback=self._gate_feedback,
             rejections=list(self._last_rejections), correlations=correlations)
         plan = self.planner.plan(ctx)
+        # JOURNAL v2 (part2 §1): the phase seq is CLAIMED here — after the planner returned,
+        # past the only suspension point (an interactive write-gate suspends by raising from
+        # plan()) — never reserved at phase start. A suspended gate therefore burns nothing:
+        # the old reserve-then-append TOCTOU's unlabeled seq gaps are gone. The claim must
+        # precede materialization because every record stamps `created_by` with this seq.
+        seq = self.journal.reserve_seq()
 
         # capability calls -> data ops (the tool outputs fold into the graph); writes
         # (remediation actions) execute only in the human-gated REMEDIATE phase. serve() is
@@ -158,12 +163,13 @@ class Engine:
                     "kind": "workflow" if inv.effect.value == "write" else "tool"})
                 data_ops.extend(ops_i)
                 self.invocations.append(inv)
-                # P3 airlock step 1 — consume the boundary outcome: remember the last outcome per
-                # intent and journal the non-data outcomes DISTINCTLY (error ≠ clean-empty), so a
-                # failed read is never silently erased NOR silently read as refuting evidence.
+                # P3 airlock step 1 + JOURNAL v2 unification (part2 §1): consume the boundary
+                # outcome AND journal EVERY call — data-bearing, clean-empty, error and blocked
+                # alike — so an approved write can never again leave zero durable trace ("the
+                # journal proves consent, never execution"). Outcomes stay DISTINCT downstream
+                # (error ≠ clean-empty is the honesty line).
                 self._intent_outcomes[inv.intent] = inv.outcome
-                if inv.outcome in ("error", "empty"):
-                    self._journal_invocation(seq, phase, inv)
+                self._journal_invocation(seq, phase, inv)
         combined = data_ops + list(plan.ops)
 
         ceiling = self.playbook.tunables.op_ceiling.get(phase.value)
@@ -221,20 +227,23 @@ class Engine:
         return result
 
     def _journal_invocation(self, seq: int, phase: Phase, inv) -> None:
-        """Journal a non-data capability outcome (P3 airlock step 1). `error` and `empty`
-        (clean-empty) leave no trace in the phase delta — the ops they'd have carried never
-        existed — so without their own entry they'd vanish from the durable record entirely.
-        The entry keys the boundary outcome on `decision`/`observation.outcome`, keeping the
-        two DISTINGUISHABLE downstream (part4-capability §4: error ≠ clean-empty). These are
-        `kind="invocation"` entries: they SHARE the phase's seq (an annotation of that phase,
-        not a numbered step of their own), so phase/step numbering — and every golden seq —
-        is untouched; replay ignores them (no delta)."""
+        """Journal ONE capability call's boundary outcome (P3 airlock step 1, extended by
+        JOURNAL v2 to EVERY call — part2 §1's invocation row: an approved write used to leave
+        zero durable trace; now intent, provider, params, effect, blocked-ness and op-count
+        are on the record). The entry keys the outcome on `decision`/`observation.outcome`,
+        keeping error ≠ clean-empty DISTINGUISHABLE downstream (part4-capability §4). These
+        are `kind="invocation"` entries: they SHARE the phase's seq (an annotation of that
+        phase, not a numbered step of their own), so phase/step numbering — and every golden
+        seq — is untouched; replay ignores them (no delta). Wall-clock timing stays ephemeral
+        on the in-memory Invocation (trace concern); params ride in full — hashing them is a
+        live-privacy knob for a later phase."""
         self.journal.append(JournalEntry(
             seq=seq, ts=self._clock(), kind="invocation",
             phase_id=phase, actor="engine", intent=inv.intent,
             action={"capability": inv.intent, "provider": inv.provider,
-                    "params": dict(inv.params)},
-            observation={"outcome": inv.outcome, "reason": inv.reason},
+                    "params": dict(inv.params), "effect": inv.effect.value},
+            observation={"outcome": inv.outcome, "reason": inv.reason,
+                         "blocked": inv.blocked, "op_count": inv.op_count},
             decision=inv.outcome))
 
     def _close_outcome(self, phases_run: list[Phase], confirmed) -> CloseOutcome | None:

@@ -197,19 +197,20 @@ class InvestigationSession:
 
     def _record_gate_decision(self, decision: GateDecision, *, actor: str, reason: str,
                               params: dict) -> None:
-        """Journal the human gate answer (source-of-truth) + emit a `gate_decision` event."""
+        """Journal the human gate answer (source-of-truth) + emit a `gate_decision` event.
+        JOURNAL v2: a typed `gate_decision` entry whose seq is assigned at append — nothing
+        reserved, so the suspended phase behind it burned no seq (gap-free journal)."""
         p = self._pending
         assert p is not None
         write = p.write_calls[0] if p.write_calls else None
         action = {"gate_id": p.gate_id,
                   "intent": write.intent if write else None,
                   "params": {**(dict(write.params) if write else {}), **params}}
-        seq = self._engine.journal.reserve_seq()
-        self._engine.journal.append_step(
-            seq, p.phase, intent=write.intent if write else "gate",
+        self._engine.journal.append_gate_decision(
+            p.phase, intent=write.intent if write else "gate",
             reasoning=reason or f"gate {decision.value} by {actor}",
             action=action, observation={"decision": decision.value, "actor": actor},
-            decision=decision.value, actor=actor, source=Source.HUMAN)
+            decision=decision.value, actor=actor)
         self._emit("gate_decision", gate_id=p.gate_id, decision=decision.value,
                    actor=actor, source=Source.HUMAN.value, reason=reason,
                    phase=p.phase.value)
@@ -224,11 +225,7 @@ class InvestigationSession:
                "kind": kind, "actor": actor}
         self._messages.append(msg)
         phase = self._engine.current_phase
-        jseq = self._engine.journal.reserve_seq()
-        self._engine.journal.append_step(
-            jseq, phase, intent="operator_message", reasoning=text,
-            action={"kind": kind}, observation={"actor": actor},
-            decision=None, actor=actor, source=Source.HUMAN)
+        self._engine.journal.append_message(phase, text=text, message_kind=kind, actor=actor)
         self._emit("user_message", text=text, kind=kind, actor=actor,
                    source=Source.HUMAN.value, phase=phase.value if phase else None)
         self._persist()                      # operator turns are journal entries — keep them durable
@@ -313,7 +310,16 @@ class InvestigationSession:
         self._pending = _Pending(phase=ctx.phase, plan=out, write_calls=write_calls, gate_id=gate_id)
         self.state = SessionState.SUSPENDED
         self._emit("phase_started", phase=ctx.phase.value)
-        self._emit("gate_opened", **self._gate_payload(ctx, write_calls, gate_id, out.narrative))
+        payload = self._gate_payload(ctx, write_calls, gate_id, out.narrative)
+        # JOURNAL v2 (part2 §1): the gate OPENING is durable — what was proposed, on whose
+        # behalf, on what evidence. Was an in-memory event only ("the journal proves consent"
+        # started at the answer; now it starts at the question).
+        self._engine.journal.append_gate_opened(
+            ctx.phase, gate_id=gate_id, actions=payload["actions"],
+            reasoning=out.narrative,
+            hypothesis=payload["hypothesis"]["id"] if payload["hypothesis"] else None,
+            evidence=[e.get("id") for e in payload["evidence"]])
+        self._emit("gate_opened", **payload)
         self._emit("session_state", state=self.state.value, phase=ctx.phase.value)
         self._persist()                      # a suspended run is durable at the open gate
 

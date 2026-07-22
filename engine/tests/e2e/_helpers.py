@@ -127,3 +127,15 @@ def run(subject, script, fixtures: dict | None = None):
     def clock():
         return datetime(2026, 7, 19, tzinfo=UTC)
     return Engine(pb, ScriptedPlanner(script), clock=clock, layer=layer).run(subject)
+
+
+def assert_replay_equivalent(res) -> None:
+    """The R-J1 invariant, JOURNAL-v2 strength (part2 §1): replaying the journal's phase
+    deltas reproduces BOTH projections — the graph byte-for-byte AND the hypothesis store
+    record-for-record (was graph-only before P6 step 3)."""
+    from iw_engine.graph import rebuild
+
+    g2, store2 = rebuild(res.journal)
+    assert g2.to_dict() == res.graph.to_dict()
+    assert {h: v.model_dump() for h, v in store2.hypotheses.items()} == \
+           {h: v.model_dump() for h, v in res.hypothesis_store.hypotheses.items()}

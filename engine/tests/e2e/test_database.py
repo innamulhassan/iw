@@ -5,10 +5,9 @@ ignored), the JDBC-boundary discriminator, and the journal-replay-equivalence in
 from __future__ import annotations
 
 from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Origin, Phase
-from iw_engine.graph import rebuild
 
 from . import scenario_database as s2
-from ._helpers import run
+from ._helpers import assert_replay_equivalent, run
 
 
 def test_database_happy_path():
@@ -39,8 +38,7 @@ def test_database_happy_path():
     assert len(active) == 1 and active[0].value is False
 
     # the journal alone rebuilds the graph exactly (source-of-truth guarantee)
-    g2, _ = rebuild(res.journal)
-    assert g2.to_dict() == res.graph.to_dict()
+    assert_replay_equivalent(res)   # graph AND hypothesis store (journal v2)
 
 
 def test_database_rules_out_code_hypothesis_via_jdbc_boundary():

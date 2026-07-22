@@ -3,10 +3,24 @@ phase entry carries the FULL PhaseResult delta as its payload (DESIGN §2.4 R-J1
 replaying the journal rebuilds the graph + hypothesis store exactly; `refs` is a derived index.
 Persisted as NDJSON with a schema-version header; a trailing partial line is skipped on
 load (crash-safety, R-J4).
+
+SCHEMA v2 (P6 step 3, part2 §1): everything that happens in a run is one typed event log —
+`kind` spans phase · gate_opened · gate_decision · message · invocation · rejection · repair ·
+lifecycle (plus the v1 "step", accepted read-only). ONE seq space, APPEND-AT-EVENT: `append`
+assigns the seq under a lock (the background-drive duplicate-seq race closes), and nothing
+reserves a seq it might not use — the engine claims its phase seq only after the planner
+returns (past the gate-suspension point), so a suspended gate burns nothing and the old
+reserve-at-phase-start gaps disappear. Invocation entries are ANNOTATIONS of their phase:
+they share its seq (P3's design, kept — an annotation is not a numbered step of its own, so
+phase numbering and every golden seq are untouched). The replay contract is unchanged —
+`rebuild()` consumes phase deltas only; every other kind is record, not state. The wire shape
+is tolerant-additive on load (unknown fields ignored; an unknown FUTURE schema_version is
+refused loudly rather than misread).
 """
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Literal
@@ -16,7 +30,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..domain.enums import Phase, Source
 from ..domain.phase_result import PhaseResult
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2   # 2: typed entry kinds + append-at-event one-seq (v1 read-only supported)
 
 
 def _utcnow() -> datetime:
@@ -24,15 +38,28 @@ def _utcnow() -> datetime:
 
 
 class JournalEntry(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    # tolerant-additive on the wire (part2 §1: replaces extra="forbid"): a v2+ journal with an
+    # additive field still loads here; unknown KINDS still fail the Literal — additive means
+    # fields, never semantics.
+    model_config = ConfigDict(extra="ignore")
 
-    seq: int
+    seq: int = 0                             # 0 = unassigned — Journal.append stamps it
     ts: datetime
-    # "invocation" (P3 airlock step 1): a capability call whose boundary outcome carried no
-    # foldable data — `error` (no evidentiary weight) or `empty` (an honest clean-empty read) —
-    # journaled DISTINCTLY so neither is silently erased (part4-capability §4). Data-bearing
-    # invocations need no entry of their own: their ops ARE the phase delta.
-    kind: Literal["phase", "step", "invocation"] = "phase"
+    # The typed entry kinds (part2 §1):
+    #   phase         — the full PhaseResult delta (the replay payload)
+    #   gate_opened   — the proposed action + evidence shown to the human (record)
+    #   gate_decision — approve/refine/deny + actor (the consent record)
+    #   message       — an operator steer/answer (Source.HUMAN)
+    #   invocation    — a capability call's boundary outcome (data | empty | error | blocked):
+    #                   every call leaves a durable trace now, incl. an approved write's
+    #                   execution — shares its phase's seq (annotation, not a numbered step)
+    #   rejection     — a reducer/planner rejection OUTSIDE a phase delta (in-delta rejections
+    #                   ride PhaseResult.rejections — derived, not duplicated)
+    #   repair        — a planner repair record (dropped ops, coercions; live path)
+    #   lifecycle     — run started/resumed/max-steps-exhausted/terminal outcome
+    #   step          — the v1 union of gate_decision+message, accepted read-only
+    kind: Literal["phase", "step", "invocation", "gate_opened", "gate_decision", "message",
+                  "rejection", "repair", "lifecycle"] = "phase"
     phase_id: Phase | None = None
     actor: str = "engine"                    # WHO produced this entry (engine, or a human approver)
     source: Source | None = None             # provenance of a decision entry (Source.HUMAN on a gate answer)
@@ -49,14 +76,28 @@ class Journal:
     def __init__(self, clock: Callable[[], datetime] | None = None) -> None:
         self.entries: list[JournalEntry] = []
         self._seq = 0
+        self._lock = threading.Lock()        # appends are lock-guarded (one seq space, no dupes)
         self._clock = clock or _utcnow
 
     def reserve_seq(self) -> int:
-        self._seq += 1
-        return self._seq
+        """Claim the next seq NOW (the engine claims its phase seq after the planner returns —
+        past the suspension point — because materialized records stamp `created_by` before the
+        phase entry can be appended). Claim-at-first-event, never reserve-then-maybe-append."""
+        with self._lock:
+            self._seq += 1
+            return self._seq
 
     def append(self, entry: JournalEntry) -> JournalEntry:
-        self.entries.append(entry)
+        """Append-at-event: an entry arriving with seq=0 is assigned the next seq here, under
+        the lock; an entry carrying a claimed seq (a phase, or its shared-seq invocation
+        annotations) is accepted as-is and advances the watermark."""
+        with self._lock:
+            if entry.seq <= 0:
+                self._seq += 1
+                entry.seq = self._seq
+            else:
+                self._seq = max(self._seq, entry.seq)
+            self.entries.append(entry)
         return entry
 
     def append_phase(self, seq: int, result: PhaseResult, actor: str = "engine") -> JournalEntry:
@@ -74,16 +115,45 @@ class Journal:
             seq=seq, ts=self._clock(), kind="phase", phase_id=result.phase_id,
             actor=actor, reasoning=result.narrative, delta=result, refs=refs))
 
-    def append_step(self, seq: int, phase_id: Phase, intent: str, reasoning: str,
-                    action: dict, observation: dict, decision: str, *,
-                    actor: str = "engine", source: Source | None = None) -> JournalEntry:
+    def append_gate_opened(self, phase_id: Phase, *, gate_id: str, actions: list[dict],
+                           reasoning: str, hypothesis: str | None,
+                           evidence: list[str]) -> JournalEntry:
+        """The gate OPENING is durable (part2 §1: it was an in-memory event only): what was
+        proposed, on whose behalf (the serving hypothesis) and on what evidence — so the
+        journal shows what the human was ASKED, not just what they answered."""
         return self.append(JournalEntry(
-            seq=seq, ts=self._clock(), kind="step", phase_id=phase_id, actor=actor,
-            source=source, intent=intent, reasoning=reasoning, action=action,
+            ts=self._clock(), kind="gate_opened", phase_id=phase_id, actor="engine",
+            intent=(actions[0].get("intent") if actions else None), reasoning=reasoning,
+            action={"gate_id": gate_id, "actions": actions},
+            observation={"hypothesis": hypothesis, "evidence": evidence}))
+
+    def append_gate_decision(self, phase_id: Phase, *, intent: str, reasoning: str,
+                             action: dict, observation: dict, decision: str,
+                             actor: str) -> JournalEntry:
+        return self.append(JournalEntry(
+            ts=self._clock(), kind="gate_decision", phase_id=phase_id, actor=actor,
+            source=Source.HUMAN, intent=intent, reasoning=reasoning, action=action,
             observation=observation, decision=decision))
 
+    def append_message(self, phase_id: Phase | None, *, text: str, message_kind: str,
+                       actor: str) -> JournalEntry:
+        return self.append(JournalEntry(
+            ts=self._clock(), kind="message", phase_id=phase_id, actor=actor,
+            source=Source.HUMAN, intent="operator_message", reasoning=text,
+            action={"kind": message_kind}, observation={"actor": actor}))
+
+    def append_lifecycle(self, event: str, *, phase_id: Phase | None = None,
+                         outcome: str | None = None, detail: dict | None = None) -> JournalEntry:
+        """Run lifecycle record (part2 §1/§3: zombie states die diagnosable): started / resumed /
+        max_steps_exhausted / closed — with the terminal outcome where one exists."""
+        return self.append(JournalEntry(
+            ts=self._clock(), kind="lifecycle", phase_id=phase_id, actor="engine",
+            reasoning=event, decision=outcome,
+            action={"event": event, **(detail or {})}))
+
     def step_entries(self) -> list[JournalEntry]:
-        return [e for e in self.entries if e.kind == "step"]
+        """The human-in-the-loop entries (v2 gate_decision/message + the v1 "step" union)."""
+        return [e for e in self.entries if e.kind in ("step", "gate_decision", "message")]
 
     def read(self) -> list[JournalEntry]:
         return list(self.entries)
@@ -114,6 +184,13 @@ class Journal:
                     break          # trailing partial line — safe to skip
                 raise
         if parsed and "schema_version" in parsed[0]:
+            # VALIDATED on load (part2 §1: was read-and-ignored). Tolerant-additive within a
+            # known version (extra fields ignored above); an unknown FUTURE version refuses
+            # loudly — misreading a future journal would corrupt the source of truth.
+            version = parsed[0]["schema_version"]
+            if not isinstance(version, int) or version > SCHEMA_VERSION:
+                raise ValueError(f"journal schema_version {version!r} is newer than this "
+                                 f"engine understands (max {SCHEMA_VERSION})")
             parsed = parsed[1:]
         for d in parsed:
             j.append(JournalEntry.model_validate(d))

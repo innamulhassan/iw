@@ -6,10 +6,9 @@ signature first_seen at flip time), and the journal-replay-equivalence invariant
 from __future__ import annotations
 
 from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Phase
-from iw_engine.graph import rebuild
 
 from . import scenario_featureflag as sf
-from ._helpers import run
+from ._helpers import assert_replay_equivalent, run
 
 
 def test_featureflag_happy_path():
@@ -40,8 +39,7 @@ def test_featureflag_happy_path():
     assert len(active) == 1 and active[0].value is False
 
     # the journal alone rebuilds the graph exactly (source-of-truth guarantee)
-    g2, _ = rebuild(res.journal)
-    assert g2.to_dict() == res.graph.to_dict()
+    assert_replay_equivalent(res)   # graph AND hypothesis store (journal v2)
 
 
 def test_featureflag_rules_out_deploy_hypothesis():

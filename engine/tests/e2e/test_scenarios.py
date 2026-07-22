@@ -73,9 +73,10 @@ def test_gate_decision_is_journaled_with_approver_and_tool_sequence():
     assert steps and steps[-1].actor == "alice@oncall"
     assert steps[-1].source == Source.HUMAN and steps[-1].decision == "approve"
 
-    # the exported journal surfaces the human decision alongside the phase narratives
+    # the exported journal surfaces the human decision alongside the phase narratives —
+    # under its REAL v2 kind now (gate_decision), not the v1 "step" union
     human = [j for j in session.snapshot()["journal"]
-             if j.get("kind") == "step" and j.get("source") == "human"]
+             if j.get("kind") == "gate_decision" and j.get("source") == "human"]
     assert human and human[0]["actor"] == "alice@oncall" and human[0]["decision"] == "approve"
 
 

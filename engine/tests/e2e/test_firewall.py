@@ -14,10 +14,10 @@ import iw_engine
 from iw_engine.capability import CapabilityLayer, MockSource
 from iw_engine.capability.adapters import default_adapters
 from iw_engine.domain.enums import CloseOutcome, EdgeType, Effect, HypothesisStatus, Phase
-from iw_engine.graph import rebuild
 from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
 
 from . import scenario_firewall as s5
+from ._helpers import assert_replay_equivalent
 
 PLAYBOOK = pathlib.Path(iw_engine.__file__).parent / "playbooks" / "incident.yaml"
 
@@ -85,8 +85,7 @@ def test_firewall_acl_revert_resolves():
     assert all(not inv.blocked for inv in invocations)  # nothing improper this run
 
     # the journal alone rebuilds the graph exactly (source-of-truth guarantee)
-    g2, _ = rebuild(res.journal)
-    assert g2.to_dict() == res.graph.to_dict()
+    assert_replay_equivalent(res)   # graph AND hypothesis store (journal v2)
 
 
 def test_write_gate_blocks_premature_remediation():

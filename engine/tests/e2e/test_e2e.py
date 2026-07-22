@@ -9,10 +9,10 @@ from datetime import UTC, datetime
 
 import iw_engine
 from iw_engine.domain.enums import CloseOutcome, EdgeType, HypothesisStatus, Phase
-from iw_engine.graph import rebuild
 from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
 
 from . import scenario_code_regression as s1
+from ._helpers import assert_replay_equivalent
 
 PLAYBOOK = pathlib.Path(iw_engine.__file__).parent / "playbooks" / "incident.yaml"
 
@@ -52,8 +52,7 @@ def test_code_regression_happy_path():
     assert len(active) == 1 and active[0].value == 0.01
 
     # the journal alone rebuilds the graph exactly (source-of-truth guarantee)
-    g2, _ = rebuild(res.journal)
-    assert g2.to_dict() == res.graph.to_dict()
+    assert_replay_equivalent(res)   # graph AND hypothesis store (journal v2)
 
 
 def test_refuted_variant_backtracks():
