@@ -12,7 +12,7 @@ from iw_engine.capability import ScenarioSource
 from iw_engine.capability.adapters.git import GitAdapter
 from iw_engine.domain import registry
 from iw_engine.domain.enums import Binding, ConfidenceLevel, NodeType, Source
-from iw_engine.domain.operations import AddFact
+from iw_engine.domain.operations import AddAssertion
 from iw_engine.runtime.live_planner import LivePlanner
 
 T = datetime(2026, 7, 19, 13, 57, tzinfo=UTC)
@@ -20,7 +20,8 @@ T = datetime(2026, 7, 19, 13, 57, tzinfo=UTC)
 
 # ── GAP 2: git returns CONTENT, not just counts ────────────────────────────────
 def _facts(ops):
-    return {o.predicate: o.value for o in ops if isinstance(o, AddFact)}
+    # git now emits AddAssertion natively (P1b); diff stats/summary are content DESCRIPTORs.
+    return {o.name: o.value for o in ops if isinstance(o, AddAssertion)}
 
 
 def test_git_diff_summary_content_fact_on_commit():
@@ -32,8 +33,8 @@ def test_git_diff_summary_content_fact_on_commit():
     f = _facts(ops)
     assert "DROP INDEX" in f["diff_summary"]           # the actual changed line, folded as a fact
     commit_id = registry.node_id(NodeType.CODE_COMMIT, {"sha": "abc123"})
-    assert any(o.subject == commit_id and o.predicate == "diff_summary"
-               for o in ops if isinstance(o, AddFact))
+    assert any(o.subject == commit_id and o.name == "diff_summary"
+               for o in ops if isinstance(o, AddAssertion))
 
 
 def test_git_diff_without_changed_lines_emits_no_summary_golden_safe():
@@ -55,7 +56,7 @@ def test_git_diff_attaches_to_change_when_no_commit():
     })
     chg_id = registry.node_id(NodeType.CHANGE_EVENT,
                               {"change_id": "CHG-9", "change_type": "database"})
-    summ = [o for o in ops if isinstance(o, AddFact) and o.predicate == "diff_summary"]
+    summ = [o for o in ops if isinstance(o, AddAssertion) and o.name == "diff_summary"]
     assert summ and summ[0].subject == chg_id
 
 
@@ -65,7 +66,7 @@ def test_git_blame_line_content_fact():
                   "at": T, "snippet": "return calc.rate(order.getRegion());"},
         "error_signature_hash": "npe-taxcalc",
     })
-    blame = [o for o in ops if isinstance(o, AddFact) and o.predicate == "blame_line"]
+    blame = [o for o in ops if isinstance(o, AddAssertion) and o.name == "blame_line"]
     assert blame and "TaxCalculator.java:88" in blame[0].value
     assert "return calc.rate" in blame[0].value
 

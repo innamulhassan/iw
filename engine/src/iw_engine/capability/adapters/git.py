@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from ...domain import registry
 from ...domain.common import EvidenceRef
-from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source
-from ...domain.operations import AddEdge, AddEvent, AddFact, AddNode, Operation
+from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source, Species
+from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
 
@@ -54,8 +54,9 @@ class GitAdapter:
             ops.append(AddNode(type=NodeType.PULL_REQUEST, props=pr_props))
             pr_id = registry.node_id(NodeType.PULL_REQUEST, pr_props)
             if pr.get("event") and pr.get("at"):
-                ops.append(AddEvent(entity=pr_id, type=pr["event"], occurred_at=pr["at"],
-                                    observed_at=pr["at"], payload={}, source=Source.GIT))
+                ops.append(AddAssertion(subject=pr_id, name=pr["event"], species=Species.EVENT,
+                                        occurred_at=pr["at"], observed_at=pr["at"], value={},
+                                        source=Source.GIT, source_native_name=pr["event"]))
 
         # a referenced change (compute its id up front so a content-only diff — no commit — can
         # attach to the change record that shipped it; the node itself is emitted below, in place)
@@ -74,20 +75,26 @@ class GitAdapter:
         diff = raw.get("diff")
         diff_subject = commit_id or change_id
         if diff and diff_subject and diff.get("at"):
+            # diff stats + the diff summary are change-size / content DESCRIPTORs (the §9.1 content
+            # set the P1a shim classified) — timeless knowledge about the change, not an evolving
+            # state. Folds to a byte-identical Fact; the vendor's own name survives.
             for predicate in ("files_changed", "lines_added", "lines_deleted"):
                 value = diff.get(predicate)
                 if value is not None:
-                    ops.append(AddFact(subject=diff_subject, predicate=predicate, value=value,
-                                       valid_from=diff["at"], observed_at=diff["at"],
-                                       source=Source.GIT,
-                                       source_reliability=diff.get("reliability")))
+                    ops.append(AddAssertion(subject=diff_subject, name=predicate, value=value,
+                                            species=Species.DESCRIPTOR, valid_from=diff["at"],
+                                            observed_at=diff["at"], source=Source.GIT,
+                                            source_reliability=diff.get("reliability"),
+                                            source_native_name=predicate))
             changed = diff.get("changed_lines")
             if changed:
                 summary = "; ".join(str(x) for x in changed) if isinstance(changed, list) \
                     else str(changed)
-                ops.append(AddFact(subject=diff_subject, predicate="diff_summary", value=summary,
-                                   valid_from=diff["at"], observed_at=diff["at"], source=Source.GIT,
-                                   source_reliability=diff.get("reliability", 0.99)))
+                ops.append(AddAssertion(subject=diff_subject, name="diff_summary", value=summary,
+                                        species=Species.DESCRIPTOR, valid_from=diff["at"],
+                                        observed_at=diff["at"], source=Source.GIT,
+                                        source_reliability=diff.get("reliability", 0.99),
+                                        source_native_name="diff_summary"))
 
         # the change node + the INTRODUCED_BY join back to the commit (edge only when a commit
         # was surfaced; the node is emitted whenever a change is referenced)
@@ -107,11 +114,11 @@ class GitAdapter:
             # readable fact on the commit (CODE_COMMIT predicates are unconstrained) so the planner
             # sees the code, not just a count. Live-only: hermetic fixtures carry no blame snippet.
             if blame.get("snippet") and blame.get("at"):
-                ops.append(AddFact(
-                    subject=blame_commit_id, predicate="blame_line",
+                ops.append(AddAssertion(
+                    subject=blame_commit_id, name="blame_line", species=Species.DESCRIPTOR,
                     value=f"{blame.get('file')}:{blame.get('line')}  {blame['snippet']}",
                     valid_from=blame["at"], observed_at=blame["at"], source=Source.GIT,
-                    source_reliability=blame.get("reliability")))
+                    source_reliability=blame.get("reliability"), source_native_name="blame_line"))
 
             es = raw.get("error_signature")
             es_hash = raw.get("error_signature_hash") or (es.get("signature_hash") if es else None)
