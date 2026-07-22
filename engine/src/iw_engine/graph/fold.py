@@ -6,7 +6,7 @@ that the journal is the durable source of truth (DESIGN §2.4 R-J1).
 from __future__ import annotations
 
 from ..domain.edge import Edge
-from ..domain.enums import EdgeType, NodeType, Origin
+from ..domain.enums import EdgeType, FactState, NodeType, Origin
 from ..domain.hypothesis import Hypothesis
 from ..domain.phase_result import PhaseResult
 from ..domain.registry import edge_allowed, edge_id
@@ -31,8 +31,15 @@ def _project_evidence_edges(h: Hypothesis, seq: int, graph: Graph) -> None:
     fact-id lists (VALIDATION-VERDICT §B P0 #1 — the Fact is the one addressable evidence
     unit). Each edge is a thin projection: fact.subject -> hypothesis, derived, never
     planner-emitted, so the graph view can never disagree with the store. Runs inside the
-    single mutation seam, so journal replay reproduces it bit-for-bit. Facts not (yet)
-    materialised, or whose subject is not a graph node, are simply not projected."""
+    single mutation seam, so journal replay reproduces it bit-for-bit.
+
+    The projection is a full RECONCILIATION, not append-only (audit finding #2): an active
+    inferred SUPPORTS/REFUTES edge into this hypothesis whose backing fact-id has LEFT the list
+    (the list SHRANK) is TOMBSTONED (state=RETRACTED), so the graph can never keep asserting
+    evidence the store no longer holds. Facts not (yet) materialised, or whose subject is not a
+    graph node, are simply not projected."""
+    desired: set[str] = set()
+    to_add: list[tuple[EdgeType, str, str]] = []   # (etype, eid, subj_id) in delta order
     for etype, fact_ids in ((EdgeType.SUPPORTS, h.supporting_facts),
                             (EdgeType.REFUTES, h.refuting_facts)):
         for fid in fact_ids:
@@ -45,9 +52,20 @@ def _project_evidence_edges(h: Hypothesis, seq: int, graph: Graph) -> None:
             if not edge_allowed(etype, subj.type, NodeType.HYPOTHESIS):
                 continue
             eid = edge_id(etype, subj.id, h.id, Origin.INFERRED)
-            graph.add_edge(Edge(id=eid, type=etype, src=subj.id, dst=h.id,
-                                origin=Origin.INFERRED, confidence=h.confidence,
-                                created_by=seq))
+            desired.add(eid)
+            to_add.append((etype, eid, subj.id))
+    # retract stale projections FIRST (deterministic id order for replay): an active inferred
+    # evidence edge into this hypothesis that is no longer desired lost its backing fact.
+    for e in sorted(graph.in_edges(h.id), key=lambda e: e.id):
+        if (e.type in (EdgeType.SUPPORTS, EdgeType.REFUTES) and e.origin == Origin.INFERRED
+                and e.state == FactState.ACTIVE and e.id not in desired):
+            graph.retract_edge(e.id, invalidated_by=h.id)
+    # (re)assert the backed edges — add_edge is idempotent by id, so an already-live edge is
+    # refreshed and a previously-retracted one is revived if its backing fact returned.
+    for etype, eid, subj_id in to_add:
+        graph.add_edge(Edge(id=eid, type=etype, src=subj_id, dst=h.id,
+                            origin=Origin.INFERRED, confidence=h.confidence,
+                            created_by=seq))
 
 
 def apply_delta(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore) -> None:

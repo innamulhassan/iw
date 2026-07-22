@@ -336,6 +336,37 @@ def _phase_result() -> PhaseResult:
     )
 
 
+def test_stale_evidence_edge_is_retracted_when_list_shrinks():
+    """Audit finding #2: the fold's SUPPORTS/REFUTES projection is a RECONCILIATION, not
+    append-only. When a hypothesis's supporting/refuting fact-id list SHRINKS, the now-unbacked
+    derived edge must be TOMBSTONED (state=RETRACTED) so the graph never asserts evidence the
+    store no longer holds — else the graph view can disagree with the hypothesis store."""
+    from iw_engine.domain.registry import edge_id
+    from iw_engine.graph.fold import _project_evidence_edges
+
+    g = Graph()
+    sid = "service:payments-api|prod"
+    g.upsert_node(make_service())
+    g.add_fact(make_fact(sid, "red_errors", 0.4, fid="f1"))
+    g.upsert_node(Node(id="hyp:h1", type=NodeType.HYPOTHESIS,
+                       props={"statement": "x"}, created_by=1))
+    eid = edge_id(EdgeType.SUPPORTS, sid, "hyp:h1", Origin.INFERRED)
+
+    backed = _hyp("hyp:h1").model_copy(update={"supporting_facts": ["f1"]})
+    _project_evidence_edges(backed, 1, g)
+    assert g.edges[eid].state == FactState.ACTIVE          # projected while backed by f1
+
+    # the list shrinks: f1 no longer backs h1 — the derived edge must be tombstoned, not left stale
+    unbacked = _hyp("hyp:h1").model_copy(update={"supporting_facts": []})
+    _project_evidence_edges(unbacked, 2, g)
+    assert g.edges[eid].state == FactState.RETRACTED
+    assert g.edges[eid].invalidated_by == "hyp:h1"
+
+    # and it REVIVES (idempotent by id) if the backing fact returns to the list
+    _project_evidence_edges(backed, 3, g)
+    assert g.edges[eid].state == FactState.ACTIVE
+
+
 def test_fold_and_replay_equivalence():
     clock = lambda: T0  # noqa: E731 - deterministic ts
     g, led, jr = Graph(), HypothesisStore(), Journal(clock=clock)
