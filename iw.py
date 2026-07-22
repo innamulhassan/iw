@@ -47,7 +47,7 @@ import stat
 import subprocess
 import sys
 import time
-from typing import NoReturn, Optional
+from typing import NoReturn
 
 ROOT = pathlib.Path(__file__).resolve().parent
 ENGINE = ROOT / "engine"
@@ -251,7 +251,7 @@ def install_frontend(force: bool = False) -> bool:
     """Run npm install in workbench/. Idempotent: leaves a populated node_modules alone."""
     npm = _npm_cmd()
     if shutil.which(npm) is None and not pathlib.Path(npm).exists():
-        _die(f"'npm' not found on PATH. Install Node: https://nodejs.org/en/download/")
+        _die("'npm' not found on PATH. Install Node: https://nodejs.org/en/download/")
 
     nm = WORKBENCH / "node_modules"
     pkg = WORKBENCH / "package.json"
@@ -328,7 +328,7 @@ def _kill_tree_hard(pid: int) -> None:
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)],
                        capture_output=True, text=True)
         return
-    sig = _HAS_SIGKILL and signal.SIGKILL or signal.SIGTERM
+    sig = (_HAS_SIGKILL and signal.SIGKILL) or signal.SIGTERM
     try:
         os.killpg(pid, sig)
     except OSError:
@@ -339,7 +339,7 @@ def _kill_tree_hard(pid: int) -> None:
 
 
 # ─── start ──────────────────────────────────────────────────────────────────────
-def _start_backend(host: str, port: int) -> Optional[int]:
+def _start_backend(host: str, port: int) -> int | None:
     uv = _uv()
     venv = ENGINE / ".venv"
     if not venv.exists():
@@ -362,7 +362,7 @@ def _start_backend(host: str, port: int) -> Optional[int]:
     return pid
 
 
-def _start_frontend(host: str, port: int) -> Optional[int]:
+def _start_frontend(host: str, port: int) -> int | None:
     npm = _npm_cmd()
     if shutil.which(npm) is None and not pathlib.Path(npm).exists():
         _warn("npm missing — run `python iw.py init`; skipping frontend")
@@ -407,7 +407,8 @@ def cmd_start(args) -> int:
                 if _wait_for_port(args.host, args.backend_port, timeout=25):
                     _ok(f"backend ready (port {args.backend_port} listening)")
                 else:
-                    _warn(f"backend pid {pid} started but port {args.backend_port} not listening yet — see `python iw.py logs backend`")
+                    _warn(f"backend pid {pid} started but port {args.backend_port} not listening yet"
+                          " — see `python iw.py logs backend`")
                 state["backend"] = {"pid": pid, "host": args.host, "port": args.backend_port}
 
     if do_f:
@@ -464,10 +465,12 @@ def cmd_stop(args) -> int:
     changed = False
     if do_b and "backend" in state:
         if _stop_pid("backend", state["backend"]["pid"]):
-            del state["backend"]; changed = True
+            del state["backend"]
+            changed = True
     if do_f and "frontend" in state:
         if _stop_pid("frontend", state["frontend"]["pid"]):
-            del state["frontend"]; changed = True
+            del state["frontend"]
+            changed = True
     if changed or state:
         _save_state(state)
     return 0
@@ -532,7 +535,6 @@ def cmd_status(args) -> int:
         alive = _is_running(rec["pid"])
         port = _port_in_use(rec.get("host", "127.0.0.1"), rec.get("port", 0))
         mark = _c("1;32", "●") if (alive and port) else _c("1;31", "○")
-        plain = _strip_ansi(mark)
         print(f"  {mark} {name:9s} pid {rec['pid']:>7}  "
               f"{rec.get('host','127.0.0.1')}:{rec.get('port')}  "
               f"{'alive' if alive else 'dead'} / port {'open' if port else 'closed'}")
