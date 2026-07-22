@@ -7,8 +7,9 @@ edge)). Follows the prometheus.py template: provider/intents/effect/normalize(ra
 from __future__ import annotations
 
 from ...domain import registry
-from ...domain.enums import Binding, EdgeType, Effect, NodeType, Origin, Source
-from ...domain.operations import AddEdge, AddEvent, AddFact, AddNode, Operation
+from ...domain.assertion import Window
+from ...domain.enums import Binding, EdgeType, Effect, NodeType, Origin, Source, Species, Stat
+from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
 
@@ -44,9 +45,15 @@ class AppDAdapter:
             subject = bt_id or svc_id
             if not subject:
                 continue
-            ops.append(AddFact(subject=subject, predicate=m["predicate"], value=m["value"],
-                               unit=m.get("unit"), valid_from=m["at"], observed_at=m["at"],
-                               source=Source.APPD, source_reliability=m.get("reliability")))
+            # BT telemetry (art_p95 / epm / delta_vs_baseline) → a READING. Fixtures state no
+            # stat/window, so stat=gauge + point window at the observation time (the P1a shim
+            # default) keeps the reducer's Fact byte-identical; the vendor's name survives.
+            ops.append(AddAssertion(subject=subject, name=m["predicate"], value=m["value"],
+                                    unit=m.get("unit"), species=Species.READING,
+                                    stat=Stat.GAUGE, window=Window(at=m["at"]),
+                                    valid_from=m["at"], observed_at=m["at"], source=Source.APPD,
+                                    source_reliability=m.get("reliability"),
+                                    source_native_name=m["predicate"]))
 
         # healthrule_violations — Alert FIRED_ON the underlying Service
         for v in raw.get("violations", []):
@@ -54,9 +61,10 @@ class AppDAdapter:
             ops.append(AddNode(type=NodeType.ALERT,
                                props={"alert_id": v["id"], "rule": v.get("rule"),
                                       "severity": v.get("severity")}))
-            ops.append(AddEvent(entity=aid, type="fired", occurred_at=v["at"],
-                                observed_at=v["at"], payload={"severity": v.get("severity")},
-                                source=Source.APPD))
+            ops.append(AddAssertion(subject=aid, name="fired", species=Species.EVENT,
+                                    occurred_at=v["at"], observed_at=v["at"],
+                                    value={"severity": v.get("severity")},
+                                    source=Source.APPD, source_native_name="fired"))
             if svc_id:
                 ops.append(AddEdge(type=EdgeType.FIRED_ON, src=aid, dst=svc_id))
 
@@ -81,12 +89,13 @@ class AppDAdapter:
         for tr in raw.get("traces", []):
             subject = bt_id or svc_id
             if subject:
-                ops.append(AddEvent(entity=subject, type="trace_captured", occurred_at=tr["at"],
-                                    observed_at=tr["at"],
-                                    payload={"trace_id": tr["trace_id"],
-                                             "duration_ms": tr.get("duration_ms"),
-                                             "error": tr.get("error", False)},
-                                    source=Source.APPD))
+                ops.append(AddAssertion(subject=subject, name="trace_captured",
+                                        species=Species.EVENT, occurred_at=tr["at"],
+                                        observed_at=tr["at"],
+                                        value={"trace_id": tr["trace_id"],
+                                               "duration_ms": tr.get("duration_ms"),
+                                               "error": tr.get("error", False)},
+                                        source=Source.APPD, source_native_name="trace_captured"))
             if svc_id:
                 self._fold_exit_calls(ops, svc_id, tr.get("exit_calls", []))
 
