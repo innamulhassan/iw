@@ -113,6 +113,16 @@ class Invocation(BaseModel):
     op_count: int
     blocked: bool = False
     reason: str | None = None
+    # The boundary outcome — the load-bearing honesty distinction (part4-capability §4):
+    #   data        — the tool returned facts that folded into the graph (op_count > 0)
+    #   clean-empty — an HONEST no-data read (the provider answered, nothing to fold): this
+    #                 CAN feed the nochange/refutation path (R-P2 NoEvidence with a basis)
+    #   error       — a transport/normalize failure: NO evidentiary weight, it must NOT be
+    #                 read as refuting evidence (this is the fix for fabricated negative evidence)
+    #   blocked     — the gate denied the call (unknown intent or ungated write)
+    # A downstream reader keys off THIS, never off `op_count == 0` alone (which conflates
+    # clean-empty with error — the silent-empty poison this field exists to kill).
+    outcome: str = "data"
     # what went IN (the query the reasoner issued) and a one-line summary of what came OUT
     # (what the tool folded into the graph) — so the UI reads like a real agent trace: query + result.
     params: dict = Field(default_factory=dict)
@@ -137,24 +147,59 @@ class CapabilityLayer:
     def resolve(self, intent: str) -> Adapter | None:
         return self._by_intent.get(intent)
 
+    def effect_for(self, a: Adapter, intent: str) -> Effect:
+        """The effect of a SPECIFIC intent on an adapter — PER-INTENT, not per-adapter
+        (part4-capability §1: 'effect per-intent, kills the OcpRestartAdapter workaround class').
+        An adapter may carry an optional `effects: dict[str, Effect]` overriding its default
+        `effect` for named intents, so one adapter can host both read and write intents and the
+        gate still resolves each correctly. Adapters without the map behave exactly as before
+        (single effect across the whole intents set) — fully backward compatible."""
+        effects = getattr(a, "effects", None)
+        if isinstance(effects, dict) and intent in effects:
+            return effects[intent]
+        return a.effect
+
     # ── gate + audit (shared by both call paths) ──────────────────────────────
     def _gate(self, a: Adapter | None, intent: str, *, allow_write: bool) -> Invocation | None:
         """Return a blocked Invocation if the call must not proceed, else None."""
         if a is None:
             return Invocation(intent=intent, provider="?", effect=Effect.READ, op_count=0,
-                              blocked=True, reason=f"no capability for intent '{intent}'")
-        if a.effect == Effect.WRITE and not allow_write:
+                              blocked=True, outcome="blocked",
+                              reason=f"no capability for intent '{intent}'")
+        effect = self.effect_for(a, intent)
+        if effect == Effect.WRITE and not allow_write:
             # the human-approval invariant: a write cannot execute outside an approved gate
-            return Invocation(intent=intent, provider=a.provider, effect=a.effect, op_count=0,
-                              blocked=True, reason="write blocked — no approved gate")
+            return Invocation(intent=intent, provider=a.provider, effect=effect, op_count=0,
+                              blocked=True, outcome="blocked",
+                              reason="write blocked — no approved gate")
         return None
 
     def _fold(self, a: Adapter, intent: str, raw: dict, params: dict | None = None
               ) -> tuple[list[Operation], Invocation]:
-        ops = a.normalize(raw)
-        return ops, Invocation(intent=intent, provider=a.provider, effect=a.effect,
+        """Normalize a fetched raw into ops + a truthful Invocation. A normalize() that raises
+        is caught here and reported as an `error` outcome (no evidentiary weight) — never a
+        crash. Ops that fold to nothing are `clean-empty` (an honest no-data read), which is a
+        DIFFERENT thing from an error and downstream may treat as NoEvidence."""
+        effect = self.effect_for(a, intent)
+        try:
+            ops = a.normalize(raw)
+        except Exception as exc:  # a bad tool payload must degrade, not crash the session
+            return [], self._error_invocation(a, intent, effect, exc, params)
+        return ops, Invocation(intent=intent, provider=a.provider, effect=effect,
                                op_count=len(ops), params=dict(params or {}),
+                               outcome="data" if ops else "empty",
                                summary=_summarize_ops(ops))
+
+    def _error_invocation(self, a: Adapter | None, intent: str, effect: Effect,
+                          exc: BaseException, params: dict | None = None) -> Invocation:
+        """A recorded, journalable ERROR — the audit trail survives a vendor 4xx/5xx/timeout or a
+        malformed payload. `outcome='error'` marks it as carrying NO evidentiary weight: it must
+        never be read as a clean-empty (refuting) result."""
+        return Invocation(
+            intent=intent, provider=(a.provider if a else "?"), effect=effect, op_count=0,
+            blocked=False, outcome="error",
+            reason=f"{type(exc).__name__}: {exc}", params=dict(params or {}),
+            summary="tool error — no evidentiary weight")
 
     # ── the two entry points ──────────────────────────────────────────────────
     def invoke(self, intent: str, raw: dict, *, allow_write: bool) -> tuple[list[Operation], Invocation]:
@@ -168,10 +213,16 @@ class CapabilityLayer:
     def serve(self, call: CapabilityCall, *, allow_write: bool) -> tuple[list[Operation], Invocation]:
         """The collapsed, GATE-FIRST path: resolve → gate → transport.fetch(binding, ...) →
         normalize. A blocked write returns before any fetch, so no side-effect ever precedes
-        the gate."""
+        the gate. GUARDED (part4-capability §4): a transport OR normalize failure — a vendor
+        4xx/5xx, a timeout, an SSE/JSON parse blow-up, a bad shape — becomes a recorded `error`
+        Invocation and degrades the read; it NEVER raises through serve() to crash the session."""
         a = self._by_intent.get(call.intent)
         blocked = self._gate(a, call.intent, allow_write=allow_write)
         if blocked is not None:
             return [], blocked
-        raw = self.source.fetch(a.binding, call.intent, call.params) if self.source else {}
+        try:
+            raw = self.source.fetch(a.binding, call.intent, call.params) if self.source else {}
+        except Exception as exc:  # a live transport failure degrades the read, never crashes
+            effect = self.effect_for(a, call.intent)
+            return [], self._error_invocation(a, call.intent, effect, exc, call.params)
         return self._fold(a, call.intent, raw, params=call.params)
