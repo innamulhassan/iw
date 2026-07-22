@@ -22,8 +22,8 @@ def test_deployment_happy_path_resolved():
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: checkout-db was ruled out, not ignored
-    assert res.ledger.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
-    assert s2.fid(s2.DB, "conn_pool_util", s2.T_INV) in res.ledger.hypotheses["hyp:h2"].refuting_facts
+    assert res.hypothesis_store.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
+    assert s2.fid(s2.DB, "conn_pool_util", s2.T_INV) in res.hypothesis_store.hypotheses["hyp:h2"].refuting_facts
 
     # the discriminator: the pod's phase fact stays CrashLoopBackOff through the whole
     # investigation and only flips to Running post-rollback (bi-temporal supersession)
@@ -61,10 +61,10 @@ def test_deployment_mitigated_variant_without_confirmation():
 
     # the leading hypothesis is still well-evidenced (supported, high confidence) — just
     # never independently confirmed — and the rival is still ruled out either way
-    h1 = res.ledger.hypotheses["hyp:h1"]
+    h1 = res.hypothesis_store.hypotheses["hyp:h1"]
     assert h1.status == HypothesisStatus.SUPPORTED
     assert h1.confidence.value >= 0.8
-    assert res.ledger.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
+    assert res.hypothesis_store.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
 
     # impact still cleared even without confirmation (rollback worked)
     degraded_facts = [f for f in res.graph.facts.values()

@@ -12,7 +12,7 @@ from iw_engine.domain.enums import GateResult, HypothesisStatus, Phase, VerdictS
 from iw_engine.domain.hypothesis import HypAction, HypDelta, Hypothesis
 from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict
 from iw_engine.domain.playbook import GateSpec, PhaseSpec, Tunables
-from iw_engine.ledger import Ledger
+from iw_engine.hypothesis import HypothesisStore
 from iw_engine.runtime.controller import check_gate
 
 TUN = Tunables(confidence_gate=0.8, delta=0.15)
@@ -30,8 +30,8 @@ def _advance() -> PhaseResult:
                                             confidence=Confidence(value=0.9, basis="x")))
 
 
-def _ledger(*hyps: tuple[str, float, HypothesisStatus]) -> Ledger:
-    led = Ledger()
+def _ledger(*hyps: tuple[str, float, HypothesisStatus]) -> HypothesisStore:
+    led = HypothesisStore()
     for i, (hid, conf, status) in enumerate(hyps, start=1):
         h = Hypothesis(id=hid, statement=f"cause {hid}",
                        confidence=Confidence(value=conf, basis="b"),

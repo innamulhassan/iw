@@ -29,13 +29,13 @@ def test_nochange_mitigated_close():
 
     # the leading hypothesis is evidence-backed and high-confidence, but stops at
     # 'supported' — an organic no-change incident has no revert experiment to run
-    h1 = res.ledger.hypotheses["hyp:h1"]
+    h1 = res.hypothesis_store.hypotheses["hyp:h1"]
     assert h1.status == HypothesisStatus.SUPPORTED
     assert h1.confidence.value >= 0.8
     assert s2.fid(s2.DB, "conn_pool_util", s2.T_INV) in h1.supporting_facts
 
     # the rival "an invisible change did it" hypothesis was ruled out, not ignored
-    h2 = res.ledger.hypotheses["hyp:h2"]
+    h2 = res.hypothesis_store.hypotheses["hyp:h2"]
     assert h2.status == HypothesisStatus.REFUTED
     no_change_fact = s2.fid(s2.SVC, "no_evidence:find_recent_changes", s2.T_INV)
     assert no_change_fact in h2.refuting_facts
@@ -62,12 +62,12 @@ def test_nochange_empty_change_list_fallback():
     assert res.graph.nodes_of_type(NodeType.CHANGE_EVENT) == []
 
     # the leading hypothesis's root candidate is the database, never a change record
-    h1 = res.ledger.hypotheses["hyp:h1"]
+    h1 = res.hypothesis_store.hypotheses["hyp:h1"]
     assert h1.root_candidate == s2.DB
 
     # the rival change-hypothesis had no change to point at and was refuted by the
     # honest null result (R-P2), not by asserting a fact about a change that never
     # existed
-    h2 = res.ledger.hypotheses["hyp:h2"]
+    h2 = res.hypothesis_store.hypotheses["hyp:h2"]
     assert h2.root_candidate is None
     assert h2.status == HypothesisStatus.REFUTED

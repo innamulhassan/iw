@@ -1,5 +1,5 @@
 """Engine — the thin deterministic phase orchestrator (DESIGN §0/§2.3). One phase, one
-loop iteration:  plan (typed ops) → reduce (validate+materialise) → apply to graph+ledger
+loop iteration:  plan (typed ops) → reduce (validate+materialise) → apply to graph+store
 → gate the verdict → journal the PhaseResult → route to the next phase. No LangGraph, no
 sub-agent sprawl — the uniform contract makes the whole controller a few lines. Fully
 deterministic given a ScriptedPlanner + mock capabilities.
@@ -20,8 +20,8 @@ from ..graph.fold import apply_delta
 from ..graph.graph import Graph
 from ..graph.reducer import Rejection, materialize
 from ..graph.render import render_slice
+from ..hypothesis.store import HypothesisStore
 from ..journal.journal import Journal
-from ..ledger.ledger import Ledger
 from .controller import check_gate, next_phase
 from .planner import PlanContext, Planner
 
@@ -31,7 +31,7 @@ class RunResult:
     subject: SubjectRef
     phases_run: list[Phase]
     graph: Graph
-    ledger: Ledger
+    hypothesis_store: HypothesisStore
     journal: Journal
     confirmed: Hypothesis | None
     close_outcome: CloseOutcome | None
@@ -47,7 +47,7 @@ class Engine:
         self._clock = clock or (lambda: datetime.now(UTC))   # wall-clock for trace spans
         self.layer = layer   # owns the fetch transport (Source) since the §C re-seam
         self.graph = Graph()
-        self.ledger = Ledger()
+        self.hypothesis_store = HypothesisStore()
         self.journal = Journal(clock=clock)
         self.subject: SubjectRef | None = None
         self._anomaly_ref: str | None = None
@@ -99,11 +99,11 @@ class Engine:
         return self.result()
 
     def result(self) -> RunResult:
-        confirmed = self.ledger.confirmed()
+        confirmed = self.hypothesis_store.confirmed()
         outcome = self._close_outcome(self._phases_run, confirmed)
         return RunResult(subject=self.subject, phases_run=self._phases_run, graph=self.graph,
-                         ledger=self.ledger, journal=self.journal, confirmed=confirmed,
-                         close_outcome=outcome, rejections=self.rejections,
+                         hypothesis_store=self.hypothesis_store, journal=self.journal,
+                         confirmed=confirmed, close_outcome=outcome, rejections=self.rejections,
                          invocations=self.invocations)
 
     # ── one phase ─────────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ class Engine:
             subject=self.subject, phase=phase, phase_spec=spec, goal=spec.goal,
             graph_view=render_slice(self.graph, self._anomaly_ref),
             hypotheses=[{"id": h.id, "statement": h.statement, "status": h.status.value,
-                         "confidence": h.confidence.value} for h in self.ledger.ranked()],
+                         "confidence": h.confidence.value} for h in self.hypothesis_store.ranked()],
             tunables=self.playbook.tunables, gate_feedback=self._gate_feedback)
         plan = self.planner.plan(ctx)
 
@@ -157,10 +157,10 @@ class Engine:
             hypotheses_updated=mat.hyp_deltas, narrative=plan.narrative,
             next_actions=plan.next_actions, verdict=plan.verdict)
 
-        # apply the delta via the single mutation seam FIRST, then gate against the updated ledger
-        apply_delta(result, seq, self.graph, self.ledger)
+        # apply the delta via the single mutation seam FIRST, then gate against the updated store
+        apply_delta(result, seq, self.graph, self.hypothesis_store)
 
-        gated = check_gate(spec, result, self.ledger, self.playbook.tunables)
+        gated = check_gate(spec, result, self.hypothesis_store, self.playbook.tunables)
         # REPEAT CAP (tunables.max_retries): a live planner can vote REPEAT indefinitely (the
         # database run looped in TRIAGE for all 16 steps). After max_retries prior consecutive
         # runs of this phase, force an ADVANCE so the investigation always progresses — the

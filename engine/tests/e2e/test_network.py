@@ -24,8 +24,8 @@ def test_network_mtu_change_resolves_incident():
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: pricing-db was ruled out, not ignored
-    assert res.ledger.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
-    assert s2.fid(s2.DB, "conn_pool_util", s2.T_INV) in res.ledger.hypotheses["hyp:h2"].refuting_facts
+    assert res.hypothesis_store.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
+    assert s2.fid(s2.DB, "conn_pool_util", s2.T_INV) in res.hypothesis_store.hypotheses["hyp:h2"].refuting_facts
 
     # the confirmed causal chain: H1 -> the network change (CHG-77)
     caused = res.graph.out_edges(s2.H1, EdgeType.CAUSED_BY)
@@ -56,7 +56,7 @@ def test_network_boundary_discriminator_and_recovery():
 
     # the callee's clean health check is real supporting evidence for H1 (null-result sentinel)
     clean_id = s2.fid(s2.SVC_CALLEE, "no_evidence:healthrule_violations", s2.T_INV)
-    assert clean_id in res.ledger.hypotheses["hyp:h1"].supporting_facts
+    assert clean_id in res.hypothesis_store.hypotheses["hyp:h1"].supporting_facts
 
     # retrans_segs was superseded on recovery (bi-temporal), not overwritten
     retrans_facts = [f for f in res.graph.facts.values()

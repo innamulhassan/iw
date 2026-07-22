@@ -51,11 +51,11 @@ def test_firewall_acl_revert_resolves():
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: the link-flap rival was ruled out, not ignored
-    assert res.ledger.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
+    assert res.hypothesis_store.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
     assert s5.fid(s5.SEG_FRAUD, "packet_loss", s5.T_INV) in \
-        res.ledger.hypotheses["hyp:h2"].refuting_facts
+        res.hypothesis_store.hypotheses["hyp:h2"].refuting_facts
     assert s5.fid(s5.RULE, "deny_count", s5.T_INV) in \
-        res.ledger.hypotheses["hyp:h1"].supporting_facts
+        res.hypothesis_store.hypotheses["hyp:h1"].supporting_facts
 
     # the graph carries the full typed causal picture, incl. the mocked-capability nodes
     for node_id in [s5.SVC, s5.ANOM, s5.CHG, s5.RULE, s5.SEG_FRAUD, s5.SEG_GEO, s5.SEG_PAY,

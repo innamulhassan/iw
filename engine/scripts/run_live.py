@@ -87,11 +87,11 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
         engine.step()
     res = engine.result()
 
-    lead = res.ledger.leading()
+    lead = res.hypothesis_store.leading()
     conf = res.confirmed
     winner = conf or lead
     root = winner.root_candidate if winner else None
-    refuted = [h.id for h in res.ledger.hypotheses.values() if h.status.value == "refuted"]
+    refuted = [h.id for h in res.hypothesis_store.hypotheses.values() if h.status.value == "refuted"]
     # golden_root may be a single id or a tuple of equally-valid, causally-coupled roots (e.g. an
     # ACL incident's root is legitimately the CHANGE that tightened the rule OR the rule itself).
     golds = golden_root if isinstance(golden_root, (tuple, list)) else (golden_root,)
@@ -101,7 +101,7 @@ def run_scenario(name: str, client, *, max_steps: int) -> dict:
     print(f"\n-- {name} RESULT --")
     print(f"  phases:      {[p.value for p in res.phases_run]}")
     print(f"  outcome:     {res.close_outcome.value if res.close_outcome else 'open'}")
-    for h in res.ledger.ranked():
+    for h in res.hypothesis_store.ranked():
         print(f"  hyp {h.id:8} status={h.status.value:11} conf={h.confidence.value:.2f} "
               f"root={h.root_candidate}")
     print(f"  winner_root: {root}   golden_root: {' | '.join(golds)}   MATCH={match}")

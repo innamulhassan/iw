@@ -34,8 +34,8 @@ from iw_engine.domain.playbook import Tunables
 from iw_engine.domain.registry import edge_id, fact_id
 from iw_engine.graph import Graph, fold
 from iw_engine.graph.reducer import materialize
+from iw_engine.hypothesis import HypothesisStore
 from iw_engine.journal import Journal
-from iw_engine.ledger import Ledger
 
 T0 = datetime(2026, 7, 19, 14, 0, tzinfo=UTC)
 SID = "service:payments-api|prod"
@@ -114,7 +114,7 @@ def test_inv6_planner_emitted_supports_edge_rejected_but_fold_derives_it():
 
     # 2) the fold derives the SAME edges from the canonical fact-id lists
     from iw_engine.domain.fact import Fact
-    g, led, jr = Graph(), Ledger(), Journal(clock=lambda: T0)
+    g, led, jr = Graph(), HypothesisStore(), Journal(clock=lambda: T0)
     f_sup = Fact(id="f-sup", subject_ref=SID, predicate="red_errors", value=0.4,
                  valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
                  source_reliability=0.95, created_by=1)

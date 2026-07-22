@@ -1,8 +1,11 @@
-"""The hypothesis ledger — ranked, evidence-backed causal explanations (a projection of
-the PhaseResult.hypotheses_updated stream). Belief moves only via HypDelta carrying a
-basis; refuted hypotheses are KEPT (they are evidence). Confirmation is Popperian
-(DESIGN §2.3 R-C4): a hypothesis is promotable when it crosses the confidence gate,
-leads the field by the margin, and has no unrefuted competitor.
+"""The HypothesisStore — ranked, evidence-backed causal explanations (a projection of
+the PhaseResult.hypotheses_updated stream). NOTE the name: the append-only JOURNAL is the
+real ledger/system-of-record; THIS is a mutable key->state projection beside the graph, so
+it is a hypothesis store, not a ledger (owner directive, 2026-07-22: "remove ledger, that is
+what journal is for"). Belief moves only via HypDelta carrying a basis; refuted hypotheses
+are KEPT (they are evidence). Confirmation is Popperian (DESIGN §2.3 R-C4): a hypothesis is
+promotable when it crosses the confidence gate, leads the field by the margin, and has no
+unrefuted competitor.
 """
 from __future__ import annotations
 
@@ -20,7 +23,7 @@ _STATUS_RANK = {
 }
 
 
-class Ledger:
+class HypothesisStore:
     def __init__(self) -> None:
         self.hypotheses: dict[str, Hypothesis] = {}
 

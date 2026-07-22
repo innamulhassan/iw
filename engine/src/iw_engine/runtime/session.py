@@ -329,7 +329,7 @@ class InvestigationSession:
                 "summary": f"{a.provider if a else '?'}.{c.intent}({c.params})",
             })
         # the serving hypothesis + its supporting facts (the evidence chain), read off the ledger
-        lead = self._engine.ledger.leading()
+        lead = self._engine.hypothesis_store.leading()
         hypothesis = None
         evidence: list[dict] = []
         if lead is not None:
@@ -356,7 +356,7 @@ class InvestigationSession:
         # DENY — drop the write; record the denial as a synthetic ledger result fed back to the
         # next plan (a divergent journal), keeping any non-write calls.
         non_write = [c for c in p.plan.calls if not self._is_write_call(c)]
-        lead = self._engine.ledger.leading()
+        lead = self._engine.hypothesis_store.leading()
         deny_ops = list(p.plan.ops)
         if lead is not None:
             local_hid = lead.id.split("hyp:", 1)[-1]
@@ -402,7 +402,7 @@ class InvestigationSession:
 
     def _hyp_delta_view(self, delta) -> dict:
         hid = delta.hypothesis.id if delta.hypothesis else delta.hypothesis_id
-        h = self._engine.ledger.hypotheses.get(hid)
+        h = self._engine.hypothesis_store.hypotheses.get(hid)
         # carry the full hypothesis on the delta (statement + root + evidence ids), NOT just the id
         # — so the UI shows the real theory the moment it's proposed, never a bare "hyp:h1" waiting
         # on a snapshot backfill.

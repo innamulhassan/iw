@@ -1,15 +1,15 @@
 """export_bundle — flatten a completed run's three projections into ONE JSON document the
 React workbench renders (GraphView · JournalTimeline · HypothesisLedger · PhaseController).
-Derived purely from the graph/ledger/journal, so the UI cannot show anything the engine
-did not record.
+Derived purely from the graph/hypothesis-store/journal, so the UI cannot show anything the
+engine did not record.
 """
 from __future__ import annotations
 
 from ..domain.enums import NodeType
 from ..domain.registry import node_id
 from ..graph.graph import Graph
+from ..hypothesis.store import HypothesisStore
 from ..journal.journal import Journal, JournalEntry
-from ..ledger.ledger import Ledger
 from ..runtime.engine import RunResult
 from ..runtime.postmortem import render_postmortem
 
@@ -47,7 +47,7 @@ def _journal_entry(e: JournalEntry) -> dict:
 
 def export_bundle(res: RunResult) -> dict:
     g: Graph = res.graph
-    led: Ledger = res.ledger
+    store: HypothesisStore = res.hypothesis_store
     jr: Journal = res.journal
     # the ServiceNow incident under investigation is the ORIGIN → renders as node #1 (obs 1)
     origin_id = node_id(NodeType.INCIDENT, {"incident_id": res.subject.id})
@@ -88,12 +88,12 @@ def export_bundle(res: RunResult) -> dict:
                     "root_candidate": h.root_candidate, "supporting": h.supporting_facts,
                     "refuting": h.refuting_facts,
                     "chain": [c.model_dump(mode="json") for c in h.causal_chain]}
-                   for h in led.ranked()],
+                   for h in store.ranked()],
         # phase entries (the folded PhaseResult narrative) interleaved by seq with the
         # human-in-the-loop `step` decisions (who approved/denied a gated write, and when) —
         # so the journal shows the human's role, not just the phase the approval unblocked.
         # A batch run produces no step entries, so its journal is unchanged.
         "journal": [_journal_entry(e) for e in sorted(jr.entries, key=lambda e: e.seq)
                     if (e.kind == "phase" and e.delta is not None) or e.kind == "step"],
-        "postmortem": render_postmortem(res.subject, g, led, jr, res.close_outcome),
+        "postmortem": render_postmortem(res.subject, g, store, jr, res.close_outcome),
     }

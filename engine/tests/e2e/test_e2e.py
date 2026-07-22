@@ -33,8 +33,8 @@ def test_code_regression_happy_path():
     assert res.close_outcome == CloseOutcome.RESOLVED
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
     # differential diagnosis: the DB hypothesis was ruled out, not ignored
-    assert res.ledger.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
-    assert s1.fid(s1.DB, "conn_pool_util", s1.T_INV) in res.ledger.hypotheses["hyp:h2"].refuting_facts
+    assert res.hypothesis_store.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
+    assert s1.fid(s1.DB, "conn_pool_util", s1.T_INV) in res.hypothesis_store.hypotheses["hyp:h2"].refuting_facts
 
     # the graph carries the full typed causal picture
     for node_id in [s1.SVC, s1.ANOM, s1.CHG, s1.COMMIT, s1.ERRSIG, s1.DB, s1.H1]:
@@ -61,7 +61,7 @@ def test_refuted_variant_backtracks():
     # the engine returned from INVESTIGATE to HYPOTHESIZE when the leading hypothesis was refuted
     assert res.phases_run.count(Phase.HYPOTHESIZE) >= 2
     assert Phase.INVESTIGATE in res.phases_run
-    assert res.ledger.hypotheses["hyp:h1"].status == HypothesisStatus.REFUTED
+    assert res.hypothesis_store.hypotheses["hyp:h1"].status == HypothesisStatus.REFUTED
 
 
 def test_write_gate_holds_below_confidence():
@@ -72,7 +72,7 @@ def test_write_gate_holds_below_confidence():
     from iw_engine.domain.enums import Phase as P
     from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict
     from iw_engine.domain.playbook import GateSpec, PhaseSpec, Tunables
-    from iw_engine.ledger import Ledger
+    from iw_engine.hypothesis import HypothesisStore
     from iw_engine.runtime.controller import check_gate
 
     spec = PhaseSpec(id=P.INVESTIGATE, goal="", allowed_intents=[],
@@ -81,6 +81,6 @@ def test_write_gate_holds_below_confidence():
                          narrative="thin", verdict=PhaseVerdict(
                              status=VerdictStatus.ADVANCE,
                              confidence=Confidence(value=0.9, basis="x")))
-    gated = check_gate(spec, result, Ledger(), Tunables())  # empty ledger -> no confident leader
+    gated = check_gate(spec, result, HypothesisStore(), Tunables())  # empty ledger -> no confident leader
     assert gated.status == VerdictStatus.REPEAT
     assert gated.gate_result == GateResult.FAIL

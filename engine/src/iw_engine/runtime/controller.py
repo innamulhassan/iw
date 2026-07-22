@@ -8,10 +8,10 @@ from __future__ import annotations
 from ..domain.enums import GateResult, HypothesisStatus, Phase, VerdictStatus
 from ..domain.phase_result import PhaseResult, PhaseVerdict
 from ..domain.playbook import PhaseSpec, Tunables
-from ..ledger.ledger import Ledger
+from ..hypothesis.store import HypothesisStore
 
 
-def check_gate(spec: PhaseSpec, result: PhaseResult, ledger: Ledger,
+def check_gate(spec: PhaseSpec, result: PhaseResult, store: HypothesisStore,
                tunables: Tunables) -> PhaseVerdict:
     """Guard the planner's verdict. Only an ADVANCE is gated; a failed gate downgrades to
     REPEAT so the phase runs again rather than advancing on thin evidence."""
@@ -33,13 +33,13 @@ def check_gate(spec: PhaseSpec, result: PhaseResult, ledger: Ledger,
         # alive unrefuted rival — an LLM-set CONFIRMED status grants no bypass (the old
         # status short-circuit let a rival-contested or below-gate hypothesis clear the
         # gate; 2026-07-22 review, finding 2).
-        if not ledger.promotion_ok(tunables):
+        if not store.promotion_ok(tunables):
             fail = ("confidence gate not met (lead below gate, margin < delta, "
                     "or an unrefuted rival is still alive)")
     if fail is None and spec.gate.require_refutation:
         # genuine differential investigation: a rival was ruled out, or the leader was challenged
-        refuted_rival = any(h.status == HypothesisStatus.REFUTED for h in ledger.hypotheses.values())
-        lead = ledger.leading()
+        refuted_rival = any(h.status == HypothesisStatus.REFUTED for h in store.hypotheses.values())
+        lead = store.leading()
         lead_challenged = lead is not None and bool(lead.refuting_facts)
         if not (refuted_rival or lead_challenged):
             fail = "no refutation attempted (no rival ruled out, leader unchallenged)"

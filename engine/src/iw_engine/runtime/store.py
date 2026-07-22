@@ -1,6 +1,6 @@
 """InvestigationStore — file-backed durability so a live investigation survives a backend
 restart (the demo requirement). The engine already treats the journal as the DURABLE source of
-truth (`rebuild(journal) -> graph+ledger`); this layer just lands that journal on disk as the
+truth (`rebuild(journal) -> graph + hypothesis store`); this layer just lands that journal on disk as the
 session drives, and reads it back into a read-only reopen after a restart.
 
 Layout — one directory per investigation, keyed by a sanitized `subject.key`:
@@ -129,9 +129,9 @@ class InvestigationStore:
 
     # ── REOPEN (read-only, from disk) ────────────────────────────────────────
     def load_result(self, key: str) -> RunResult | None:
-        """Read journal.ndjsonl + meta.json and `rebuild(journal) -> graph+ledger`, returning a
-        RunResult reconstructed purely from the durable journal (the graph.json cache is not
-        consulted — the journal is the source of truth)."""
+        """Read journal.ndjsonl + meta.json and `rebuild(journal) -> graph + hypothesis store`,
+        returning a RunResult reconstructed purely from the durable journal (the graph.json cache
+        is not consulted — the journal is the source of truth)."""
         d = self.dir_for(key)
         jp, mp = d / "journal.ndjsonl", d / "meta.json"
         if not jp.exists() or not mp.exists():
@@ -139,13 +139,13 @@ class InvestigationStore:
         journal = Journal.from_ndjson(jp.read_text())
         meta = json.loads(mp.read_text())
         subject = SubjectRef.model_validate(meta["subject"])
-        graph, ledger = rebuild(journal)
+        graph, store = rebuild(journal)
         co = meta.get("close_outcome")
         close_outcome = CloseOutcome(co) if co else None
         phases_run = [e.phase_id for e in journal.phase_entries() if e.phase_id]
         return RunResult(
-            subject=subject, phases_run=phases_run, graph=graph, ledger=ledger,
-            journal=journal, confirmed=ledger.confirmed(), close_outcome=close_outcome)
+            subject=subject, phases_run=phases_run, graph=graph, hypothesis_store=store,
+            journal=journal, confirmed=store.confirmed(), close_outcome=close_outcome)
 
     def load_bundle(self, key: str) -> dict | None:
         """A read-only reopen payload, snapshot-shaped: `export_bundle` of the disk-rebuilt run

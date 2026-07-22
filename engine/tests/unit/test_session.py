@@ -150,13 +150,13 @@ def test_session_approve_resolves():
     assert len(rollbacks) == 1 and rollbacks[0].payload["to_version"] == "v4.11.3"
 
     # the hypothesis was confirmed and the incident resolved
-    assert session._engine.ledger.confirmed().id == "hyp:h1"
+    assert session._engine.hypothesis_store.confirmed().id == "hyp:h1"
 
     # journal-as-truth: the session state replays exactly from its journal (reconstructable)
     g2, led2 = rebuild(session._engine.journal)
     assert g2.to_dict() == session._engine.graph.to_dict()
     assert {h: v.status for h, v in led2.hypotheses.items()} == \
-           {h: v.status for h, v in session._engine.ledger.hypotheses.items()}
+           {h: v.status for h, v in session._engine.hypothesis_store.hypotheses.items()}
 
     # snapshot is export_bundle-shaped for cold-load
     snap = session.snapshot()
@@ -193,7 +193,7 @@ def test_session_deny_diverges():
     a_journal = [(e.phase_id.value, e.reasoning) for e in approved._engine.journal.phase_entries()]
     d_journal = [(e.phase_id.value, e.reasoning) for e in denied._engine.journal.phase_entries()]
     assert a_journal != d_journal
-    assert denied._engine.ledger.confirmed() is None    # nothing confirmed without the fix
+    assert denied._engine.hypothesis_store.confirmed() is None    # nothing confirmed without the fix
 
     # the deny run still replays exactly from its own journal
     g2, _ = rebuild(denied._engine.journal)

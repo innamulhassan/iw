@@ -23,8 +23,8 @@ def test_certificate_happy_path():
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: the service-outage hypothesis was ruled out, not ignored
-    assert res.ledger.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
-    assert sc.fid(sc.SVC, "red_latency_p50", sc.T_INV) in res.ledger.hypotheses["hyp:h2"].refuting_facts
+    assert res.hypothesis_store.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
+    assert sc.fid(sc.SVC, "red_latency_p50", sc.T_INV) in res.hypothesis_store.hypotheses["hyp:h2"].refuting_facts
 
     # the graph carries the full typed causal picture
     for node_id in [sc.SVC, sc.ANOM, sc.CERT, sc.ERRSIG, sc.H1]:
@@ -60,7 +60,7 @@ def test_certificate_rules_out_service_outage_via_partial_failure():
     # H2 (service outage) is REFUTED by the flat p50 — the service is healthy
     refutes_h2 = res.graph.in_edges(sc.H2, EdgeType.REFUTES)
     assert any(e.src == sc.SVC for e in refutes_h2)
-    h2 = res.ledger.hypotheses["hyp:h2"]
+    h2 = res.hypothesis_store.hypotheses["hyp:h2"]
     assert h2.status == HypothesisStatus.REFUTED
 
     # the cert really is expired (days_to_expiry <= 0 — the discriminator's numeric anchor)
@@ -74,6 +74,6 @@ def test_certificate_rules_out_service_outage_via_partial_failure():
     assert cnt and cnt[0].value > 1000
 
     # H1 confirmed at high confidence — the root cause IS this hypothesis (R-G2)
-    h1 = res.ledger.hypotheses["hyp:h1"]
+    h1 = res.hypothesis_store.hypotheses["hyp:h1"]
     assert h1.status == HypothesisStatus.CONFIRMED
     assert h1.confidence.value >= 0.8

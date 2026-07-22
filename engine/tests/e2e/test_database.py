@@ -22,8 +22,8 @@ def test_database_happy_path():
     assert res.confirmed is not None and res.confirmed.id == "hyp:h1"
 
     # differential diagnosis: the code-regression hypothesis was ruled out, not ignored
-    assert res.ledger.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
-    assert s2.fid(s2.SVC, "red_latency_p50", s2.T_INV) in res.ledger.hypotheses["hyp:h2"].refuting_facts
+    assert res.hypothesis_store.hypotheses["hyp:h2"].status == HypothesisStatus.REFUTED
+    assert s2.fid(s2.SVC, "red_latency_p50", s2.T_INV) in res.hypothesis_store.hypotheses["hyp:h2"].refuting_facts
 
     # the graph carries the full typed causal picture
     for node_id in [s2.SVC, s2.ANOM, s2.DB, s2.CHG, s2.COMMIT, s2.SCHEMA, s2.H1]:
@@ -65,7 +65,7 @@ def test_database_rules_out_code_hypothesis_via_jdbc_boundary():
     # H2 (code regression) is REFUTED by the flat p50 — the service's own compute is fine
     refutes_h2 = res.graph.in_edges(s2.H2, EdgeType.REFUTES)
     assert any(e.src == s2.SVC for e in refutes_h2)
-    h2 = res.ledger.hypotheses["hyp:h2"]
+    h2 = res.hypothesis_store.hypotheses["hyp:h2"]
     assert h2.status == HypothesisStatus.REFUTED
 
     # the pool really is maxed (the discriminator's numeric anchor)
@@ -74,6 +74,6 @@ def test_database_rules_out_code_hypothesis_via_jdbc_boundary():
     assert conn and conn[0].value == 200
 
     # H1 confirmed at high confidence — the root cause IS this hypothesis (R-G2)
-    h1 = res.ledger.hypotheses["hyp:h1"]
+    h1 = res.hypothesis_store.hypotheses["hyp:h1"]
     assert h1.status == HypothesisStatus.CONFIRMED
     assert h1.confidence.value >= 0.8

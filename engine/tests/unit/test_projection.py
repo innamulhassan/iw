@@ -28,8 +28,8 @@ from iw_engine.domain.hypothesis import HypAction, HypDelta, Hypothesis
 from iw_engine.domain.node import Node
 from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict
 from iw_engine.graph import Graph, fold, rebuild
+from iw_engine.hypothesis import HypothesisStore
 from iw_engine.journal import Journal
-from iw_engine.ledger import Ledger
 
 T0 = datetime(2026, 7, 19, 14, 0, tzinfo=UTC)
 
@@ -235,7 +235,7 @@ def _hyp(hid="hyp:h1", conf=0.5, status=HypothesisStatus.PROPOSED):
 
 
 def test_ledger_apply_and_rank():
-    led = Ledger()
+    led = HypothesisStore()
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.4))], seq=1)
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h2", 0.7))], seq=2)
     led.apply([HypDelta(action=HypAction.ATTACH_EVIDENCE, hypothesis_id="hyp:h1",
@@ -245,7 +245,7 @@ def test_ledger_apply_and_rank():
 
 
 def test_ledger_promotion_gate():
-    led = Ledger()
+    led = HypothesisStore()
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.9))], seq=1)
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h2", 0.3))], seq=2)
     from iw_engine.domain.playbook import Tunables
@@ -264,7 +264,7 @@ def test_ledger_promotion_gate():
 
 def test_ledger_promotion_blocked_by_equal_rivals():
     """Review scenario: two 0.9 rivals — margin 0 < delta AND a live rival — must not promote."""
-    led = Ledger()
+    led = HypothesisStore()
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.9))], seq=1)
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h2", 0.9))], seq=2)
     from iw_engine.domain.playbook import Tunables
@@ -273,7 +273,7 @@ def test_ledger_promotion_blocked_by_equal_rivals():
 
 def test_ledger_promotion_blocked_by_sub_gate_rival():
     """Review scenario: an unrefuted 0.75 rival under a 0.8 gate must block promotion."""
-    led = Ledger()
+    led = HypothesisStore()
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h1", 0.9))], seq=1)
     led.apply([HypDelta(action=HypAction.CREATE, hypothesis=_hyp("hyp:h2", 0.75))], seq=2)
     from iw_engine.domain.playbook import Tunables
@@ -299,7 +299,7 @@ def _phase_result() -> PhaseResult:
 
 def test_fold_and_replay_equivalence():
     clock = lambda: T0  # noqa: E731 - deterministic ts
-    g, led, jr = Graph(), Ledger(), Journal(clock=clock)
+    g, led, jr = Graph(), HypothesisStore(), Journal(clock=clock)
     seq = jr.reserve_seq()
     fold(_phase_result(), seq, g, led, jr)
     # rebuild purely from the journal
@@ -312,7 +312,7 @@ def test_fold_and_replay_equivalence():
 def test_journal_ndjson_roundtrip_skips_partial_tail():
     clock = lambda: T0  # noqa: E731
     jr = Journal(clock=clock)
-    fold(_phase_result(), jr.reserve_seq(), Graph(), Ledger(), jr)
+    fold(_phase_result(), jr.reserve_seq(), Graph(), HypothesisStore(), jr)
     text = jr.to_ndjson()
     # simulate a crash mid-write: a truncated trailing line
     corrupted = text + '{"seq": 2, "ts": "2026'

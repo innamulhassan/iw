@@ -1,7 +1,7 @@
 """fold — the single mutation monopoly (principle 2). A phase returns a PhaseResult delta;
 ONLY fold() writes it into the three projections. `rebuild()` replays the journal's
-full-delta phase entries to reconstruct graph + ledger from scratch — the proof that the
-journal is the durable source of truth (DESIGN §2.4 R-J1).
+full-delta phase entries to reconstruct graph + hypothesis store from scratch — the proof
+that the journal is the durable source of truth (DESIGN §2.4 R-J1).
 """
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from ..domain.enums import EdgeType, NodeType, Origin
 from ..domain.hypothesis import Hypothesis
 from ..domain.phase_result import PhaseResult
 from ..domain.registry import edge_allowed, edge_id
+from ..hypothesis.store import HypothesisStore
 from ..journal.journal import Journal
-from ..ledger.ledger import Ledger
 from .graph import Graph
 
 
@@ -30,7 +30,7 @@ def _project_evidence_edges(h: Hypothesis, seq: int, graph: Graph) -> None:
     """Recompute a hypothesis's SUPPORTS/REFUTES graph edges FROM its canonical evidence
     fact-id lists (VALIDATION-VERDICT §B P0 #1 — the Fact is the one addressable evidence
     unit). Each edge is a thin projection: fact.subject -> hypothesis, derived, never
-    planner-emitted, so the graph view can never disagree with the ledger. Runs inside the
+    planner-emitted, so the graph view can never disagree with the store. Runs inside the
     single mutation seam, so journal replay reproduces it bit-for-bit. Facts not (yet)
     materialised, or whose subject is not a graph node, are simply not projected."""
     for etype, fact_ids in ((EdgeType.SUPPORTS, h.supporting_facts),
@@ -50,13 +50,13 @@ def _project_evidence_edges(h: Hypothesis, seq: int, graph: Graph) -> None:
                                 created_by=seq))
 
 
-def apply_delta(result: PhaseResult, seq: int, graph: Graph, ledger: Ledger) -> None:
-    """THE single graph+ledger mutation seam. A phase computes a PhaseResult delta; this is
-    the only thing that writes it into the projections. Journaling is separate (below) so an
-    interactive write-gate can hold a computed-but-unapplied delta pending human approval."""
+def apply_delta(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore) -> None:
+    """THE single graph+hypothesis-store mutation seam. A phase computes a PhaseResult delta;
+    this is the only thing that writes it into the projections. Journaling is separate (below)
+    so an interactive write-gate can hold a computed-but-unapplied delta pending human approval."""
     _apply_to_graph(result, graph)
-    ledger.apply(result.hypotheses_updated, seq)
-    # project the evidence edges of every hypothesis this delta touched, from the ledger's
+    store.apply(result.hypotheses_updated, seq)
+    # project the evidence edges of every hypothesis this delta touched, from the store's
     # (now-updated) canonical fact-id lists — the single source of "facts for/against H".
     # Dedup in delta order (never a set — iteration order must be deterministic for replay).
     touched: list[str] = []
@@ -65,20 +65,21 @@ def apply_delta(result: PhaseResult, seq: int, graph: Graph, ledger: Ledger) -> 
         if hid and hid not in touched:
             touched.append(hid)
     for hid in touched:
-        h = ledger.hypotheses.get(hid)
+        h = store.hypotheses.get(hid)
         if h is not None:
             _project_evidence_edges(h, seq, graph)
 
 
-def fold(result: PhaseResult, seq: int, graph: Graph, ledger: Ledger, journal: Journal) -> None:
-    apply_delta(result, seq, graph, ledger)
+def fold(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore,
+         journal: Journal) -> None:
+    apply_delta(result, seq, graph, store)
     journal.append_phase(seq, result)
 
 
-def rebuild(journal: Journal) -> tuple[Graph, Ledger]:
-    """Replay the journal → (graph, ledger). Must equal the live projections."""
-    graph, ledger = Graph(), Ledger()
+def rebuild(journal: Journal) -> tuple[Graph, HypothesisStore]:
+    """Replay the journal → (graph, hypothesis store). Must equal the live projections."""
+    graph, store = Graph(), HypothesisStore()
     for entry in journal.phase_entries():
         assert entry.delta is not None
-        apply_delta(entry.delta, entry.seq, graph, ledger)
-    return graph, ledger
+        apply_delta(entry.delta, entry.seq, graph, store)
+    return graph, store
