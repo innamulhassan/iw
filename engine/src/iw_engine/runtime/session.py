@@ -372,8 +372,12 @@ class InvestigationSession:
             self._emit("phase_started", phase=result.phase_id.value)
         self._emit("reasoning", phase=result.phase_id.value, narrative=result.narrative)
         for inv in self._engine.invocations[self._inv_cursor:]:
+            # `outcome` is the load-bearing honesty field (P3 step 1 / part4-capability §4):
+            # data · empty (clean-empty) · error · blocked — the UI must never infer "clean"
+            # from op_count == 0 alone (that conflation is the silent-empty poison).
             self._emit("capability_call", intent=inv.intent, provider=inv.provider,
                        effect=inv.effect.value, op_count=inv.op_count,
+                       outcome=inv.outcome,
                        blocked=inv.blocked, reason=inv.reason,
                        kind=inv.kind, started_at=inv.started_at, duration_ms=inv.duration_ms,
                        params=inv.params, summary=inv.summary)

@@ -21,7 +21,7 @@ from ..graph.graph import Graph
 from ..graph.reducer import Rejection, materialize
 from ..graph.render import render_slice
 from ..hypothesis.store import HypothesisStore
-from ..journal.journal import Journal
+from ..journal.journal import Journal, JournalEntry
 from .controller import check_gate, next_phase
 from .planner import PlanContext, Planner
 
@@ -54,6 +54,11 @@ class Engine:
         self._gate_feedback: str | None = None   # last failed-gate reason, fed to the next plan (GAP 3)
         self.rejections: list[Rejection] = []
         self.invocations: list[Invocation] = []
+        # P3 airlock step 1 — the engine CONSUMES the boundary outcome (part4-capability §4):
+        # the LAST outcome per intent. An intent whose last call errored/was blocked carries no
+        # evidentiary weight and may not feed the NoEvidence/refutation path; a later successful
+        # call of the same intent clears the bar.
+        self._intent_outcomes: dict[str, str] = {}
         # resumable run-state (A3) — the engine is a stepper; run() is a driver over step()
         self._phase: Phase | None = None
         self._phases_run: list[Phase] = []
@@ -68,6 +73,7 @@ class Engine:
         self._steps = 0
         self._max_steps = max_steps
         self._gate_feedback = None
+        self._intent_outcomes = {}
 
     def done(self) -> bool:
         return self._phase is None or self._steps >= self._max_steps
@@ -135,13 +141,23 @@ class Engine:
                     "kind": "workflow" if inv.effect.value == "write" else "tool"})
                 data_ops.extend(ops_i)
                 self.invocations.append(inv)
+                # P3 airlock step 1 — consume the boundary outcome: remember the last outcome per
+                # intent and journal the non-data outcomes DISTINCTLY (error ≠ clean-empty), so a
+                # failed read is never silently erased NOR silently read as refuting evidence.
+                self._intent_outcomes[inv.intent] = inv.outcome
+                if inv.outcome in ("error", "empty"):
+                    self._journal_invocation(seq, phase, inv)
         combined = data_ops + list(plan.ops)
 
         ceiling = self.playbook.tunables.op_ceiling.get(phase.value)
         ops = combined[:ceiling] if ceiling else combined
 
+        # intents whose LAST call errored/was blocked observed NOTHING — a NoEvidence op naming
+        # one is rejected by the reducer (fabricated-negative-evidence killer, part4 §4).
+        no_weight = frozenset(i for i, o in self._intent_outcomes.items()
+                              if o in ("error", "blocked"))
         mat = materialize(ops, seq, self.graph, self.playbook.tunables,
-                          anomaly_ref=self._anomaly_ref)
+                          anomaly_ref=self._anomaly_ref, no_weight_intents=no_weight)
         self.rejections.extend(mat.rejections)
 
         # capture the symptom node the first time it is created (domain role-binding)
@@ -182,6 +198,23 @@ class Engine:
         self._gate_feedback = gated.gate_reason
         self.journal.append_phase(seq, result)
         return result
+
+    def _journal_invocation(self, seq: int, phase: Phase, inv) -> None:
+        """Journal a non-data capability outcome (P3 airlock step 1). `error` and `empty`
+        (clean-empty) leave no trace in the phase delta — the ops they'd have carried never
+        existed — so without their own entry they'd vanish from the durable record entirely.
+        The entry keys the boundary outcome on `decision`/`observation.outcome`, keeping the
+        two DISTINGUISHABLE downstream (part4-capability §4: error ≠ clean-empty). These are
+        `kind="invocation"` entries: they SHARE the phase's seq (an annotation of that phase,
+        not a numbered step of their own), so phase/step numbering — and every golden seq —
+        is untouched; replay ignores them (no delta)."""
+        self.journal.append(JournalEntry(
+            seq=seq, ts=self._clock(), kind="invocation",
+            phase_id=phase, actor="engine", intent=inv.intent,
+            action={"capability": inv.intent, "provider": inv.provider,
+                    "params": dict(inv.params)},
+            observation={"outcome": inv.outcome, "reason": inv.reason},
+            decision=inv.outcome))
 
     def _close_outcome(self, phases_run: list[Phase], confirmed) -> CloseOutcome | None:
         if self.playbook.terminal_phase not in phases_run:

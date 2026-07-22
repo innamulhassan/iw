@@ -28,7 +28,11 @@ class JournalEntry(BaseModel):
 
     seq: int
     ts: datetime
-    kind: Literal["phase", "step"] = "phase"
+    # "invocation" (P3 airlock step 1): a capability call whose boundary outcome carried no
+    # foldable data — `error` (no evidentiary weight) or `empty` (an honest clean-empty read) —
+    # journaled DISTINCTLY so neither is silently erased (part4-capability §4). Data-bearing
+    # invocations need no entry of their own: their ops ARE the phase delta.
+    kind: Literal["phase", "step", "invocation"] = "phase"
     phase_id: Phase | None = None
     actor: str = "engine"                    # WHO produced this entry (engine, or a human approver)
     source: Source | None = None             # provenance of a decision entry (Source.HUMAN on a gate answer)

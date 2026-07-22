@@ -56,7 +56,13 @@ def _level_conf(level: ConfidenceLevel, tun: Tunables, basis: str) -> Confidence
 
 
 def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables: Tunables,
-                *, anomaly_ref: str | None = None) -> Materialized:
+                *, anomaly_ref: str | None = None,
+                no_weight_intents: frozenset[str] | set[str] = frozenset()) -> Materialized:
+    """`no_weight_intents` (P3 airlock step 1 / part4-capability §4): intents whose LAST boundary
+    outcome was `error` or `blocked` — the engine passes them so a NoEvidence op naming one is
+    REJECTED. An errored/blocked call observed NOTHING: letting it become an honest-null 'we
+    looked and it was clean' fact is exactly the fabricated-negative-evidence poison. Only a
+    clean-empty read (the provider answered, nothing to fold) may become null evidence."""
     out = Materialized()
     batch_types: dict[str, NodeType] = {}
     batch_edges: set[str] = set()
@@ -229,6 +235,12 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 add_chain=op.add_chain, basis=op.basis))
 
         elif isinstance(op, NoEvidence):
+            if op.intent in no_weight_intents:
+                out.rejections.append(Rejection(i, op.op.value,
+                    f"no_evidence '{op.intent}' rejected — that capability call errored or was "
+                    "blocked (an error carries no evidentiary weight; only a clean-empty read "
+                    "can become null evidence)"))
+                continue
             subj = op.scope if known(op.scope) else anomaly_ref
             if subj is None:
                 out.rejections.append(Rejection(i, op.op.value, "no scope/anomaly to attach null-result"))
