@@ -799,7 +799,116 @@
   "journal": [
     {
       "actor": "engine",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "kind": "plan",
       "narrative": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10. Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating.",
+      "phase": "frame",
+      "plan_calls": [
+        "active_alerts",
+        "find_recent_changes",
+        "bt_health",
+        "flowmap"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "AddNode",
+        "AddEdge",
+        "AddAssertion",
+        "AddAssertion"
+      ],
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "active_alerts",
+      "kind": "invocation",
+      "narrative": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10. Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10. Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating.",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "bt_health",
+      "kind": "invocation",
+      "narrative": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10. Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating.",
+      "op_count": 5,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "appd",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "flowmap",
+      "kind": "invocation",
+      "narrative": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10. Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "appd",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "kind": "phase",
+      "narrative": "checkout-svc probe_success degraded and retransmits climbed from 13:40, ~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10. Declared SEV2. checkout-svc's CheckoutFlow BT is degraded (art_p95 4800ms) and flowmap shows it depends on pricing-svc over HTTP. Still bleeding; investigate before mitigating.",
+      "next_actions": [],
       "phase": "frame",
       "refs": {
         "edges": [
@@ -845,11 +954,42 @@
           "incident:inc-9001"
         ]
       },
-      "seq": 1
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Change-first: the network change (H1) lines up with onset and the caller/callee boundary; pricing-svc's own DB (H2) is a weaker alternative pending its own health check.",
+      "phase": "investigate",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddNode",
+        "AddEdge",
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ],
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Change-first: the network change (H1) lines up with onset and the caller/callee boundary; pricing-svc's own DB (H2) is a weaker alternative pending its own health check.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -867,11 +1007,104 @@
           "hyp:h2"
         ]
       },
-      "seq": 2
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "repeat"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Ruled out pricing-db (pool 24%, healthy). Retransmits + flapping probes on SEG-EDGE-12, plus a clean callee, pin the fault to the network boundary.",
+      "phase": "investigate",
+      "plan_calls": [
+        "instant_query",
+        "range_query",
+        "healthrule_violations"
+      ],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "NoEvidence",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ],
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "instant_query",
+      "kind": "invocation",
+      "narrative": "Ruled out pricing-db (pool 24%, healthy). Retransmits + flapping probes on SEG-EDGE-12, plus a clean callee, pin the fault to the network boundary.",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "range_query",
+      "kind": "invocation",
+      "narrative": "Ruled out pricing-db (pool 24%, healthy). Retransmits + flapping probes on SEG-EDGE-12, plus a clean callee, pin the fault to the network boundary.",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "healthrule_violations",
+      "kind": "invocation",
+      "narrative": "Ruled out pricing-db (pool 24%, healthy). Retransmits + flapping probes on SEG-EDGE-12, plus a clean callee, pin the fault to the network boundary.",
+      "op_count": 1,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "appd",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Ruled out pricing-db (pool 24%, healthy). Retransmits + flapping probes on SEG-EDGE-12, plus a clean callee, pin the fault to the network boundary.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -903,11 +1136,33 @@
           "service:pricing-svc|prod"
         ]
       },
-      "seq": 3
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "kind": "plan",
       "narrative": "Safest reversible fix: revert the MTU change. Awaiting approval (gated).",
+      "phase": "act",
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ],
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "kind": "phase",
+      "narrative": "Safest reversible fix: revert the MTU change. Awaiting approval (gated).",
+      "next_actions": [],
       "phase": "act",
       "refs": {
         "edges": [],
@@ -918,11 +1173,37 @@
         ],
         "nodes": []
       },
-      "seq": 4
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "kind": "plan",
       "narrative": "Post-revert: retransmits back to 8/s, probe_success 99%, anomaly cleared. Root cause confirmed.",
+      "phase": "verify",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "UpdateHypothesis"
+      ],
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "kind": "phase",
+      "narrative": "Post-revert: retransmits back to 8/s, probe_success 99%, anomaly cleared. Root cause confirmed.",
+      "next_actions": [],
       "phase": "verify",
       "refs": {
         "edges": [],
@@ -940,11 +1221,29 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "render_postmortem"
+      ],
+      "kind": "plan",
       "narrative": "Postmortem: an MTU/uplink change on SEG-EDGE-12 (CHG-77) caused retransmits and probe failures on the checkout-svc -> pricing-svc path; pricing-svc's own BT/DB were healthy throughout. Reverting the change resolved it. pricing-db ruled out.",
+      "phase": "close",
+      "plan_calls": [],
+      "plan_ops": [],
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "kind": "phase",
+      "narrative": "Postmortem: an MTU/uplink change on SEG-EDGE-12 (CHG-77) caused retransmits and probe failures on the checkout-svc -> pricing-svc path; pricing-svc's own BT/DB were healthy throughout. Reverting the change resolved it. pricing-db ruled out.",
+      "next_actions": [],
       "phase": "close",
       "refs": {
         "edges": [],
@@ -953,7 +1252,9 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 6
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "done"
     }
   ],
   "outcome": "resolved",

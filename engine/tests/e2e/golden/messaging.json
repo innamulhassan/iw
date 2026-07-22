@@ -629,7 +629,81 @@
   "journal": [
     {
       "actor": "engine",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "kind": "plan",
       "narrative": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream. Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind.",
+      "phase": "frame",
+      "plan_calls": [
+        "find_recent_changes",
+        "active_alerts"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddNode",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "AddAssertion",
+        "AddAssertion"
+      ],
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream. Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "active_alerts",
+      "kind": "invocation",
+      "narrative": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream. Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "kind": "phase",
+      "narrative": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream. Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind.",
+      "next_actions": [],
       "phase": "frame",
       "refs": {
         "edges": [
@@ -667,11 +741,77 @@
           "message_queue:orders.events"
         ]
       },
-      "seq": 1
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation.",
+      "phase": "investigate",
+      "plan_calls": [
+        "diff_range",
+        "list_related_incidents"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddEdge",
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ],
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "diff_range",
+      "kind": "invocation",
+      "narrative": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation.",
+      "op_count": 6,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "git",
+      "reason": null,
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "list_related_incidents",
+      "kind": "invocation",
+      "narrative": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation.",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -700,11 +840,79 @@
           "hyp:h2"
         ]
       },
-      "seq": 2
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "repeat"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Lag is still climbing (61k) but ingress throughput is flat and the DLQ is empty \u2014 the deficit is purely consumer-side processing rate. get_snapshots shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) refuted; H1 (consumer deploy) confirmed at high confidence.",
+      "phase": "investigate",
+      "plan_calls": [
+        "get_snapshots",
+        "instant_query"
+      ],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ],
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_snapshots",
+      "kind": "invocation",
+      "narrative": "Lag is still climbing (61k) but ingress throughput is flat and the DLQ is empty \u2014 the deficit is purely consumer-side processing rate. get_snapshots shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) refuted; H1 (consumer deploy) confirmed at high confidence.",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "appd",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "instant_query",
+      "kind": "invocation",
+      "narrative": "Lag is still climbing (61k) but ingress throughput is flat and the DLQ is empty \u2014 the deficit is purely consumer-side processing rate. get_snapshots shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) refuted; H1 (consumer deploy) confirmed at high confidence.",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Lag is still climbing (61k) but ingress throughput is flat and the DLQ is empty \u2014 the deficit is purely consumer-side processing rate. get_snapshots shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) refuted; H1 (consumer deploy) confirmed at high confidence.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -727,11 +935,33 @@
           "message_queue:orders.events"
         ]
       },
-      "seq": 3
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "kind": "plan",
       "narrative": "Safest reversible fix: roll the consumer deploy back to the prior build. Awaiting approval (gated).",
+      "phase": "act",
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ],
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "kind": "phase",
+      "narrative": "Safest reversible fix: roll the consumer deploy back to the prior build. Awaiting approval (gated).",
+      "next_actions": [],
       "phase": "act",
       "refs": {
         "edges": [],
@@ -742,11 +972,36 @@
         ],
         "nodes": []
       },
-      "seq": 4
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "kind": "plan",
       "narrative": "Post-rollback: lag drained to ~300 messages; anomaly cleared. Root cause confirmed.",
+      "phase": "verify",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "UpdateHypothesis"
+      ],
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "kind": "phase",
+      "narrative": "Post-rollback: lag drained to ~300 messages; anomaly cleared. Root cause confirmed.",
+      "next_actions": [],
       "phase": "verify",
       "refs": {
         "edges": [],
@@ -763,11 +1018,29 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "render_postmortem"
+      ],
+      "kind": "plan",
       "narrative": "Postmortem: CHG-55 (consumer deploy) shipped a slower handler -> consumer processing rate fell below ingress -> lag on orders.events accumulated -> fulfilment SLA breach; rolling the deploy back drained the lag. A broker rebalance / producer surge was investigated and ruled out.",
+      "phase": "close",
+      "plan_calls": [],
+      "plan_ops": [],
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "kind": "phase",
+      "narrative": "Postmortem: CHG-55 (consumer deploy) shipped a slower handler -> consumer processing rate fell below ingress -> lag on orders.events accumulated -> fulfilment SLA breach; rolling the deploy back drained the lag. A broker rebalance / producer surge was investigated and ruled out.",
+      "next_actions": [],
       "phase": "close",
       "refs": {
         "edges": [],
@@ -776,7 +1049,9 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 6
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "done"
     }
   ],
   "outcome": "resolved",

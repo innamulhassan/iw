@@ -829,7 +829,85 @@
   "journal": [
     {
       "actor": "engine",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "kind": "plan",
       "narrative": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05. Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy.",
+      "phase": "frame",
+      "plan_calls": [
+        "active_alerts",
+        "find_recent_changes"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddNode",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion"
+      ],
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "active_alerts",
+      "kind": "invocation",
+      "narrative": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05. Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy.",
+      "op_count": 5,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05. Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "kind": "phase",
+      "narrative": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05. Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy.",
+      "next_actions": [],
       "phase": "frame",
       "refs": {
         "edges": [
@@ -872,11 +950,63 @@
           "external_service:fraud-score-vendor"
         ]
       },
-      "seq": 1
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Change-first: CHG-3311 tightened the egress ACL 7 minutes before onset \u2014 the firewall rule is the prime suspect (H1). ServiceNow flags this as a RECURRENCE of INC-7699 (last quarter, same FW-EGR-118: an egress-ACL tightening blocked the same vendor, resolved by reverting the ACL) \u2014 a known-recurrence prior that immediately sharpens H1. A raw link-layer flap on the same segment is a weaker alternative (H2).",
+      "phase": "investigate",
+      "plan_calls": [
+        "list_related_incidents"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ],
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "list_related_incidents",
+      "kind": "invocation",
+      "narrative": "Change-first: CHG-3311 tightened the egress ACL 7 minutes before onset \u2014 the firewall rule is the prime suspect (H1). ServiceNow flags this as a RECURRENCE of INC-7699 (last quarter, same FW-EGR-118: an egress-ACL tightening blocked the same vendor, resolved by reverting the ACL) \u2014 a known-recurrence prior that immediately sharpens H1. A raw link-layer flap on the same segment is a weaker alternative (H2).",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Change-first: CHG-3311 tightened the egress ACL 7 minutes before onset \u2014 the firewall rule is the prime suspect (H1). ServiceNow flags this as a RECURRENCE of INC-7699 (last quarter, same FW-EGR-118: an egress-ACL tightening blocked the same vendor, resolved by reverting the ACL) \u2014 a known-recurrence prior that immediately sharpens H1. A raw link-layer flap on the same segment is a weaker alternative (H2).",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -901,11 +1031,80 @@
           "hyp:h2"
         ]
       },
-      "seq": 2
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "repeat"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Splunk: 214 clean policy denies (action=blocked) at FW-EGR-118 since 09:12, one target only. Prometheus: probe_success=0 on egress-fraud-score alone; egress-geoip and egress-payment-gw stay healthy, and packet_loss on the affected segment is 0.0% \u2014 not a network flap. H2 ruled out; H1 confirmed as leading (supported/high).",
+      "phase": "investigate",
+      "plan_calls": [
+        "fetch_metrics",
+        "search_fw_denies"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ],
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "fetch_metrics",
+      "kind": "invocation",
+      "narrative": "Splunk: 214 clean policy denies (action=blocked) at FW-EGR-118 since 09:12, one target only. Prometheus: probe_success=0 on egress-fraud-score alone; egress-geoip and egress-payment-gw stay healthy, and packet_loss on the affected segment is 0.0% \u2014 not a network flap. H2 ruled out; H1 confirmed as leading (supported/high).",
+      "op_count": 14,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "search_fw_denies",
+      "kind": "invocation",
+      "narrative": "Splunk: 214 clean policy denies (action=blocked) at FW-EGR-118 since 09:12, one target only. Prometheus: probe_success=0 on egress-fraud-score alone; egress-geoip and egress-payment-gw stay healthy, and packet_loss on the affected segment is 0.0% \u2014 not a network flap. H2 ruled out; H1 confirmed as leading (supported/high).",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "splunk",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Splunk: 214 clean policy denies (action=blocked) at FW-EGR-118 since 09:12, one target only. Prometheus: probe_success=0 on egress-fraud-score alone; egress-geoip and egress-payment-gw stay healthy, and packet_loss on the affected segment is 0.0% \u2014 not a network flap. H2 ruled out; H1 confirmed as leading (supported/high).",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -941,11 +1140,33 @@
           "network_segment:egress-payment-gw"
         ]
       },
-      "seq": 3
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "kind": "plan",
       "narrative": "Safest reversible fix: revert the ACL tightening on FW-EGR-118. This is a security change \u2014 proposed only; execution awaits the human-approved gate.",
+      "phase": "act",
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ],
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "kind": "phase",
+      "narrative": "Safest reversible fix: revert the ACL tightening on FW-EGR-118. This is a security change \u2014 proposed only; execution awaits the human-approved gate.",
+      "next_actions": [],
       "phase": "act",
       "refs": {
         "edges": [],
@@ -956,11 +1177,37 @@
         ],
         "nodes": []
       },
-      "seq": 4
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "kind": "plan",
       "narrative": "Post-revert: denies stopped, egress-fraud-score probe_success recovered, checkout-api red_errors back to 1%. Root cause confirmed.",
+      "phase": "verify",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "UpdateHypothesis"
+      ],
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "kind": "phase",
+      "narrative": "Post-revert: denies stopped, egress-fraud-score probe_success recovered, checkout-api red_errors back to 1%. Root cause confirmed.",
+      "next_actions": [],
       "phase": "verify",
       "refs": {
         "edges": [],
@@ -978,11 +1225,29 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "render_postmortem"
+      ],
+      "kind": "plan",
       "narrative": "Postmortem: CHG-3311 (egress ACL hardening) tightened FW-EGR-118 and blocked egress to fraud-score.vendor.com; the human-approved ACL revert resolved it. Link-layer flap ruled out.",
+      "phase": "close",
+      "plan_calls": [],
+      "plan_ops": [],
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "kind": "phase",
+      "narrative": "Postmortem: CHG-3311 (egress ACL hardening) tightened FW-EGR-118 and blocked egress to fraud-score.vendor.com; the human-approved ACL revert resolved it. Link-layer flap ruled out.",
+      "next_actions": [],
       "phase": "close",
       "refs": {
         "edges": [],
@@ -991,7 +1256,9 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 6
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "done"
     }
   ],
   "outcome": "resolved",

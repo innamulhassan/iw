@@ -652,7 +652,111 @@
   "journal": [
     {
       "actor": "engine",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "kind": "plan",
       "narrative": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage. Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
+      "phase": "frame",
+      "plan_calls": [
+        "find_recent_changes",
+        "active_alerts",
+        "appd_bt_metrics"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddNode",
+        "AddNode",
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddEdge",
+        "AddNode",
+        "AddNode",
+        "AddAssertion",
+        "AddEdge",
+        "AddEdge",
+        "AddAssertion"
+      ],
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage. Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
+      "op_count": 0,
+      "outcome": "empty",
+      "params": {
+        "ci": "auth-svc",
+        "window": "30m"
+      },
+      "phase": "frame",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "active_alerts",
+      "kind": "invocation",
+      "narrative": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage. Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
+      "op_count": 0,
+      "outcome": "empty",
+      "params": {
+        "env": "prod",
+        "service": "auth-svc"
+      },
+      "phase": "frame",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": true,
+      "effect": "read",
+      "intent": "appd_bt_metrics",
+      "kind": "invocation",
+      "narrative": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage. Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
+      "op_count": 0,
+      "outcome": "blocked",
+      "params": {},
+      "phase": "frame",
+      "provider": "?",
+      "reason": "no capability for intent 'appd_bt_metrics'",
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "kind": "phase",
+      "narrative": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage. Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
+      "next_actions": [],
       "phase": "frame",
       "refs": {
         "edges": [
@@ -689,11 +793,63 @@
           "api_endpoint:auth-svc|prod|post|-oauth-token"
         ]
       },
-      "seq": 1
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "The cert (H1) is the prime suspect \u2014 0 days to expiry + partial failures on chain-validating clients. The outage hypothesis (H2) is weak: pods are Ready and ~58% of clients succeed. billing-svc filed the same intermediate-expiry shape last year \u2014 a related prior reinforcing H1.",
+      "phase": "investigate",
+      "plan_calls": [
+        "list_related_incidents"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddNode",
+        "AddEdge",
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ],
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "list_related_incidents",
+      "kind": "invocation",
+      "narrative": "The cert (H1) is the prime suspect \u2014 0 days to expiry + partial failures on chain-validating clients. The outage hypothesis (H2) is weak: pods are Ready and ~58% of clients succeed. billing-svc filed the same intermediate-expiry shape last year \u2014 a related prior reinforcing H1.",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {
+        "cmdb_ci": "auth-svc"
+      },
+      "phase": "investigate",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "The cert (H1) is the prime suspect \u2014 0 days to expiry + partial failures on chain-validating clients. The outage hypothesis (H2) is weak: pods are Ready and ~58% of clients succeed. billing-svc filed the same intermediate-expiry shape last year \u2014 a related prior reinforcing H1.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -716,11 +872,104 @@
           "hyp:h2"
         ]
       },
-      "seq": 2
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "repeat"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed.",
+      "phase": "investigate",
+      "plan_calls": [
+        "appd_bt_metrics",
+        "instant_query",
+        "list_related_incidents"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ],
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": true,
+      "effect": "read",
+      "intent": "appd_bt_metrics",
+      "kind": "invocation",
+      "narrative": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed.",
+      "op_count": 0,
+      "outcome": "blocked",
+      "params": {},
+      "phase": "investigate",
+      "provider": "?",
+      "reason": "no capability for intent 'appd_bt_metrics'",
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "instant_query",
+      "kind": "invocation",
+      "narrative": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed.",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {
+        "query": "cert_expiry_days auth-tls-intermediate"
+      },
+      "phase": "investigate",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "list_related_incidents",
+      "kind": "invocation",
+      "narrative": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed.",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {
+        "cmdb_ci": "auth-svc"
+      },
+      "phase": "investigate",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -749,11 +998,33 @@
           "error_signature:pkix-path-building-failed"
         ]
       },
-      "seq": 3
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "kind": "plan",
       "narrative": "Safest reversible fix: renew the intermediate cert + re-push the auth-svc TLS secret. Awaiting approval (gated).",
+      "phase": "act",
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ],
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "kind": "phase",
+      "narrative": "Safest reversible fix: renew the intermediate cert + re-push the auth-svc TLS secret. Awaiting approval (gated).",
+      "next_actions": [],
       "phase": "act",
       "refs": {
         "edges": [],
@@ -764,11 +1035,38 @@
         ],
         "nodes": []
       },
-      "seq": 4
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "kind": "plan",
       "narrative": "Post-renewal: cert at 90 days, 5xx back to 0.2%. Root cause confirmed.",
+      "phase": "verify",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "UpdateHypothesis"
+      ],
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "kind": "phase",
+      "narrative": "Post-renewal: cert at 90 days, 5xx back to 0.2%. Root cause confirmed.",
+      "next_actions": [],
       "phase": "verify",
       "refs": {
         "edges": [],
@@ -787,11 +1085,29 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "render_postmortem"
+      ],
+      "kind": "plan",
       "narrative": "Postmortem: the Corp Intermediate CA cert expired at 14:00, breaking the TLS chain for chain-validating clients (~40%); renewing + re-pushing the cert resolved it. Service outage ruled out \u2014 the failure was partial and client-dependent, the cert-expiry signature.",
+      "phase": "close",
+      "plan_calls": [],
+      "plan_ops": [],
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "kind": "phase",
+      "narrative": "Postmortem: the Corp Intermediate CA cert expired at 14:00, breaking the TLS chain for chain-validating clients (~40%); renewing + re-pushing the cert resolved it. Service outage ruled out \u2014 the failure was partial and client-dependent, the cert-expiry signature.",
+      "next_actions": [],
       "phase": "close",
       "refs": {
         "edges": [],
@@ -800,7 +1116,23 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 6
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
+    },
+    {
+      "actor": "engine",
+      "detail": {
+        "event": "unrouted_verdict",
+        "routes": {},
+        "verdict": "advance"
+      },
+      "event": "unrouted_verdict",
+      "kind": "lifecycle",
+      "outcome": "advance",
+      "phase": "close",
+      "seq": 7,
+      "ts": "2026-07-19T00:00:00+00:00"
     }
   ],
   "outcome": "resolved",

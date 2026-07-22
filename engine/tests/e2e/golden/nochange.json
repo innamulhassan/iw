@@ -556,7 +556,96 @@
   "journal": [
     {
       "actor": "engine",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "kind": "plan",
       "narrative": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
+      "phase": "frame",
+      "plan_calls": [
+        "active_alerts",
+        "range_query",
+        "get_snapshots"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddNode",
+        "AddEdge",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion"
+      ],
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "active_alerts",
+      "kind": "invocation",
+      "narrative": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "range_query",
+      "kind": "invocation",
+      "narrative": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_snapshots",
+      "kind": "invocation",
+      "narrative": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "appd",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "kind": "phase",
+      "narrative": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
+      "next_actions": [],
       "phase": "frame",
       "refs": {
         "edges": [
@@ -594,11 +683,58 @@
           "incident:inc-9001"
         ]
       },
-      "seq": 1
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "ServiceNow's change log for the incident window is EMPTY \u2014 change-first comes up dry. Falling back to the onset-correlated saturation signal: H1 (the pool) leads on the USE trend; H2 (a change nobody logged) stays alive as the rival until we can rule it out.",
+      "phase": "investigate",
+      "plan_calls": [
+        "find_recent_changes"
+      ],
+      "plan_ops": [
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ],
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "ServiceNow's change log for the incident window is EMPTY \u2014 change-first comes up dry. Falling back to the onset-correlated saturation signal: H1 (the pool) leads on the USE trend; H2 (a change nobody logged) stays alive as the rival until we can rule it out.",
+      "op_count": 0,
+      "outcome": "empty",
+      "params": {},
+      "phase": "investigate",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "ServiceNow's change log for the incident window is EMPTY \u2014 change-first comes up dry. Falling back to the onset-correlated saturation signal: H1 (the pool) leads on the USE trend; H2 (a change nobody logged) stays alive as the rival until we can rule it out.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [],
@@ -613,11 +749,47 @@
           "hyp:h2"
         ]
       },
-      "seq": 2
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "repeat"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Ruled out the phantom change (clean change log). Pool util at 97% tracks the onset exactly, and checkout-db is the only dependency in play.",
+      "phase": "investigate",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "NoEvidence",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ],
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Ruled out the phantom change (clean change log). Pool util at 97% tracks the onset exactly, and checkout-db is the only dependency in play.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -638,11 +810,33 @@
         ],
         "nodes": []
       },
-      "seq": 3
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "kind": "plan",
       "narrative": "No change to roll back, so the safest reversible action is capacity: scale the pool and add a read replica. Awaiting approval (gated).",
+      "phase": "act",
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ],
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "kind": "phase",
+      "narrative": "No change to roll back, so the safest reversible action is capacity: scale the pool and add a read replica. Awaiting approval (gated).",
+      "next_actions": [],
       "phase": "act",
       "refs": {
         "edges": [],
@@ -653,11 +847,36 @@
         ],
         "nodes": []
       },
-      "seq": 4
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "kind": "plan",
       "narrative": "Post-scale-up: pool util back to 52%, symptom cleared. The saturation trend still only correlates with the onset \u2014 there is no revert experiment to run for an organic surge, so the hypothesis stays 'supported', not confirmed.",
+      "phase": "verify",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion"
+      ],
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "kind": "phase",
+      "narrative": "Post-scale-up: pool util back to 52%, symptom cleared. The saturation trend still only correlates with the onset \u2014 there is no revert experiment to run for an organic surge, so the hypothesis stays 'supported', not confirmed.",
+      "next_actions": [],
       "phase": "verify",
       "refs": {
         "edges": [],
@@ -673,11 +892,29 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 5
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "render_postmortem"
+      ],
+      "kind": "plan",
       "narrative": "Postmortem: checkout-api degraded under an organic 3.4x traffic surge that saturated checkout-db's connection pool. No change or deploy was found in the window (ruled out). Scaling the pool resolved the symptom; root cause is the leading, evidence-supported but unconfirmed hypothesis \u2014 closed MITIGATED.",
+      "phase": "close",
+      "plan_calls": [],
+      "plan_ops": [],
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "kind": "phase",
+      "narrative": "Postmortem: checkout-api degraded under an organic 3.4x traffic surge that saturated checkout-db's connection pool. No change or deploy was found in the window (ruled out). Scaling the pool resolved the symptom; root cause is the leading, evidence-supported but unconfirmed hypothesis \u2014 closed MITIGATED.",
+      "next_actions": [],
       "phase": "close",
       "refs": {
         "edges": [],
@@ -686,7 +923,9 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 6
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "done"
     }
   ],
   "outcome": "mitigated",

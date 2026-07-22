@@ -673,7 +673,114 @@
   "journal": [
     {
       "actor": "engine",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "kind": "plan",
       "narrative": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape. Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
+      "phase": "frame",
+      "plan_calls": [
+        "find_recent_changes",
+        "active_alerts",
+        "appd_bt_metrics"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddNode",
+        "AddNode",
+        "AddNode",
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "AddNode",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion"
+      ],
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape. Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
+      "op_count": 0,
+      "outcome": "empty",
+      "params": {
+        "ci": "product-api",
+        "window": "30m"
+      },
+      "phase": "frame",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "active_alerts",
+      "kind": "invocation",
+      "narrative": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape. Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
+      "op_count": 0,
+      "outcome": "empty",
+      "params": {
+        "env": "prod",
+        "service": "product-api"
+      },
+      "phase": "frame",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": true,
+      "effect": "read",
+      "intent": "appd_bt_metrics",
+      "kind": "invocation",
+      "narrative": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape. Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
+      "op_count": 0,
+      "outcome": "blocked",
+      "params": {},
+      "phase": "frame",
+      "provider": "?",
+      "reason": "no capability for intent 'appd_bt_metrics'",
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "kind": "phase",
+      "narrative": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape. Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
+      "next_actions": [],
       "phase": "frame",
       "refs": {
         "edges": [
@@ -713,11 +820,81 @@
           "api_endpoint:product-api|prod|get|-products-{id}"
         ]
       },
-      "seq": 1
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1.",
+      "phase": "investigate",
+      "plan_calls": [
+        "git_diff",
+        "list_related_incidents"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddEdge",
+        "AddNode",
+        "AddEdge",
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ],
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": true,
+      "effect": "read",
+      "intent": "git_diff",
+      "kind": "invocation",
+      "narrative": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1.",
+      "op_count": 0,
+      "outcome": "blocked",
+      "params": {},
+      "phase": "investigate",
+      "provider": "?",
+      "reason": "no capability for intent 'git_diff'",
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "list_related_incidents",
+      "kind": "invocation",
+      "narrative": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1.",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {
+        "cmdb_ci": "product-api"
+      },
+      "phase": "investigate",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -741,11 +918,101 @@
           "hyp:h2"
         ]
       },
-      "seq": 2
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "repeat"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight.",
+      "phase": "investigate",
+      "plan_calls": [
+        "appd_bt_metrics",
+        "instant_query",
+        "git_blame"
+      ],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ],
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": true,
+      "effect": "read",
+      "intent": "appd_bt_metrics",
+      "kind": "invocation",
+      "narrative": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight.",
+      "op_count": 0,
+      "outcome": "blocked",
+      "params": {},
+      "phase": "investigate",
+      "provider": "?",
+      "reason": "no capability for intent 'appd_bt_metrics'",
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "instant_query",
+      "kind": "invocation",
+      "narrative": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight.",
+      "op_count": 6,
+      "outcome": "data",
+      "params": {
+        "query": "redis_connected_clients product-redis"
+      },
+      "phase": "investigate",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": true,
+      "effect": "read",
+      "intent": "git_blame",
+      "kind": "invocation",
+      "narrative": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight.",
+      "op_count": 0,
+      "outcome": "blocked",
+      "params": {},
+      "phase": "investigate",
+      "provider": "?",
+      "reason": "no capability for intent 'git_blame'",
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -773,11 +1040,33 @@
           "code_commit:9f8e7d6"
         ]
       },
-      "seq": 3
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "kind": "plan",
       "narrative": "Safest reversible fix: roll back to v3.3.2 (re-enable singleflight). Awaiting approval (gated).",
+      "phase": "act",
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ],
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "kind": "phase",
+      "narrative": "Safest reversible fix: roll back to v3.3.2 (re-enable singleflight). Awaiting approval (gated).",
+      "next_actions": [],
       "phase": "act",
       "refs": {
         "edges": [],
@@ -788,11 +1077,38 @@
         ],
         "nodes": []
       },
-      "seq": 4
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "kind": "plan",
       "narrative": "Post-rollback: p99 back to 140ms, hit-rate 96%, evictions down to 4/min. Root cause confirmed.",
+      "phase": "verify",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "UpdateHypothesis"
+      ],
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "kind": "phase",
+      "narrative": "Post-rollback: p99 back to 140ms, hit-rate 96%, evictions down to 4/min. Root cause confirmed.",
+      "next_actions": [],
       "phase": "verify",
       "refs": {
         "edges": [],
@@ -811,11 +1127,29 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "render_postmortem"
+      ],
+      "kind": "plan",
       "narrative": "Postmortem: v3.4.0 (9f8e7d6) disabled singleflight in the cache client, causing a 50x read stampede into product-redis; rollback to v3.3.2 resolved it. Code regression ruled out.",
+      "phase": "close",
+      "plan_calls": [],
+      "plan_ops": [],
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "kind": "phase",
+      "narrative": "Postmortem: v3.4.0 (9f8e7d6) disabled singleflight in the cache client, causing a 50x read stampede into product-redis; rollback to v3.3.2 resolved it. Code regression ruled out.",
+      "next_actions": [],
       "phase": "close",
       "refs": {
         "edges": [],
@@ -824,7 +1158,23 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 6
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
+    },
+    {
+      "actor": "engine",
+      "detail": {
+        "event": "unrouted_verdict",
+        "routes": {},
+        "verdict": "advance"
+      },
+      "event": "unrouted_verdict",
+      "kind": "lifecycle",
+      "outcome": "advance",
+      "phase": "close",
+      "seq": 7,
+      "ts": "2026-07-19T00:00:00+00:00"
     }
   ],
   "outcome": "resolved",

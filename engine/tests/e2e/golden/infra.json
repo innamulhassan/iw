@@ -612,7 +612,83 @@
   "journal": [
     {
       "actor": "engine",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "kind": "plan",
       "narrative": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory. Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating.",
+      "phase": "frame",
+      "plan_calls": [
+        "active_alerts",
+        "pod_status"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddNode",
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddNode",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "AddAssertion",
+        "AddAssertion"
+      ],
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "active_alerts",
+      "kind": "invocation",
+      "narrative": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory. Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "pod_status",
+      "kind": "invocation",
+      "narrative": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory. Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating.",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {},
+      "phase": "frame",
+      "provider": "ocp",
+      "reason": null,
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "kind": "phase",
+      "narrative": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory. Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating.",
+      "next_actions": [],
       "phase": "frame",
       "refs": {
         "edges": [
@@ -651,11 +727,78 @@
           "host:node-prod-17"
         ]
       },
-      "seq": 1
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation.",
+      "phase": "investigate",
+      "plan_calls": [
+        "find_recent_changes",
+        "list_related_incidents"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddEdge",
+        "AddAssertion",
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ],
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation.",
+      "op_count": 0,
+      "outcome": "empty",
+      "params": {},
+      "phase": "investigate",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "list_related_incidents",
+      "kind": "invocation",
+      "narrative": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation.",
+      "op_count": 3,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -679,11 +822,79 @@
           "hyp:h2"
         ]
       },
-      "seq": 2
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "repeat"
     },
     {
       "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
       "narrative": "The node's memory is exhausted (98%) but checkout-svc's OWN pod memory was only 55% at eviction \u2014 this is not the app leaking. The etl-nightly batch job overran ~4x its window on the same node, holding the memory. H2 (app leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence.",
+      "phase": "investigate",
+      "plan_calls": [
+        "get_snapshots",
+        "instant_query"
+      ],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ],
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_snapshots",
+      "kind": "invocation",
+      "narrative": "The node's memory is exhausted (98%) but checkout-svc's OWN pod memory was only 55% at eviction \u2014 this is not the app leaking. The etl-nightly batch job overran ~4x its window on the same node, holding the memory. H2 (app leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence.",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "appd",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "blocked": false,
+      "effect": "read",
+      "intent": "instant_query",
+      "kind": "invocation",
+      "narrative": "The node's memory is exhausted (98%) but checkout-svc's OWN pod memory was only 55% at eviction \u2014 this is not the app leaking. The etl-nightly batch job overran ~4x its window on the same node, holding the memory. H2 (app leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence.",
+      "op_count": 2,
+      "outcome": "data",
+      "params": {},
+      "phase": "investigate",
+      "provider": "prometheus",
+      "reason": null,
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "The node's memory is exhausted (98%) but checkout-svc's OWN pod memory was only 55% at eviction \u2014 this is not the app leaking. The etl-nightly batch job overran ~4x its window on the same node, holding the memory. H2 (app leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence.",
+      "next_actions": [],
       "phase": "investigate",
       "refs": {
         "edges": [
@@ -706,11 +917,33 @@
           "host:node-prod-17"
         ]
       },
-      "seq": 3
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "kind": "plan",
       "narrative": "Safest reversible fix: reschedule etl-nightly off the tier-1 node and cap its memory. Awaiting approval (gated).",
+      "phase": "act",
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ],
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "kind": "phase",
+      "narrative": "Safest reversible fix: reschedule etl-nightly off the tier-1 node and cap its memory. Awaiting approval (gated).",
+      "next_actions": [],
       "phase": "act",
       "refs": {
         "edges": [],
@@ -721,11 +954,36 @@
         ],
         "nodes": []
       },
-      "seq": 4
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "kind": "plan",
       "narrative": "Post-reschedule: node memory back to 61%; checkout pod Ready, no evictions. Root cause confirmed.",
+      "phase": "verify",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "UpdateHypothesis"
+      ],
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "kind": "phase",
+      "narrative": "Post-reschedule: node memory back to 61%; checkout pod Ready, no evictions. Root cause confirmed.",
+      "next_actions": [],
       "phase": "verify",
       "refs": {
         "edges": [],
@@ -742,11 +1000,29 @@
         ],
         "nodes": []
       },
-      "seq": 5
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
     },
     {
       "actor": "engine",
+      "available": [
+        "render_postmortem"
+      ],
+      "kind": "plan",
       "narrative": "Postmortem: the unbounded etl-nightly batch job co-scheduled on node-prod-17 grew its heap and starved the node's memory -> the kubelet evicted the lowest-priority tenant (checkout-svc's tier-1 pod) -> checkout 5xx; rescheduling the batch job off the node with a memory cap resolved it. An application memory leak was investigated and ruled out.",
+      "phase": "close",
+      "plan_calls": [],
+      "plan_ops": [],
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "kind": "phase",
+      "narrative": "Postmortem: the unbounded etl-nightly batch job co-scheduled on node-prod-17 grew its heap and starved the node's memory -> the kubelet evicted the lowest-priority tenant (checkout-svc's tier-1 pod) -> checkout 5xx; rescheduling the batch job off the node with a memory cap resolved it. An application memory leak was investigated and ruled out.",
+      "next_actions": [],
       "phase": "close",
       "refs": {
         "edges": [],
@@ -755,7 +1031,9 @@
         "hypotheses": [],
         "nodes": []
       },
-      "seq": 6
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "done"
     }
   ],
   "outcome": "resolved",

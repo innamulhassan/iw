@@ -146,8 +146,8 @@ def test_session_capability_call_event_carries_outcome():
     assert by_intent["active_alerts"] == "data"
 
 
-# ── golden protection: invocation entries stay out of the bundle journal view ──
-def test_invocation_entries_do_not_change_the_bundle_journal():
+# ── the bundle SERVES the clean-empty invocation with its outcome (owner goal B2) ──
+def test_invocation_entries_are_served_in_the_bundle_journal():
     from e2e._helpers import run
 
     from iw_engine.api.bundle import export_bundle
@@ -156,6 +156,11 @@ def test_invocation_entries_do_not_change_the_bundle_journal():
     res = run(subject, script, fixtures)
     # the clean-empty find_recent_changes call IS journaled…
     assert any(e.kind == "invocation" and e.decision == "empty" for e in res.journal.entries)
-    # …but the bundle's journal keeps its phase/step shape (scripted happy-path preserved)
+    # …and the bundle now SERVES it whole — kind + ts + the boundary outcome — so the audit
+    # sees the honest clean-empty read, not a byte-stable phases-only view (the owner override).
     bundle = export_bundle(res)
-    assert all(j.get("kind") != "invocation" for j in bundle["journal"])
+    served = [j for j in bundle["journal"] if j.get("kind") == "invocation"]
+    assert served and all(j.get("ts") for j in served), "every served invocation carries kind + ts"
+    empty = next(j for j in served if j["intent"] == "find_recent_changes")
+    assert empty["outcome"] == "empty" and empty["op_count"] == 0
+    assert empty["provider"] and "narrative" in empty        # WHO + WHY are served too

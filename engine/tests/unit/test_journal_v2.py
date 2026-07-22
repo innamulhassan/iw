@@ -108,12 +108,14 @@ def test_every_capability_call_is_journaled():
     assert reads and all(e.decision == "empty" for e in reads)
     phase_seqs = {e.seq for e in jr.phase_entries()}
     assert all(e.seq in phase_seqs for e in invs), "invocations annotate their phase's seq"
-    # RECORD kinds stay out of the bundle-journal view (P3's exclusion, kept)
+    # the bundle now SERVES every kind whole (owner goal B2 — the P3 exclusion is overridden):
+    # each served entry carries its kind AND its ts, and the invocation rows reach the view.
     from iw_engine.api.bundle import export_bundle
     view = export_bundle(session._engine.result())["journal"]
-    assert all(j.get("kind") in (None, "step", "gate_decision", "message") or "refs" in j
-               for j in view)
-    assert not any(j.get("intent") == "find_recent_changes" for j in view)
+    assert all(j.get("kind") and j.get("ts") for j in view), "EVERY served entry carries kind + ts"
+    served_invs = [j for j in view if j.get("kind") == "invocation"]
+    assert served_invs, "invocation rows are served (no longer excluded)"
+    assert any(j["intent"] == "rollback_release" and j["outcome"] == "data" for j in served_invs)
 
 
 # ── v1 read-only + tolerant-additive wire ─────────────────────────────────────
