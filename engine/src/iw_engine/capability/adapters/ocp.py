@@ -20,9 +20,23 @@ Graph fold:
 from __future__ import annotations
 
 from ...domain import registry
-from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source
-from ...domain.operations import AddEdge, AddEvent, AddFact, AddNode, Operation
+from ...domain.assertion import Window
+from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source, Species, Stat
+from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
+
+# pod_status predicate → (species, stat) for native AddAssertion emission (P1b, §9.1). phase/ready
+# are open-interval STATE; node_name is identity-adjacent DESCRIPTOR; cpu/mem are READING gauges
+# and restart_count a READING counter. Species/stat ride on the assertion only — the reducer's
+# Fact carries neither — so this records the temporal shape without changing any graph output.
+_POD_FACT_SPECIES: dict[str, tuple[Species, Stat | None]] = {
+    "phase": (Species.STATE, None),
+    "ready": (Species.STATE, None),
+    "node_name": (Species.DESCRIPTOR, None),
+    "restart_count": (Species.READING, Stat.COUNTER),
+    "cpu_utilization": (Species.READING, Stat.GAUGE),
+    "mem_utilization": (Species.READING, Stat.GAUGE),
+}
 
 # k8s Event `reason` -> this registry's closed Pod event vocabulary
 # (pod event_types: scheduled, started, OOMKilled, evicted, restarted, terminated)
@@ -91,20 +105,25 @@ class OcpAdapter:
 
         at = dep.get("at")
         if at:
+            # rollout facts are open-interval STATE (image / replica counts / progress — the
+            # onset value can matter). No stat/window; folds to a byte-identical Fact.
             for pred in ("image", "available_replicas", "desired_replicas", "rollout_progress"):
                 if pred in dep and dep[pred] is not None:
-                    ops.append(AddFact(subject=dep_id, predicate=pred, value=dep[pred],
-                                       valid_from=at, observed_at=at, source=Source.OCP))
+                    ops.append(AddAssertion(subject=dep_id, name=pred, value=dep[pred],
+                                            species=Species.STATE, valid_from=at, observed_at=at,
+                                            source=Source.OCP, source_native_name=pred))
 
         rollout = raw.get("rollout")
         if rollout:
             etype = _ROLLOUT_STATUS_EVENTS.get(rollout.get("status"))
             rat = rollout.get("at", at)
             if etype and rat:
-                ops.append(AddEvent(entity=dep_id, type=etype, occurred_at=rat, observed_at=rat,
-                                    payload={"reason": rollout.get("reason"),
-                                             "previous_image": rollout.get("previous_image")},
-                                    source=Source.OCP))
+                ops.append(AddAssertion(subject=dep_id, name=etype, species=Species.EVENT,
+                                        occurred_at=rat, observed_at=rat,
+                                        value={"reason": rollout.get("reason"),
+                                               "previous_image": rollout.get("previous_image")},
+                                        source=Source.OCP,
+                                        source_native_name=rollout.get("status")))
 
         release = raw.get("release")
         if release:
@@ -113,9 +132,10 @@ class OcpAdapter:
             rel_id = registry.node_id(NodeType.RELEASE, rel_props)
             rel_at = release.get("at")
             if rel_at:
-                ops.append(AddEvent(entity=rel_id, type="released", occurred_at=rel_at,
-                                    observed_at=rel_at, payload={"version": release.get("version")},
-                                    source=Source.OCP))
+                ops.append(AddAssertion(subject=rel_id, name="released", species=Species.EVENT,
+                                        occurred_at=rel_at, observed_at=rel_at,
+                                        value={"version": release.get("version")},
+                                        source=Source.OCP, source_native_name="released"))
             ops.append(AddEdge(type=EdgeType.DEPLOYED_AS, src=rel_id, dst=dep_id))
 
         return ops
@@ -133,8 +153,12 @@ class OcpAdapter:
                 for pred in ("phase", "ready", "node_name", "restart_count",
                              "cpu_utilization", "mem_utilization"):
                     if pred in pod and pod[pred] is not None:
-                        ops.append(AddFact(subject=pod_id, predicate=pred, value=pod[pred],
-                                           valid_from=at, observed_at=at, source=Source.OCP))
+                        species, stat = _POD_FACT_SPECIES[pred]
+                        window = Window(at=at) if species is Species.READING else None
+                        ops.append(AddAssertion(subject=pod_id, name=pred, value=pod[pred],
+                                                species=species, stat=stat, window=window,
+                                                valid_from=at, observed_at=at, source=Source.OCP,
+                                                source_native_name=pred))
 
             node_name = pod.get("node_name")
             if node_name:
@@ -169,9 +193,11 @@ class OcpAdapter:
             etype = reason_map.get(reason)
             if etype is None:
                 continue  # unmapped k8s reason — no registry-valid event to fold
-            ops.append(AddEvent(entity=entity_id, type=etype, occurred_at=at, observed_at=at,
-                                payload={"reason": reason, "message": ev.get("message")},
-                                source=Source.OCP))
+            # name is the closed-vocabulary etype; the raw k8s `reason` is the vendor's own name.
+            ops.append(AddAssertion(subject=entity_id, name=etype, species=Species.EVENT,
+                                    occurred_at=at, observed_at=at,
+                                    value={"reason": reason, "message": ev.get("message")},
+                                    source=Source.OCP, source_native_name=reason))
         return ops
 
     # ── pod_logs ──────────────────────────────────────────────────────────────
@@ -193,8 +219,12 @@ class OcpAdapter:
                 continue
             for needle, etype in _LOG_SIGNATURES:
                 if needle in text:
-                    ops.append(AddEvent(entity=pod_id, type=etype, occurred_at=at, observed_at=at,
-                                        payload={"log_line": text}, source=Source.OCP))
+                    # etype is the closed-vocabulary name; the matched log signature is the
+                    # vendor's own name for the occurrence.
+                    ops.append(AddAssertion(subject=pod_id, name=etype, species=Species.EVENT,
+                                            occurred_at=at, observed_at=at,
+                                            value={"log_line": text}, source=Source.OCP,
+                                            source_native_name=needle))
                     break  # one event per line
         return ops
 
