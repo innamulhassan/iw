@@ -14,8 +14,8 @@ itself lives outside the graph; the graph only witnesses its recorded effect. Ke
 untouched (DESIGN-INPUT-v1.md §E.2: "`ocp__restart` **write**->gate")."""
 from __future__ import annotations
 
-from ...domain.enums import Binding, Effect, Source
-from ...domain.operations import AddEvent, Operation
+from ...domain.enums import Binding, Effect, Source, Species
+from ...domain.operations import AddAssertion, Operation
 from ..layer import CapabilityMeta
 
 
@@ -37,5 +37,7 @@ class RemediationAdapter:
         etype = applied.get("type")
         if not (at and entity and etype):
             return []
-        return [AddEvent(entity=entity, type=etype, occurred_at=at, observed_at=at,
-                         payload={"remediation": applied.get("action")}, source=Source.SERVICENOW)]
+        return [AddAssertion(subject=entity, name=etype, species=Species.EVENT,
+                             occurred_at=at, observed_at=at,
+                             value={"remediation": applied.get("action")},
+                             source=Source.SERVICENOW, source_native_name=etype)]
