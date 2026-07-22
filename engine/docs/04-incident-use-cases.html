@@ -109,12 +109,14 @@ everything below is reproducible to the byte.</p>
 </div>
 
 <div class="callout"><b>Provenance of every number.</b> The scores (0.6 → 0.933), the weights
-(0.4921), the seq numbers (1–10), the gate payload, the quarantine spellings — all were produced
+(0.4921), the seq numbers (1–9), the gate payload, the quarantine spellings — all were produced
 by running <code>tests/e2e/scenario_code_regression.py</code> through
 <code>Engine.run()</code> / <code>SessionManager.create()</code> against
 <code>playbooks/incident.yaml</code> on this tree, plus one reducer probe for the airlock section
 (§05). Nothing is invented; where the walk says a fact id, that id is what
-<code>registry.fact_id()</code> minted.</div>
+<code>registry.fact_id()</code> minted (<code>sha1(subject|predicate|valid_from)[:16]</code>),
+and the batch half of every claim is pinned by the golden bundle
+<code>tests/e2e/golden/code_regression.json</code>.</div>
 
 <h2 id="cast"><span class="n">02</span>The cast — one incident, three artifacts</h2>
 <p class="lead">A runnable incident is three pieces of data, no code: a <b>catalog entry</b>
@@ -127,11 +129,11 @@ that binds them is <code>runtime/scenarios.py</code>.</p>
  "title": "payments-api 5xx after v4.12.0 deploy", "layer": "Application code",
  "remediation": "Roll payments-api back to v4.11.3 (revert commit abc123)"}
 
-# tests/e2e/scenario_code_regression.py — the twin
+# tests/e2e/scenario_code_regression.py — the twin (6 steps: the loop runs twice)
 def build(refuted_variant: bool = False):
     subject = SubjectRef(domain="app-incident", id="INC-4821", kind="incident")
     ...
-    return subject, [frame, triage, hypothesize, investigate, remediate, verify, close]</code></pre>
+    return subject, [frame, investigate_open, investigate_confirm, act, verify, close]</code></pre>
 
 <ul class="tight">
   <li><b>The subject is the identity.</b> <code>SubjectRef{domain, id, kind}</code>;
@@ -140,18 +142,26 @@ def build(refuted_variant: bool = False):
   <li><b>The twin is a list of <code>PlanOutput</code>s</b> authored with the terse helpers in
     <code>tests/e2e/_helpers.py</code> — <code>node() · fact() · event() · edge() · propose() ·
     update() · no_evidence() · phase()</code>. <code>fact()</code> emits the native
-    <code>AddAssertion</code> atom (species inferred by the same §9.1 classifier the reducer
-    uses), so the scripted path exercises exactly the grammar a live model emits.</li>
+    <code>AddAssertion</code> atom (species inferred by <code>shim.species_for_predicate</code>,
+    the same §9.1 classifier the <code>AddFact</code>/<code>AddEvent</code> compat shims ride
+    through — the materialized Fact is byte-identical to the shim era), so the scripted path
+    exercises exactly the grammar a live model emits. And <code>phase()</code> takes a plain
+    <em>string</em> — P7 phase-as-data: a phase id is a playbook string, and a scripted typo
+    fails loudly at run time via the ScriptedPlanner’s phase-match assertion, not an enum
+    constructor.</li>
   <li><b>Two planners, one engine.</b> The same incident runs under
     <code>ScriptedPlanner</code> (this page’s numbers, and CI’s) or under the real-LLM
     <code>LivePlanner</code> with the richer <code>runtime/live_fixtures.py</code> blobs
     (<code>golden_root = "code_commit:abc123"</code> — the convergence check, never shown to the
     model). Engine, reducer, hypothesis store and journal are identical either way; only the
     judgment author changes.</li>
-  <li><b>The gate is injected, not scripted.</b> <code>_with_gate(script, remediation)</code>
-    adds an <code>apply_remediation</code> WRITE call to every REMEDIATE step <em>for interactive
-    sessions only</em> — so the operator gets an Approve / Refine / Deny card. The batch/golden
-    path never sees it and only <em>proposes</em> the fix (§04, ACT).</li>
+  <li><b>The gate is injected, not scripted.</b> <code>_with_gate(script, remediation,
+    write_phases)</code> adds an <code>apply_remediation</code> WRITE call to every step of a
+    <code>writes_allowed</code> phase <em>for interactive sessions only</em> — and
+    <code>write_phases</code> is computed from the playbook (<code>{p.id for p in pb.phases if
+    p.writes_allowed}</code>), a role binding, never a phase name — so the operator gets an
+    Approve / Refine / Deny card at ACT. The batch/golden path calls <code>build()</code>
+    directly, never sees the injection, and only <em>proposes</em> the fix (§04, ACT).</li>
 </ul>
 
 <div class="diagram">
@@ -172,8 +182,10 @@ def build(refuted_variant: bool = False):
 </div>
 
 <h2 id="shape"><span class="n">03</span>The shape of the run</h2>
-<p class="lead">The model is five stages; the loop in the middle does the intellectual work, and
-the only write sits behind a flag. Inside every stage, one phase-pass is the same six steps
+<p class="lead">The model is five stages — and since the P7 phase-as-data step landed, the
+shipped <code>playbooks/incident.yaml</code> <em>is</em> those five stages, verbatim. The loop in
+the middle does the intellectual work, and the only write sits behind a flag. Inside every stage,
+one phase-pass is the same six steps
 (<a href="01-design-architecture.html" style="color:var(--accent)">01 §04</a> covers each in
 depth).</p>
 
@@ -195,109 +207,126 @@ depth).</p>
     <div class="box"><b>route</b><small>next_phase()</small></div>
   </div>
   <p class="faint" style="font-size:13px;margin:12px 0 0">The loop exits only through the evidence
-  gate: <code>require_confidence_gate</code> + <code>require_refutation</code> ⇒
-  <code>promotion_ok</code> (INV-8). The fold runs <em>before</em> the gate, so the gate judges the
-  updated hypothesis store.</p>
+  gate: <code>gate: {promotion: true, refutation_attempted: true}</code> ⇒
+  <code>store.promotion_ok()</code> (INV-8). The fold runs <em>before</em> the gate, so the gate
+  judges the updated hypothesis store. And note what the <b>plan</b> step reads: the
+  <code>PlanContext</code> carries the graph’s <code>focus_slice</code>, the ranked hypothesis
+  summary, the computed correlations, plus <code>gate_feedback</code> and last step’s rejections —
+  <em>never the journal</em>. The journal is the audit/consent and replay/resume record; it is not
+  a planner reasoning input.</p>
 </div>
 
-<div class="callout"><b>Today in code.</b> The shipped <code>playbooks/incident.yaml</code> still
-declares seven phase ids — frame, triage, hypothesize, investigate, remediate, verify, close — and
-<code>Phase</code> is still an engine enum. They collapse onto the shape above: triage dissolves
-into frame and the loop’s first turns; remediate <em>is</em> the gated ACT (the only
-<code>writes_allowed: true</code> phase). The enum leaving the engine — phases fully
-playbook-declared — is the P7 step now settling. The timeline below annotates each seq with its
-yaml id, but read the five-stage strip as the model.</div>
+<div class="callout"><b>Today in code.</b> The shipped <code>playbooks/incident.yaml</code>
+declares exactly the five ids above — <code>frame · investigate · act · verify · close</code> —
+the P7 5-phase algebra, owner-ratified: <em>triage and remediate are retired</em>. Triage’s one
+real decision (“mitigate now vs investigate”) became the act-entry decision, available from
+investigate at any time; remediate’s real success — an approved, executed, journaled WRITE — is
+an <em>action</em> inside act, not a stage. And there is no <code>Phase</code> enum left in the
+engine: <code>PhaseSpec.id</code> is a playbook string, validated at load (unique ids, every
+route/role-binding/op_ceiling key must name a declared phase). The playbook also binds the roles
+the engine used to hardcode — <code>subject_node: incident</code> (“the incident is the first
+node”), <code>symptom_cleared_event: cleared</code>, <code>outcomes: {confirmed_root: resolved,
+no_confirmed_root: mitigated}</code> — and carries the live planner’s prompt <b>doctrine</b>
+(persona, rooting conventions, the hypothesize⇄refute method) as versioned playbook data.</div>
 
 <div style="overflow-x:auto">
 <table>
-  <thead><tr><th>yaml phase (today)</th><th>model stage</th><th>gate on advance</th><th>routes (<code>on_verdict</code>)</th></tr></thead>
+  <thead><tr><th>yaml phase</th><th>model stage</th><th>gate on advance (<code>GateSpec</code> predicates)</th><th>routes (<code>on_verdict</code>)</th></tr></thead>
   <tbody>
-    <tr><td><code>frame</code></td><td>Frame</td><td><code>produces_required: [nodes_touched, facts_added]</code> · <code>min_facts: 1</code></td><td>advance → triage · repeat → frame</td></tr>
-    <tr><td><code>triage</code></td><td>the loop (opening turn)</td><td><code>produces_required: [facts_added]</code></td><td>advance → hypothesize · backtrack → frame</td></tr>
-    <tr><td><code>hypothesize</code></td><td>the loop</td><td><code>produces_required: [hypotheses_updated]</code></td><td>advance → investigate</td></tr>
-    <tr><td><code>investigate</code></td><td>the loop (exit gate)</td><td><code>require_confidence_gate</code> + <code>require_refutation</code></td><td>advance → remediate · backtrack → hypothesize</td></tr>
-    <tr><td><code>remediate</code></td><td><b>ACT ⚑</b></td><td><code>produces_required: [hypotheses_updated]</code> · <code>writes_allowed: true</code></td><td>advance → verify</td></tr>
-    <tr><td><code>verify</code></td><td>Verify</td><td><code>produces_required: [facts_added]</code></td><td>advance → close · backtrack → hypothesize</td></tr>
-    <tr><td><code>close</code></td><td>Close</td><td><em>none</em></td><td>done → run ends</td></tr>
+    <tr><td><code>frame</code></td><td>Frame</td><td><code>produces_required: [nodes_touched, facts_added]</code> · <code>min_facts: 1</code></td><td>advance → investigate · repeat → frame</td></tr>
+    <tr><td><code>investigate</code></td><td>the loop — hypothesize ⇄ evidence ⇄ refute</td><td><code>produces_required: [facts_added, hypotheses_updated]</code> · <code>promotion: true</code> + <code>refutation_attempted: true</code></td><td>advance → act · repeat → investigate · backtrack → investigate</td></tr>
+    <tr><td><code>act</code></td><td><b>ACT ⚑</b></td><td><code>produces_required: [hypotheses_updated]</code> · <code>writes_allowed: true</code></td><td>advance → verify · repeat → act</td></tr>
+    <tr><td><code>verify</code></td><td>Verify</td><td><code>produces_required: [facts_added]</code> · <code>symptom_cleared: true</code></td><td>advance → close · backtrack → investigate</td></tr>
+    <tr><td><code>close</code></td><td>Close</td><td><em>none declared</em></td><td>done → run ends</td></tr>
   </tbody>
 </table>
 </div>
 
+<p class="muted" style="font-size:14.5px">The engine owns the predicate <em>semantics</em> —
+<code>GateSpec</code> is the closed set <code>min_facts · promotion · refutation_attempted ·
+symptom_cleared · human_approved</code> — and playbooks <em>compose</em> which apply per phase.
+Both terminal-intent verdicts are gated (P7: <code>DONE</code> is checked like
+<code>ADVANCE</code>, never a free bypass — close simply declares no predicates). Two more
+disciplines ride the table: every phase has an op ceiling (<code>op_ceiling: {frame: 60,
+investigate: 40, act: 15, verify: 20, close: 10}</code>), and a planner that keeps voting REPEAT
+hits the cap — after <code>max_retries: 2</code> consecutive runs of one phase the engine forces
+an ADVANCE, appending <code>"[repeat cap reached — forced advance]"</code> to the gate reason. A
+verdict a phase declares <em>no route for</em> is never a silent dead-end: the engine journals an
+<code>unrouted_verdict</code> lifecycle entry and terminates diagnosably.</p>
+
 <h2 id="run"><span class="n">04</span>The worked run — INC-4821, seq by seq</h2>
-<p class="lead">Seq numbers below are the <em>interactive session’s</em> journal — ten entries,
-gap-free, including the gate. (The batch/golden run of the same twin journals seven
-<code>phase</code> entries, seqs 1–7, and never opens a gate.) Each layer names what folded and
-what the gate decided; the deep dives follow the diagram.</p>
+<p class="lead">Seq numbers below are the <em>interactive session’s</em> journal — ten entries
+over seqs 1–9, gap-free, including the gate (the served write’s invocation entry <em>shares</em>
+seq 6 with its phase). The batch/golden run of the same twin journals six <code>phase</code>
+entries, seqs 1–6, and never opens a gate. Each layer names what folded and what the gate
+decided; the deep dives follow the diagram.</p>
 
 <div class="diagram">
-  <div class="cap">INC-4821 — the run, seq by seq (executed; yaml ids annotated per §03’s caveat)</div>
+  <div class="cap">INC-4821 — the run, seq by seq (executed; five phases, the loop runs twice)</div>
   <div class="stack">
     <div class="layer"><span class="tag">seq 1 · frame</span><span class="body">
       <div class="pipe">
-        <div class="box"><b>4 nodes</b><small>service · anomaly ANOM-1 · alert ALT-1 · change CHG-1</small></div>
-        <div class="box"><b>8 facts</b><small>onset_value 0.40 · severity_score 2 · red_errors 0.40 · red_rate 820 rpm …</small></div>
-        <div class="box"><b>3 events</b><small>degraded_started · fired · implemented</small></div>
-        <div class="box"><b>4 edges</b><small>affects · fired_on · changed_by · correlated_with</small></div>
+        <div class="box"><b>6 nodes</b><small>service · anomaly ANOM-1 · alert ALT-1 · change CHG-1 · incident INC-4821 · db payments-ora</small></div>
+        <div class="box"><b>9 facts</b><small>onset_value 0.40 · severity_score 2 · red_errors 0.40 · red_rate 820 rpm · p99 4200 ms …</small></div>
+        <div class="box"><b>4 events</b><small>degraded_started · fired · implemented · declared</small></div>
+        <div class="box"><b>6 edges</b><small>affects ×2 · fired_on · changed_by · correlated_with · depends_on (declared)</small></div>
         <div class="box hl"><b>gate PASS</b><small>min_facts 1 → ADVANCE</small></div>
       </div>
       Symptom captured: first node of type <code>playbook.symptom_node</code> ⇒
-      <code>anomaly_ref = "anomaly:anom-1"</code>.</span></div>
+      <code>anomaly_ref = "anomaly:anom-1"</code>. The retired TRIAGE’s real content — scope,
+      severity, the dependency map, “still bleeding — investigate, don’t blind-mitigate” — is
+      framing, and lands here.</span></div>
     <div class="down">↓</div>
-    <div class="layer"><span class="tag">seq 2 · loop <span style="color:var(--faint)">(yaml triage)</span></span><span class="body">
+    <div class="layer eng"><span class="tag">seq 2 · loop opens <span style="color:var(--faint)">(investigate · verdict repeat)</span></span><span class="body">
       <div class="pipe">
-        <div class="box"><b>+ incident · database</b><small>INC-4821 declared · payments-ora, depends_on (declared)</small></div>
-        <div class="box"><b>+ 1 fact</b><small>red_latency_p99 4200 ms</small></div>
-        <div class="box hl"><b>ADVANCE</b><small>“still bleeding — investigate, don’t blind-mitigate”</small></div>
-      </div></span></div>
-    <div class="down">↓</div>
-    <div class="layer eng"><span class="tag">seq 3 · loop / hypothesize</span><span class="body">
-      <div class="pipe">
-        <div class="box hl"><b>h1 · proposed 0.6</b><small>NPE shipped by commit abc123 (med band)</small></div>
-        <div class="box"><b>h2 · proposed 0.3</b><small>payments-ora pool exhaustion (low band)</small></div>
-        <div class="box"><b>+ priors</b><small>INC-4788 · INC-4790 similar_to (same NPE, sibling services)</small></div>
+        <div class="box hl"><b>h1 · proposed 0.6</b><small>NPE shipped by commit abc123 (med band, root=code_commit)</small></div>
+        <div class="box"><b>h2 · proposed 0.3</b><small>payments-ora pool exhaustion (low band, root=database)</small></div>
+        <div class="box"><b>+ commit + priors</b><small>abc123 introduced_by · INC-4788 / INC-4790 similar_to (same NPE, sibling services)</small></div>
+        <div class="box"><b>REPEAT</b><small>the loop continues — hypothesize ⇄ evidence</small></div>
       </div>
       <code>promotion_ok = False</code> — two alive rivals. Scores are exactly the bands: no
-      evidence attached yet.</span></div>
+      evidence attached yet. (A REPEAT verdict is never gated — only ADVANCE and DONE are.)</span></div>
     <div class="down">↓</div>
-    <div class="layer eng"><span class="tag">seq 4 · loop / evidence ⇄ refute <span style="color:var(--faint)">(yaml investigate)</span></span><span class="body">
+    <div class="layer eng"><span class="tag">seq 3 · loop / evidence ⇄ refute <span style="color:var(--faint)">(investigate · exit)</span></span><span class="body">
       <div class="pipe">
         <div class="box"><b>+ 7 facts</b><small>DB: pool 0.28 · 56/200 conns · repl 0.2 s — healthy · errsig count 152</small></div>
         <div class="box"><b>h2 → REFUTED</b><small>add_refuting=[conn_pool_util] · earned 0.2012</small></div>
         <div class="box hl"><b>h1 → SUPPORTED</b><small>add_supporting=[count] · earned 0.933</small></div>
-        <div class="box hl"><b>gate PASS</b><small>promotion_ok ∧ refuted rival → ADVANCE</small></div>
+        <div class="box hl"><b>gate PASS</b><small>promotion ∧ refutation_attempted → ADVANCE → act</small></div>
       </div>
       Fold projects the derived evidence edges: <code>supports
       error_signature:npe-taxcalc → hyp:h1</code>, <code>refutes database:payments-ora →
       hyp:h2</code>.</span></div>
     <div class="down">↓</div>
-    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">seq 5–6 · ACT ⚑ gate</span><span class="body">
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">seq 4–5 · ACT ⚑ gate</span><span class="body">
       <div class="pipe">
-        <div class="box write"><b>seq 5 · gate_opened</b><small>apply_remediation — “Roll payments-api back to v4.11.3”</small></div>
+        <div class="box write"><b>seq 4 · gate_opened</b><small>apply_remediation — “Roll payments-api back to v4.11.3”</small></div>
         <span class="arrow">→</span>
-        <div class="box write"><b>SUSPENDED</b><small>_GateSuspend — nothing folded, no seq burned</small></div>
+        <div class="box write"><b>SUSPENDED</b><small>_GateSuspend — nothing folded, no phase seq burned</small></div>
         <span class="arrow">→</span>
-        <div class="box"><b>seq 6 · gate_decision</b><small>approve · actor oncall-sre · source human</small></div>
+        <div class="box"><b>seq 5 · gate_decision</b><small>approve · actor oncall-sre · source human</small></div>
       </div></span></div>
     <div class="down">↓</div>
-    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">seq 7 · ACT ⚑ executed <span style="color:var(--faint)">(yaml remediate)</span></span><span class="body">
+    <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">seq 6 · ACT ⚑ executed</span><span class="body">
       <div class="pipe">
-        <div class="box write"><b>invocation @ seq 7</b><small>remediation.apply_remediation → outcome "empty"</small></div>
-        <div class="box"><b>phase @ seq 7</b><small>h1 basis: “proposed fix: roll back to v4.11.3 (revert abc123)”</small></div>
+        <div class="box write"><b>invocation @ seq 6</b><small>remediation.apply_remediation → outcome "empty"</small></div>
+        <div class="box"><b>phase @ seq 6</b><small>h1 basis: “proposed fix: roll payments-api back to v4.11.3 (revert abc123)”</small></div>
       </div>
       The invocation entry <em>shares</em> the phase’s seq — an annotation, not a numbered
       step.</span></div>
     <div class="down">↓</div>
-    <div class="layer"><span class="tag">seq 8 · verify</span><span class="body">
+    <div class="layer"><span class="tag">seq 7 · verify</span><span class="body">
       <div class="pipe">
         <div class="box"><b>+ 2 facts · 2 events</b><small>red_errors 0.01 · degraded=false · degraded_cleared · cleared</small></div>
         <div class="box hl"><b>h1 → CONFIRMED</b><small>“rollback cleared 5xx to 1% — recovery confirms the causal chain”</small></div>
+        <div class="box hl"><b>gate PASS</b><small>symptom_cleared: ACTIVE “cleared” on anomaly:anom-1 → ADVANCE</small></div>
       </div></span></div>
     <div class="down">↓</div>
-    <div class="layer"><span class="tag">seq 9–10 · close</span><span class="body">
+    <div class="layer"><span class="tag">seq 8–9 · close</span><span class="body">
       <div class="pipe">
-        <div class="box"><b>seq 9 · phase close</b><small>verdict done → run ends</small></div>
-        <div class="box"><b>seq 10 · lifecycle</b><small>“closed” · outcome resolved</small></div>
-        <div class="box hl"><b>close_outcome</b><small>RESOLVED — terminal phase ran ∧ store.confirmed()</small></div>
+        <div class="box"><b>seq 8 · phase close</b><small>verdict done → run ends</small></div>
+        <div class="box"><b>seq 9 · lifecycle</b><small>“closed” · outcome resolved</small></div>
+        <div class="box hl"><b>close_outcome</b><small>“resolved” — terminal phase ran ∧ store.confirmed(); the label is playbook data (OutcomeRule)</small></div>
       </div></span></div>
   </div>
   <div class="legend">
@@ -331,8 +360,11 @@ tool can be asked in <em>its own</em> vocabulary — and the reducer’s alias b
 re-arrival of the same entity under a different display name onto one node instead of minting a
 twin.</p>
 
-<p>Because <code>correlate_timeline</code> is in this playbook’s allowed intents, the engine also
-hands the planner a computed hint — deterministic, replay-invisible, never a graph mutation:</p>
+<p>And because <code>correlate_timeline</code> is in the <em>investigate</em> phase’s
+<code>allowed_intents</code>, every plan of the loop — the onset having been framed at seq 1 —
+receives a computed hint from the engine: the skew-tolerant change→onset candidates, resolved to
+real code in <code>hypothesis/belief.py</code>. Deterministic, replay-invisible, never a graph
+mutation — it rides <code>PlanContext.correlations</code>, one of the planner’s only inputs:</p>
 
 <pre><code># belief.correlate_timeline(graph, tunables, anomaly_ref="anomaly:anom-1") — executed
 {"event": "evt:f11f7436dca6c5f8", "entity": "change_event:chg-1", "type": "implemented",
@@ -397,8 +429,11 @@ update("h1", status="supported", level="high", add_supporting=[err_fact],
 
 <ul class="tight">
   <li><b>Reliability</b> is the fact’s own belief channel — a measured fact’s
-    <code>source_reliability</code>, filled by the reducer from the playbook’s per-source map when
-    the adapter states none (INV-9: adapters carry no constants).</li>
+    <code>source_reliability</code>. Here the twin states it per fact (splunk 0.98, prometheus
+    0.99); a payload that states none is filled by the reducer from the playbook’s per-source
+    map (<code>tunables.source_reliability</code> — prometheus 0.97, splunk 0.95, …), so
+    adapters carry no hardcoded constants (INV-9). An inferred fact carries banded confidence
+    instead — exactly one channel exists, the Fact model’s R-C4 invariant.</li>
   <li><b>Proximity</b> is skew-tolerant (R-J2): the reads are at 14:12, onset at 14:00 — 720 s
     apart. Subtract the combined skew bound first (splunk 60 + prometheus 30 = 90 s for the count
     fact), then decay the 630 s excess: <code>0.5^(630/1800) = 0.7846</code>. Inside the bound the
@@ -422,12 +457,12 @@ And a hypothesis with no resolvable evidence scores exactly its band: at seq 3 b
 
 <h3>The promotion gate — INV-8, the engine’s decision</h3>
 <p>The investigate exit is the strictest gate in the playbook:
-<code>require_confidence_gate</code> + <code>require_refutation</code>. After the fold (fold runs
+<code>gate: {promotion: true, refutation_attempted: true}</code>. After the fold (fold runs
 <em>before</em> the gate) the controller checks
 <code>store.promotion_ok(tunables)</code>:</p>
 
 <div class="diagram">
-  <div class="cap">promotion_ok — executed at seq 4</div>
+  <div class="cap">promotion_ok — executed at seq 3</div>
   <div class="pipe">
     <div class="box hl"><b>earned ≥ gate</b><small>0.933 ≥ confidence_gate 0.8 ✓</small></div>
     <span class="arrow">∧</span>
@@ -435,10 +470,11 @@ And a hypothesis with no resolvable evidence scores exactly its band: at seq 3 b
     <span class="arrow">∧</span>
     <div class="box hl"><b>delta floor</b><small>margin ≥ delta 0.15 ✓ (sole survivor)</small></div>
     <span class="arrow">→</span>
-    <div class="box write"><b>ADVANCE honoured</b><small>route: investigate → remediate</small></div>
+    <div class="box write"><b>ADVANCE honoured</b><small>route: investigate → act</small></div>
   </div>
-  <p class="faint" style="font-size:13px;margin:12px 0 0">Plus <code>require_refutation</code>: a
-  REFUTED rival exists (h2) — genuine differential work, not one theory re-supported in a loop.</p>
+  <p class="faint" style="font-size:13px;margin:12px 0 0">Plus <code>refutation_attempted</code>: a
+  REFUTED rival exists (h2), <em>or</em> the leader itself carries refuting evidence — genuine
+  differential work either way, never one theory re-supported in a loop.</p>
 </div>
 
 <div class="callout"><b>What breaks without it.</b> Rivals must be <em>refuted</em>, not merely
@@ -447,21 +483,27 @@ out-scored: an unrefuted rival at 0.75 under a 0.8 gate still blocks — at any 
 failure the verdict downgrades to REPEAT carrying the exact reason —
 <code>"confidence gate not met (lead below gate, margin &lt; delta, or an unrefuted rival is
 still alive)"</code> — which is fed to the next plan as <code>gate_feedback</code>, and the repeat
-cap (<code>max_retries: 2</code>) keeps a stalling planner from looping the phase forever. The twin
-even ships the other path: <code>build(refuted_variant=True)</code> has investigate refute
-<em>h1</em> (“the NPE predates v4.12.0”), verdict <code>backtrack</code>, and the run re-enters
-hypothesize — proving the reasoning path, not just the answer.</div>
+cap (after <code>max_retries: 2</code> consecutive repeats the engine forces an ADVANCE) keeps a
+stalling planner from looping the phase forever. The twin even ships the other path:
+<code>build(refuted_variant=True)</code> has the loop’s evidence turn refute <em>h1</em> (“the
+NPE predates v4.12.0”), verdict <code>backtrack</code> — which routes back into
+<em>investigate</em>: the loop re-enters and re-anchors on the surviving rival with a fresh
+hypothesize turn. The shortened variant then ends <code>blocked</code>, a verdict investigate
+declares no route for, so the run terminates through the journaled <code>unrouted_verdict</code>
+lifecycle entry — proving the reasoning path <em>and</em> the diagnosable dead-end, not just the
+answer.</div>
 
 <h3>ACT ⚑ — the write stops for a human</h3>
-<p>In the interactive session, remediate is where the machine stops being autonomous. The wrapped
+<p>In the interactive session, act is where the machine stops being autonomous. The wrapped
 planner peeks at the plan: the phase is <code>writes_allowed</code> and the plan carries a call
-whose per-intent effect is WRITE (<code>layer.effect_for</code>) — so the session opens a gate
+whose per-intent effect is WRITE (<code>layer.effect_for</code> — registry-declared effect first,
+then the adapter’s per-intent override, then its default) — so the session opens a gate
 <em>before the write exists</em> and raises <code>_GateSuspend</code> out of
 <code>plan()</code>. Nothing is claimed, folded or journaled for the phase yet; the question
 itself is durable:</p>
 
 <pre><code># the real gate payload (session.pending_gate, executed run — trimmed)
-{"gate_id": "app-incident:INC-4821:gate:1", "phase": "remediate",
+{"gate_id": "app-incident:INC-4821:gate:1", "phase": "act",
  "reasoning": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).",
  "actions": [{"intent": "apply_remediation", "provider": "remediation", "effect": "write",
               "params": {"action": "Roll payments-api back to v4.11.3 (revert commit abc123)",
@@ -495,49 +537,62 @@ gap-free:</p>
 <table>
   <thead><tr><th>seq</th><th>kind</th><th>phase</th><th>actor</th><th>notes</th></tr></thead>
   <tbody>
-    <tr><td>1–4</td><td><code>phase</code> ×4</td><td>frame → investigate</td><td>engine</td><td>each entry carries its <b>full PhaseResult delta</b> (R-J1)</td></tr>
-    <tr><td>5</td><td><code>gate_opened</code></td><td>remediate</td><td>engine</td><td>what the human was <em>asked</em>: gate_id, actions, hypothesis, evidence</td></tr>
-    <tr><td>6</td><td><code>gate_decision</code></td><td>remediate</td><td><b>oncall-sre</b></td><td><code>decision=approve</code>, <code>source=human</code></td></tr>
-    <tr><td>7</td><td><code>invocation</code> + <code>phase</code></td><td>remediate</td><td>engine</td><td>the served write <b>shares seq 7</b> with its phase — annotation, not a step</td></tr>
-    <tr><td>8</td><td><code>phase</code></td><td>verify</td><td>engine</td><td>recovery facts fold; h1 → confirmed</td></tr>
-    <tr><td>9</td><td><code>phase</code></td><td>close</td><td>engine</td><td>verdict <code>done</code> ends the run</td></tr>
-    <tr><td>10</td><td><code>lifecycle</code></td><td>—</td><td>engine</td><td><code>"closed"</code>, outcome <code>resolved</code> — terminals die diagnosable</td></tr>
+    <tr><td>1–3</td><td><code>phase</code> ×3</td><td>frame → investigate ×2</td><td>engine</td><td>each entry carries its <b>full PhaseResult delta</b> (R-J1)</td></tr>
+    <tr><td>4</td><td><code>gate_opened</code></td><td>act</td><td>engine</td><td>what the human was <em>asked</em>: gate_id, actions, hypothesis, evidence</td></tr>
+    <tr><td>5</td><td><code>gate_decision</code></td><td>act</td><td><b>oncall-sre</b></td><td><code>decision=approve</code>, <code>source=human</code></td></tr>
+    <tr><td>6</td><td><code>invocation</code> + <code>phase</code></td><td>act</td><td>engine</td><td>the served write <b>shares seq 6</b> with its phase — annotation, not a step</td></tr>
+    <tr><td>7</td><td><code>phase</code></td><td>verify</td><td>engine</td><td>recovery facts fold; h1 → confirmed; <code>symptom_cleared</code> gate passes</td></tr>
+    <tr><td>8</td><td><code>phase</code></td><td>close</td><td>engine</td><td>verdict <code>done</code> ends the run (gated too — close just declares no predicates)</td></tr>
+    <tr><td>9</td><td><code>lifecycle</code></td><td>—</td><td>engine</td><td><code>"closed"</code>, outcome <code>resolved</code> — terminals die diagnosable</td></tr>
   </tbody>
 </table>
 </div>
 
 <p class="muted" style="font-size:14.5px">Two disciplines are visible in the numbering. The phase
 seq is claimed only <em>after</em> <code>plan()</code> returns — past the suspension point — so
-the suspended gate burned nothing: seqs run 1…10 with no gap. And the served write’s invocation
+the suspended gate burned nothing: seqs run 1…9 with no gap (the gate entries are
+append-at-event; nothing ever reserves a seq it might not use). And the served write’s invocation
 entry landed <code>outcome="empty"</code> — the mock transport echoes no <code>applied</code>
 block, so <code>RemediationAdapter.normalize</code> folds zero ops. The journal proves
 <em>consent and the boundary outcome</em> (<code>data · empty · error · blocked</code>); it never
 fabricates an execution effect. The recovery evidence arrives in verify, from the world.</p>
 
 <h3>Verify, close — and the proof</h3>
-<p>Verify is a fresh read of the world, not a victory lap: the live transport is phase-scoped
-(<code>ScenarioSource</code> fixtures key <code>provider → {phase|"*": blob}</code>, and the drive
-loop sets <code>source.phase</code> before each step), so prometheus’s <code>verify</code> blob
-returns the <em>post-rollback</em> state — <code>red_errors 0.01</code>,
-<code>degraded=false</code>. Only then does the leader go <code>confirmed</code>. Close routes
-<code>done</code>; <code>close_outcome = RESOLVED</code> because the terminal phase ran <em>and</em>
-<code>store.confirmed()</code> is non-None (a run that ends without a confirmed theory closes
-MITIGATED — R-P4 keeps “fixed” and “made quieter” distinct).</p>
+<p>Verify is a fresh read of the world, not a victory lap — and it is <em>gated on the world</em>:
+<code>gate: {symptom_cleared: true}</code> passes only when the symptom node (resolved through
+<code>id_remaps</code> if it ever graduated) carries an ACTIVE event of the playbook’s declared
+type — <code>symptom_cleared_event: cleared</code>. Recovery is proven on the symptom node, never
+asserted. The live transport is phase-scoped (<code>ScenarioSource</code> fixtures key
+<code>provider → {phase|"*": blob}</code>, and the drive loop sets <code>source.phase</code>
+before each step), so prometheus’s <code>verify</code> blob returns the <em>post-rollback</em>
+state — <code>red_errors 0.01</code>, <code>degraded=false</code>. Only then does the leader go
+<code>confirmed</code>. Close routes <code>done</code>; the outcome label is playbook data
+(<code>outcomes: {confirmed_root: resolved, no_confirmed_root: mitigated}</code> — P7’s
+OutcomeRule): the terminal phase ran <em>and</em> <code>store.confirmed()</code> is non-None, so
+this run closes <code>resolved</code>; a run that ends without a confirmed theory closes
+<code>mitigated</code> — R-P4 keeps “fixed” and “made quieter” distinct.</p>
 
 <div class="grid two">
   <div class="card"><h4>What the run left behind</h4><p>Graph: <b>12 nodes · 13 edges · 44
-    assertions</b> (facts, events and node props are read views over the one assertion store).
-    Hypothesis store: h1 confirmed @ 0.933 earned, h2 refuted @ 0.2012 — refuted records are kept,
-    ranked; they are evidence. Journal: 10 entries. Postmortem
-    (<code>runtime/postmortem.py</code>): root_cause = h1’s statement + <code>root_candidate
-    code_commit:abc123</code> + the earned score; ruled_out = h2 with its refutation basis —
-    <em>folded</em> from journal + store, never authored separately.</p></div>
-  <div class="card"><h4>The replay proof (R-J1)</h4><p>Every e2e run asserts
-    <code>assert_replay_equivalent</code>: <code>rebuild(journal)</code> must reproduce the graph
-    <b>byte-for-byte</b> (<code>g2.to_dict() == graph.to_dict()</code>) and the hypothesis store
-    record-for-record. The projections are caches; the journal is the truth. Eleven golden bundles
-    (<code>tests/e2e/golden/*.json</code>) pin the whole output byte-stable across
-    refactors.</p></div>
+    assertions</b> (18 facts + 8 events + 18 node-prop declarations — facts, events and node
+    props are read views over the one assertion store, the P6 store-flip). Hypothesis store: h1
+    confirmed @ 0.933 earned, h2 refuted @ 0.2012 — refuted records are kept, ranked; they are
+    evidence, and terminal statuses are indestructible (a re-CREATE of a refuted hid is a no-op).
+    Journal: 10 entries over seqs 1–9. Postmortem (<code>runtime/postmortem.py</code>):
+    root_cause = h1’s statement + <code>root_candidate code_commit:abc123</code> + the earned
+    score; ruled_out = every refuted record (statement + its recorded confidence basis — the
+    refutation <em>rationale</em> itself lives on the seq-3 journal delta) — <em>folded</em> from
+    journal + store, never authored separately.</p></div>
+  <div class="card"><h4>The replay proof (R-J1) — and the journal’s exact role</h4><p>Every e2e
+    run asserts <code>assert_replay_equivalent</code>: <code>rebuild(journal)</code> must
+    reproduce the graph <b>byte-for-byte</b> (<code>g2.to_dict() == graph.to_dict()</code>) and
+    the hypothesis store record-for-record. The projections are rebuildable caches; the journal
+    is the truth — but be precise about direction: the journal is the <b>audit/review and
+    replay/resume record</b>, and it is <b>never a planner input</b>. The planner reads the
+    projections — <code>focus_slice</code> over the graph, the ranked hypothesis summary, the
+    correlations — plus gate feedback and rejections; nothing in <code>PlanContext</code> is the
+    journal. Eleven golden bundles (<code>tests/e2e/golden/*.json</code>) pin the whole output
+    byte-stable across refactors.</p></div>
 </div>
 
 <h2 id="airlock"><span class="n">05</span>Mid-run unknown — the airlock</h2>
@@ -718,9 +773,10 @@ step and <b>read-only</b> reopen after a restart; the postmortem folded from the
 <div class="grid two">
   <div class="card"><h4>💡 Blast-radius preview on the gate card</h4>
     <p>Before approving, show “who breaks if this action goes wrong” — the impact set of the
-    target node. <b>Hook:</b> <code>graph/tools.py blast_radius()</code> is built and tested but
-    <em>not wired</em> to any production surface yet (P7 substrate); the gate payload would gain a
-    derived, read-only section.</p></div>
+    target node. <b>Hook:</b> <code>graph/tools.py blast_radius()</code> is built, tested and
+    already wired into the <em>live planner’s</em> projection block (each ranked root renders
+    “if it fails, N node(s) break” into the prompt) — the unbuilt part is surfacing the same
+    derived, read-only section on the gate payload for the <em>human</em>.</p></div>
   <div class="card"><h4>💡 Journal time-travel scrubber</h4>
     <p>Drag a slider across seqs 1…N and watch the graph and ranked hypotheses at each instant.
     <b>Hook:</b> <code>rebuild(journal)</code> already reproduces state from any phase-entry
@@ -757,7 +813,9 @@ step and <b>read-only</b> reopen after a restart; the postmortem folded from the
 </div>
 
 <footer>
-  Rewritten 2026-07-22 against the live tree (P0–P6 + P8 landed; P7 substrate begun). Continue:
+  Rewritten 2026-07-22 against the live tree, verified 2026-07-22 (P0–P8 landed; P7 phase-as-data
+  shipped — the 5-phase <code>incident.yaml</code> above is the shipped playbook, and phases are
+  playbook strings, not an engine enum). Continue:
   <a href="05-capability-integration.html" style="color:var(--accent)">05 · Capability
   Integration</a> — the gate-first boundary, ten adapters, transports, and outcome honesty.
 </footer>

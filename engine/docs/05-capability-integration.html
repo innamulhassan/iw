@@ -361,10 +361,15 @@ this is the fix for the audited write-before-gate bug, and it is structural, not
 
 <h3>The human gate above the boolean</h3>
 <p>The layer’s gate is a boolean — <code>allow_write</code> comes from the playbook:
-<code>spec.writes_allowed</code>, true only for the write-armed ACT stage (in the shipped seven-id
-<code>incident.yaml</code> that is the <code>remediate</code> phase — today’s declaration of the
-frame → investigate-loop → gated ACT → verify → close shape, see doc 01 §05). Who flips the
-boolean? In an interactive session, a human, and only after seeing the evidence:</p>
+<code>spec.writes_allowed</code>, declared exactly once in the shipped five-phase
+<code>incident.yaml</code> — on the <code>act</code> phase (<code>writes_allowed:&nbsp;true</code>,
+allowed intents <code>propose_fix · apply_mitigation · apply_remediation</code>) of the
+frame → investigate-loop → gated <code>act</code> → verify → close algebra (doc 01 §05). The old
+<code>triage</code>/<code>remediate</code> stage names are retired, and the playbook header says
+why in as many words: triage’s one real decision (“mitigate now vs investigate”) is the act-entry
+decision, available from investigate at any time, and remediation’s real success — an approved,
+executed, journaled WRITE — is an <em>action inside</em> <code>act</code>, not a stage. Who flips
+the boolean? In an interactive session, a human, and only after seeing the evidence:</p>
 
 <div class="diagram">
   <div class="cap">The write gate, end to end (runtime/session.py — composition over the engine, no engine edits)</div>
@@ -443,7 +448,13 @@ the layer’s most load-bearing honesty property. The field’s own comment
       not a numbered step; replay ignores it): <code>action={capability, provider, params, effect}</code>,
       <code>observation={outcome, reason, blocked, op_count}</code>, <code>decision=outcome</code>.
       The session streams the same record as a <code>capability_call</code> event with
-      <code>outcome</code> explicit — the UI must never infer “clean” from zero ops.</span></div>
+      <code>outcome</code> explicit — the UI must never infer “clean” from zero ops. Keep the
+      role boundary sharp: this journal record is <b>audit/review + replay/resume material only —
+      never a planner input</b>. The planner’s reasoning inputs are the graph’s
+      <code>focus_slice</code>, the ranked hypothesis summary, and the engine-computed
+      correlations (plus gate feedback and last-step rejections — <code>PlanContext</code>,
+      <code>runtime/engine.py</code>); what a tool call contributes to the <em>next</em> plan is
+      exactly the ops it folded into the graph, nothing else.</span></div>
   </div>
 </div>
 
@@ -572,7 +583,9 @@ fn = _TRANSLATORS.get((provider, intent)) or _TRANSLATORS.get((provider, "*"))
   <li><b>The Prometheus translator</b> (<code>_prometheus_query(raw, params)</code>) unwraps the
       <code>/api/v1/query</code> envelope (<code>data.result[]</code>, <code>value</code> pair or
       <code>values</code> list), coerces string samples (<code>_coerce_num</code>:
-      <code>"0.4"</code> → 0.4; <code>"+Inf"</code> survives as a string), converts unix timestamps
+      <code>"0.4"</code> → 0.4, and <code>"+Inf"</code> → <code>float('inf')</code> — Python’s
+      <code>float()</code> parses it; only a genuinely non-numeric string passes through
+      unchanged), converts unix timestamps
       to ISO (<code>_unix_to_iso</code>), and adds a <code>{"service": {"name", "env"}}</code>
       block <em>only when the call params carry both</em> — half an identity would mint a
       degenerate node id, so it is omitted rather than guessed. Params-forwarding is the point: a
@@ -582,9 +595,12 @@ fn = _TRANSLATORS.get((provider, intent)) or _TRANSLATORS.get((provider, "*"))
       boundary (everywhere else the reducer fills a measured assertion’s missing reliability from
       <code>tunables.source_reliability</code>).</li>
   <li><b><code>MappingSource(inner, intent_provider)</code></b> composes the translation over any
-      <code>Source</code> (and passes <code>.phase</code> through for
-      <code>ScenarioSource</code>) — built and unit-tested, wired nowhere in production: fixtures
-      don’t need it, and no live transport is constructed in <code>src/</code> yet.</li>
+      <code>Source</code> — built and unit-tested, wired nowhere in production: fixtures don’t
+      need it, and no live transport is constructed in <code>src/</code> yet. One latent gap to
+      know before wiring it: it carries a <code>.phase</code> attribute for interface parity with
+      <code>ScenarioSource</code>, but <code>fetch()</code> never forwards it to the inner source
+      — wrap a <code>ScenarioSource</code> and phase-scoping silently stops (the driver’s
+      <code>src.phase = …</code> lands on the wrapper; the inner stays at <code>"*"</code>).</li>
 </ul>
 
 <h2 id="governance"><span class="n">08</span>Governance as data — <code>registry.py</code></h2>
@@ -844,7 +860,7 @@ those folds deliberately <em>join</em> tools. These are the seams worth knowing 
     to the tool that supplied it.</p></div>
 </div>
 
-<h2 id="real"><span class="n">12</span>Real vs aspirational — the honest ledger of this boundary</h2>
+<h2 id="real"><span class="n">12</span>Real vs aspirational — the honest split at this boundary</h2>
 <p class="lead">The design docs (part 4 of the redesign) describe more than the tree contains. Here
 is the split, verified against code — so nobody reads a roadmap as a feature list.</p>
 
@@ -975,7 +991,8 @@ happened — including <em>nothing happened</em> and <em>it failed</em> — is k
 and honest, so the evidence arithmetic downstream never stands on a lie.</p></div>
 
 <footer>
-  Rewritten 2026-07-22 against the live tree (P0–P6 + P8 landed; P7 substrate begun). End of the
+  Rewritten and verified 2026-07-22 against the live tree (P7’s five-phase algebra —
+  frame / investigate / act / verify / close — is landed playbook data). End of the
   set — back to the <a href="index.html" style="color:var(--accent)">Index</a>, or start over at
   <a href="01-design-architecture.html" style="color:var(--accent)">01 · Design &amp;
   Architecture</a>.

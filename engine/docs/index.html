@@ -96,15 +96,31 @@
 or a deterministic script, interchangeable behind the same contract (<code>runtime/planner.py</code>)
 — proposes <em>typed operations</em>; the reducer (<code>graph/reducer.py&nbsp;materialize</code>)
 validates them against a closed vocabulary, quarantining what it cannot name rather than erasing it;
-one fold (<code>graph/fold.py&nbsp;apply_delta</code>) applies the surviving delta to the three
-projections — the <b>Graph</b> of the system under investigation, the <b>Journal</b> of record, and
-the <b>Hypothesis</b> store of competing explanations; a declarative gate
+one fold (<code>graph/fold.py&nbsp;apply_delta</code>) — the single mutation seam — applies the
+surviving delta to the two projections the planner reasons over, the <b>Graph</b> of the system
+under investigation and the <b>Hypothesis</b> store of competing explanations; a declarative gate
 (<code>runtime/controller.py&nbsp;check_gate</code>) decides whether the phase may advance; and the
-full delta is journaled, so <code>rebuild(journal)</code> reproduces the projections bit-for-bit.
+full delta is then appended to the third projection, the <b>Journal</b> of record
+(<code>Journal.append_phase</code> — deliberately a separate call from the fold, so an interactive
+write-gate can hold a computed-but-unapplied delta pending human approval). Because every phase
+entry carries its full delta, <code>rebuild(journal)</code> replays those entries through the same
+fold and reproduces graph + hypothesis store bit-for-bit.
 Belief is <em>earned</em>, not asserted: evidence weighs by source reliability × temporal proximity ×
 topological specificity (<code>hypothesis/belief.py</code>), and a hypothesis is promoted only when
 its engine-earned score crosses the gate with no unrefuted rival alive. Anything that would write to
 a live system stops at a human approval gate first.</p>
+
+<p>The packaged playbook (<code>playbooks/incident.yaml</code>) declares the <b>five phases</b>
+every run moves through: <code>frame</code> → <code>investigate</code> (ONE loop — hypothesize ⇄
+gather evidence ⇄ refute, gated on promotion <em>and</em> an attempted refutation) →
+<code>act</code> (the sole <code>writes_allowed</code> phase — every production-changing action,
+early mitigation and remediation alike, is the same human-gated machinery, not a phase of its own)
+→ <code>verify</code> (recovery is <em>proven</em> by an active cleared-event on the symptom node,
+never asserted; a failed recovery backtracks to <code>investigate</code>) → <code>close</code>
+(the postmortem, folded from the journal). Triage and remediate are retired as phases
+(owner-ratified): triage's one real decision — mitigate now vs investigate — is the act-entry
+decision, available from investigate at any time; remediate's real success — an approved,
+executed, journaled write — is an <em>action</em> inside act, not a stage.</p>
 
 <div class="plain">
   <p style="margin:0"><b>Four ground rules</b> the whole system is built around:
@@ -114,6 +130,18 @@ a live system stops at a human approval gate first.</p>
   executes only under an approved gate); and <b>nothing observed is silently erased</b> (unknowns
   land quarantined and provisional; every rejection is journaled and fed back to the next plan).</p>
 </div>
+
+<div class="callout"><b>Who reads what — the projection roles.</b> The three projections split
+cleanly by consumer. The <b>journal</b> is the audit/review record and the replay/resume substrate
+— it is <em>never</em> a planner reasoning input. What the planner sees each turn is the
+<code>PlanContext</code> the engine builds from the <em>other two</em> projections: the graph's
+bounded <b>focus slice</b> (<code>graph/tools.py&nbsp;focus_slice</code> — cause path + suspects +
+frontier in full, healthy collapsed to counts), the <b>ranked hypothesis summary</b> (id,
+statement, status, engine-earned score, root candidate, supporting/refuting evidence counts), and
+the engine-computed skew-tolerant change→onset <b>correlations</b>
+(<code>belief.correlate_timeline</code>) — plus the last gate's failure reason and the last step's
+reducer rejections, carried on engine state. Review and postmortems read the journal; reasoning
+reads the graph and the hypothesis store.</div>
 
 <h2 id="reading"><span class="n">§2</span>Reading order — top-down</h2>
 <p class="lead">The set reads high-level-first: the block picture, then the atoms, then the
@@ -139,7 +167,9 @@ alone, but the depth accumulates in this order.</p>
     <div class="down">↓</div>
     <div class="layer"><span class="tag">03 · machinery</span><span class="body">
       <b><a href="03-projections-and-data.html" style="color:var(--accent)">Projections &amp; Data</a></b> —
-      <b>Graph · Journal · Hypothesis</b> and the single mutation seam that feeds them; journal
+      <b>Graph · Journal · Hypothesis</b> and the single mutation seam that feeds them — with the
+      roles kept straight: graph + hypotheses are what the planner reasons over; the journal is
+      the audit/review + replay/resume record, never a planner input; journal
       schema v2 (typed kinds, one seq space, append-at-event); replay and its equivalence
       guarantees; earned belief and the promotion gate (INV-8); the file store — journal-authoritative,
       fsync'd, watermark-verified (<code>runtime/store.py</code>).</span></div>

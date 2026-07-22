@@ -128,12 +128,16 @@ only mechanics/arithmetic — no tuning constant lives in engine code.”</em></
 
 <div class="grid three">
   <div class="card"><h4>Playbook — WHAT &amp; WHEN</h4><p><code>playbooks/incident.yaml</code> →
-    <code>Playbook</code>: the phases (<code>PhaseSpec</code>), their gates (<code>GateSpec</code>),
-    the transitions (<code>on_verdict</code>), every tunable (<code>Tunables</code>,
-    <code>extra="forbid"</code> — a stale key is a loud load error), role bindings
-    (<code>symptom_node</code>, <code>terminal_phase</code>, <code>writes_allowed</code>), and the
-    live prompt <code>Doctrine</code> — nine verbatim prompt fragments. A method change is a
-    playbook edit, not an engine release.</p></div>
+    <code>Playbook</code>: the phases (<code>PhaseSpec</code>), their composable gate predicates
+    (<code>GateSpec</code>), the transitions (<code>on_verdict</code>), every tunable
+    (<code>Tunables</code>, <code>extra="forbid"</code> — a stale key is a loud load error), role
+    bindings (<code>subject_node</code>, <code>symptom_node</code>, <code>entry_phase</code>,
+    <code>terminal_phase</code>, <code>symptom_cleared_event</code>, per-phase
+    <code>writes_allowed</code>), the terminal-outcome rule (<code>OutcomeRule</code>), and the
+    live prompt <code>Doctrine</code> — nine verbatim prompt fragments. A load-time validator
+    checks every cross-reference (routes, ceiling keys, role bindings) against the declared phase
+    list — a typo is a loud load error, never a silent dead-end. A method change is a playbook
+    edit, not an engine release.</p></div>
   <div class="card"><h4>Engine — MECHANICS</h4><p><code>runtime/ · graph/ · journal/ ·
     hypothesis/</code>: validation, folding, replay, gate arithmetic, belief arithmetic. INV-9: the
     engine holds <em>zero</em> tuning constants — reliability defaults, confidence bands, decay
@@ -200,10 +204,14 @@ layer talks only to its neighbours.</p>
     <div class="down">↓</div>
     <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">Projections</span><span class="body">
       <b>Graph</b> (<code>graph/graph.py</code> — one <code>assertions</code> store; facts / events /
-      props are cached views) · <b>Journal</b> (<code>journal/journal.py</code> — the append-only
-      source of truth) · <b>Hypothesis</b> (<code>hypothesis/store.py</code> +
-      <code>belief.py</code> — ranked theories, earned scores). Written <em>only</em> by
-      <b><code>graph/fold.py&nbsp;apply_delta()</code></b> — the single mutation seam.</span></div>
+      props are cached views) · <b>Hypothesis</b> (<code>hypothesis/store.py</code> +
+      <code>belief.py</code> — ranked theories, earned scores) · <b>Journal</b>
+      (<code>journal/journal.py</code> — the append-only source of truth). Written <em>only</em> by
+      <b><code>graph/fold.py&nbsp;apply_delta()</code></b> — the single mutation seam. Roles are
+      disjoint: Graph + Hypothesis are the <em>reasoning</em> projections — what the planner reads
+      (focus slice · ranked earned scores · correlations); the Journal is the <em>record</em> —
+      audit/review + replay/resume (<code>rebuild()</code>), <b>never a planner reasoning
+      input</b>.</span></div>
     <div class="down">↓</div>
     <div class="layer"><span class="tag">Data layer</span><span class="body">
       <b><code>runtime/store.py</code></b> <code>InvestigationStore</code> — journal-authoritative,
@@ -241,11 +249,16 @@ plumbing (R-P1: one uniform <code>PhaseResult</code> contract).</p>
 
   <div class="grid two" style="margin-top:16px">
     <div class="card"><h4>1 · Plan — <code>planner.plan(ctx)</code></h4><p>Input is a read-only
-      <code>PlanContext</code>: subject, phase spec + goal, <code>graph_view</code>
-      (<code>render_slice(graph, anomaly_ref)</code> — the full graph capped at 40 nodes, symptom
-      ordered first, focus a highlight never a filter), the ranked hypotheses with their
-      <em>engine-earned</em> scores, tunables, last gate’s <code>gate_feedback</code>, last step’s
-      <code>rejections</code>, engine-computed <code>correlations</code>. Output is
+      <code>PlanContext</code>: subject, phase spec + goal, <code>focus</code>
+      (<code>focus_slice(graph, anomaly_ref, focus_budget, …)</code> — the tiered bounded reasoning
+      view: symptom + CAUSED_BY cause-path + suspects as full cards, a structural frontier to
+      expand into, everything healthy collapsed to a count, refuted causal claims listed as
+      ruled-out — ~budget nodes regardless of graph size), the ranked hypotheses with their
+      <em>engine-earned</em> scores plus root candidate and supporting/refuting evidence counts,
+      the <code>entry_phase</code> role binding, tunables, last gate’s <code>gate_feedback</code>,
+      last step’s <code>rejections</code>, engine-computed <code>correlations</code>. The journal
+      is deliberately <b>not</b> in this context: planning reads graph + hypothesis store only —
+      the journal is the audit/replay record, never a reasoning input. Output is
       <code>PlanOutput{calls, ops, narrative, verdict, next_actions}</code>, <code>extra="forbid"</code>.
       This is the <b>only suspension point</b>: an interactive write gate suspends by raising out of
       <code>plan()</code> — nothing claimed, nothing to roll back.</p></div>
@@ -255,7 +268,8 @@ plumbing (R-P1: one uniform <code>PhaseResult</code> contract).</p>
       allow_write=spec.writes_allowed)</code>, gate-first — a blocked write returns before any
       fetch. <b>Every</b> call — data, empty, error, blocked — is journaled as a
       <code>kind="invocation"</code> entry sharing the phase’s seq. Tool ops precede planner ops;
-      the combined list is truncated to the phase’s <code>op_ceiling</code>.</p></div>
+      the combined list is truncated to the phase’s ceiling
+      (<code>tunables.op_ceiling[phase]</code>).</p></div>
     <div class="card"><h4>2 · Reduce — <code>materialize(ops, seq, graph, tunables, …)</code></h4>
       <p>The authoritative validator (<code>graph/reducer.py</code>): names canonicalize through the
       dictionary (identity / N→1 merge / unit-keyed split); an unknown name lands <em>provisional</em>
@@ -274,32 +288,45 @@ plumbing (R-P1: one uniform <code>PhaseResult</code> contract).</p>
       fact-id lists — full reconciliation, stale edges tombstoned — so the graph can never disagree
       with the store. The engine folds <b>before</b> it gates, so the gate judges the updated
       store.</p></div>
-    <div class="card"><h4>4 · Gate — <code>check_gate(spec, result, store, tunables)</code></h4>
-      <p>Only a proposed ADVANCE is gated; first failure wins: every <code>produces_required</code>
-      field non-empty (an honest <code>NoEvidence</code> fact counts — R-P2) → <code>min_facts</code>
-      over <code>facts_added</code> → <code>require_confidence_gate</code> ⇒
-      <code>store.promotion_ok(tunables)</code> (INV-8: earned score ≥ <code>confidence_gate</code>,
-      <em>zero</em> alive unrefuted rivals, the <code>delta</code> floor — an LLM-set CONFIRMED
-      grants no bypass) → <code>require_refutation</code> ⇒ a refuted rival exists or the leader
-      carries refuting facts. Failure downgrades to REPEAT with the exact <code>gate_reason</code>,
-      fed to the next plan. The engine’s repeat cap (<code>max_retries</code>) then forces an
-      ADVANCE after too many consecutive REPEATs, so a live model cannot stall the run.</p></div>
+    <div class="card"><h4>4 · Gate — <code>check_gate(spec, result, store, tunables, …)</code></h4>
+      <p>Both terminal-intent verdicts are gated — a proposed ADVANCE <b>and</b> a proposed DONE
+      (DONE is never a free bypass); first failure wins across the phase’s declared predicate set:
+      every <code>produces_required</code> field non-empty (an honest <code>NoEvidence</code> fact
+      counts — R-P2) → <code>min_facts</code> over <code>facts_added</code> →
+      <code>promotion</code> ⇒ <code>store.promotion_ok(tunables)</code> (INV-8: earned score ≥
+      <code>confidence_gate</code>, <em>zero</em> alive unrefuted rivals, the <code>delta</code>
+      floor — an LLM-set CONFIRMED grants no bypass) → <code>refutation_attempted</code> ⇒ a
+      refuted rival exists or the leader carries refuting facts → <code>symptom_cleared</code> ⇒
+      the symptom node carries an ACTIVE event of the playbook’s
+      <code>symptom_cleared_event</code> type (recovery proven, never asserted) →
+      <code>human_approved</code> ⇒ a durable <code>gate_decision</code> (approve/refine) is on
+      the journal for this phase. Failure downgrades to REPEAT with the exact
+      <code>gate_reason</code>, fed to the next plan. The engine’s repeat cap
+      (<code>max_retries</code>) then forces a REPEAT to ADVANCE after too many consecutive
+      re-runs of the phase — only where it declares an <code>advance</code> route — so a live
+      model cannot stall the run.</p></div>
     <div class="card"><h4>5 · Journal — <code>journal.append_phase(seq, result)</code> &nbsp;·&nbsp;
       6 · Route — <code>next_phase(spec, verdict)</code></h4><p>The phase entry stores the <b>full
       <code>PhaseResult</code></b> as its <code>delta</code> — the replay payload (R-J1);
       <code>rebuild(journal)</code> replays phase entries only, every other kind is record, not
       state. Then the gated verdict routes through the playbook’s <code>on_verdict</code> table:
-      DONE ends the run; an unmapped REPEAT re-enters the same phase; the planner’s
-      <code>next_actions</code> never routes.</p></div>
+      DONE ends the run; an unmapped REPEAT re-enters the same phase; any <em>other</em> unmapped
+      verdict (BLOCKED/BACKTRACK/ADVANCE with no declared route) journals an
+      <code>unrouted_verdict</code> lifecycle entry and terminates explicitly — never a silent
+      dead-end; the planner’s <code>next_actions</code> never routes.</p></div>
   </div>
 </div>
 
 <h2 id="phases"><span class="n">05</span>The phase model</h2>
 <p class="lead">A phase is <b>data</b>, not code: <code>PhaseSpec{id, goal, allowed_intents,
 produces_required, gate, on_verdict, writes_allowed}</code> in the playbook, plus role bindings —
-<code>symptom_node</code> (what frame anchors), <code>terminal_phase</code> (what closes the run),
-<code>writes_allowed</code> (where the human gate arms). The engine references roles and
-transitions, never phase names. The shape of an investigation:</p>
+<code>subject_node</code> (“the incident is the first node”), <code>symptom_node</code> (what
+frame anchors), <code>entry_phase</code> / <code>terminal_phase</code> (what opens and closes the
+run), <code>symptom_cleared_event</code> (what the recovery gate keys on),
+<code>writes_allowed</code> (where the human gate arms), and the <code>outcomes</code> rule
+(terminal labels: <code>resolved</code> with a confirmed root, <code>mitigated</code> without —
+playbook data, not an engine enum). The engine references roles and transitions, never phase
+names. The shape of an investigation:</p>
 
 <div class="diagram">
   <div class="cap">The investigation shape — five stages, one gated write</div>
@@ -311,18 +338,25 @@ transitions, never phase names. The shape of an investigation:</p>
     <div class="box"><b>Close</b><small>postmortem from the journal</small></div>
   </div>
   <p class="faint" style="font-size:13px;margin:12px 0 0">The loop exits only through the evidence
-  gate — <code>require_confidence_gate</code> + <code>require_refutation</code> ⇒
-  <code>promotion_ok</code> (INV-8). ⚑ ACT is the one write-armed stage: every write-effect call
-  stops for approve / refine / deny, and the decision is a durable journal entry.</p>
+  gate — <code>gate: {promotion: true, refutation_attempted: true}</code> ⇒
+  <code>promotion_ok</code> (INV-8). ⚑ ACT is the one write-armed stage
+  (<code>writes_allowed: true</code>): every write-effect call stops for approve / refine / deny,
+  and the decision is a durable journal entry. Verify exits only by proof —
+  <code>gate: {symptom_cleared: true}</code>, an ACTIVE cleared event on the symptom node — and
+  <code>backtrack</code> routes it to Investigate on failed recovery.</p>
 </div>
 
-<div class="callout"><b>Today in code.</b> The shipped <code>playbooks/incident.yaml</code> still
-<em>declares</em> seven phase ids — frame, triage, hypothesize, investigate, remediate, verify,
-close — and <code>Phase</code> is still an engine enum. They collapse onto the shape above: triage
-dissolves into frame and the loop’s first turns; remediate <em>is</em> the gated ACT (the only
-<code>writes_allowed: true</code> phase). Finishing that dissolution — the <code>Phase</code> enum
-leaving the engine so phases are fully playbook-declared — is the P7 step now settling. Read the
-five-stage strip as the model; read the seven ids as today’s declaration of it.</div>
+<div class="callout"><b>Today in code — the strip IS the declaration.</b> P7 phase-as-data has
+landed: <code>playbooks/incident.yaml</code> declares exactly these five ids — <code>frame</code>,
+<code>investigate</code>, <code>act</code>, <code>verify</code>, <code>close</code> — and the
+engine has <em>no</em> <code>Phase</code> enum at all. A phase id is a string of the playbook;
+every cross-reference (role bindings, <code>on_verdict</code> routes, <code>op_ceiling</code>
+keys) is validated against the declared list at load; the loop keys only on role bindings, never
+a phase name. The old triage phase dissolved into frame + the loop’s first turns (its one real
+decision — “mitigate now vs investigate” — is the act-entry decision, available from investigate
+at any time); the old remediate phase became ACT, the only <code>writes_allowed: true</code>
+phase, where early mitigation and final remediation are the same human-gated machinery — an
+<em>action</em>, not a stage.</div>
 
 <h2 id="steppath"><span class="n">06</span>The exact call path — one <code>Engine.step()</code></h2>
 <p class="muted" style="font-size:14.5px">Every name below is real. The step body is
@@ -334,9 +368,9 @@ session wraps it without modifying it.</p>
   <div class="stack">
     <div class="layer"><span class="tag">1 · drive</span><span class="body"><code>InvestigationSession.advance()</code> → background <code>_drive()</code> → <code>Engine.step()</code>: <code>done()</code>? → <code>spec&nbsp;=&nbsp;playbook.phase(self._phase)</code> → <code>_run_phase(phase, spec)</code></span></div>
     <div class="down">↓</div>
-    <div class="layer"><span class="tag">2 · hint</span><span class="body"><code>belief.correlate_timeline(graph, tunables, anomaly_ref=…)</code> — only if the phase’s <code>allowed_intents</code> declare <code>correlate_timeline</code>; a deterministic, skew-tolerant change→onset hint (R-J2), never a mutation</span></div>
+    <div class="layer"><span class="tag">2 · hint</span><span class="body"><code>belief.correlate_timeline(graph, tunables, anomaly_ref=…)</code> — only if the phase’s <code>allowed_intents</code> declare <code>correlate_timeline</code> (the incident playbook declares it on <code>investigate</code>); a deterministic, skew-tolerant change→onset hint (R-J2), never a mutation</span></div>
     <div class="down">↓</div>
-    <div class="layer"><span class="tag">3 · context</span><span class="body">build <code>PlanContext(subject, phase, phase_spec, goal, graph_view=render_slice(graph, anomaly_ref), hypotheses=[{id, statement, status, confidence: store.score(h)} …], tunables, gate_feedback, rejections, correlations)</code></span></div>
+    <div class="layer"><span class="tag">3 · context</span><span class="body">build <code>PlanContext(subject, phase, phase_spec, goal, focus=focus_slice(graph, anomaly_ref, t.focus_budget, max_facts_per_node=t.focus_facts_per_node, frontier_hops=t.focus_frontier_hops), hypotheses=[{id, statement, status, confidence: store.score(h), root_candidate, supporting, refuting} …], entry_phase, tunables, gate_feedback, rejections, correlations)</code> — graph + hypothesis projections only; the journal is never read here</span></div>
     <div class="down">↓</div>
     <div class="layer eng"><span class="tag">4 · plan ⏸</span><span class="body"><code>plan&nbsp;=&nbsp;planner.plan(ctx)</code> — the <b>only suspension point</b>: in a session, <code>_GatePlanner</code> raises <code>_GateSuspend</code> here when a <code>writes_allowed</code> phase proposes a write-effect call; on resume it returns the operator-decided cached plan, never re-calling the model</span></div>
     <div class="down">↓</div>
@@ -348,11 +382,11 @@ session wraps it without modifying it.</p>
     <div class="down">↓</div>
     <div class="layer" style="border-color:var(--amber);background:rgba(251,191,36,.08)"><span class="tag" style="color:var(--amber)">8 · fold ×1</span><span class="body"><code>result&nbsp;=&nbsp;PhaseResult(…, retractions, remaps, rejections)</code> → <code>apply_delta(result, seq, graph, hypothesis_store)</code> — the single mutation seam, applied <em>before</em> gating so the gate judges the updated store</span></div>
     <div class="down">↓</div>
-    <div class="layer"><span class="tag">9 · gate</span><span class="body"><code>gated&nbsp;=&nbsp;check_gate(spec, result, hypothesis_store, tunables)</code>; repeat cap: after <code>max_retries</code> prior consecutive runs of this phase, a REPEAT is forced to ADVANCE with reason “[repeat cap reached — forced advance]”</span></div>
+    <div class="layer"><span class="tag">9 · gate</span><span class="body"><code>gated&nbsp;=&nbsp;check_gate(spec, result, hypothesis_store, tunables, graph=…, journal=…, anomaly_ref=…, symptom_cleared_event=…)</code> — the graph serves the <code>symptom_cleared</code> predicate, the journal the <code>human_approved</code> one; repeat cap: after <code>max_retries</code> prior consecutive runs of this phase, a REPEAT (where the phase declares an <code>advance</code> route) is forced to ADVANCE with reason “[repeat cap reached — forced advance]”</span></div>
     <div class="down">↓</div>
     <div class="layer"><span class="tag">10 · record</span><span class="body"><code>result&nbsp;=&nbsp;result.model_copy(update={"verdict": gated})</code>; <code>_gate_feedback&nbsp;=&nbsp;gated.gate_reason</code> (fed to the next plan — GAP 3); <code>journal.append_phase(seq, result)</code> — the journaled delta equals the applied delta</span></div>
     <div class="down">↓</div>
-    <div class="layer"><span class="tag">11 · route</span><span class="body">back in <code>step()</code>: <code>_phases_run.append(phase)</code>; <code>self._phase&nbsp;=&nbsp;next_phase(spec, result.verdict)</code> — <code>on_verdict</code> table; DONE → <code>None</code> ends the run</span></div>
+    <div class="layer"><span class="tag">11 · route</span><span class="body">back in <code>step()</code>: <code>_phases_run.append(phase)</code>; <code>self._phase&nbsp;=&nbsp;next_phase(spec, result.verdict)</code> — <code>on_verdict</code> table; DONE → <code>None</code> ends the run; an unmapped non-DONE verdict appends an <code>unrouted_verdict</code> lifecycle entry (verdict + declared routes) and terminates diagnosably</span></div>
     <div class="down">↓</div>
     <div class="layer"><span class="tag">12 · stream</span><span class="body">the session emits typed events derived from the folded result — <code>phase_started · reasoning · capability_call · graph_delta · hypotheses_delta · session_state</code> — and persists: <code>InvestigationStore.persist()</code> (fsync’d journal append, watermarked <code>graph.json</code>, <code>meta.json</code>)</span></div>
   </div>
@@ -376,12 +410,14 @@ the source; docs 02–05 drill into each row.</p>
   <tr><td><code>graph/</code></td>
       <td><code>graph.py</code> (Graph — one <code>assertions</code> dict; facts/events/props are
       cached views) · <code>reducer.py</code> (<code>materialize</code>) · <code>fold.py</code>
-      (<code>apply_delta</code> / <code>fold</code> / <code>rebuild</code>) · <code>render.py</code>
-      (<code>render_slice</code>) · <code>tools.py</code> (<code>neighbours · walk · blast_radius ·
-      path · focus_slice</code>) · <code>resolver.py</code> · <code>persistence.py</code></td>
+      (<code>apply_delta</code> / <code>fold</code> / <code>rebuild</code>) · <code>tools.py</code>
+      (<code>focus_slice</code> + the governed traversal set <code>neighbours · walk ·
+      blast_radius · path</code>) · <code>resolver.py</code> · <code>persistence.py</code></td>
       <td>The graph projection, the validator, the single mutation seam, replay.
-      <code>graph/tools.py</code> is the governed traversal surface built for P7 — tested, not yet
-      wired into the planner (the engine still feeds <code>render_slice</code>).</td></tr>
+      <code>focus_slice</code> is the P7 reasoning view the engine feeds to <em>every</em> plan
+      (the old flat <code>render_slice</code> dump — and <code>render.py</code> with it — is
+      gone); traversal is governed: ACTIVE declared/discovered structure only, never the inferred
+      causal layer, never a HYPOTHESIS node.</td></tr>
   <tr><td><code>journal/</code></td>
       <td><code>journal.py</code> — <code>Journal</code> / <code>JournalEntry</code>,
       <code>SCHEMA_VERSION&nbsp;=&nbsp;2</code>, nine typed kinds, one lock-guarded seq space,
@@ -400,7 +436,8 @@ the source; docs 02–05 drill into each row.</p>
   <tr><td><code>runtime/</code></td>
       <td><code>engine.py</code> (Engine · RunResult) · <code>controller.py</code>
       (<code>check_gate</code> / <code>next_phase</code>) · <code>planner.py</code> (contract +
-      ScriptedPlanner) · <code>live_planner.py</code> + <code>llm_client.py</code> ·
+      ScriptedPlanner) · <code>live_planner.py</code> + <code>llm_client.py</code> +
+      <code>live_fixtures.py</code> ·
       <code>session.py</code> (write gate, SSE events) · <code>store.py</code>
       (<code>InvestigationStore</code>) · <code>scenarios.py</code> (11 incidents) ·
       <code>loader.py</code> · <code>postmortem.py</code></td>
@@ -408,8 +445,9 @@ the source; docs 02–05 drill into each row.</p>
       data-layer module — a concrete file store, deliberately not pluggable.</td></tr>
   <tr><td><code>capability/</code></td>
       <td><code>layer.py</code> (CapabilityLayer — gate-first <code>serve</code>; Invocation
-      outcomes <code>data · empty · error · blocked</code>) · <code>sources.py</code> (Mock · Mcp ·
-      Rest · ProviderRouted · Scenario) · <code>mapping.py</code> · <code>registry.py</code> ·
+      outcomes <code>data · empty · error · blocked</code>) · <code>sources.py</code>
+      (MockSource · McpSource · RestSource · RoutedSource · ProviderRoutedSource ·
+      ScenarioSource) · <code>mapping.py</code> · <code>registry.py</code> ·
       <code>adapters/</code> (10)</td>
       <td>The tool boundary. Adapters are pure <code>normalize(raw) → ops</code>; the one
       side-effecting seam is <code>Source.fetch()</code>; an error is never evidence.</td></tr>
@@ -418,8 +456,10 @@ the source; docs 02–05 drill into each row.</p>
       <td>The HTTP surface the workbench consumes; the bundle is derived from the projections,
       never invented.</td></tr>
   <tr><td><code>playbooks/</code></td>
-      <td><code>incident.yaml</code> — <code>id: incident-core</code>: phases + gates +
-      <code>op_ceiling</code> + <code>tunables</code> + the <code>doctrine</code> block</td>
+      <td><code>incident.yaml</code> — <code>id: incident-core</code>: the five phases + their
+      gate predicates + role bindings (<code>subject_node · symptom_cleared_event ·
+      outcomes</code>) + one <code>tunables</code> block (<code>op_ceiling</code> per phase
+      included) + the <code>doctrine</code> block</td>
       <td>The packaged domain: WHAT/WHEN as data, including the live planner’s prompt
       method.</td></tr>
   </tbody>
@@ -438,11 +478,13 @@ class Planner(Protocol):
 @dataclass
 class PlanContext:                    # read-only judgment input
     subject: SubjectRef
-    phase: Phase
+    phase: str                        # playbook-declared phase id (P7 — no Phase enum)
     phase_spec: PhaseSpec
     goal: str
-    graph_view: dict                  # render_slice(graph, anomaly_ref)
-    hypotheses: list[dict]            # ranked; "confidence" = the ENGINE-earned score
+    focus: dict                       # graph/tools.focus_slice — THE bounded reasoning view
+    entry_phase: str | None           # role binding, so a planner keys on data, never a name
+    hypotheses: list[dict]            # ranked; "confidence" = the ENGINE-earned score,
+                                      # + root_candidate + supporting/refuting counts
     tunables: Tunables
     gate_feedback: str | None         # WHY the last gate downgraded (GAP 3)
     messages: list[dict]              # operator steering (session-injected)
@@ -450,12 +492,17 @@ class PlanContext:                    # read-only judgment input
     correlations: list[dict]          # engine-computed change→onset hints (R-J2)
 
 class PlanOutput(BaseModel):          # extra="forbid"
-    phase: Phase
+    phase: str
     calls: list[CapabilityCall]       # tool invocations -> data ops
     ops: list[Operation]              # planner-direct typed ops (the 11-op grammar)
     narrative: str                    # the ONLY prose channel
     verdict: PhaseVerdict             # a PROPOSAL — the controller gates it
     next_actions: list[str]           # advisory; journaled, never routes</code></pre>
+
+<p class="muted" style="font-size:14.5px">Note what is <em>absent</em>: there is no journal field.
+Everything judgment reads is a graph/hypothesis projection — the focus slice, the ranked
+engine-scored hypotheses, the correlations. The journal is the audit/review + replay/resume
+record; it is structurally impossible for the planner to consume it.</p>
 
 <div class="grid two">
   <div class="card"><h4>ScriptedPlanner — the deterministic twin</h4><p>Replays a fixed
@@ -465,8 +512,9 @@ class PlanOutput(BaseModel):          # extra="forbid"
   <div class="card"><h4>LivePlanner — the real model</h4><p>System prompt = the playbook’s
     <code>Doctrine</code> fragments interleaved with engine hard rules, closed by validity lists
     <em>derived</em> from the enums (op kinds, sources, statuses) — a derived list cannot drift the
-    way a hand-restated one did. User prompt carries the catalog, wired tools, gate spec, dropped-op
-    feedback, steering, and the graph view.</p></div>
+    way a hand-restated one did (it dropped <code>bigpanda</code>). User prompt carries the
+    catalog, wired tools, the phase’s gate spec rendered as predicates, dropped-op feedback,
+    steering, the rendered focus slice, and the ranked hypothesis summary.</p></div>
 </div>
 
 <h3>Reject-and-repair — making untrusted output safe</h3>
@@ -500,7 +548,9 @@ max-steps close.</p>
   <div class="card"><h4>The journal is the source of truth (R-J1)</h4><p>Every phase entry stores
     its full delta; <code>rebuild(journal)</code> reproduces Graph + Hypothesis bit-for-bit; the
     on-disk graph cache is served only when its seq watermark matches the journal head, else
-    rebuilt and self-healed.</p></div>
+    rebuilt and self-healed. Role discipline: source of truth means audit/review + replay/resume —
+    the journal is <em>never</em> a planner reasoning input; judgment reads the graph + hypothesis
+    projections only.</p></div>
   <div class="card"><h4>One mutation seam</h4><p>Only <code>fold.apply_delta</code> writes the
     projections; in-delta order (nodes → facts → events → edges → retractions → remaps last) is
     fixed so replay is order-deterministic. No graph mutator has a caller outside
@@ -532,7 +582,9 @@ max-steps close.</p>
 </div>
 
 <footer>
-  Rewritten 2026-07-22 against the live tree (P0–P6 + P8 landed; P7 substrate begun). Continue:
+  Rewritten and source-verified 2026-07-22 against the live tree (P0–P8 landed, including P7
+  phase-as-data — no Phase enum, five playbook-declared phases — and the focus-slice reasoning
+  loop). Continue:
   <a href="02-data-model.html" style="color:var(--accent)">02 · Data Model</a> — the Assertion atom,
   the dictionary, the closed registry, the op grammar.
 </footer>
