@@ -237,3 +237,55 @@ def test_unbound_store_scores_at_exactly_the_band():
     h = hyp(band=0.9, supporting=["f-onset"])
     store = _store_with(g, h)
     assert store.score(store.hypotheses["hyp:h1"]) == 0.9
+
+
+# ── promotion consumes the EARNED score (P4 step 3) ────────────────────────────
+def test_promotion_blocked_when_refuting_evidence_drags_a_high_band_below_the_gate():
+    """The INV-8 gate is cleared by EARNED belief, not the LLM's self-reported band: a
+    0.9-band leader whose evidence is heavily refuting scores below the 0.8 gate and
+    stays blocked — the same store, unbound, would promote on the naked band."""
+    g = graph_fixture()
+    for i in range(4):
+        g.add_fact(fact(f"f-ref{i}", SVC, "red_errors", 0.4, T0, reliability=0.99, seq=i + 2))
+    h = hyp(band=0.9, refuting=[f"f-ref{i}" for i in range(4)])
+    tun = Tunables(confidence_gate=0.8, delta=0.15)
+    unbound = _store_with(g, h)
+    assert unbound.promotion_ok(tun) is True       # pre-P4: the band bluffs its way over
+    bound = _store_with(g, h)
+    bound.bind_scoring(g, tun)
+    assert bound.score(h) < 0.8
+    assert bound.promotion_ok(tun) is False        # P4: earned belief holds the gate
+
+
+def test_promotion_earned_by_evidence_over_a_mid_band():
+    """The converse: a med-band (0.6) leader with strong, close, reliable supporting
+    evidence EARNS its way over the 0.8 gate the raw band could never clear."""
+    g = graph_fixture()
+    for i in range(4):
+        g.add_fact(fact(f"f-sup{i}", SVC, "red_errors", 0.4, T0, reliability=0.99, seq=i + 2))
+    h = hyp(band=0.6, supporting=[f"f-sup{i}" for i in range(4)])
+    tun = Tunables(confidence_gate=0.8, delta=0.15)
+    unbound = _store_with(g, h)
+    assert unbound.promotion_ok(tun) is False      # the band alone is under the gate
+    bound = _store_with(g, h)
+    bound.bind_scoring(g, tun)
+    assert bound.score(h) >= 0.8
+    assert bound.promotion_ok(tun) is True         # evidence earned the promotion
+
+
+def test_promotion_rival_block_still_holds_under_weighted_scoring():
+    """The P0 strengthened check survives P4: ANY alive unrefuted rival blocks, however
+    weak its earned score — rivals must be refuted, not out-scored."""
+    from iw_engine.domain.enums import HypothesisStatus
+    from iw_engine.domain.hypothesis import HypAction, HypDelta
+    g = graph_fixture()
+    g.add_fact(fact("f-sup", SVC, "red_errors", 0.4, T0, reliability=0.99))
+    lead = hyp("hyp:h1", band=0.9, supporting=["f-sup"])
+    rival = hyp("hyp:h2", band=0.3)
+    store = _store_with(g, lead, rival)
+    store.bind_scoring(g, Tunables())
+    tun = Tunables(confidence_gate=0.8, delta=0.15)
+    assert store.promotion_ok(tun) is False        # unrefuted rival blocks
+    store.apply([HypDelta(action=HypAction.REFUTE, hypothesis_id="hyp:h2",
+                          new_status=HypothesisStatus.REFUTED)], seq=2)
+    assert store.promotion_ok(tun) is True         # only refutation clears the field

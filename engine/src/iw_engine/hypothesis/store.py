@@ -142,15 +142,21 @@ class HypothesisStore:
         EVERY alive competitor counts as a rival, at ANY band — Popperian confirmation
         (R-C4/INV-8) demands rivals be REFUTED, not merely out-scored, so an unrefuted
         0.75 rival under a 0.8 gate still blocks promotion (2026-07-22 review, finding 2).
+
+        P4 (DOMAIN-v3 §2.5): the score consumed here is the ENGINE-EARNED weighted
+        evidence score (`self.score` — the raw band only for an unbound store), so the
+        gate is cleared by accumulated evidence, never by the LLM's self-reported band:
+        a high-band leader dragged down by refuting evidence stays blocked, and a
+        mid-band leader can EARN its way over the gate.
         """
         alive = self.alive()
         if not alive:
             return False
         lead = alive[0]
-        if lead.confidence.value < tunables.confidence_gate:
+        if self.score(lead) < tunables.confidence_gate:
             return False
         rivals = alive[1:]   # ALL alive unrefuted rivals block — no band filter
         if rivals:
             return False
-        runner = alive[1].confidence.value if len(alive) > 1 else 0.0
-        return (lead.confidence.value - runner) >= tunables.delta
+        runner = self.score(alive[1]) if len(alive) > 1 else 0.0
+        return (self.score(lead) - runner) >= tunables.delta
