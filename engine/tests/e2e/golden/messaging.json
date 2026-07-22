@@ -592,6 +592,36 @@
       }
     ]
   },
+  "hypotheses": [
+    {
+      "basis": "post-rollback: consumer_lag drained to ~300 and the group is keeping up, anomaly cleared \u2014 confirms the consumer deploy was the cause",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "change_event:chg-55",
+      "statement": "CHG-55 (consumer deploy) shipped a slower per-message handler, dropping the consumer group's processing rate below the ingress rate so lag on orders.events accumulates",
+      "status": "confirmed",
+      "supporting": [
+        "fact:5170bdb64edd0bc4",
+        "fact:d9ac47ac5b923a7d"
+      ]
+    },
+    {
+      "basis": "The broker is unhealthy (a partition rebalance storm) OR upstream producers floo",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:5170bdb64edd0bc4",
+        "fact:6c1b2f9190cdc8e3"
+      ],
+      "root_candidate": "message_queue:orders.events",
+      "statement": "The broker is unhealthy (a partition rebalance storm) OR upstream producers flooded the topic with a traffic surge",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
   "journal": [
     {
       "actor": "engine",
@@ -759,36 +789,6 @@
         "nodes": []
       },
       "seq": 7
-    }
-  ],
-  "ledger": [
-    {
-      "basis": "post-rollback: consumer_lag drained to ~300 and the group is keeping up, anomaly cleared \u2014 confirms the consumer deploy was the cause",
-      "chain": [],
-      "confidence": 0.9,
-      "id": "hyp:h1",
-      "refuting": [],
-      "root_candidate": "change_event:chg-55",
-      "statement": "CHG-55 (consumer deploy) shipped a slower per-message handler, dropping the consumer group's processing rate below the ingress rate so lag on orders.events accumulates",
-      "status": "confirmed",
-      "supporting": [
-        "fact:5170bdb64edd0bc4",
-        "fact:d9ac47ac5b923a7d"
-      ]
-    },
-    {
-      "basis": "The broker is unhealthy (a partition rebalance storm) OR upstream producers floo",
-      "chain": [],
-      "confidence": 0.3,
-      "id": "hyp:h2",
-      "refuting": [
-        "fact:5170bdb64edd0bc4",
-        "fact:6c1b2f9190cdc8e3"
-      ],
-      "root_candidate": "message_queue:orders.events",
-      "statement": "The broker is unhealthy (a partition rebalance storm) OR upstream producers flooded the topic with a traffic surge",
-      "status": "refuted",
-      "supporting": []
     }
   ],
   "outcome": "resolved",

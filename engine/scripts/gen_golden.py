@@ -36,7 +36,7 @@ def main() -> None:
         b = bundle_for(name)
         (GOLDEN_DIR / f"{name}.json").write_text(json.dumps(b, indent=2, default=str, sort_keys=True))
         print(f"{name:16} nodes={len(b['graph']['nodes']):2} facts={len(b['graph']['facts']):2} "
-              f"hyps={len(b['ledger'])} outcome={b['outcome']}")
+              f"hyps={len(b['hypotheses'])} outcome={b['outcome']}")
 
 
 if __name__ == "__main__":

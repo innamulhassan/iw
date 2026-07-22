@@ -674,6 +674,34 @@
       }
     ]
   },
+  "hypotheses": [
+    {
+      "basis": "rollback cleared 5xx to 1% \u2014 recovery confirms the causal chain",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "code_commit:abc123",
+      "statement": "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator",
+      "status": "confirmed",
+      "supporting": [
+        "fact:da70219d53e3f4c5"
+      ]
+    },
+    {
+      "basis": "payments-ora connection-pool exhaustion",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:f09f2c94be57f5d3"
+      ],
+      "root_candidate": "database:payments-ora",
+      "statement": "payments-ora connection-pool exhaustion",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
   "journal": [
     {
       "actor": "engine",
@@ -840,34 +868,6 @@
         "nodes": []
       },
       "seq": 7
-    }
-  ],
-  "ledger": [
-    {
-      "basis": "rollback cleared 5xx to 1% \u2014 recovery confirms the causal chain",
-      "chain": [],
-      "confidence": 0.9,
-      "id": "hyp:h1",
-      "refuting": [],
-      "root_candidate": "code_commit:abc123",
-      "statement": "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator",
-      "status": "confirmed",
-      "supporting": [
-        "fact:da70219d53e3f4c5"
-      ]
-    },
-    {
-      "basis": "payments-ora connection-pool exhaustion",
-      "chain": [],
-      "confidence": 0.3,
-      "id": "hyp:h2",
-      "refuting": [
-        "fact:f09f2c94be57f5d3"
-      ],
-      "root_candidate": "database:payments-ora",
-      "statement": "payments-ora connection-pool exhaustion",
-      "status": "refuted",
-      "supporting": []
     }
   ],
   "outcome": "resolved",

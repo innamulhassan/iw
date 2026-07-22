@@ -22,7 +22,7 @@ KEY = f"app-incident:{INCIDENT}"
 
 # the fields both a live snapshot and a disk reopen derive purely from the journal — they must
 # be byte-for-byte identical across a restart.
-_BUNDLE_FIELDS = ("subject", "outcome", "phases", "graph", "ledger", "journal", "postmortem")
+_BUNDLE_FIELDS = ("subject", "outcome", "phases", "graph", "hypotheses", "journal", "postmortem")
 
 
 def _canon(v):
@@ -68,13 +68,13 @@ def test_live_run_persists_and_reopens_read_only_after_restart(tmp_path):
     session.answer_gate(GateDecision.APPROVE, actor="alice@oncall")
     assert session.state == SessionState.CLOSED
     live = session.snapshot()
-    assert live["graph"]["nodes"] and live["ledger"]      # a real, non-empty investigation
+    assert live["graph"]["nodes"] and live["hypotheses"]  # a real, non-empty investigation
 
-    # the durable journal on disk replays to exactly the live graph+ledger
+    # the durable journal on disk replays to exactly the live graph + hypothesis store
     disk_journal = Journal.from_ndjson((inv_dir / "journal.ndjsonl").read_text())
-    g, led = rebuild(disk_journal)
+    g, store = rebuild(disk_journal)
     assert {n.id for n in g.nodes.values()} == {n["id"] for n in live["graph"]["nodes"]}
-    assert [h.id for h in led.ranked()] == [h["id"] for h in live["ledger"]]
+    assert [h.id for h in store.ranked()] == [h["id"] for h in live["hypotheses"]]
 
     # ── simulate a backend restart: a brand-new manager, no shared memory ───────
     fresh = build_manager(store=InvestigationStore(root))

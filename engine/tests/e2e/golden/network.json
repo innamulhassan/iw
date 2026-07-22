@@ -762,6 +762,36 @@
       }
     ]
   },
+  "hypotheses": [
+    {
+      "basis": "reverting the MTU/uplink change restored retrans_segs to 8/s and probe_success to 99% \u2014 recovery confirms the causal chain",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "network_segment:seg-edge-12",
+      "statement": "MTU/uplink change on network segment SEG-EDGE-12 (CHG-77) is causing packet loss and retransmits on the checkout-svc -> pricing-svc path",
+      "status": "confirmed",
+      "supporting": [
+        "fact:0a2356b4503f3457",
+        "fact:1fb9df3f5e758089",
+        "fact:4e0aa79895d8ac3a"
+      ]
+    },
+    {
+      "basis": "pricing-svc's own database (pricing-db) is degraded (pool exhaustion / slow quer",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:eb92f6cdf77b059b"
+      ],
+      "root_candidate": "database:pricing-db",
+      "statement": "pricing-svc's own database (pricing-db) is degraded (pool exhaustion / slow queries) \u2014 a code/db-side cause independent of the network",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
   "journal": [
     {
       "actor": "engine",
@@ -935,36 +965,6 @@
         "nodes": []
       },
       "seq": 7
-    }
-  ],
-  "ledger": [
-    {
-      "basis": "reverting the MTU/uplink change restored retrans_segs to 8/s and probe_success to 99% \u2014 recovery confirms the causal chain",
-      "chain": [],
-      "confidence": 0.9,
-      "id": "hyp:h1",
-      "refuting": [],
-      "root_candidate": "network_segment:seg-edge-12",
-      "statement": "MTU/uplink change on network segment SEG-EDGE-12 (CHG-77) is causing packet loss and retransmits on the checkout-svc -> pricing-svc path",
-      "status": "confirmed",
-      "supporting": [
-        "fact:0a2356b4503f3457",
-        "fact:1fb9df3f5e758089",
-        "fact:4e0aa79895d8ac3a"
-      ]
-    },
-    {
-      "basis": "pricing-svc's own database (pricing-db) is degraded (pool exhaustion / slow quer",
-      "chain": [],
-      "confidence": 0.3,
-      "id": "hyp:h2",
-      "refuting": [
-        "fact:eb92f6cdf77b059b"
-      ],
-      "root_candidate": "database:pricing-db",
-      "statement": "pricing-svc's own database (pricing-db) is degraded (pool exhaustion / slow queries) \u2014 a code/db-side cause independent of the network",
-      "status": "refuted",
-      "supporting": []
     }
   ],
   "outcome": "resolved",

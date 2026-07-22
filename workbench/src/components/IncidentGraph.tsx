@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import type { Graph, GraphEdge, GraphNode, LedgerItem } from "../types";
+import type { Graph, GraphEdge, GraphNode, HypothesisItem } from "../types";
 import { TIER_LABELS, TIER_ORDER, tierForType } from "../lib/tiers";
 
 interface Props {
   graph: Graph;
-  ledger: LedgerItem[];
+  hypotheses: HypothesisItem[];
 }
 
 const NODE_W = 168;
@@ -100,7 +100,7 @@ function markerId(color: string): string {
   return `arrow-${color.replace("#", "")}`;
 }
 
-export default function IncidentGraph({ graph, ledger }: Props) {
+export default function IncidentGraph({ graph, hypotheses }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { positions, columns, width, height } = useMemo(() => {
@@ -127,11 +127,11 @@ export default function IncidentGraph({ graph, ledger }: Props) {
 
   const confirmedRootCandidates = useMemo(() => {
     return new Set(
-      ledger
+      hypotheses
         .filter((item) => item.status === "confirmed" && item.root_candidate)
         .map((item) => item.root_candidate as string)
     );
-  }, [ledger]);
+  }, [hypotheses]);
 
   const usedColors = useMemo(() => {
     const set = new Set<string>();

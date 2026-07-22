@@ -2,7 +2,7 @@ import type { InvestigationBundle } from "../types";
 
 // A small, hand-written fixture matching the shape of a real engine bundle
 // (see public/demo-code-regression.json), trimmed to just enough nodes,
-// edges, facts, a ledger with one confirmed + one refuted hypothesis, and
+// edges, facts, a hypotheses with one confirmed + one refuted hypothesis, and
 // a couple of journal entries to exercise all four panes in tests.
 export const fixtureBundle: InvestigationBundle = {
   subject: { domain: "app-incident", id: "INC-TEST-1", kind: "incident" },
@@ -51,7 +51,7 @@ export const fixtureBundle: InvestigationBundle = {
     ],
     events: [],
   },
-  ledger: [
+  hypotheses: [
     {
       id: "hyp:t1",
       statement: "Test hypothesis: commit deadbeef broke things",

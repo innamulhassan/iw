@@ -521,6 +521,34 @@
       }
     ]
   },
+  "hypotheses": [
+    {
+      "basis": "mitigation: scale checkout-db's connection pool and add read capacity \u2014 a reversible capacity fix, not a revert (there's no change to revert)",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "database:checkout-db",
+      "statement": "Organic traffic surge saturated checkout-db's connection pool (USE-saturation, no code/deploy change)",
+      "status": "supported",
+      "supporting": [
+        "fact:8b676678d1d87f14"
+      ]
+    },
+    {
+      "basis": "An unreported deploy or config change to checkout-api caused the regression",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:ba27f114089e1f33"
+      ],
+      "root_candidate": null,
+      "statement": "An unreported deploy or config change to checkout-api caused the regression",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
   "journal": [
     {
       "actor": "engine",
@@ -672,34 +700,6 @@
         "nodes": []
       },
       "seq": 7
-    }
-  ],
-  "ledger": [
-    {
-      "basis": "mitigation: scale checkout-db's connection pool and add read capacity \u2014 a reversible capacity fix, not a revert (there's no change to revert)",
-      "chain": [],
-      "confidence": 0.9,
-      "id": "hyp:h1",
-      "refuting": [],
-      "root_candidate": "database:checkout-db",
-      "statement": "Organic traffic surge saturated checkout-db's connection pool (USE-saturation, no code/deploy change)",
-      "status": "supported",
-      "supporting": [
-        "fact:8b676678d1d87f14"
-      ]
-    },
-    {
-      "basis": "An unreported deploy or config change to checkout-api caused the regression",
-      "chain": [],
-      "confidence": 0.3,
-      "id": "hyp:h2",
-      "refuting": [
-        "fact:ba27f114089e1f33"
-      ],
-      "root_candidate": null,
-      "statement": "An unreported deploy or config change to checkout-api caused the regression",
-      "status": "refuted",
-      "supporting": []
     }
   ],
   "outcome": "mitigated",

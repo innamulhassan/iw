@@ -78,7 +78,7 @@ export interface Graph {
   events: GraphEvent[];
 }
 
-export type LedgerStatus =
+export type HypothesisStatus =
   | "confirmed"
   | "refuted"
   | "supported"
@@ -94,10 +94,10 @@ export interface ChainLink {
   note?: string | null;
 }
 
-export interface LedgerItem {
+export interface HypothesisItem {
   id: string;
   statement: string;
-  status: LedgerStatus;
+  status: HypothesisStatus;
   confidence: number;
   basis: string;
   root_candidate: string | null;
@@ -157,7 +157,7 @@ export interface InvestigationBundle {
   outcome: Outcome;
   phases: Phase[];
   graph: Graph;
-  ledger: LedgerItem[];
+  hypotheses: HypothesisItem[];
   journal: JournalEntry[];
   postmortem: Postmortem;
 }
@@ -278,7 +278,7 @@ export interface GraphDeltaEventMsg extends EventBase {
   facts: GraphDeltaFact[];
   events: GraphDeltaEvent[];
 }
-export interface LedgerDeltaItem {
+export interface HypothesisDeltaItem {
   id: string;
   action: string;
   status: string | null;
@@ -289,9 +289,9 @@ export interface LedgerDeltaItem {
   supporting?: string[];
   refuting?: string[];
 }
-export interface LedgerDeltaEvent extends EventBase {
-  type: "ledger_delta";
-  hypotheses: LedgerDeltaItem[];
+export interface HypothesesDeltaEvent extends EventBase {
+  type: "hypotheses_delta";
+  hypotheses: HypothesisDeltaItem[];
 }
 export interface GateOpenedEvent extends EventBase {
   type: "gate_opened";
@@ -339,7 +339,7 @@ export type SessionEvent =
   | ReasoningEvent
   | CapabilityCallEvent
   | GraphDeltaEventMsg
-  | LedgerDeltaEvent
+  | HypothesesDeltaEvent
   | GateOpenedEvent
   | GateDecisionEvent
   | UserMessageEvent

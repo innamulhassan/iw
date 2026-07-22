@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import HypothesisLedger from "./HypothesisLedger";
+import HypothesisPanel from "./HypothesisPanel";
 import { fixtureBundle } from "../test/fixture";
 
-describe("HypothesisLedger", () => {
+describe("HypothesisPanel", () => {
   afterEach(() => cleanup());
 
   it("shows confirmed and refuted hypotheses with both supporting and refuting evidence", () => {
     render(
-      <HypothesisLedger ledger={fixtureBundle.ledger} facts={{}} nodes={{}} selection={null} onSelect={() => {}} />
+      <HypothesisPanel hypotheses={fixtureBundle.hypotheses} facts={{}} nodes={{}} selection={null} onSelect={() => {}} />
     );
 
     // Status badges for both sides of the story.

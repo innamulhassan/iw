@@ -3,7 +3,7 @@ import type { SessionEvent, Snapshot } from "../types";
 import {
   activePhase,
   emptyState,
-  ledgerList,
+  hypothesisList,
   nodesInOrder,
   nodesWithOrder,
   reduce,
@@ -144,7 +144,7 @@ describe("store reducer — the live event fold", () => {
       outcome: "open",
       phases: ["frame"],
       graph: { nodes: [], edges: [], facts: [], events: [] },
-      ledger: [],
+      hypotheses: [],
       journal: [],
       postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
       pending_gate: null,
@@ -193,7 +193,7 @@ describe("store reducer — the live event fold", () => {
       outcome: "open",
       phases: ["frame"],
       graph: { nodes: [{ id: "service:pay", type: "service", props: { service_name: "pay" } }], edges: [], facts: [], events: [] },
-      ledger: [{ id: "hyp:h1", statement: "deploy broke it", status: "supported", confidence: 0.9, basis: "b", root_candidate: null, supporting: [], refuting: [], chain: [] }],
+      hypotheses: [{ id: "hyp:h1", statement: "deploy broke it", status: "supported", confidence: 0.9, basis: "b", root_candidate: null, supporting: [], refuting: [], chain: [] }],
       journal: [],
       postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
       pending_gate: null,
@@ -205,7 +205,7 @@ describe("store reducer — the live event fold", () => {
     // props from the bundle, created_by from the replayed event stream
     expect(s.nodes["service:pay"].props.service_name).toBe("pay");
     expect(s.nodes["service:pay"].created_by).toBe(1);
-    expect(ledgerList(s)).toHaveLength(1);
+    expect(hypothesisList(s)).toHaveLength(1);
     expect(s.turns).toHaveLength(1);
   });
 });

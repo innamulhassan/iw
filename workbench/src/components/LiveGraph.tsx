@@ -120,7 +120,7 @@ interface View {
 // The interactive graph (UI-SPEC §4 / obs 1,4,5,8): nodes laid out by ARCHITECTURAL LAYER lanes
 // (Case → Signal → Service → Messaging → Database → Infra → Network → Change), each badged with
 // its DENSE creation-order number (#1 = the ServiceNow incident ORIGIN), its LAYER, and WHERE it
-// was fetched from (source). Zoom + pan + fit; the ledger and graph share one selection so
+// was fetched from (source). Zoom + pan + fit; the hypotheses and graph share one selection so
 // clicking a fact/hypothesis cross-highlights the node + fact here. The ENGINE drives growth.
 export default function LiveGraph({ live, selection, onSelect }: Props) {
   const [view, setView] = useState<View>({ tx: 0, ty: 0, scale: 1 });
@@ -139,7 +139,7 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
   }, [ordered]);
   const relatedIds = useMemo(() => new Set(related.map((r) => r.node.id)), [related]);
 
-  // selection (shared with the ledger): a node selection highlights that node; an evidence
+  // selection (shared with the hypotheses): a node selection highlights that node; an evidence
   // selection highlights the node it points at — its subject if the id is a Fact, or the node
   // itself if the LLM referenced a NODE id in supporting_facts (both happen on the live path).
   const selectedId = selection
@@ -181,11 +181,11 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
   const rootCandidates = useMemo(
     () =>
       new Set(
-        Object.values(live.ledger)
+        Object.values(live.hypotheses)
           .filter((h) => h.status === "confirmed" && h.root_candidate)
           .map((h) => h.root_candidate as string)
       ),
-    [live.ledger]
+    [live.hypotheses]
   );
 
   // fit the whole graph into the viewport (UI-SPEC §4 "viewable in full")
@@ -228,7 +228,7 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
     return () => svg.removeEventListener("wheel", onWheel);
   }, []);
 
-  // center the selected node when the selection changes (incl. a ledger cross-highlight click)
+  // center the selected node when the selection changes (incl. a hypotheses cross-highlight click)
   useEffect(() => {
     if (!selectedId) return;
     const pos = positions.get(selectedId);
@@ -439,10 +439,10 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                     {layerLabelForType(node.type)}
                   </text>
                   <text x={16} y={40} className="graph-node__label">
-                    {node.type === "hypothesis" && live.ledger[node.id]?.statement
-                      ? (live.ledger[node.id].statement.length > 22
-                          ? `${live.ledger[node.id].statement.slice(0, 21)}…`
-                          : live.ledger[node.id].statement)
+                    {node.type === "hypothesis" && live.hypotheses[node.id]?.statement
+                      ? (live.hypotheses[node.id].statement.length > 22
+                          ? `${live.hypotheses[node.id].statement.slice(0, 21)}…`
+                          : live.hypotheses[node.id].statement)
                       : labelForNode(node)}
                   </text>
                   {node.source && (
@@ -546,8 +546,8 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
             </div>
             <code className="node-detail__id">{selected.id}</code>
 
-            {selected.type === "hypothesis" && live.ledger[selected.id]?.statement && (
-              <p className="node-detail__hyp">{live.ledger[selected.id].statement}</p>
+            {selected.type === "hypothesis" && live.hypotheses[selected.id]?.statement && (
+              <p className="node-detail__hyp">{live.hypotheses[selected.id].statement}</p>
             )}
 
             {(selected.source || selected.first_seen) && (

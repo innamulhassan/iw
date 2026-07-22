@@ -56,7 +56,7 @@ const SNAPSHOT = {
   outcome: "open",
   phases: ["frame"],
   graph: { nodes: [], edges: [], facts: [], events: [] },
-  ledger: [],
+  hypotheses: [],
   journal: [],
   postmortem: {
     root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] },

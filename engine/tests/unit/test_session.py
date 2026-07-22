@@ -119,7 +119,7 @@ def test_session_suspends_at_write_gate():
 
     # the event stream is the derived-delta shape, and a graph_delta node carries created_by
     types = [e["type"] for e in events]
-    for expected in ("phase_started", "reasoning", "graph_delta", "ledger_delta",
+    for expected in ("phase_started", "reasoning", "graph_delta", "hypotheses_delta",
                      "session_state", "gate_opened"):
         assert expected in types, f"missing {expected} event"
     node_deltas = [n for e in events if e["type"] == "graph_delta" for n in e["nodes"]]
@@ -163,7 +163,7 @@ def test_session_approve_resolves():
     assert snap["outcome"] == "resolved"
     assert snap["session_id"] == subject.key
     assert snap["state"] == "closed"
-    assert "graph" in snap and "ledger" in snap and "journal" in snap
+    assert "graph" in snap and "hypotheses" in snap and "journal" in snap
 
 
 # ── deny → drop the write, feed the denial back → DIVERGENT journal → MITIGATED ─

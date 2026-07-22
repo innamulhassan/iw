@@ -636,6 +636,36 @@
       }
     ]
   },
+  "hypotheses": [
+    {
+      "basis": "rollback restored singleflight: hit-rate back to 96%, evictions down to 4/min, p99 back to 140ms \u2014 recovery confirms the causal chain",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "code_commit:9f8e7d6",
+      "statement": "v3.4.0 (commit 9f8e7d6) disabled client-side cache coalescing (singleflight), causing a read stampede into product-redis",
+      "status": "confirmed",
+      "supporting": [
+        "fact:2d13525f25782d60",
+        "fact:51590443c48dcc98",
+        "fact:7abce9e1a24ac277"
+      ]
+    },
+    {
+      "basis": "application code regression in product-api v3.4.0 request handler",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:814574990eaa3ea6"
+      ],
+      "root_candidate": "code_commit:9f8e7d6",
+      "statement": "application code regression in product-api v3.4.0 request handler",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
   "journal": [
     {
       "actor": "engine",
@@ -805,36 +835,6 @@
         "nodes": []
       },
       "seq": 7
-    }
-  ],
-  "ledger": [
-    {
-      "basis": "rollback restored singleflight: hit-rate back to 96%, evictions down to 4/min, p99 back to 140ms \u2014 recovery confirms the causal chain",
-      "chain": [],
-      "confidence": 0.9,
-      "id": "hyp:h1",
-      "refuting": [],
-      "root_candidate": "code_commit:9f8e7d6",
-      "statement": "v3.4.0 (commit 9f8e7d6) disabled client-side cache coalescing (singleflight), causing a read stampede into product-redis",
-      "status": "confirmed",
-      "supporting": [
-        "fact:2d13525f25782d60",
-        "fact:51590443c48dcc98",
-        "fact:7abce9e1a24ac277"
-      ]
-    },
-    {
-      "basis": "application code regression in product-api v3.4.0 request handler",
-      "chain": [],
-      "confidence": 0.3,
-      "id": "hyp:h2",
-      "refuting": [
-        "fact:814574990eaa3ea6"
-      ],
-      "root_candidate": "code_commit:9f8e7d6",
-      "statement": "application code regression in product-api v3.4.0 request handler",
-      "status": "refuted",
-      "supporting": []
     }
   ],
   "outcome": "resolved",

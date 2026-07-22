@@ -88,7 +88,7 @@ function PhaseEntry({ turn, live, open }: { turn: Turn; live: LiveState; open: b
         )}
 
         {/* 3. observations — facts gathered + beliefs moved + what was discovered */}
-        {(facts.length > 0 || turn.obs.ledger.length > 0 || nNodes > 0 || nEvents > 0) && (
+        {(facts.length > 0 || turn.obs.hypotheses.length > 0 || nNodes > 0 || nEvents > 0) && (
           <div className="journal-step">
             <span className="journal-step__kind journal-step__kind--obs">observations</span>
             {facts.length > 0 && (
@@ -103,10 +103,10 @@ function PhaseEntry({ turn, live, open }: { turn: Turn; live: LiveState; open: b
                 ))}
               </ul>
             )}
-            {turn.obs.ledger.length > 0 && (
+            {turn.obs.hypotheses.length > 0 && (
               <ul className="journal-beliefs">
-                {turn.obs.ledger.map((m, idx) => {
-                  const h = live.ledger[m.id];
+                {turn.obs.hypotheses.map((m, idx) => {
+                  const h = live.hypotheses[m.id];
                   return (
                     <li key={`${m.id}-${idx}`}>
                       <span className={`belief-chip belief-chip--${m.status ?? m.action}`}>

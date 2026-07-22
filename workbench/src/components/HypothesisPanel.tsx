@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { GraphFact, LedgerItem } from "../types";
+import type { GraphFact, HypothesisItem } from "../types";
 import type { LiveNode, Selection } from "../lib/store";
 import { humanizePredicate } from "../lib/format";
 
@@ -30,7 +30,7 @@ function fmtValue(v: unknown): string {
 }
 
 interface Props {
-  ledger: LedgerItem[];
+  hypotheses: HypothesisItem[];
   facts: Record<string, GraphFact>;
   nodes: Record<string, LiveNode>;
   selection: Selection | null;
@@ -80,49 +80,49 @@ function FactRow({
   );
 }
 
-// The Popperian ledger (obs 8): each hypothesis expands to the FACTS corroborating/refuting it and
+// The Popperian hypotheses (obs 8): each hypothesis expands to the FACTS corroborating/refuting it and
 // its CHAIN OF EVENTS. Every fact/link is clickable — it cross-highlights that node + fact in the
 // graph (a shared selection lifted to the workbench), so "which facts back this?" is one click.
-export default function HypothesisLedger({ ledger, facts, nodes, selection, onSelect }: Props) {
+export default function HypothesisPanel({ hypotheses, facts, nodes, selection, onSelect }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const sorted = [...ledger].sort((a, b) => {
+  const sorted = [...hypotheses].sort((a, b) => {
     const rankDiff = rankOf(a.status) - rankOf(b.status);
     if (rankDiff !== 0) return rankDiff;
     return b.confidence - a.confidence;
   });
 
   return (
-    <div className="ledger">
-      <h2 className="pane-title">Hypothesis Ledger</h2>
+    <div className="hypotheses">
+      <h2 className="pane-title">Hypotheses</h2>
       <p className="pane-subtitle">
         {sorted.length} hypothes{sorted.length === 1 ? "is" : "es"} considered — ranked, both sides
         shown. Expand for the evidence chain.
       </p>
-      <div className="ledger-list">
+      <div className="hypothesis-list">
         {sorted.map((item) => {
           const isRefuted = item.status === "refuted";
           const pct = Math.round(item.confidence * 100);
           const open = openId === item.id;
           const chain = item.chain ?? [];
           return (
-            <article key={item.id} className={`ledger-card ledger-card--${item.status}`}>
+            <article key={item.id} className={`hypothesis-card hypothesis-card--${item.status}`}>
               <button
-                className="ledger-card__header ledger-card__toggle"
+                className="hypothesis-card__header hypothesis-card__toggle"
                 onClick={() => setOpenId(open ? null : item.id)}
                 aria-expanded={open}
               >
-                <span className={`ledger-card__chevron ${open ? "is-open" : ""}`}>▶</span>
+                <span className={`hypothesis-card__chevron ${open ? "is-open" : ""}`}>▶</span>
                 <span className={`badge badge--${item.status}`}>{statusLabel(item.status)}</span>
-                <span className="ledger-card__confidence-label">{pct}%</span>
+                <span className="hypothesis-card__confidence-label">{pct}%</span>
               </button>
-              <h3 className={`ledger-card__statement${isRefuted ? " is-struck" : ""}`}>
+              <h3 className={`hypothesis-card__statement${isRefuted ? " is-struck" : ""}`}>
                 {item.statement}
               </h3>
               <div className="confidence-bar">
                 <div className="confidence-bar__fill" style={{ width: `${pct}%` }} />
               </div>
               {!open && (
-                <div className="ledger-card__evidence">
+                <div className="hypothesis-card__evidence">
                   <span className="evidence-chip evidence-chip--supporting">
                     + {item.supporting.length} supporting
                   </span>
@@ -136,13 +136,13 @@ export default function HypothesisLedger({ ledger, facts, nodes, selection, onSe
               )}
 
               {open && (
-                <div className="ledger-card__detail">
-                  <p className="ledger-card__basis">{item.basis}</p>
+                <div className="hypothesis-card__detail">
+                  <p className="hypothesis-card__basis">{item.basis}</p>
                   {item.root_candidate && (
-                    <p className="ledger-card__root">
+                    <p className="hypothesis-card__root">
                       Root candidate:{" "}
                       <button
-                        className="ledger-card__rootlink"
+                        className="hypothesis-card__rootlink"
                         onClick={() => onSelect({ kind: "node", id: item.root_candidate! })}
                       >
                         <code>{item.root_candidate}</code>
@@ -208,7 +208,7 @@ export default function HypothesisLedger({ ledger, facts, nodes, selection, onSe
                   )}
 
                   {item.supporting.length === 0 && item.refuting.length === 0 && chain.length === 0 && (
-                    <p className="ledger-card__empty">No evidence attached yet.</p>
+                    <p className="hypothesis-card__empty">No evidence attached yet.</p>
                   )}
                 </div>
               )}

@@ -1,5 +1,5 @@
 // The live investigation store — a reducer that mirrors the engine's ordered event stream
-// (phase_started · reasoning · capability_call · graph_delta · ledger_delta · gate_opened ·
+// (phase_started · reasoning · capability_call · graph_delta · hypotheses_delta · gate_opened ·
 // session_state) into the shape the panes render. The engine is the single source of truth:
 // nothing here is invented, every node/fact/hypothesis is upserted from a delta the engine
 // emitted. Cold-load seeds full detail from the snapshot bundle; SSE deltas then grow it live.
@@ -8,7 +8,7 @@ import type {
   GraphEdge,
   GraphEvent,
   GraphFact,
-  LedgerItem,
+  HypothesisItem,
   SessionEvent,
   SessionState,
   Snapshot,
@@ -52,15 +52,15 @@ export interface UserMsg {
   phase: string | null;
 }
 
-/** A cross-pane selection (obs 8): clicking a fact in the ledger highlights that node + fact in
+/** A cross-pane selection (obs 8): clicking a fact in the hypotheses highlights that node + fact in
  *  the graph, and vice-versa. `id` is a node id or fact id per `kind`. */
 export interface Selection {
   kind: "node" | "fact";
   id: string;
 }
 
-/** One ledger movement observed during a phase (a hypothesis proposed / supported / refuted). */
-export interface LedgerMove {
+/** One hypotheses movement observed during a phase (a hypothesis proposed / supported / refuted). */
+export interface HypothesisMove {
   id: string;
   action: string;
   status: string | null;
@@ -68,18 +68,18 @@ export interface LedgerMove {
 }
 
 /** What a phase OBSERVED — the graph it grew (facts gathered, nodes/edges/events discovered)
- *  and the beliefs it moved. Accumulated from the same graph_delta / ledger_delta the engine
+ *  and the beliefs it moved. Accumulated from the same graph_delta / hypotheses_delta the engine
  *  emitted, so the journal can show the full per-phase sequence, not just the summary. */
 export interface TurnObs {
   factIds: string[];
   nodeIds: string[];
   edgeIds: string[];
   eventIds: string[];
-  ledger: LedgerMove[];
+  hypotheses: HypothesisMove[];
 }
 
 function emptyObs(): TurnObs {
-  return { factIds: [], nodeIds: [], edgeIds: [], eventIds: [], ledger: [] };
+  return { factIds: [], nodeIds: [], edgeIds: [], eventIds: [], hypotheses: [] };
 }
 
 /** One chat turn = the agent's work in one phase: its reasoning + the tool calls it made +
@@ -109,7 +109,7 @@ export interface LiveState {
   edges: Record<string, GraphEdge>;
   facts: Record<string, GraphFact>;
   events: Record<string, GraphEvent>;
-  ledger: Record<string, LedgerItem>;
+  hypotheses: Record<string, HypothesisItem>;
   turns: Turn[];
   messages: UserMsg[]; // operator chat turns (obs 2), interleaved with turns by seq
   gate: GateOpenedEvent | null; // the currently-open write-gate, or null
@@ -130,7 +130,7 @@ export function emptyState(): LiveState {
     edges: {},
     facts: {},
     events: {},
-    ledger: {},
+    hypotheses: {},
     turns: [],
     messages: [],
     gate: null,
@@ -188,13 +188,13 @@ function seed(snap: Snapshot): LiveState {
   for (const e of snap.graph.edges) s.edges[e.id] = e;
   for (const f of snap.graph.facts) s.facts[f.id] = f;
   for (const ev of snap.graph.events) s.events[ev.id] = ev;
-  for (const h of snap.ledger) s.ledger[h.id] = h;
+  for (const h of snap.hypotheses) s.hypotheses[h.id] = h;
   // replay the recorded event stream to build the chat, node badges, phase + open gate
   const grown = applyEvents(s, snap.events, /*fresh*/ true);
   return grown;
 }
 
-// ── merge: refresh full node props / ledger statements / facts after a live grow ────
+// ── merge: refresh full node props / hypotheses statements / facts after a live grow ────
 function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
   const nodes = { ...state.nodes };
   for (const n of snap.graph.nodes) {
@@ -217,9 +217,9 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
   for (const f of snap.graph.facts) facts[f.id] = f;
   const events = { ...state.events };
   for (const ev of snap.graph.events) events[ev.id] = ev;
-  const ledger = { ...state.ledger };
-  for (const h of snap.ledger) ledger[h.id] = h;
-  return { ...state, nodes, edges, facts, events, ledger, outcome: snap.outcome };
+  const hypotheses = { ...state.hypotheses };
+  for (const h of snap.hypotheses) hypotheses[h.id] = h;
+  return { ...state, nodes, edges, facts, events, hypotheses, outcome: snap.outcome };
 }
 
 // ── the event fold ──────────────────────────────────────────────────────────────
@@ -230,7 +230,7 @@ function applyEvents(prev: LiveState, evs: SessionEvent[], fresh = false): LiveS
     edges: { ...prev.edges },
     facts: { ...prev.facts },
     events: { ...prev.events },
-    ledger: { ...prev.ledger },
+    hypotheses: { ...prev.hypotheses },
     turns: [...prev.turns],
     messages: [...prev.messages],
     gates: { ...prev.gates },
@@ -364,10 +364,10 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
       }));
       break;
     }
-    case "ledger_delta": {
+    case "hypotheses_delta": {
       for (const h of ev.hypotheses) {
-        const existing = s.ledger[h.id];
-        s.ledger[h.id] = {
+        const existing = s.hypotheses[h.id];
+        s.hypotheses[h.id] = {
           id: h.id,
           statement: h.statement || existing?.statement || h.id,
           status: h.status ?? existing?.status ?? "proposed",
@@ -380,13 +380,13 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
         };
       }
       // the belief movements this phase produced (proposed / supported / refuted)
-      const moves: LedgerMove[] = ev.hypotheses.map((h) => ({
+      const moves: HypothesisMove[] = ev.hypotheses.map((h) => ({
         id: h.id,
         action: h.action,
         status: h.status,
         basis: h.basis,
       }));
-      mutateTurn(s, (t) => ({ ...t, obs: { ...t.obs, ledger: [...t.obs.ledger, ...moves] } }));
+      mutateTurn(s, (t) => ({ ...t, obs: { ...t.obs, hypotheses: [...t.obs.hypotheses, ...moves] } }));
       break;
     }
     case "gate_opened": {
@@ -483,8 +483,8 @@ export function relatedIncidents(s: LiveState): RelatedIncident[] {
     .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0) || a.node.id.localeCompare(b.node.id));
 }
 
-export function ledgerList(s: LiveState): LedgerItem[] {
-  return Object.values(s.ledger);
+export function hypothesisList(s: LiveState): HypothesisItem[] {
+  return Object.values(s.hypotheses);
 }
 
 /** The phase whose turn is currently on screen (for the stepper highlight). */

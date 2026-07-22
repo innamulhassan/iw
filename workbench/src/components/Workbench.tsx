@@ -1,13 +1,13 @@
 import { useState } from "react";
 import type { LiveState, Selection } from "../lib/store";
-import { activePhase, ledgerList } from "../lib/store";
+import { activePhase, hypothesisList } from "../lib/store";
 import type { GateDecision } from "../lib/api";
 import PhaseStepper from "./PhaseStepper";
 import ChatPane from "./ChatPane";
 import LiveGraph from "./LiveGraph";
 import JournalPane from "./JournalPane";
 import IncidentList from "./IncidentList";
-import HypothesisLedger from "./HypothesisLedger";
+import HypothesisPanel from "./HypothesisPanel";
 
 interface Props {
   live: LiveState;
@@ -32,7 +32,7 @@ export default function Workbench({
   onBack,
   onOpenExisting,
 }: Props) {
-  // one selection shared by the graph + the ledger (obs 8): clicking a fact/hypothesis
+  // one selection shared by the graph + the hypotheses (obs 8): clicking a fact/hypothesis
   // cross-highlights the node + fact in the graph, and clicking a node selects it here.
   const [selection, setSelection] = useState<Selection | null>(null);
   return (
@@ -55,9 +55,9 @@ export default function Workbench({
           <LiveGraph live={live} selection={selection} onSelect={setSelection} />
         </section>
         <aside className="workbench__sidebar">
-          <section className="pane pane--ledger">
-            <HypothesisLedger
-              ledger={ledgerList(live)}
+          <section className="pane pane--hypotheses">
+            <HypothesisPanel
+              hypotheses={hypothesisList(live)}
               facts={live.facts}
               nodes={live.nodes}
               selection={selection}

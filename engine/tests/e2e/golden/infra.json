@@ -576,6 +576,35 @@
       }
     ]
   },
+  "hypotheses": [
+    {
+      "basis": "post-reschedule: node-prod-17 memory back to 61%, the checkout pod is Ready and stable, no further evictions \u2014 confirms the noisy-neighbor cause",
+      "chain": [],
+      "confidence": 0.9,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "batch_job:etl-nightly|sched-3",
+      "statement": "the etl-nightly batch job (co-scheduled on node-prod-17) grew its heap unbounded and starved the node's memory, so the kubelet evicted the lowest-priority tenant \u2014 checkout-svc's pod",
+      "status": "confirmed",
+      "supporting": [
+        "fact:0c60f0ee5d8c2adf",
+        "fact:ab1e95d5ba643738"
+      ]
+    },
+    {
+      "basis": "checkout-svc has an application memory leak that OOM-pressured its own pod off t",
+      "chain": [],
+      "confidence": 0.3,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:f86874b4474c16d8"
+      ],
+      "root_candidate": "pod:checkout-7c9f-abc12",
+      "statement": "checkout-svc has an application memory leak that OOM-pressured its own pod off the node",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
   "journal": [
     {
       "actor": "engine",
@@ -739,35 +768,6 @@
         "nodes": []
       },
       "seq": 7
-    }
-  ],
-  "ledger": [
-    {
-      "basis": "post-reschedule: node-prod-17 memory back to 61%, the checkout pod is Ready and stable, no further evictions \u2014 confirms the noisy-neighbor cause",
-      "chain": [],
-      "confidence": 0.9,
-      "id": "hyp:h1",
-      "refuting": [],
-      "root_candidate": "batch_job:etl-nightly|sched-3",
-      "statement": "the etl-nightly batch job (co-scheduled on node-prod-17) grew its heap unbounded and starved the node's memory, so the kubelet evicted the lowest-priority tenant \u2014 checkout-svc's pod",
-      "status": "confirmed",
-      "supporting": [
-        "fact:0c60f0ee5d8c2adf",
-        "fact:ab1e95d5ba643738"
-      ]
-    },
-    {
-      "basis": "checkout-svc has an application memory leak that OOM-pressured its own pod off t",
-      "chain": [],
-      "confidence": 0.3,
-      "id": "hyp:h2",
-      "refuting": [
-        "fact:f86874b4474c16d8"
-      ],
-      "root_candidate": "pod:checkout-7c9f-abc12",
-      "statement": "checkout-svc has an application memory leak that OOM-pressured its own pod off the node",
-      "status": "refuted",
-      "supporting": []
     }
   ],
   "outcome": "resolved",

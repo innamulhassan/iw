@@ -83,7 +83,7 @@ def export_bundle(res: RunResult) -> dict:
                         "invalidated_by": e.invalidated_by}
                        for e in g.events.values()],
         },
-        "ledger": [{"id": h.id, "statement": h.statement, "status": h.status.value,
+        "hypotheses": [{"id": h.id, "statement": h.statement, "status": h.status.value,
                     "confidence": h.confidence.value, "basis": h.confidence.basis,
                     "root_candidate": h.root_candidate, "supporting": h.supporting_facts,
                     "refuting": h.refuting_facts,

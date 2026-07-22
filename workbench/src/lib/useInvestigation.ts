@@ -9,7 +9,7 @@ const EVENT_TYPES: SessionEvent["type"][] = [
   "reasoning",
   "capability_call",
   "graph_delta",
-  "ledger_delta",
+  "hypotheses_delta",
   "gate_opened",
   "gate_decision",
   "user_message",
@@ -54,7 +54,7 @@ export function useInvestigation() {
   }, []);
 
   // full resync from the authoritative snapshot: apply any events we missed (dedup by seq →
-  // builds late turns + sets state), then merge full node props / ledger statements.
+  // builds late turns + sets state), then merge full node props / hypotheses statements.
   const reconcile = useCallback(async (id: string) => {
     try {
       const snap = await getSnapshot(id);

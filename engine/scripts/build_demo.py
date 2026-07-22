@@ -27,7 +27,7 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(bundle, indent=2, default=str))
     print(f"wrote {out}  nodes={len(bundle['graph']['nodes'])} "
-          f"facts={len(bundle['graph']['facts'])} hyps={len(bundle['ledger'])} "
+          f"facts={len(bundle['graph']['facts'])} hyps={len(bundle['hypotheses'])} "
           f"phases={bundle['phases']} outcome={bundle['outcome']}")
 
 

@@ -393,7 +393,7 @@ class InvestigationSession:
                            "at": f.valid_from.isoformat()} for f in result.facts_added],
                    events=[{"id": e.id, "entity": e.entity_ref, "type": e.type}
                            for e in result.events_added])
-        self._emit("ledger_delta",
+        self._emit("hypotheses_delta",
                    hypotheses=[self._hyp_delta_view(dlt) for dlt in result.hypotheses_updated])
         phase = self._engine.current_phase
         self._emit("session_state", state=self.state.value,
