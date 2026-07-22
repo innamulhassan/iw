@@ -12,6 +12,7 @@ from .layer import (
     Source,
 )
 from .mapping import MappingSource, map_response
+from .registry import CapabilityRegistry, CapabilitySpec, Policy
 from .sources import (
     ProviderRoutedSource,
     build_provider_transports,
@@ -22,10 +23,13 @@ __all__ = [
     "Adapter",
     "CapabilityCall",
     "CapabilityLayer",
+    "CapabilityRegistry",
+    "CapabilitySpec",
     "Invocation",
     "MappingSource",
     "McpSource",
     "MockSource",
+    "Policy",
     "ProviderRoutedSource",
     "RestSource",
     "RoutedSource",

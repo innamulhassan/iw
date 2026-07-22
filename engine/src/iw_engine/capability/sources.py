@@ -1,21 +1,21 @@
-"""The fetch seam — the ONE side-effecting boundary (DESIGN §2.5 R-K1, VALIDATION-VERDICT §C).
+"""The fetch seam - the ONE side-effecting boundary (DESIGN §2.5 R-K1, VALIDATION-VERDICT §C).
 
 Every live capability read is a single `fetch(binding, intent, params) -> raw` request; the
 adapter's pure `normalize(raw) -> Operation[]` is identical no matter which transport served
 the raw. Three transports share the `Source` signature so the fold never forks:
 
-  - `MockSource`  — fixtures; the hermetic test transport (zero network). THIS is the one thing
+  - `MockSource`  - fixtures; the hermetic test transport (zero network). THIS is the one thing
     that swaps to go live; adapters + engine are unchanged either way.
-  - `McpSource`   — one generic MCP `tools/call` client. A new MCP vendor is a config line (its
+  - `McpSource`   - one generic MCP `tools/call` client. A new MCP vendor is a config line (its
     intents added to an MCP-bound adapter), not new code.
-  - `RestSource`  — a thin raw-REST shim for the tools without a first-party MCP server
+  - `RestSource`  - a thin raw-REST shim for the tools without a first-party MCP server
     (Prometheus, local git). Two REST clients total, not eight.
 
 `RoutedSource` composes the per-binding transports behind the same seam for a live, mixed-tool
 layer; the hermetic suite just uses `MockSource`, which answers every binding from a fixture.
 
 The HTTP is injected (`transport=`) so `McpSource`/`RestSource` are unit-testable against a fake
-— no live server is ever required. The stdlib urllib defaults are used only on a real run.
+- no live server is ever required. The stdlib urllib defaults are used only on a real run.
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ class Source(Protocol):
 
 
 class MockSource:
-    """Fixture-backed transport — the hermetic test seam. Returns the canned raw tool output
+    """Fixture-backed transport - the hermetic test seam. Returns the canned raw tool output
     per intent regardless of binding (a fixture stands in for whatever transport the live tool
     would use), so the whole suite runs with zero credentials/network."""
 
@@ -52,7 +52,7 @@ class MockSource:
 class McpSource:
     """One generic MCP transport for every MCP-bound tool (VALIDATION-VERDICT §C.2). A live
     fetch is a single JSON-RPC `tools/call(name=intent, arguments=params)`; the tool's vendor
-    JSON is handed to `normalize()` verbatim (MCP returns vendor JSON, NOT the closed ops — it
+    JSON is handed to `normalize()` verbatim (MCP returns vendor JSON, NOT the closed ops - it
     must not collapse into `query`). The HTTP client is injected so the shape is testable
     against a fake with no live MCP server."""
 
@@ -97,14 +97,14 @@ class RestSource:
 
 
 class RoutedSource:
-    """Composes the per-binding transports behind the one fetch seam — dispatches each request
+    """Composes the per-binding transports behind the one fetch seam - dispatches each request
     to the transport wired for its adapter's `Binding`. This is how a LIVE layer runs mixed
     tools (McpSource for MCP, RestSource for REST, ...); the hermetic suite needs no routing
     because `MockSource` answers every binding from a fixture.
 
-    NOTE — routing arity: `Binding` has arity 3 (MCP/REST/A2A), so this collapses all 7 MCP
+    NOTE - routing arity: `Binding` has arity 3 (MCP/REST/A2A), so this collapses all 7 MCP
     providers onto ONE endpoint+token. A real mixed-tool run needs `ProviderRoutedSource`
-    (arity 9 — one transport per PROVIDER, part4-capability §3). This binding-router remains for
+    (arity 9 - one transport per PROVIDER, part4-capability §3). This binding-router remains for
     the single-endpoint case and back-compat."""
 
     def __init__(self, transports: dict[Binding, Source]) -> None:
@@ -119,11 +119,11 @@ class RoutedSource:
 
 class ProviderRoutedSource:
     """Routes each fetch to the transport wired for the intent's PROVIDER, not its Binding
-    (part4-capability §3: 'routing by provider, not binding — the routing axis has arity 9, not
+    (part4-capability §3: 'routing by provider, not binding - the routing axis has arity 9, not
     3'). Each of the 9 providers gets its OWN endpoint + credential, so `servicenow` and `splunk`
     no longer share one MCP endpoint+token.
 
-    An intent whose provider has no wired transport returns `{}` — the HONEST 'that tool isn't
+    An intent whose provider has no wired transport returns `{}` - the HONEST 'that tool isn't
     connected for this incident' (the adapter folds it to zero ops → a clean-empty, never a
     crash), mirroring `ScenarioSource`'s unfixtured-provider behaviour."""
 
@@ -143,7 +143,7 @@ class ProviderRoutedSource:
 # ── per-provider config surface (env-based, part4-capability §3) ───────────────────
 def provider_config(provider: str, env: dict[str, str] | None = None) -> tuple[str | None, str | None]:
     """Read a provider's live endpoint + credential from the environment. The convention is
-    `IW_CAP_<PROVIDER>_URL` / `IW_CAP_<PROVIDER>_TOKEN` (e.g. `IW_CAP_SERVICENOW_URL`) — a first
+    `IW_CAP_<PROVIDER>_URL` / `IW_CAP_<PROVIDER>_TOKEN` (e.g. `IW_CAP_SERVICENOW_URL`) - a first
     real connection is a couple of env vars, not new factory code (today the only env vars are
     LLM-side). `env` is injectable for testing; it defaults to `os.environ`."""
     e = os.environ if env is None else env
@@ -161,7 +161,7 @@ def build_provider_transports(
 ) -> dict[str, Source]:
     """Build a `provider -> Source` map from the per-provider env config. For each provider whose
     `IW_CAP_<PROVIDER>_URL` is set, wire an `McpSource` (MCP binding) or `RestSource` (REST
-    binding) at that endpoint with its token. Providers without a configured URL are omitted —
+    binding) at that endpoint with its token. Providers without a configured URL are omitted -
     their intents route to `{}` (clean-empty) through `ProviderRoutedSource`.
 
     `bindings` is the provider->Binding map (from the layer's adapters); `rest_routes` supplies
@@ -177,7 +177,7 @@ def build_provider_transports(
                                               transport=http_rest, token=token)
         elif binding is Binding.MCP:
             transports[provider] = McpSource(url, transport=http_mcp, token=token)
-        # A2A (write delegation) has no live transport yet — left unwired (deferred, §3).
+        # A2A (write delegation) has no live transport yet - left unwired (deferred, §3).
     return transports
 
 
@@ -186,15 +186,15 @@ class ScenarioSource:
     fixture by the EXACT intent, this resolves intent -> PROVIDER -> that provider's blob, so
     ANY valid intent for a provider returns the provider's data. That closes the two-vocabulary
     gap: a live model that reaches for a provider's data need only pick the right provider, not
-    guess the one wired intent name — every read intent of a fixtured provider is 'connected'.
+    guess the one wired intent name - every read intent of a fixtured provider is 'connected'.
 
-    Fixtures are `provider -> {phase | "*": raw_blob}` — phase-scoped because tools return the
+    Fixtures are `provider -> {phase | "*": raw_blob}` - phase-scoped because tools return the
     CURRENT state of the world: a provider may override its blob in a later phase (e.g. the
     post-remediation recovery metrics a `verify`-phase metric read should return). The driver
     sets `.phase` before each step; a provider with no phase-specific blob falls back to "*".
 
     `intent_provider` is the intent->provider map (built from the layer's adapters); an intent
-    with no fixtured provider returns `{}` (the adapter folds it to zero ops — an honest 'that
+    with no fixtured provider returns `{}` (the adapter folds it to zero ops - an honest 'that
     tool isn't wired for this incident')."""
 
     def __init__(self, intent_provider: dict[str, str],
@@ -218,9 +218,9 @@ def _mcp_result(reply) -> dict:
     content; falls back to a single JSON text block. Raises `RuntimeError` on a JSON-RPC or
     tool error (which `CapabilityLayer.serve` catches → an `error` Invocation).
 
-    TRANSPORT-FIDELITY (part4-capability §3): tolerant of the shapes a real MCP endpoint emits —
+    TRANSPORT-FIDELITY (part4-capability §3): tolerant of the shapes a real MCP endpoint emits -
     a raw JSON string, an SSE / Streamable-HTTP text frame (`event: message\\ndata: {...}`), or a
-    non-dict body — none of which may blow up with an AttributeError. Only a genuine vendor error
+    non-dict body - none of which may blow up with an AttributeError. Only a genuine vendor error
     is raised; a merely-unrecognised shape degrades to `{}` (clean-empty)."""
     if isinstance(reply, (str, bytes)):
         reply = _parse_sse_or_json(reply)
