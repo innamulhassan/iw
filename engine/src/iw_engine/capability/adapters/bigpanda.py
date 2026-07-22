@@ -15,8 +15,8 @@ sourced from the correlation engine rather than a single monitoring tool.
 from __future__ import annotations
 
 from ...domain import registry
-from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source
-from ...domain.operations import AddEdge, AddEvent, AddNode, Operation
+from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source, Species
+from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
 
@@ -55,9 +55,11 @@ class BigPandaAdapter:
                                props={"alert_id": al["id"], "rule": al.get("alertname")}))
             at = al.get("at")
             if at:
-                ops.append(AddEvent(entity=aid, type="fired", occurred_at=at, observed_at=at,
-                                    payload={"state": al.get("state", "firing"),
-                                             "correlated": True}, source=Source.BIGPANDA))
+                ops.append(AddAssertion(subject=aid, name="fired", species=Species.EVENT,
+                                        occurred_at=at, observed_at=at,
+                                        value={"state": al.get("state", "firing"),
+                                               "correlated": True}, source=Source.BIGPANDA,
+                                        source_native_name="fired"))
             svc_id = svc_ids.get(al.get("service"))
             if svc_id:
                 ops.append(AddEdge(type=EdgeType.FIRED_ON, src=aid, dst=svc_id))
@@ -70,8 +72,10 @@ class BigPandaAdapter:
             ri_id = registry.node_id(NodeType.INCIDENT, ri_props)
             at = ri.get("opened_at")
             if at:
-                ops.append(AddEvent(entity=ri_id, type="declared", occurred_at=at, observed_at=at,
-                                    payload={"affected_ci": ri.get("cmdb_ci")}, source=Source.BIGPANDA))
+                ops.append(AddAssertion(subject=ri_id, name="declared", species=Species.EVENT,
+                                        occurred_at=at, observed_at=at,
+                                        value={"affected_ci": ri.get("cmdb_ci")},
+                                        source=Source.BIGPANDA, source_native_name="declared"))
             if primary_id:
                 ops.append(AddEdge(type=EdgeType.SIMILAR_TO, src=primary_id, dst=ri_id,
                                    confidence_level=ConfidenceLevel(ri.get("confidence", "med"))))
