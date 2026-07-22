@@ -883,6 +883,21 @@ code {
 .toolcall { border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fafbfd; overflow: hidden; }
 .toolcall--write { border-color: #f0d9b0; background: #fdf8ef; }
 .toolcall--blocked { border-color: #f6cccc; }
+/* invocation outcome honesty (P3): a FAILED call must read as failure, never as "no data" */
+.toolcall--error { border-color: #f6cccc; background: #fef6f6; }
+.toolcall--empty { background: #fafafa; }
+.toolcall--empty .toolcall__intent { color: var(--text-muted); }
+.toolcall__outcome {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.toolcall__outcome--error { background: var(--red-soft); color: var(--red); }
+.toolcall__outcome--blocked { background: var(--red-soft); color: var(--red); }
+.toolcall__outcome--empty { background: #eef1f6; color: var(--text-muted); }
 .toolcall__summary {
   width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px;
   background: none; border: none; cursor: pointer; font: inherit; text-align: left;
