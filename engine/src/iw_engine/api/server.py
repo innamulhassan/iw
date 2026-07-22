@@ -43,6 +43,7 @@ from ..domain.subject import SubjectRef
 from ..runtime.loader import load_playbook
 from ..runtime.planner import Planner
 from ..runtime.session import GateDecision, SessionManager, SessionState
+from ..runtime.store import InvestigationStore
 
 
 # Request bodies live at MODULE scope on purpose: with `from __future__ import annotations`
@@ -78,14 +79,21 @@ def create_server(manager: SessionManager | None = None, *,
                   planner_factory: Callable[[SubjectRef], Planner] | None = None,
                   layer_factory: Callable[[SubjectRef], object] | None = None,
                   playbook_path: pathlib.Path | None = None,
-                  cors_origins: list[str] | None = None):
+                  cors_origins: list[str] | None = None,
+                  store: InvestigationStore | None = None):
     """Build the FastAPI app. Pass a preconfigured `manager`, or a `planner_factory` and the
-    incident playbook is loaded for you. CORS is open by default for the Vite dev server."""
+    incident playbook is loaded for you. CORS is open by default for the Vite dev server.
+
+    Investigations are file-backed by default (`store`, defaulting to `engine/data/investigations/`)
+    so a live run survives a backend restart: `GET /sessions/{id}` reopens it read-only from disk,
+    and `GET /sessions` merges the on-disk investigations with the in-memory ones."""
     from fastapi import FastAPI, HTTPException
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import StreamingResponse
 
     catalog_fn: Callable[[], list[dict]] = list  # overwritten below to the scenario catalog
+    # default the durability store so the workbench backend persists (and reopens) investigations.
+    store = store if store is not None else InvestigationStore()
     if manager is None:
         if planner_factory is None:
             # default backend: the six-scenario registry — every use case runnable (UI-SPEC §1).
@@ -101,15 +109,16 @@ def create_server(manager: SessionManager | None = None, *,
             playbook = load_playbook(playbook_path) if playbook_path else None
             want_live = os.environ.get("IW_LIVE", "").lower() in ("1", "true", "yes")
             if want_live and make_live_client() is not None:
-                manager = live_build_manager(playbook=playbook)
+                manager = live_build_manager(playbook=playbook, store=store)
             else:
                 if want_live:
                     print("IW_LIVE set but no LLM key found — falling back to the scripted mock.")
-                manager = build_manager(playbook=playbook)
+                manager = build_manager(playbook=playbook, store=store)
             catalog_fn = catalog
         else:
             playbook = load_playbook(playbook_path or _default_playbook())
-            manager = SessionManager(playbook, planner_factory, layer_factory=layer_factory)
+            manager = SessionManager(playbook, planner_factory, layer_factory=layer_factory,
+                                     store=store)
 
     app = FastAPI(title="Investigation Workbench — session backend")
     app.add_middleware(CORSMiddleware, allow_origins=cors_origins or ["*"],
@@ -186,7 +195,11 @@ def create_server(manager: SessionManager | None = None, *,
 
     @app.get("/sessions/{session_id}")
     def snapshot(session_id: str) -> dict:
-        return _require(session_id).snapshot()
+        # in-memory first; on a miss (e.g. after a backend restart) reopen read-only from disk.
+        reopened = manager.reopen(session_id)
+        if reopened is None:
+            raise HTTPException(status_code=404, detail=f"no session {session_id}")
+        return reopened
 
     app.state.manager = manager
     app.state.catalog = catalog_fn

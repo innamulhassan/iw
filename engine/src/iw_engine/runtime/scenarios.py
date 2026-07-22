@@ -37,6 +37,7 @@ from .llm_client import make_llm_client
 from .loader import load_playbook
 from .planner import PlanOutput, ScriptedPlanner
 from .session import SessionManager
+from .store import InvestigationStore
 
 # ── scenario catalog: one runnable incident per layer (UI-SPEC §1) ─────────────────
 # Each entry is the metadata the start selector needs (id + title + layer) plus the human
@@ -138,7 +139,8 @@ def _default_playbook() -> pathlib.Path:
 
 
 def build_manager(*, playbook: Playbook | None = None,
-                  clock: Callable[[], datetime] | None = None) -> SessionManager:
+                  clock: Callable[[], datetime] | None = None,
+                  store: InvestigationStore | None = None) -> SessionManager:
     """A SessionManager wired to the scenario registry — the default backend for the workbench.
     `planner_factory(subject)` replays the incident's scripted plan (with the REMEDIATE write
     call injected); `layer_factory(subject)` gives it the fixture-backed capability layer."""
@@ -162,7 +164,8 @@ def build_manager(*, playbook: Playbook | None = None,
     def layer_factory(subject: SubjectRef) -> CapabilityLayer:
         return _layer(_built(subject)[1])
 
-    return SessionManager(pb, planner_factory, layer_factory=layer_factory, clock=clock)
+    return SessionManager(pb, planner_factory, layer_factory=layer_factory, clock=clock,
+                          store=store)
 
 
 # ── the LIVE backend (obs 10: the LLM is the product; mock above is the CI net) ─────
@@ -189,7 +192,8 @@ def live_wired_ids() -> set[str]:
 
 def live_build_manager(*, playbook: Playbook | None = None,
                        clock: Callable[[], datetime] | None = None,
-                       model: str | None = None, client=None) -> SessionManager:
+                       model: str | None = None, client=None,
+                       store: InvestigationStore | None = None) -> SessionManager:
     """A SessionManager whose planner is the REAL LLM (LivePlanner), reusing run_live's wiring:
     a `ScenarioSource` (intent→provider routing) over the shared live fixtures, the same catalog
     + tools prompt, and the write-effect RemediationAdapter so the LLM can open the REMEDIATE
@@ -233,4 +237,4 @@ def live_build_manager(*, playbook: Playbook | None = None,
     # background_drive: a live phase is one or more LLM round-trips (seconds) — drive off the HTTP
     # thread so POST /sessions,/advance,/gate return immediately and the SSE stream shows progress.
     return SessionManager(pb, planner_factory, layer_factory=layer_factory, clock=clock,
-                          background_drive=True)
+                          background_drive=True, store=store)
