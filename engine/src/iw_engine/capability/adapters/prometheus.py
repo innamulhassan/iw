@@ -6,8 +6,9 @@ The raw shape is realistic and tool-specific; the mock swaps only the query() bo
 from __future__ import annotations
 
 from ...domain import registry
-from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source
-from ...domain.operations import AddEdge, AddEvent, AddFact, AddNode, Operation
+from ...domain.assertion import Window
+from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source, Species, Stat
+from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
 
@@ -33,9 +34,10 @@ class PrometheusAdapter:
             aid = registry.node_id(NodeType.ALERT, {"alert_id": al["id"]})
             ops.append(AddNode(type=NodeType.ALERT,
                                props={"alert_id": al["id"], "rule": al.get("alertname")}))
-            ops.append(AddEvent(entity=aid, type="fired", occurred_at=al["at"],
-                                observed_at=al["at"], payload={"state": al.get("state", "firing")},
-                                source=Source.PROMETHEUS))
+            ops.append(AddAssertion(subject=aid, name="fired", species=Species.EVENT,
+                                    occurred_at=al["at"], observed_at=al["at"],
+                                    value={"state": al.get("state", "firing")},
+                                    source=Source.PROMETHEUS, source_native_name="fired"))
             if svc_id:
                 ops.append(AddEdge(type=EdgeType.FIRED_ON, src=aid, dst=svc_id))
 
@@ -43,7 +45,14 @@ class PrometheusAdapter:
             subject = m.get("subject", svc_id)
             if not subject:
                 continue
-            ops.append(AddFact(subject=subject, predicate=m["predicate"], value=m["value"],
-                               unit=m.get("unit"), valid_from=m["at"], observed_at=m["at"],
-                               source=Source.PROMETHEUS, source_reliability=m.get("reliability")))
+            # telemetry gauge/rate/ratio → a READING (measured with a window). The fixtures state
+            # neither stat nor window, so stat=gauge + a point window at the observation time —
+            # matches the P1a shim's default so the reducer's Fact (which carries neither) is
+            # byte-identical. The vendor's own metric name survives on source_native_name.
+            ops.append(AddAssertion(subject=subject, name=m["predicate"], value=m["value"],
+                                    unit=m.get("unit"), species=Species.READING,
+                                    stat=Stat.GAUGE, window=Window(at=m["at"]),
+                                    valid_from=m["at"], observed_at=m["at"],
+                                    source=Source.PROMETHEUS, source_reliability=m.get("reliability"),
+                                    source_native_name=m["predicate"]))
         return ops
