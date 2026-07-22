@@ -8,17 +8,6 @@ function shortId(id: string): string {
   return i >= 0 ? id.slice(i + 1) : id;
 }
 
-const STATUS_RANK: Record<string, number> = {
-  confirmed: 0,
-  supported: 1,
-  proposed: 2,
-  refuted: 3,
-};
-
-function rankOf(status: string): number {
-  return STATUS_RANK[status] ?? 2.5;
-}
-
 function statusLabel(status: string): string {
   return status.length ? status.charAt(0).toUpperCase() + status.slice(1) : status;
 }
@@ -83,23 +72,21 @@ function FactRow({
 // The Popperian hypotheses (obs 8): each hypothesis expands to the FACTS corroborating/refuting it and
 // its CHAIN OF EVENTS. Every fact/link is clickable — it cross-highlights that node + fact in the
 // graph (a shared selection lifted to the workbench), so "which facts back this?" is one click.
+// Rendered in the ENGINE's ranked() order exactly as given — the store carries the bundle order and
+// this panel never re-sorts (the audit's divergent client-side ranking is gone). The % shown is the
+// ENGINE-EARNED weighted evidence score (P4); the LLM's band survives only inside the basis text.
 export default function HypothesisPanel({ hypotheses, facts, nodes, selection, onSelect }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const sorted = [...hypotheses].sort((a, b) => {
-    const rankDiff = rankOf(a.status) - rankOf(b.status);
-    if (rankDiff !== 0) return rankDiff;
-    return b.confidence - a.confidence;
-  });
 
   return (
     <div className="hypotheses">
       <h2 className="pane-title">Hypotheses</h2>
       <p className="pane-subtitle">
-        {sorted.length} hypothes{sorted.length === 1 ? "is" : "es"} considered — ranked, both sides
-        shown. Expand for the evidence chain.
+        {hypotheses.length} hypothes{hypotheses.length === 1 ? "is" : "es"} considered — engine-ranked,
+        both sides shown. Expand for the evidence chain.
       </p>
       <div className="hypothesis-list">
-        {sorted.map((item) => {
+        {hypotheses.map((item) => {
           const isRefuted = item.status === "refuted";
           const pct = Math.round(item.confidence * 100);
           const open = openId === item.id;
@@ -113,7 +100,14 @@ export default function HypothesisPanel({ hypotheses, facts, nodes, selection, o
               >
                 <span className={`hypothesis-card__chevron ${open ? "is-open" : ""}`}>▶</span>
                 <span className={`badge badge--${item.status}`}>{statusLabel(item.status)}</span>
-                <span className="hypothesis-card__confidence-label">{pct}%</span>
+                <span
+                  className="hypothesis-card__score"
+                  title="Engine-earned weighted evidence score (P4) — not the model's self-reported band"
+                >
+                  {pct}
+                  <span className="hypothesis-card__score-unit">%</span>
+                  <span className="hypothesis-card__score-tag">earned</span>
+                </span>
               </button>
               <h3 className={`hypothesis-card__statement${isRefuted ? " is-struck" : ""}`}>
                 {item.statement}

@@ -23,4 +23,28 @@ describe("HypothesisPanel", () => {
     expect(screen.getByText(/1 supporting/)).toBeTruthy();
     expect(screen.getByText(/1 refuting/)).toBeTruthy();
   });
+
+  it("shows the engine-earned score prominently on every card", () => {
+    render(
+      <HypothesisPanel hypotheses={fixtureBundle.hypotheses} facts={{}} nodes={{}} selection={null} onSelect={() => {}} />
+    );
+    const scores = document.querySelectorAll(".hypothesis-card__score");
+    expect(scores.length).toBe(2);
+    expect(scores[0].textContent).toContain("85");
+    expect(screen.getAllByText("earned").length).toBe(2);
+  });
+
+  it("renders in the ENGINE ranked order as given — never re-sorts client-side", () => {
+    // engine-ranked order with the REFUTED one deliberately first: the old client-side
+    // status-rank re-sort would have moved 'confirmed' to the top — the panel must not.
+    const engineOrder = [...fixtureBundle.hypotheses].reverse(); // [refuted, confirmed]
+    render(
+      <HypothesisPanel hypotheses={engineOrder} facts={{}} nodes={{}} selection={null} onSelect={() => {}} />
+    );
+    const statements = Array.from(document.querySelectorAll(".hypothesis-card__statement")).map(
+      (el) => el.textContent ?? ""
+    );
+    expect(statements[0]).toMatch(/network blip/);
+    expect(statements[1]).toMatch(/commit deadbeef broke things/);
+  });
 });

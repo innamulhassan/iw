@@ -341,10 +341,37 @@ code {
   color: var(--amber);
 }
 
-.hypothesis-card__confidence-label {
-  font-size: 12px;
+/* the ENGINE-EARNED evidence score (P4) — prominent, not just the LOW/MED/HIGH band */
+.hypothesis-card__score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.hypothesis-card--refuted .hypothesis-card__score {
+  color: var(--text-muted);
+}
+
+.hypothesis-card__score-unit {
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
+}
+
+.hypothesis-card__score-tag {
+  margin-left: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
 }
 
 .hypothesis-card__statement {
