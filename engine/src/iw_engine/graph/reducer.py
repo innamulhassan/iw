@@ -74,10 +74,28 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
     batch_types: dict[str, NodeType] = {}
     batch_edges: set[str] = set()
     batch_aliases: dict[str, str] = {}   # "scheme:id" → node id, claimed earlier in THIS batch
+    # would-be id → canonical id, for AddNodes RESOLVED away in THIS batch (P5 step 3): an
+    # adapter batch is `AddNode(props)` + facts/edges keyed to `node_id(props)`; when the node
+    # folds into an existing entity, its paired refs must follow it, not dangle.
+    batch_redirects: dict[str, str] = {}
 
     def alias_target(key: str) -> str | None:
         """Current binding of an alias key — batch claims first, then the graph's index."""
         return batch_aliases.get(key) or graph.alias_index.get(key)
+
+    def resolve_ref(ref: str) -> str:
+        """P5 entity resolution for op references (assertion subject, edge endpoint, scope):
+        a ref may name the entity by a tool credential — the `"scheme:id"` alias spelling
+        (DOMAIN-v3 §2.1: "an observation arriving keyed only appd:app_id=… resolves to the
+        existing entity") — or by a twin id resolved away earlier in this batch. Unresolvable
+        refs return unchanged and reject downstream as unknown, exactly as today."""
+        if known(ref):
+            return ref
+        for table in (batch_redirects, batch_aliases, graph.alias_index):
+            hit = table.get(ref)
+            if hit is not None:
+                return hit
+        return ref
 
     def register_aliases(i: int, op_kind: str, aliases: dict[str, str], nid: str) -> None:
         """Claim `aliases` for node `nid` (first binding wins). A claim already bound to a
@@ -130,10 +148,11 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         `add_fact`/`add_event`."""
         is_event = op.species is Species.EVENT
         subj_word, name_word = ("entity", "event") if is_event else ("subject", "predicate")
-        if not known(op.subject):
+        subject = resolve_ref(op.subject)   # P5: alias-keyed subjects land on the canonical
+        if not known(subject):
             out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=f"unknown {subj_word} {op.subject}"))
             return
-        nt = type_of(op.subject)
+        nt = type_of(subject)
         native = op.source_native_name or op.name
         canonical = dictionary.resolve(op.source, op.name, op.unit)
         provisional = canonical is None
@@ -161,10 +180,10 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                     op_index=i, op_kind=op_kind,
                     reason=f"shape quarantine '{canonical}': {shape_why} — landed provisional"))
         if is_event:
-            eid = registry.event_id(op.subject, canonical, op.occurred_at)
+            eid = registry.event_id(subject, canonical, op.occurred_at)
             payload = op.value if isinstance(op.value, dict) else {}
             out.events.append(Event(
-                id=eid, entity_ref=op.subject, type=canonical, occurred_at=op.occurred_at,
+                id=eid, entity_ref=subject, type=canonical, occurred_at=op.occurred_at,
                 observed_at=op.observed_at, payload=payload, source=op.source,
                 source_native_name=native, provisional=provisional, created_by=seq))
             return
@@ -177,15 +196,15 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         reliability = op.source_reliability
         if reliability is None and op.source != Source.LLM:
             reliability = tunables.source_reliability.get(op.source.value)
-        fid = registry.fact_id(op.subject, native, op.valid_from)
+        fid = registry.fact_id(subject, native, op.valid_from)
         supersedes = None
-        for ef in graph.facts_of(op.subject):
+        for ef in graph.facts_of(subject):
             if ef.predicate == canonical and ef.is_open and ef.id != fid:
                 supersedes = ef.id
                 break
         try:
             out.facts.append(Fact(
-                id=fid, subject_ref=op.subject, predicate=canonical, value=op.value,
+                id=fid, subject_ref=subject, predicate=canonical, value=op.value,
                 unit=op.unit, valid_from=op.valid_from, valid_to=op.valid_to,
                 observed_at=op.observed_at, source=op.source, source_native_name=native,
                 confidence=conf, source_reliability=reliability, evidence=op.evidence,
@@ -201,23 +220,50 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
     # edges (CAUSED_BY hyp->cause, SUPPORTS/REFUTES node->hyp) can reference it (R-G2).
     for i, op in enumerate(ops):
         if isinstance(op, AddNode):
-            # P5 identity hardening (DOMAIN-v3 §2.1): a missing identity-key value is a
-            # REJECTION, never a degenerate `type:`/`service:|prod` id — degenerate ids are how
-            # unrelated observations silently upsert into one phantom entity.
+            # P5 identity hardening + ENTITY RESOLUTION (DOMAIN-v3 §2.1; audit 4 S1.4). Order:
+            #   A. the computed id already exists (graph or batch)     → plain upsert;
+            #   B. it does not, but EXACTLY ONE same-type entity is bound to one of this
+            #      arrival's tool credentials                          → RESOLVE onto it (the
+            #      split-brain kill: a shared sys_id/app_id/repo/workload links two display
+            #      names of one entity — fold in, never mint a twin). Identity-key props of
+            #      the arrival are DROPPED from the merge (identity is write-once on the
+            #      canonical; the alias, not the key, is what unified them);
+            #   C. identity keys missing and no credential resolves    → REJECTION, never a
+            #      degenerate `type:` id (0 hits) / never a guess (≥2 hits: ambiguous).
+            # Cross-type alias hits never unify (a claim across types is a contradiction,
+            # recorded by register_aliases). Deterministic throughout: replay folds the same
+            # DELTA, so resolution shapes what enters the journal, never how it replays.
             missing = registry.missing_identity_keys(op.type, op.props)
-            if missing:
+            derived = resolver.aliases_from_props(op.type, op.props)
+            cid = None if missing else registry.node_id(op.type, op.props)
+            hits: list[str] = []
+            for scheme, val in derived.items():
+                t = alias_target(resolver.alias_key(scheme, val))
+                if t is not None and t not in hits and type_of(t) is op.type:
+                    hits.append(t)
+            if cid is not None and (cid in batch_types or graph.node(cid) is not None):
+                target, props = cid, op.props                       # A: existing canonical
+            elif len(hits) == 1 and hits[0] != cid:
+                target = hits[0]                                    # B: resolve, don't twin
+                keys = registry.node_spec(op.type).identity_keys
+                props = {k: v for k, v in op.props.items() if k not in keys}
+                if cid is not None:
+                    batch_redirects[cid] = target   # paired same-batch refs follow the fold
+            elif cid is not None:
+                target, props = cid, op.props                       # fresh mint (0/ambiguous)
+            else:
+                why = (f"ambiguous alias resolution ({', '.join(sorted(hits))}) — " if hits
+                       else "")
                 out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
-                    f"missing identity key(s) {', '.join(missing)} for {op.type.value} — "
+                    f"{why}missing identity key(s) {', '.join(missing)} for {op.type.value} — "
                     "refusing a degenerate id"))
                 continue
-            nid = registry.node_id(op.type, op.props)
-            # P5 (DOMAIN-v3 §2.1): lift the identity-backbone props into the entity's alias
-            # block — per-tool ids become identity surface the graph indexes, not inert cargo.
-            derived = resolver.aliases_from_props(op.type, op.props)
-            out.nodes.append(Node(id=nid, type=op.type, props=op.props, aliases=derived,
+            # lift the identity-backbone props into the entity's alias block — per-tool ids
+            # become identity surface the graph indexes, not inert cargo.
+            out.nodes.append(Node(id=target, type=op.type, props=props, aliases=derived,
                                   created_by=seq))
-            batch_types[nid] = op.type
-            register_aliases(i, op.op.value, derived, nid)
+            batch_types[target] = op.type
+            register_aliases(i, op.op.value, derived, target)
         elif isinstance(op, ProposeHypothesis):
             hid = f"hyp:{op.hid}"
             out.nodes.append(Node(id=hid, type=NodeType.HYPOTHESIS,
@@ -246,11 +292,12 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                     f"{op.type.value} is a derived evidence edge — attach the fact via "
                     "add_supporting/add_refuting on the hypothesis, not a direct edge"))
                 continue
-            if not known(op.src) or not known(op.dst):
+            src, dst = resolve_ref(op.src), resolve_ref(op.dst)   # P5: alias-keyed endpoints
+            if not known(src) or not known(dst):
                 out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
                                                 f"edge endpoint not in graph ({op.src}->{op.dst})"))
                 continue
-            st, dt = type_of(op.src), type_of(op.dst)
+            st, dt = type_of(src), type_of(dst)
             if st and dt and not registry.edge_allowed(op.type, st, dt):
                 out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
                                                 f"illegal edge {st.value}-{op.type.value}->{dt.value}"))
@@ -278,8 +325,8 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 # provisional knowledge is admitted, never at full weight (the airlock's penalty)
                 conf = Confidence(value=round(conf.value * tunables.discovery_penalty, 4),
                                   basis=f"{conf.basis} [provisional: generic_ci endpoint]")
-            eid = registry.edge_id(op.type, op.src, op.dst, origin)
-            out.edges.append(Edge(id=eid, type=op.type, src=op.src, dst=op.dst, origin=origin,
+            eid = registry.edge_id(op.type, src, dst, origin)
+            out.edges.append(Edge(id=eid, type=op.type, src=src, dst=dst, origin=origin,
                                   props=op.props, confidence=conf, evidence=op.evidence,
                                   provisional=airlocked, created_by=seq))
             batch_edges.add(eid)   # so a later same-batch edge-borne assertion resolves (F11)
@@ -334,7 +381,8 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                     "blocked (an error carries no evidentiary weight; only a clean-empty read "
                     "can become null evidence)"))
                 continue
-            subj = op.scope if known(op.scope) else anomaly_ref
+            scope = resolve_ref(op.scope)   # P5: an alias-keyed scope resolves like any ref
+            subj = scope if known(scope) else anomaly_ref
             if subj is None:
                 out.rejections.append(Rejection(op_index=i, op_kind=op.op.value,
                                                 reason="no scope/anomaly to attach null-result"))

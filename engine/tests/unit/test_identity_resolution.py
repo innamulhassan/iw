@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from iw_engine.domain.enums import NodeType, Source
-from iw_engine.domain.operations import AddFact, AddNode
+from iw_engine.domain.enums import EdgeType, NodeType, Source
+from iw_engine.domain.operations import AddEdge, AddFact, AddNode
 from iw_engine.domain.playbook import Tunables
 from iw_engine.domain.registry import missing_identity_keys, node_id
 from iw_engine.graph import Graph
@@ -130,6 +130,119 @@ def test_alias_upsert_unions_first_binding_wins():
                                         props={"service_name": "payments-api", "env": "prod",
                                                "app_id": "APM-PAYMEN"})], 2, g, tun))
     assert g.nodes[SID].aliases == {"servicenow": "sys_2fe9a1", "appd": "APM-PAYMEN"}
+
+
+# ── step 3: entity resolution on ingest ────────────────────────────────────────
+def _fold_all(g: Graph, mat) -> None:
+    for n in mat.nodes:
+        g.upsert_node(n)
+    for f in mat.facts:
+        g.add_fact(f)
+    for e in mat.events:
+        g.add_event(e)
+    for e in mat.edges:
+        g.add_edge(e)
+
+
+def test_split_brain_unification_via_shared_tool_id():
+    """THE split-brain kill (audit 4 S1.4 / task step 3): the same service arrives under two
+    display names — `payments-api` (ServiceNow) and `payments-svc` (another tool) — linked by a
+    shared sys_id. One entity results; the arrival's facts land on it (same-batch refs follow
+    the fold); its identity-key props never overwrite the canonical's (write-once)."""
+    g, tun = Graph(), Tunables()
+    _fold_all(g, materialize([AddNode(type=NodeType.SERVICE, props=dict(SVC_PROPS))], 1, g, tun))
+
+    twin_props = {"service_name": "payments-svc", "env": "prod", "sys_id": "sys_2fe9a1",
+                  "owner": "team-payments"}
+    twin_id = node_id(NodeType.SERVICE, twin_props)          # what the adapter would compute
+    mat = materialize([
+        AddNode(type=NodeType.SERVICE, props=twin_props),
+        AddFact(subject=twin_id, predicate="degraded", value=True,
+                valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
+                source_reliability=0.95),
+    ], 2, g, tun)
+    assert mat.rejections == []
+    assert [n.id for n in mat.nodes] == [SID]                # resolved, no twin minted
+    assert mat.facts[0].subject_ref == SID                   # the paired fact followed the fold
+    _fold_all(g, mat)
+    assert twin_id not in g.nodes and len(g.nodes) == 1
+    assert g.nodes[SID].props["service_name"] == "payments-api"   # write-once identity
+    assert g.nodes[SID].props["owner"] == "team-payments"         # non-identity props merged
+
+
+def test_observation_keyed_only_by_tool_credential_resolves():
+    """DOMAIN-v3 §2.1 flagship: an observation arriving keyed ONLY `app_id=APM-PAYMEN` (no
+    service_name/env — pre-P5 a degenerate id, post-step-1 a rejection) resolves to the
+    existing entity through the alias index."""
+    g, tun = Graph(), Tunables()
+    _fold_all(g, materialize([AddNode(type=NodeType.SERVICE, props=dict(SVC_PROPS))], 1, g, tun))
+    mat = materialize([AddNode(type=NodeType.SERVICE,
+                               props={"app_id": "APM-PAYMEN", "tier_hint": "gold"})], 2, g, tun)
+    assert mat.rejections == []
+    assert [n.id for n in mat.nodes] == [SID]
+    _fold_all(g, mat)
+    assert g.nodes[SID].props["tier_hint"] == "gold"
+
+
+def test_alias_keyed_subject_and_edge_endpoint_resolve():
+    """An assertion subject (or edge endpoint) written as `scheme:id` lands on the canonical
+    entity — cross-tool joins stop depending on display-name luck."""
+    g, tun = Graph(), Tunables()
+    _fold_all(g, materialize([AddNode(type=NodeType.SERVICE, props=dict(SVC_PROPS))], 1, g, tun))
+    mat = materialize([
+        AddFact(subject="appd:APM-PAYMEN", predicate="degraded", value=True,
+                valid_from=T0, observed_at=T0, source=Source.APPD, source_reliability=0.9),
+        AddNode(type=NodeType.ALERT, props={"alert_id": "alt-9"}),
+        AddEdge(type=EdgeType.FIRED_ON, src="alert:alt-9", dst="servicenow:sys_2fe9a1"),
+    ], 2, g, tun)
+    assert mat.rejections == []
+    assert mat.facts[0].subject_ref == SID
+    assert mat.edges[0].dst == SID
+    assert mat.edges[0].id == f"edge:fired_on:alert:alt-9->{SID}:discovered"
+
+
+def test_unresolvable_alias_subject_still_rejects_unknown():
+    g, tun = Graph(), Tunables()
+    mat = materialize([AddFact(subject="appd:GHOST", predicate="degraded", value=True,
+                               valid_from=T0, observed_at=T0, source=Source.APPD,
+                               source_reliability=0.9)], 1, g, tun)
+    assert len(mat.rejections) == 1 and "unknown subject appd:GHOST" in mat.rejections[0].reason
+
+
+def test_ambiguous_credentials_never_guess():
+    """Two credentials bound to two DIFFERENT canonicals + no identity keys → rejection naming
+    the ambiguity (deterministic, never a coin-flip merge)."""
+    g, tun = Graph(), Tunables()
+    _fold_all(g, materialize([
+        AddNode(type=NodeType.SERVICE, props={"service_name": "payments-api", "env": "prod",
+                                              "sys_id": "SYS-A"}),
+        AddNode(type=NodeType.SERVICE, props={"service_name": "checkout-api", "env": "prod",
+                                              "app_id": "APM-B"}),
+    ], 1, g, tun))
+    mat = materialize([AddNode(type=NodeType.SERVICE,
+                               props={"sys_id": "SYS-A", "app_id": "APM-B"})], 2, g, tun)
+    assert mat.nodes == []
+    assert len(mat.rejections) == 1
+    assert "ambiguous alias resolution" in mat.rejections[0].reason
+    assert "missing identity key" in mat.rejections[0].reason
+
+
+def test_complete_keys_with_ambiguous_credentials_mint_with_contradiction_notices():
+    """Ambiguous credentials + COMPLETE identity keys: the arrival mints under its own id (no
+    guess), and each foreign claim is a recorded contradiction."""
+    g, tun = Graph(), Tunables()
+    _fold_all(g, materialize([
+        AddNode(type=NodeType.SERVICE, props={"service_name": "payments-api", "env": "prod",
+                                              "sys_id": "SYS-A"}),
+        AddNode(type=NodeType.SERVICE, props={"service_name": "checkout-api", "env": "prod",
+                                              "app_id": "APM-B"}),
+    ], 1, g, tun))
+    mat = materialize([AddNode(type=NodeType.SERVICE,
+                               props={"service_name": "orders-api", "env": "prod",
+                                      "sys_id": "SYS-A", "app_id": "APM-B"})], 2, g, tun)
+    assert [n.id for n in mat.nodes] == ["service:orders-api|prod"]
+    assert len(mat.rejections) == 2
+    assert all("alias contradiction" in r.reason for r in mat.rejections)
 
 
 def test_alias_contradiction_between_canonical_entities_is_recorded_not_rebound():
