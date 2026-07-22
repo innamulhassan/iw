@@ -11,15 +11,24 @@ from datetime import UTC, datetime
 from iw_engine.domain.common import Confidence
 from iw_engine.domain.enums import (
     EdgeType,
+    FactState,
     HypothesisStatus,
     NodeType,
     Origin,
     Source,
+    Species,
     VerdictStatus,
 )
 from iw_engine.domain.hypothesis import HypAction, HypDelta, Hypothesis
 from iw_engine.domain.node import Node
-from iw_engine.domain.operations import AddEdge, AddFact, AddNode, ProposeHypothesis
+from iw_engine.domain.operations import (
+    AddAssertion,
+    AddEdge,
+    AddEvent,
+    AddFact,
+    AddNode,
+    ProposeHypothesis,
+)
 from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict
 from iw_engine.domain.playbook import Tunables
 from iw_engine.domain.registry import edge_id
@@ -30,6 +39,7 @@ from iw_engine.ledger import Ledger
 
 T0 = datetime(2026, 7, 19, 14, 0, tzinfo=UTC)
 SID = "service:payments-api|prod"
+SID2 = "service:checkout-api|prod"
 
 
 # ── (d) reject+repair aggregation: one batch, valid ops fold, exact rejections ─
@@ -130,3 +140,79 @@ def test_inv6_planner_emitted_supports_edge_rejected_but_fold_derives_it():
         assert e.origin == Origin.INFERRED           # derived, never planner-emitted
         assert e.src == SID and e.dst == "hyp:h1"
         assert e.confidence == hyp.confidence        # projected from the ledger record
+
+
+# ── P1a step 3: AddAssertion materializes natively; AddFact/AddEvent route the shim ──
+def _svc(name: str) -> AddNode:
+    return AddNode(type=NodeType.SERVICE, props={"service_name": name, "env": "prod"})
+
+
+def test_add_assertion_state_materializes_identically_to_add_fact():
+    """A native AddAssertion (species STATE) and the equivalent AddFact produce the SAME Fact —
+    same id, value, belief, INV-9-defaulted reliability. This is the shim's green-keeping
+    invariant made explicit at the reducer boundary."""
+    common = dict(subject=SID, value=0.4, unit="ratio", valid_from=T0, observed_at=T0,
+                  source=Source.PROMETHEUS)
+    via_fact = materialize(
+        [_svc("payments-api"), AddFact(predicate="red_errors", **common)], 1, Graph(), Tunables())
+    via_assertion = materialize(
+        [_svc("payments-api"),
+         AddAssertion(name="red_errors", species=Species.STATE, **common)], 1, Graph(), Tunables())
+
+    assert len(via_fact.facts) == len(via_assertion.facts) == 1
+    f1, f2 = via_fact.facts[0], via_assertion.facts[0]
+    assert f1.id == f2.id
+    assert (f2.subject_ref, f2.predicate, f2.value, f2.unit) == (SID, "red_errors", 0.4, "ratio")
+    # INV-9 default reliability applied on both paths, no confidence (measured channel)
+    assert f1.source_reliability == f2.source_reliability
+    assert f2.source_reliability is not None and f2.confidence is None
+
+
+def test_add_assertion_event_materializes_event():
+    """A native AddAssertion (species EVENT) materializes an Event — name→type, value→payload —
+    matching the AddEvent shim."""
+    seed = _svc("payments-api")
+    via_event = materialize(
+        [seed, AddEvent(entity=SID, type="deployed", occurred_at=T0, observed_at=T0,
+                        payload={"key": "v"}, source=Source.SERVICENOW)], 1, Graph(), Tunables())
+    via_assertion = materialize(
+        [seed, AddAssertion(subject=SID, name="deployed", species=Species.EVENT,
+                            value={"key": "v"}, occurred_at=T0, observed_at=T0,
+                            source=Source.SERVICENOW)], 1, Graph(), Tunables())
+    assert len(via_event.events) == len(via_assertion.events) == 1
+    e1, e2 = via_event.events[0], via_assertion.events[0]
+    assert e1.id == e2.id
+    assert (e2.entity_ref, e2.type, e2.payload) == (SID, "deployed", {"key": "v"})
+    assert e2.state == FactState.ACTIVE
+
+
+def test_edge_subject_assertion_is_reachable():
+    """known() learns edge subjects (F11): an edge-borne assertion on a same-batch CALLS edge is
+    materialized (not rejected as an unknown subject). Edge-predicate legality is not enforced in
+    P1a (type_of(edge) is None), so the assertion lands on the edge id."""
+    eid = edge_id(EdgeType.CALLS, SID, SID2, Origin.DISCOVERED)
+    ops = [
+        _svc("payments-api"),
+        _svc("checkout-api"),
+        AddEdge(type=EdgeType.CALLS, src=SID, dst=SID2),
+        AddAssertion(subject=eid, name="call_error_rate", value=0.2, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.PROMETHEUS),
+    ]
+    mat = materialize(ops, 1, Graph(), Tunables())
+    assert mat.rejections == []
+    assert [(f.subject_ref, f.predicate, f.value) for f in mat.facts] == \
+           [(eid, "call_error_rate", 0.2)]
+
+
+def test_edge_subject_assertion_rejected_when_edge_absent():
+    """The mirror: an assertion on an edge that never entered the graph is still rejected."""
+    eid = edge_id(EdgeType.CALLS, SID, SID2, Origin.DISCOVERED)
+    ops = [
+        _svc("payments-api"),
+        AddAssertion(subject=eid, name="call_error_rate", value=0.2, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.PROMETHEUS),
+    ]
+    mat = materialize(ops, 1, Graph(), Tunables())
+    assert mat.facts == []
+    assert [(r.op_index, r.op_kind) for r in mat.rejections] == [(1, "add_assertion")]
+    assert mat.rejections[0].reason == f"unknown subject {eid}"

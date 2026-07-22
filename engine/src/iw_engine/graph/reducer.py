@@ -13,12 +13,13 @@ from dataclasses import dataclass, field
 from ..domain import registry
 from ..domain.common import Confidence
 from ..domain.edge import Edge
-from ..domain.enums import ConfidenceLevel, HypothesisStatus, NodeType, Source
+from ..domain.enums import ConfidenceLevel, HypothesisStatus, NodeType, Source, Species
 from ..domain.event import Event
 from ..domain.fact import Fact
 from ..domain.hypothesis import HypAction, HypDelta, Hypothesis, Prediction
 from ..domain.node import Node
 from ..domain.operations import (
+    AddAssertion,
     AddEdge,
     AddEvent,
     AddFact,
@@ -29,6 +30,7 @@ from ..domain.operations import (
     UpdateHypothesis,
 )
 from ..domain.playbook import Tunables
+from ..domain.shim import assertion_from_event, assertion_from_fact
 from . import graph as graph_mod
 
 
@@ -57,6 +59,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 *, anomaly_ref: str | None = None) -> Materialized:
     out = Materialized()
     batch_types: dict[str, NodeType] = {}
+    batch_edges: set[str] = set()
 
     def type_of(nid: str) -> NodeType | None:
         if nid in batch_types:
@@ -65,7 +68,67 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         return n.type if n else None
 
     def known(nid: str) -> bool:
-        return nid in batch_types or graph.node(nid) is not None
+        # subjects may be nodes OR edges — the reducer's known() learns edge subjects so
+        # edge-borne assertions (a discovered CALLS carrying RED) are finally reachable
+        # (DOMAIN-v3 §2.6 / F11). An edge is known if it exists in the graph or was added
+        # earlier in this same batch.
+        return (nid in batch_types or graph.node(nid) is not None
+                or nid in batch_edges or nid in graph.edges)
+
+    def emit_assertion(op: AddAssertion, i: int, op_kind: str) -> None:
+        """Materialize one AddAssertion into the graph store. P1a keeps the Fact/Event store
+        (step 4 flips to assertions): a non-event species becomes a Fact, an event species an
+        Event — byte-identical to the pre-shim AddFact/AddEvent handlers, so goldens are
+        unchanged. AddFact/AddEvent route here through the compat shim; `op_kind` is the original
+        op's kind so a rejection still reads `add_fact`/`add_event` (not `add_assertion`)."""
+        is_event = op.species is Species.EVENT
+        subj_word, name_word = ("entity", "event") if is_event else ("subject", "predicate")
+        if not known(op.subject):
+            out.rejections.append(Rejection(i, op_kind, f"unknown {subj_word} {op.subject}"))
+            return
+        nt = type_of(op.subject)
+        if is_event:
+            if nt and not registry.event_allowed(nt, op.name):
+                out.rejections.append(Rejection(i, op_kind,
+                                                f"{name_word} '{op.name}' not allowed on {nt.value}"))
+                return
+            eid = registry.event_id(op.subject, op.name, op.occurred_at)
+            payload = op.value if isinstance(op.value, dict) else {}
+            out.events.append(Event(
+                id=eid, entity_ref=op.subject, type=op.name, occurred_at=op.occurred_at,
+                observed_at=op.observed_at, payload=payload, source=op.source, created_by=seq))
+            return
+
+        if nt and not registry.predicate_allowed(nt, op.name):
+            out.rejections.append(Rejection(i, op_kind,
+                                            f"{name_word} '{op.name}' not allowed on {nt.value}"))
+            return
+        conf = (_level_conf(op.confidence_level, tunables, f"inferred {op.name}")
+                if op.confidence_level is not None else None)
+        # INV-9: a MEASURED assertion whose payload stated no reliability gets the per-source
+        # default from the playbook tunables (adapters carry no hardcoded constants). An
+        # LLM-sourced assertion is inferred (confidence channel) and never takes a reliability.
+        reliability = op.source_reliability
+        if reliability is None and op.source != Source.LLM:
+            reliability = tunables.source_reliability.get(op.source.value)
+        fid = registry.fact_id(op.subject, op.name, op.valid_from)
+        supersedes = None
+        for ef in graph.facts_of(op.subject):
+            if ef.predicate == op.name and ef.is_open and ef.id != fid:
+                supersedes = ef.id
+                break
+        try:
+            out.facts.append(Fact(
+                id=fid, subject_ref=op.subject, predicate=op.name, value=op.value,
+                unit=op.unit, valid_from=op.valid_from, valid_to=op.valid_to,
+                observed_at=op.observed_at, source=op.source, confidence=conf,
+                source_reliability=reliability, evidence=op.evidence,
+                supersedes=supersedes, created_by=seq))
+        except (ValueError, AssertionError) as exc:
+            # The Fact model enforces its invariants by raising (R-C4 belief-channel). The
+            # LivePlanner pre-repairs these, but if one slips through we reject the op and
+            # continue — consistent with every other malformed op — instead of crashing the run.
+            out.rejections.append(Rejection(i, op_kind, f"invalid fact: {exc}"))
 
     # ── pass 1: nodes (so facts/edges in the same batch can reference them) ────
     # A Hypothesis is BOTH a ledger entry and a graph node (NodeType.HYPOTHESIS) so causal
@@ -86,59 +149,16 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         if isinstance(op, AddNode):
             continue
 
-        if isinstance(op, AddFact):
-            if not known(op.subject):
-                out.rejections.append(Rejection(i, op.op.value, f"unknown subject {op.subject}"))
-                continue
-            nt = type_of(op.subject)
-            if nt and not registry.predicate_allowed(nt, op.predicate):
-                out.rejections.append(Rejection(i, op.op.value,
-                                                f"predicate '{op.predicate}' not allowed on {nt.value}"))
-                continue
-            conf = (_level_conf(op.confidence_level, tunables, f"inferred {op.predicate}")
-                    if op.confidence_level is not None else None)
-            # INV-9: a MEASURED fact whose payload stated no reliability gets the per-source
-            # default from the playbook tunables (adapters carry no hardcoded constants). An
-            # LLM-sourced fact is inferred (confidence channel) and never takes a reliability.
-            reliability = op.source_reliability
-            if reliability is None and op.source != Source.LLM:
-                reliability = tunables.source_reliability.get(op.source.value)
-            fid = registry.fact_id(op.subject, op.predicate, op.valid_from)
-            supersedes = None
-            for ef in graph.facts_of(op.subject):
-                if ef.predicate == op.predicate and ef.is_open and ef.id != fid:
-                    supersedes = ef.id
-                    break
-            try:
-                out.facts.append(Fact(
-                    id=fid, subject_ref=op.subject, predicate=op.predicate, value=op.value,
-                    unit=op.unit, valid_from=op.valid_from, valid_to=op.valid_to,
-                    observed_at=op.observed_at, source=op.source, confidence=conf,
-                    source_reliability=reliability, evidence=op.evidence,
-                    supersedes=supersedes, created_by=seq))
-            except (ValueError, AssertionError) as exc:
-                # The Fact model enforces its invariants by raising (e.g. R-C4 belief-channel:
-                # an inferred/llm fact must carry confidence, a measured fact must carry
-                # source_reliability). The LivePlanner pre-repairs these, but if one slips
-                # through we reject the op and continue — consistent with how the reducer
-                # already treats every other malformed op — instead of crashing the whole run.
-                # The model invariant itself stays intact (direct Fact() still raises).
-                out.rejections.append(Rejection(i, op.op.value, f"invalid fact: {exc}"))
-                continue
+        # AddFact/AddEvent are compat shims mapped onto the AddAssertion atom; AddAssertion is
+        # materialized natively. All three flow through emit_assertion → identical graph output.
+        if isinstance(op, AddAssertion):
+            emit_assertion(op, i, op.op.value)
+
+        elif isinstance(op, AddFact):
+            emit_assertion(assertion_from_fact(op), i, op.op.value)
 
         elif isinstance(op, AddEvent):
-            if not known(op.entity):
-                out.rejections.append(Rejection(i, op.op.value, f"unknown entity {op.entity}"))
-                continue
-            nt = type_of(op.entity)
-            if nt and not registry.event_allowed(nt, op.type):
-                out.rejections.append(Rejection(i, op.op.value,
-                                                f"event '{op.type}' not allowed on {nt.value}"))
-                continue
-            eid = registry.event_id(op.entity, op.type, op.occurred_at)
-            out.events.append(Event(
-                id=eid, entity_ref=op.entity, type=op.type, occurred_at=op.occurred_at,
-                observed_at=op.observed_at, payload=op.payload, source=op.source, created_by=seq))
+            emit_assertion(assertion_from_event(op), i, op.op.value)
 
         elif isinstance(op, AddEdge):
             if registry.edge_spec(op.type).derived:
@@ -168,6 +188,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
             out.edges.append(Edge(id=eid, type=op.type, src=op.src, dst=op.dst, origin=origin,
                                   props=op.props, confidence=conf, evidence=op.evidence,
                                   created_by=seq))
+            batch_edges.add(eid)   # so a later same-batch edge-borne assertion resolves (F11)
 
         elif isinstance(op, ProposeHypothesis):
             conf = _level_conf(op.confidence_level, tunables, op.statement[:80] or "proposed")
