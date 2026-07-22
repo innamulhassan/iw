@@ -98,21 +98,40 @@ def render_catalog(registry, playbook: Playbook) -> str:
 Total: {len(node_types)} node types, {len(EDGE_SPECS)} edge types."""
 
 
+def _intent_effect(a, intent: str) -> str:
+    """The effect of ONE intent on this adapter — the same per-intent resolution the
+    CapabilityLayer's gate applies (the adapter's optional `effects` override first, its
+    default `effect` else), so the tool list the model sees and the gate that judges its
+    calls can never disagree about what is a write."""
+    effects = getattr(a, "effects", None)
+    if isinstance(effects, dict) and intent in effects:
+        return effects[intent].value
+    return a.effect.value
+
+
 def render_tools(adapters, *, include_writes: bool = False) -> str:
     """The concrete capabilities the layer can resolve — rendered FROM each capability's own
     `meta` (its one-line purpose + the identifier it queries by). Nothing tool-specific is
     hardcoded here: adding a capability makes the reasoner aware of it, and its `queries_by`
-    field tells the reasoner which resolved identifier to pass. `include_writes` surfaces WRITE
-    tools (labelled human-gated) so a live planner can propose a remediation in REMEDIATE."""
-    def block(a) -> str:
+    field tells the reasoner which resolved identifier to pass. Effects are PER-INTENT (one
+    adapter may host reads AND a gated write — part4-capability §1): read intents render in
+    the read blocks; write intents render under a `[WRITE — human-gated]` block for the same
+    provider, and only when `include_writes` (so a live planner can propose a remediation)."""
+    def block(a, intents: list[str], *, write: bool) -> str:
         meta = getattr(a, "meta", None)
         desc = f" — {meta.summary} · queries by `{meta.queries_by}`" if meta else ""
-        return f"  {a.provider}{desc}\n      intents: {'  '.join(sorted(a.intents))}"
+        label = f"  {a.provider} [WRITE — human-gated]" if write else f"  {a.provider}"
+        return f"{label}{desc}\n      intents: {'  '.join(intents)}"
 
-    reads = [block(a) for a in sorted(adapters, key=lambda x: x.provider) if a.effect.value != "write"]
-    writes = [block(a).replace(f"  {a.provider}", f"  {a.provider} [WRITE — human-gated]", 1)
-              for a in sorted(adapters, key=lambda x: x.provider)
-              if a.effect.value == "write" and include_writes]
+    reads: list[str] = []
+    writes: list[str] = []
+    for a in sorted(adapters, key=lambda x: x.provider):
+        r = sorted(i for i in a.intents if _intent_effect(a, i) != "write")
+        w = sorted(i for i in a.intents if _intent_effect(a, i) == "write")
+        if r:
+            reads.append(block(a, r, write=False))
+        if w and include_writes:
+            writes.append(block(a, w, write=True))
     return (
         "## AVAILABLE TOOLS — grouped by capability. Emit the exact intent names in `calls`.\n"
         "# ROUTING: each capability names the id it 'queries by'. Resolve that id off the target\n"
@@ -125,5 +144,7 @@ def render_tools(adapters, *, include_writes: bool = False) -> str:
 
 def tool_intents(adapters, *, include_writes: bool = False) -> set[str]:
     """The set of resolvable intents used to reject off-catalog `calls` — read-only by default;
-    `include_writes` also admits WRITE intents so the LIVE planner's remediation call is legal."""
-    return {i for a in adapters if include_writes or a.effect.value != "write" for i in a.intents}
+    `include_writes` also admits WRITE intents so the LIVE planner's remediation call is legal.
+    Write-ness is PER-INTENT (`effects` override first), matching the layer's gate."""
+    return {i for a in adapters for i in a.intents
+            if include_writes or _intent_effect(a, i) != "write"}

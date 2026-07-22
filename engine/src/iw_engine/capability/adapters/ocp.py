@@ -1,7 +1,12 @@
-"""OpenShift/OCP adapter — rollout status, pod status, cluster events, pod logs. Follows
-the PrometheusAdapter template exactly: a `provider`, an `intents` set, an `effect`, and a
-pure `normalize(raw)` that maps the tool's raw JSON shape into typed Operations folding
-into the incident graph (DESIGN-INPUT-v1.md §E.2 OCP row + §B.2/B.3 catalog).
+"""OpenShift/OCP adapter — rollout status, pod status, cluster events, pod logs, and the
+human-gated `ocp__restart` write. Follows the PrometheusAdapter template: a `provider`, an
+`intents` set, an `effect`, and a pure `normalize(raw)` that maps the tool's raw JSON shape
+into typed Operations folding into the incident graph (DESIGN-INPUT-v1.md §E.2 OCP row +
+§B.2/B.3 catalog). Effects are PER-INTENT (part4-capability §1): the reads default to the
+adapter's `effect = READ`; `ocp__restart` is declared WRITE in the `effects` override, so
+the ONE adapter hosts both sides of the read/write boundary and the split
+`OcpRestartAdapter` placeholder class is retired — the CapabilityLayer's `effect_for`
+resolves the gate per intent, never per adapter.
 
 Graph fold:
   - Deployment node (identity `uid`) + rollout facts (image/available_replicas/
@@ -18,6 +23,8 @@ Graph fold:
     Pod events, from `pod_logs` — a second, independent path to the same signal.
 """
 from __future__ import annotations
+
+from typing import ClassVar
 
 from ...domain import registry
 from ...domain.assertion import Window
@@ -77,14 +84,21 @@ _LOG_SIGNATURES = (
 
 class OcpAdapter:
     provider = "ocp"
-    intents = frozenset({"rollout_status", "pod_status", "events", "pod_logs"})
-    effect = Effect.READ
+    intents = frozenset({"rollout_status", "pod_status", "events", "pod_logs", "ocp__restart"})
+    effect = Effect.READ    # default across the intents set
+    # PER-INTENT override (part4-capability §1: "kills the OcpRestartAdapter workaround
+    # class"): the restart is a WRITE — `ocp__restart` opens the human-approval gate while
+    # its sibling reads flow ungated on the very same adapter.
+    effects: ClassVar[dict[str, Effect]] = {"ocp__restart": Effect.WRITE}
     binding = Binding.MCP   # OpenShift ships a first-party MCP server (read-only default)
     meta = CapabilityMeta(
         summary="Kubernetes / OpenShift rollout, pod, and event state",
         queries_by="k8s_workload", returns="rollout + pod status, events")
 
     def normalize(self, raw: dict) -> list[Operation]:
+        # `ocp__restart` acks fold to zero ops here (none of the read keys below appear in a
+        # restart response) — recording the executed restart as an event on the target
+        # Deployment/Pod stays open until the approved-write flow defines the ack payload.
         ops: list[Operation] = []
         ops += self._fold_rollout_status(raw)
         ops += self._fold_pod_status(raw)
@@ -227,29 +241,3 @@ class OcpAdapter:
                                             source_native_name=needle))
                     break  # one event per line
         return ops
-
-
-class OcpRestartAdapter:
-    """Write-effect placeholder for the `ocp__restart` intent (DESIGN-INPUT-v1.md §E.2:
-    "`ocp__restart` **write**->gate"). Deliberately kept OUT of `OcpAdapter.intents`: the
-    CapabilityLayer applies a single `Effect` per adapter across its WHOLE intents set
-    (capability/layer.py: `CapabilityLayer.invoke` checks `a.effect == Effect.WRITE` once
-    per resolved adapter) — folding a write intent into `OcpAdapter` (effect=Effect.READ)
-    would silently grant `ocp__restart` read-effect and skip the human-approval write
-    gate. So this stays a separate adapter with its own effect, per E.2 ruling (4)
-    ("reconcile ... with the domain Effect enum").
-
-    TODO: normalize() is out of scope here — a restart is an ACTION (rollout restart /
-    pod delete against the live OCP API), not a read-and-fold; there's no raw tool
-    payload to fold into graph ops beyond perhaps recording that the restart happened
-    (an AddEvent on the target Deployment/Pod once the write path executes). Implement
-    once the write-gate gets its own approved-mitigation flow.
-    """
-
-    provider = "ocp"
-    intents = frozenset({"ocp__restart"})
-    effect = Effect.WRITE
-    binding = Binding.A2A   # remediation delegation — reserved write-side binding (§C)
-
-    def normalize(self, raw: dict) -> list[Operation]:
-        raise NotImplementedError("ocp__restart normalize is out of scope for this adapter")

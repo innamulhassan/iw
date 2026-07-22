@@ -269,11 +269,14 @@ def test_serve_unknown_intent_blocks_without_touching_source():
 
 def test_adapter_bindings_are_declared_data():
     from iw_engine.capability.adapters import default_adapters
-    from iw_engine.capability.adapters.ocp import OcpRestartAdapter
+    from iw_engine.capability.adapters.ocp import OcpAdapter
 
     by_provider = {a.provider: a.binding for a in default_adapters()}
     assert by_provider["prometheus"] is Binding.REST
     assert by_provider["git"] is Binding.REST
     for mcp_provider in ("splunk", "appd", "servicenow", "cmdb", "ocp", "artifactory"):
         assert by_provider[mcp_provider] is Binding.MCP
-    assert OcpRestartAdapter().binding is Binding.A2A   # reserved write-side binding
+    # ocp__restart rides the SAME MCP-bound adapter as the ocp reads, write per-intent
+    # (the split A2A placeholder adapter is retired — part4-capability §1)
+    assert "ocp__restart" in OcpAdapter.intents
+    assert OcpAdapter.effects["ocp__restart"] is Effect.WRITE

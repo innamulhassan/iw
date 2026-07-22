@@ -13,7 +13,6 @@ from datetime import UTC, datetime
 import iw_engine
 from iw_engine.capability import CapabilityLayer, MockSource
 from iw_engine.capability.adapters import default_adapters
-from iw_engine.capability.adapters.ocp import OcpRestartAdapter
 from iw_engine.domain.enums import CloseOutcome, EdgeType, Effect, HypothesisStatus, Phase
 from iw_engine.graph import rebuild
 from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
@@ -23,17 +22,15 @@ from . import scenario_firewall as s5
 PLAYBOOK = pathlib.Path(iw_engine.__file__).parent / "playbooks" / "incident.yaml"
 
 
-def _run(subject, script, fixtures, *, extra_adapters: list | None = None):
+def _run(subject, script, fixtures):
     """Like _helpers.run(), but also returns the engine's capability-invocation audit
     trail (RunResult itself doesn't carry it) — needed to assert the write-gate held.
-    `extra_adapters` lets a scenario exercise a capability beyond the default 8 (here:
-    the real WRITE-effect `OcpRestartAdapter`, which the wiring deliberately keeps out
-    of `default_adapters()` — see its docstring — so the write-gate test proves the
-    engine blocks it via `CapabilityLayer`'s `effect == Effect.WRITE` check itself,
-    not merely because the intent is unregistered)."""
+    `ocp__restart` resolves through the default OcpAdapter with a PER-INTENT write
+    effect (part4-capability §1 — the split adapter is retired), so the write-gate test
+    proves the engine blocks it via the layer's per-intent `effect_for` check itself,
+    not merely because the intent is unregistered."""
     pb = load_playbook(PLAYBOOK)
-    layer = CapabilityLayer(default_adapters() + list(extra_adapters or []),
-                            source=MockSource(fixtures))
+    layer = CapabilityLayer(default_adapters(), source=MockSource(fixtures))
     clock = lambda: datetime(2026, 7, 19, tzinfo=UTC)  # noqa: E731 deterministic
     engine = Engine(pb, ScriptedPlanner(script), clock=clock, layer=layer)
     res = engine.run(subject)
@@ -96,9 +93,10 @@ def test_write_gate_blocks_premature_remediation():
     """A security fix is proposed in REMEDIATE (an UpdateHypothesis, no capability write)
     and only ever applies through the human-approved gate. Prove the gate is real: an
     on-call's premature `ocp__restart` fired in TRIAGE (before REMEDIATE) must be blocked
-    by the CapabilityLayer — outcome is unaffected, and the run still resolves cleanly."""
+    by the CapabilityLayer's per-intent effect — outcome is unaffected, and the run still
+    resolves cleanly."""
     subject, script, fixtures = s5.build(premature_write=True)
-    res, invocations = _run(subject, script, fixtures, extra_adapters=[OcpRestartAdapter()])
+    res, invocations = _run(subject, script, fixtures)
 
     write_invocations = [inv for inv in invocations if inv.intent == "ocp__restart"]
     assert len(write_invocations) == 1
