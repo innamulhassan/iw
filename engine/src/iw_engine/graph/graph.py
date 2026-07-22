@@ -17,6 +17,7 @@ from ..domain.enums import EdgeType, FactState, NodeType, Origin
 from ..domain.event import Event
 from ..domain.fact import Fact
 from ..domain.node import Node
+from ..domain.registry import edge_id as _edge_id
 from . import resolver
 
 
@@ -32,6 +33,12 @@ class Graph:
         # first binding wins per key — a later conflicting claim never silently rebinds
         # (§9.2: conflict = journaled contradiction, surfaced by the reducer).
         self.alias_index: dict[str, str] = {}
+        # P5 step 4 (§9.2): old node id → canonical id, one entry per applied Remap record
+        # (merge/retype/resolve). THE "old id becomes an alias" surface: a graduated id stays
+        # resolvable forever, so write-once identity is never violated by a retype/merge.
+        # Chain-compressed (values are always current), persisted with the graph, and only
+        # ever written through remap_id (fold-applied, journaled records ⇒ replay-identical).
+        self.id_remaps: dict[str, str] = {}
 
     # ── mutation (only the fold calls these) ──────────────────────────────────
     def upsert_node(self, node: Node) -> Node:
@@ -89,6 +96,63 @@ class Graph:
     def add_event(self, event: Event) -> Event:
         self.events[event.id] = event
         return event
+
+    def remap_id(self, old: str, new: str) -> None:
+        """P5 step 4 — the deterministic reference remap (DOMAIN-v3 §9.2; the subsystem P3
+        deferred Retype/Merge to). Applied ONLY by the fold from journaled Remap records, so a
+        replay reproduces every rewrite bit-for-bit at the same seq:
+
+        - `old → new` enters (and chain-compresses) the id_remaps table — the old id remains
+          resolvable forever ("the old id becomes an alias"; write-once never violated);
+        - fact.subject_ref / event.entity_ref pointing at `old` are rewritten (fact/event IDS
+          are minted once and never move — provenance ordering, supersession chains and the
+          hypothesis store's fact-id refs stay byte-stable);
+        - edges touching `old` are re-keyed via registry.edge_id (endpoint ids are embedded in
+          the edge id); a rewrite landing on an already-existing identical edge collapses onto
+          it (first-writer-wins — the two split-brain halves asserted the same relation);
+        - the old node record folds into the new one (canonical wins per prop/scheme) and is
+          removed; alias-index bindings follow.
+
+        Tolerates an `old` that was never a node (a `resolve` record redirecting a would-be
+        twin id): only the table + index rewrites apply."""
+        if old == new:
+            return
+        self.id_remaps[old] = new
+        for k, v in self.id_remaps.items():
+            if v == old:
+                self.id_remaps[k] = new
+        for fid, f in self.facts.items():
+            if f.subject_ref == old:
+                self.facts[fid] = f.model_copy(update={"subject_ref": new})
+        for eid, e in self.events.items():
+            if e.entity_ref == old:
+                self.events[eid] = e.model_copy(update={"entity_ref": new})
+        touched = [e for e in self.edges.values() if old in (e.src, e.dst)]
+        if self._g.has_node(old):
+            self._g.remove_node(old)              # drops old's incident nx edges; re-added below
+        for e in touched:
+            del self.edges[e.id]
+        for e in touched:
+            src = new if e.src == old else e.src
+            dst = new if e.dst == old else e.dst
+            nid = _edge_id(e.type, src, dst, e.origin)
+            if nid in self.edges:
+                continue                          # collapsed onto the surviving identical edge
+            moved = e.model_copy(update={"id": nid, "src": src, "dst": dst})
+            self.edges[nid] = moved
+            self._g.add_edge(moved.src, moved.dst, key=moved.id, type=moved.type.value)
+        old_node = self.nodes.pop(old, None)
+        if old_node is not None and new in self.nodes:
+            tgt = self.nodes[new]
+            self.nodes[new] = tgt.model_copy(update={
+                "props": {**old_node.props, **tgt.props},
+                "aliases": {**old_node.aliases, **tgt.aliases}})
+        for k, v in self.alias_index.items():
+            if v == old:
+                self.alias_index[k] = new
+        if new in self.nodes:
+            for scheme, val in self.nodes[new].aliases.items():
+                self.alias_index.setdefault(resolver.alias_key(scheme, val), new)
 
     def retract_event(self, event_id: str, *, invalidated_by: str | None = None) -> None:
         """Tombstone a wrong telemetry Event (flaky exporter, misattributed occurrence) — an
@@ -196,6 +260,7 @@ class Graph:
             "edges": [e.model_dump(mode="json") for e in self.edges.values()],
             "facts": [f.model_dump(mode="json") for f in self.facts.values()],
             "events": [e.model_dump(mode="json") for e in self.events.values()],
+            "remaps": dict(self.id_remaps),   # P5: graduated ids stay resolvable across a load
         }
 
     @classmethod
@@ -210,6 +275,7 @@ class Graph:
             g.facts[fact.id] = fact          # load as-is (windows already resolved)
         for e in d.get("events", []):
             g.add_event(Event.model_validate(e))
+        g.id_remaps = {str(k): str(v) for k, v in d.get("remaps", {}).items()}
         return g
 
     def __len__(self) -> int:

@@ -6,6 +6,8 @@ into these) + the hypothesis store deltas + the one prose field (narrative) + th
 """
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import Confidence
@@ -53,6 +55,27 @@ class Retraction(BaseModel):
     reason: str = ""
 
 
+class Remap(BaseModel):
+    """One identity graduation (P5 step 4 — the alias/remap subsystem, DOMAIN-v3 §9.2; the
+    mechanism P3 deferred Retype/Merge to). The fold applies it LAST via `graph.remap_id`:
+    `old_id` enters the graph-level old→new table (the old id stays resolvable FOREVER — "the
+    old id becomes an alias", so write-once identity is never violated), and every reference is
+    deterministically rewritten — fact.subject_ref, event.entity_ref, edge src/dst (edge ids
+    recomputed via registry.edge_id, since they embed their endpoints). In the delta ⇒ journaled
+    ⇒ replay reproduces the rewrite bit-for-bit.
+
+    kinds: `merge` (provisional entity folded into its canonical — R-J5 late alias binding),
+    `retype` (generic_ci graduated to a real type — §2.4 row 2), `resolve` (a would-be twin id
+    redirected onto the entity an alias credential proved it to be — audit 4 S1.4)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["merge", "retype", "resolve"]
+    old_id: str
+    new_id: str
+    reason: str = ""
+
+
 class PhaseResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -64,6 +87,7 @@ class PhaseResult(BaseModel):
     edges_added: list[Edge] = Field(default_factory=list)          # -> GRAPH
     hypotheses_updated: list[HypDelta] = Field(default_factory=list)  # -> HYPOTHESIS STORE
     retractions: list[Retraction] = Field(default_factory=list)    # -> GRAPH (tombstones, R-J3)
+    remaps: list[Remap] = Field(default_factory=list)              # -> GRAPH (identity, P5 §9.2)
     narrative: str                                                 # -> JOURNAL (the ONLY prose field)
     next_actions: list[str] = Field(default_factory=list)          # -> CONTROLLER (advisory)
     verdict: PhaseVerdict                                          # -> CONTROLLER (authoritative)
@@ -74,4 +98,5 @@ class PhaseResult(BaseModel):
 
     def is_empty_delta(self) -> bool:
         return not (self.facts_added or self.events_added or self.nodes_touched
-                    or self.edges_added or self.hypotheses_updated or self.retractions)
+                    or self.edges_added or self.hypotheses_updated or self.retractions
+                    or self.remaps)

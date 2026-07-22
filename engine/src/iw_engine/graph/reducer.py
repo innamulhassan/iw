@@ -38,7 +38,7 @@ from ..domain.operations import (
     Retract,
     UpdateHypothesis,
 )
-from ..domain.phase_result import Rejection, Retraction
+from ..domain.phase_result import Rejection, Remap, Retraction
 from ..domain.playbook import Tunables
 from ..domain.shim import assertion_from_event, assertion_from_fact
 from . import graph as graph_mod
@@ -55,6 +55,7 @@ class Materialized:
     edges: list[Edge] = field(default_factory=list)
     hyp_deltas: list[HypDelta] = field(default_factory=list)
     retractions: list[Retraction] = field(default_factory=list)
+    remaps: list[Remap] = field(default_factory=list)      # identity graduations (P5 §9.2)
     rejections: list[Rejection] = field(default_factory=list)
 
 
@@ -87,11 +88,13 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         """P5 entity resolution for op references (assertion subject, edge endpoint, scope):
         a ref may name the entity by a tool credential — the `"scheme:id"` alias spelling
         (DOMAIN-v3 §2.1: "an observation arriving keyed only appd:app_id=… resolves to the
-        existing entity") — or by a twin id resolved away earlier in this batch. Unresolvable
-        refs return unchanged and reject downstream as unknown, exactly as today."""
+        existing entity") — or by a twin id resolved away earlier in this batch. A GRADUATED id
+        (merged/retyped/resolved away in an earlier phase) resolves through the graph's
+        id_remaps table — §9.2's "the old id becomes an alias". Unresolvable refs return
+        unchanged and reject downstream as unknown, exactly as today."""
         if known(ref):
             return ref
-        for table in (batch_redirects, batch_aliases, graph.alias_index):
+        for table in (batch_redirects, graph.id_remaps, batch_aliases, graph.alias_index):
             hit = table.get(ref)
             if hit is not None:
                 return hit
@@ -247,8 +250,16 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 target = hits[0]                                    # B: resolve, don't twin
                 keys = registry.node_spec(op.type).identity_keys
                 props = {k: v for k, v in op.props.items() if k not in keys}
-                if cid is not None:
-                    batch_redirects[cid] = target   # paired same-batch refs follow the fold
+                if cid is not None and cid not in graph.id_remaps:
+                    # paired same-batch refs follow the fold NOW; the journaled resolve record
+                    # makes the redirect permanent (P5 step 4) — a later phase citing the
+                    # would-be twin id still lands on the canonical after any replay.
+                    batch_redirects[cid] = target
+                    matched = sorted(k for k in
+                                     (resolver.alias_key(s, v) for s, v in derived.items())
+                                     if alias_target(k) == target)
+                    out.remaps.append(Remap(kind="resolve", old_id=cid, new_id=target,
+                                            reason=f"alias resolution via {', '.join(matched)}"))
             elif cid is not None:
                 target, props = cid, op.props                       # fresh mint (0/ambiguous)
             else:

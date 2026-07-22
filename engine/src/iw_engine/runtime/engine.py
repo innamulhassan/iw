@@ -191,6 +191,7 @@ class Engine:
             hypotheses_updated=mat.hyp_deltas, narrative=plan.narrative,
             next_actions=plan.next_actions, verdict=plan.verdict,
             retractions=mat.retractions,   # tombstones ride the delta (P3 step 6 — R-J3)
+            remaps=mat.remaps,             # identity graduations ride the delta (P5 — §9.2)
             rejections=mat.rejections)   # journaled with the delta (P3 step 2 — never memory-only)
 
         # apply the delta via the single mutation seam FIRST, then gate against the updated store
