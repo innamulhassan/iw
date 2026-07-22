@@ -199,10 +199,21 @@ class Engine:
                 # (error ≠ clean-empty is the honesty line).
                 self._intent_outcomes[inv.intent] = inv.outcome
                 self._journal_invocation(seq, phase, inv)
-        combined = data_ops + list(plan.ops)
-
+        # The per-phase op ceiling bounds the BULK tool fold, never the planner's own
+        # judgment ops. The old `(data_ops + plan.ops)[:ceiling]` placed plan.ops LAST,
+        # so a heavy tool turn (52 data ops vs investigate's ceiling of 40 in the live
+        # database run, 2026-07-22) silently truncated the model's propose/update/
+        # cleared-event ops: the store stayed empty after a propose turn, the promotion/
+        # refutation gates could never open, and the repeat cap force-advanced without a
+        # refuted rival. Data ops now fill only the room the ceiling leaves after the
+        # plan ops (which are themselves capped at the ceiling as a runaway guard).
         ceiling = self.playbook.tunables.op_ceiling.get(phase)
-        ops = combined[:ceiling] if ceiling else combined
+        plan_ops = list(plan.ops)
+        if ceiling and len(data_ops) + len(plan_ops) > ceiling:
+            plan_ops = plan_ops[:ceiling]
+            ops = data_ops[:max(0, ceiling - len(plan_ops))] + plan_ops
+        else:
+            ops = data_ops + plan_ops
 
         # intents whose LAST call errored/was blocked observed NOTHING — a NoEvidence op naming
         # one is rejected by the reducer (fabricated-negative-evidence killer, part4 §4).
