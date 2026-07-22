@@ -94,11 +94,20 @@ function PhaseEntry({ turn, live, open }: { turn: Turn; live: LiveState; open: b
             {facts.length > 0 && (
               <ul className="journal-facts">
                 {facts.map((f) => (
-                  <li key={f.id} className={f.state === "superseded" ? "is-superseded" : ""}>
+                  <li
+                    key={f.id}
+                    className={[
+                      f.state === "superseded" ? "is-superseded" : "",
+                      f.provisional ? "is-provisional" : "",
+                    ]
+                      .join(" ")
+                      .trim()}
+                  >
                     <code>{shortSubject(f.subject)}</code> <strong>{f.predicate}</strong> ={" "}
                     {formatValue(f.value)}
                     {f.unit ? ` ${f.unit}` : ""}
                     {f.source && <span className="journal-facts__src"> · {f.source}</span>}
+                    {f.provisional && <span className="prov-chip">provisional</span>}
                   </li>
                 ))}
               </ul>

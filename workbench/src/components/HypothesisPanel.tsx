@@ -47,7 +47,7 @@ function FactRow({
   return (
     <li>
       <button
-        className={`evrow${selected ? " is-selected" : ""}`}
+        className={`evrow${selected ? " is-selected" : ""}${f?.provisional ? " is-provisional" : ""}`}
         onClick={() => onSelect({ kind: "fact", id: fid })}
         title={f ? `on ${f.subject}` : fid}
       >
@@ -56,6 +56,7 @@ function FactRow({
             <strong>{humanizePredicate(f.predicate)}</strong> = {fmtValue(f.value)}
             {f.unit ? ` ${f.unit}` : ""}
             {f.source ? <span className="evrow__src"> · {f.source}</span> : null}
+            {f.provisional && <span className="prov-chip">provisional</span>}
           </>
         ) : n ? (
           <>

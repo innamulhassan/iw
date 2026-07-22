@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import HypothesisPanel from "./HypothesisPanel";
 import { fixtureBundle } from "../test/fixture";
 
@@ -46,5 +46,24 @@ describe("HypothesisPanel", () => {
     );
     expect(statements[0]).toMatch(/network blip/);
     expect(statements[1]).toMatch(/commit deadbeef broke things/);
+  });
+
+  it("marks provisional (airlocked) evidence as tentative", () => {
+    const facts = {
+      "fact:test-1": { ...fixtureBundle.graph.facts[0], provisional: true },
+    };
+    render(
+      <HypothesisPanel
+        hypotheses={[fixtureBundle.hypotheses[0]]}
+        facts={facts}
+        nodes={{}}
+        selection={null}
+        onSelect={() => {}}
+      />
+    );
+    // expand the card to reveal the evidence rows
+    fireEvent.click(document.querySelector(".hypothesis-card__toggle")!);
+    expect(screen.getByText("provisional")).toBeTruthy();
+    expect(document.querySelector(".evrow.is-provisional")).toBeTruthy();
   });
 });

@@ -873,6 +873,24 @@ code {
 .discovery-chip__name { color: var(--violet); }
 .discovery-chip__count { font-weight: 700; color: var(--text-muted); }
 
+/* ---------- provisional (P3 airlock) — quarantined knowledge reads as TENTATIVE ---------- */
+
+.is-provisional { opacity: 0.62; }
+.prov-chip {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--amber);
+  background: var(--amber-soft);
+  border: 1px dashed var(--amber);
+  border-radius: 999px;
+  padding: 0 6px;
+  vertical-align: 1px;
+}
+
 /* ---------- rejections (evidence withheld — the bounded-repair signal) ---------- */
 
 .rejections__list { list-style: none; margin: 0; padding: 0; }
