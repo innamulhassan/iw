@@ -1,13 +1,15 @@
 """Capability test for the OCP adapter — rollout_status/pod_status/events/pod_logs fold
 cleanly through the reducer (zero rejections = the adapter emits only registry-valid
-types); the standalone `ocp__restart` write intent is blocked outside an approved gate,
-mirroring the write-boundary test in test_capability.py."""
+types); the `ocp__restart` write intent rides the SAME adapter with a PER-INTENT effect
+(part4-capability §1 — the split OcpRestartAdapter workaround class is retired) and is
+blocked outside an approved gate, mirroring the write-boundary test in test_capability.py."""
 from __future__ import annotations
 
 from iw_engine.capability import CapabilityLayer
-from iw_engine.capability.adapters.ocp import OcpAdapter, OcpRestartAdapter
+from iw_engine.capability.adapters.ocp import OcpAdapter
 from iw_engine.domain import registry
-from iw_engine.domain.enums import EdgeType, NodeType
+from iw_engine.domain.catalog import render_tools, tool_intents
+from iw_engine.domain.enums import EdgeType, Effect, NodeType
 from iw_engine.domain.playbook import Tunables
 from iw_engine.graph import Graph
 from iw_engine.graph.reducer import materialize
@@ -154,10 +156,37 @@ def test_ocp_pod_logs_folds_cleanly():
     assert any(e.entity_ref == pod_id and e.type == "restarted" for e in mat.events)
 
 
-def test_ocp_restart_is_a_separate_write_effect_adapter_blocked_outside_gate():
-    layer = CapabilityLayer([OcpRestartAdapter()])
+def test_ocp_restart_is_a_per_intent_write_on_the_same_adapter():
+    """The ONE OcpAdapter hosts four reads and the `ocp__restart` write via the `effects`
+    override; the gate resolves each intent independently — reads flow ungated, the restart
+    is blocked outside an approved gate and resolves inside one (folding zero ops from an
+    ack payload, which is a clean-empty, not an error)."""
+    layer = CapabilityLayer([OcpAdapter()])
+    _, read_inv = layer.invoke("pod_status", POD_STATUS_RAW, allow_write=False)
+    assert not read_inv.blocked and read_inv.effect is Effect.READ
+
     _, blocked = layer.invoke("ocp__restart", {}, allow_write=False)
     assert blocked.blocked and "write blocked" in blocked.reason
+    assert blocked.effect is Effect.WRITE
+
+    ops, ok = layer.invoke("ocp__restart", {}, allow_write=True)
+    assert not ok.blocked and ok.effect is Effect.WRITE and ops == []
+
+
+def test_catalog_renders_the_ocp_write_per_intent():
+    """The tool list mirrors the gate: `ocp__restart` never leaks into the read set or the
+    read block; with `include_writes` it renders under the provider's human-gated block."""
+    adapters = [OcpAdapter()]
+    assert "ocp__restart" not in tool_intents(adapters)
+    assert "ocp__restart" in tool_intents(adapters, include_writes=True)
+
+    read_only = render_tools(adapters)
+    assert "ocp__restart" not in read_only and "pod_status" in read_only
+    with_writes = render_tools(adapters, include_writes=True)
+    assert "ocp [WRITE — human-gated]" in with_writes
+    # the write block carries ONLY the write intent; the reads stay in the read block
+    write_block = with_writes.split("[WRITE — human-gated]")[1]
+    assert "ocp__restart" in write_block and "pod_status" not in write_block
 
 
 def test_unknown_intent_is_recorded_not_crashing():

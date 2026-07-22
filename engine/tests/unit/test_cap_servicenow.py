@@ -167,3 +167,27 @@ def test_servicenow_empty_change_list_is_the_no_change_incident_class():
     inc_id = registry.node_id(NodeType.INCIDENT, {"incident_id": "INC0012345",
                                                    "severity": "2 - High", "commander": "jdoe"})
     assert any(n.id == inc_id for n in mat.nodes)
+
+
+def test_ingest_alert_is_a_per_intent_write():
+    """part4-capability §1: `ingest_alert` reclassified READ->WRITE — it CREATES a record on
+    the vendor side, so it is gated like every write, while the six sibling reads on the same
+    adapter flow ungated. The incident.yaml FRAME/TRIAGE flow is untouched: no scripted
+    scenario calls the concrete intent (FRAME's `ingest_alert` entry is an abstract category,
+    and the FRAME gate is satisfied by the planner's own Anomaly onset fact)."""
+    from iw_engine.domain.catalog import tool_intents
+    from iw_engine.domain.enums import Effect
+
+    layer = CapabilityLayer([ServiceNowAdapter()])
+    _, read_inv = layer.invoke("get_incident", RAW, allow_write=False)
+    assert not read_inv.blocked and read_inv.effect is Effect.READ
+
+    _, blocked = layer.invoke("ingest_alert", {}, allow_write=False)
+    assert blocked.blocked and "write blocked" in blocked.reason
+    assert blocked.effect is Effect.WRITE
+    _, ok = layer.invoke("ingest_alert", {}, allow_write=True)
+    assert not ok.blocked and ok.effect is Effect.WRITE
+
+    # the catalog mirrors the gate: never a read intent, admitted only with include_writes
+    assert "ingest_alert" not in tool_intents([ServiceNowAdapter()])
+    assert "ingest_alert" in tool_intents([ServiceNowAdapter()], include_writes=True)

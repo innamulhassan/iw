@@ -9,6 +9,8 @@ loop below simply produces zero ChangeEvent ops and the rest of the fold is unto
 """
 from __future__ import annotations
 
+from typing import ClassVar
+
 from ...domain import registry
 from ...domain.enums import Binding, ConfidenceLevel, EdgeType, Effect, NodeType, Source, Species
 from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
@@ -26,7 +28,12 @@ class ServiceNowAdapter:
         "ingest_alert",
         "query_change_log",
     })
-    effect = Effect.READ
+    effect = Effect.READ    # default across the intents set
+    # PER-INTENT override (part4-capability §1: "ingest_alert reclassified write"): ingesting
+    # an alert CREATES a record on the vendor side — it is a write against ServiceNow, not a
+    # read-and-fold, so it belongs behind the human-approval gate like every other write.
+    # The six sibling reads are untouched.
+    effects: ClassVar[dict[str, Effect]] = {"ingest_alert": Effect.WRITE}
     binding = Binding.MCP   # ServiceNow ships a first-party MCP server (Zurich)
     meta = CapabilityMeta(
         summary="The incident record, its changes, related incidents, and the affected CI identity",
