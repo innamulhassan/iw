@@ -13,10 +13,14 @@ from iw_engine.capability import (
     CapabilityLayer,
     McpSource,
     MockSource,
+    ProviderRoutedSource,
     RestSource,
     RoutedSource,
+    build_provider_transports,
+    provider_config,
 )
 from iw_engine.capability.adapters.prometheus import PrometheusAdapter
+from iw_engine.capability.sources import _mcp_result, _parse_sse_or_json
 from iw_engine.domain.enums import Binding, Effect
 
 
@@ -114,6 +118,100 @@ def test_routed_source_unwired_binding_raises():
     routed = RoutedSource({Binding.MCP: MockSource()})
     with pytest.raises(LookupError):
         routed.fetch(Binding.A2A, "ocp__restart", {})
+
+
+# ── transport fidelity: MCP result parsing tolerates real-world shapes ─────────────
+def test_mcp_result_parses_sse_streamable_http_frame():
+    """A Streamable-HTTP MCP server returns the JSON-RPC message inside an SSE frame; the LAST
+    data: payload (after any progress frames) is the result."""
+    frame = ('event: message\n'
+             'data: {"jsonrpc":"2.0","id":1,"result":{"structuredContent":{"ok":true}}}\n\n')
+    assert _mcp_result(frame) == {"ok": True}
+
+
+def test_mcp_result_tolerates_non_dict_body_without_crashing():
+    # a bare string / list / None must degrade to {}, never AttributeError
+    assert _mcp_result("not json at all") == {}
+    assert _mcp_result(None) == {}
+    assert _mcp_result([1, 2, 3]) == {}
+    # a reply whose result isn't a dict degrades to {}
+    assert _mcp_result({"result": "oops"}) == {}
+
+
+def test_mcp_result_still_raises_on_vendor_error():
+    # a genuine tool error is still surfaced (serve() turns it into an `error` Invocation)
+    with pytest.raises(RuntimeError):
+        _mcp_result({"result": {"isError": True, "content": [{"type": "text", "text": "boom"}]}})
+    with pytest.raises(RuntimeError):
+        _mcp_result({"error": {"code": -32601, "message": "no method"}})
+
+
+def test_mcp_source_does_not_crash_on_sse_body():
+    """End-to-end: an SSE-returning transport flows through McpSource without raising."""
+    def sse_http(endpoint, payload, headers):
+        return 'data: {"result":{"structuredContent":{"alerts":[{"id":"A1"}]}}}\n\n'
+
+    src = McpSource("https://mcp.example/rpc", transport=sse_http)
+    assert src.fetch(Binding.MCP, "active_alerts", {}) == {"alerts": [{"id": "A1"}]}
+
+
+def test_parse_sse_or_json_plain_json_and_undecodable():
+    assert _parse_sse_or_json('{"a": 1}') == {"a": 1}
+    assert _parse_sse_or_json(b'{"a": 1}') == {"a": 1}
+    assert _parse_sse_or_json("garbage") == {}   # never raises
+
+
+# ── config surface: per-provider endpoint + token from the environment ─────────────
+def test_provider_config_reads_env_by_convention():
+    env = {"IW_CAP_SERVICENOW_URL": "https://snow.example/mcp",
+           "IW_CAP_SERVICENOW_TOKEN": "snow-tok"}
+    assert provider_config("servicenow", env) == ("https://snow.example/mcp", "snow-tok")
+    # unconfigured provider -> (None, None), no crash
+    assert provider_config("splunk", env) == (None, None)
+
+
+def test_build_provider_transports_wires_only_configured_providers():
+    bindings = {"servicenow": Binding.MCP, "prometheus": Binding.REST, "splunk": Binding.MCP}
+    env = {"IW_CAP_SERVICENOW_URL": "https://snow.example/mcp", "IW_CAP_SERVICENOW_TOKEN": "t1",
+           "IW_CAP_PROMETHEUS_URL": "https://prom.example"}
+    transports = build_provider_transports(
+        bindings, rest_routes={"prometheus": {"instant_query": "/api/v1/query"}}, env=env,
+        http_mcp=lambda *a: {}, http_rest=lambda *a: {})
+    # only providers with a configured URL are wired; splunk (no URL) is omitted
+    assert set(transports) == {"servicenow", "prometheus"}
+    assert isinstance(transports["servicenow"], McpSource)
+    assert transports["servicenow"].token == "t1"
+    assert isinstance(transports["prometheus"], RestSource)
+    assert transports["prometheus"].routes == {"instant_query": "/api/v1/query"}
+
+
+# ── ProviderRoutedSource: route by PROVIDER (arity 9), not Binding (arity 3) ────────
+def test_provider_routed_source_dispatches_on_provider():
+    calls: dict[str, list] = {"servicenow": [], "splunk": []}
+
+    class _T:
+        def __init__(self, tag):
+            self.tag = tag
+
+        def fetch(self, binding, intent, params):
+            calls[self.tag].append(intent)
+            return {"via": self.tag}
+
+    intent_provider = {"get_incident": "servicenow", "search_errors": "splunk"}
+    routed = ProviderRoutedSource(intent_provider,
+                                  {"servicenow": _T("servicenow"), "splunk": _T("splunk")})
+    # two MCP providers get their OWN transport — no shared endpoint (the arity-9 fix)
+    assert routed.fetch(Binding.MCP, "get_incident", {}) == {"via": "servicenow"}
+    assert routed.fetch(Binding.MCP, "search_errors", {}) == {"via": "splunk"}
+    assert calls == {"servicenow": ["get_incident"], "splunk": ["search_errors"]}
+
+
+def test_provider_routed_source_unwired_provider_is_clean_empty():
+    """An intent whose provider has no wired transport returns {} (clean-empty, the adapter
+    folds to zero ops) — the honest 'that tool isn't connected', never a crash."""
+    routed = ProviderRoutedSource({"get_incident": "servicenow"}, {})
+    assert routed.fetch(Binding.MCP, "get_incident", {}) == {}
+    assert routed.fetch(Binding.MCP, "unknown_intent", {}) == {}
 
 
 # ── layer.serve: resolve -> gate -> fetch -> normalize (gate-FIRST) ───────────────

@@ -43,6 +43,7 @@ import pathlib
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -119,6 +120,32 @@ def _npm_cmd() -> str:
 def _die_if_missing(dep: str, how: str) -> None:
     if shutil.which(dep) is None:
         _die(f"{dep!r} not found on PATH. Install: {how}")
+
+
+def _rmtree(path: pathlib.Path) -> None:
+    """Remove a directory tree, robust to the Windows 'read-only file' trap.
+
+    A bare `shutil.rmtree` raises `PermissionError` on Windows when a tree contains read-only
+    files — which `.venv` (uv-materialised packages) and `node_modules` routinely do. That
+    makes `init --force` fail on Windows while working on macOS/Linux (where a directory's write
+    bit, not the file's, governs unlink). The handler clears the read-only bit and retries the
+    failed operation, so `--force` reinstall is reliable on every platform. POSIX is unaffected —
+    the handler only fires on the errors Windows raises."""
+    if not path.exists():
+        return
+
+    def _clear_readonly_and_retry(func, target, _exc):
+        try:
+            os.chmod(target, stat.S_IWRITE)
+            func(target)
+        except OSError:
+            pass  # best-effort: a truly undeletable path is surfaced by the caller's next check
+
+    # Python 3.12 renamed rmtree's `onerror` (func, path, exc_info) to `onexc` (func, path, exc).
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_clear_readonly_and_retry)
+    else:
+        shutil.rmtree(path, onerror=_clear_readonly_and_retry)
 
 
 # ─── state (pidfile) ────────────────────────────────────────────────────────────
@@ -211,7 +238,7 @@ def install_backend(force: bool = False) -> bool:
             return False
 
     if force and venv.exists():
-        shutil.rmtree(venv)
+        _rmtree(venv)
 
     _banner("installing backend deps via uv sync (uv.lock, [server,dev] extras)")
     # --extra installs the optional-dependency groups; uv sync is idempotent and fast.
@@ -235,7 +262,7 @@ def install_frontend(force: bool = False) -> bool:
         return False
 
     if force and nm.exists():
-        shutil.rmtree(nm)
+        _rmtree(nm)
 
     _banner("installing frontend deps (npm install)")
     subprocess.run([npm, "install"], cwd=WORKBENCH, check=True)
@@ -268,6 +295,12 @@ def _popen_detached(cmd: list[str], cwd: pathlib.Path, log_fd, env: dict) -> int
     if _HAS_KILLPG:
         kwargs["start_new_session"] = True
         kwargs["close_fds"] = True
+    elif IS_WINDOWS:
+        # Mirror POSIX setsid: put the child in its OWN process group so it detaches from this
+        # launcher's console (a later Ctrl+C on the launcher won't fell the services) and
+        # `taskkill /T` at stop time reaps the whole tree deterministically. CREATE_NEW_PROCESS_GROUP
+        # is defined only on Windows; guard so this stays a no-op cross-platform.
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     proc = subprocess.Popen(cmd, **kwargs)
     return proc.pid
 
