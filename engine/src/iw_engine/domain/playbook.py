@@ -171,6 +171,9 @@ class Playbook(BaseModel):
     tunables: Tunables = Field(default_factory=Tunables)
     # domain role-bindings (retire the engine's hardcoded constants — DESIGN depth §E):
     symptom_node: NodeType = NodeType.ANOMALY      # the entry-phase symptom anchor captured for node-expansion
+    # "the incident is the first node" (owner) — the SUBJECT/ORIGIN node type the
+    # investigation's external id binds to (P7 step 5: out of session/bundle code)
+    subject_node: NodeType = NodeType.INCIDENT
     terminal_phase: str | None = None              # role binding; defaults to the LAST declared phase
     # the event type on the symptom node that means "the symptom cleared" — DATA the
     # symptom_cleared gate predicate keys on, never an engine-hardcoded vocabulary word

@@ -9,7 +9,6 @@ from collections import Counter
 
 from ..domain.dictionary import is_quarantined
 from ..domain.enums import Channel, NodeType
-from ..domain.registry import node_id
 from ..graph.graph import Graph
 from ..hypothesis.store import HypothesisStore
 from ..journal.journal import Journal, JournalEntry
@@ -82,8 +81,10 @@ def export_bundle(res: RunResult) -> dict:
     g: Graph = res.graph
     store: HypothesisStore = res.hypothesis_store
     jr: Journal = res.journal
-    # the ServiceNow incident under investigation is the ORIGIN → renders as node #1 (obs 1)
-    origin_id = node_id(NodeType.INCIDENT, {"incident_id": res.subject.id})
+    # the SUBJECT under investigation is the ORIGIN → renders as node #1 (obs 1). P7 step 5:
+    # the engine computed it from the playbook's subject_node role binding — no incident
+    # convention here (None on a legacy reopen simply flags no node as origin).
+    origin_id = res.origin_node
     return {
         "subject": res.subject.model_dump(),
         "outcome": res.close_outcome or "open",

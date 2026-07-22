@@ -16,7 +16,8 @@ id: incident-core
 applies_to: app-incident
 entry_phase: frame
 capabilities: [servicenow, splunk, appd, prometheus, cmdb, ocp, artifactory, git]
-# role bindings + outcome rule (P7 step 4 — engine constants become playbook data):
+# role bindings + outcome rule (P7 steps 4-5 — engine constants become playbook data):
+subject_node: incident                  # "the incident is the first node" — the origin binding
 symptom_cleared_event: cleared          # the symptom-node event the recovery gate keys on
 outcomes: {confirmed_root: resolved, no_confirmed_root: mitigated}
 

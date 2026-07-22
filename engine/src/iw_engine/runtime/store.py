@@ -132,6 +132,7 @@ class InvestigationStore:
             "state": state,
             "outcome": res.close_outcome or "open",
             "close_outcome": res.close_outcome,
+            "origin_node": res.origin_node,   # the subject_node role binding's id (P7 step 5)
             "phases_run": list(res.phases_run),
             # P4: the playbook tunables the run scored under — a disk reopen re-binds the
             # rebuilt store's belief arithmetic with EXACTLY these knobs, so the reopened
@@ -207,7 +208,8 @@ class InvestigationStore:
         phases_run = [e.phase_id for e in journal.phase_entries() if e.phase_id]
         return RunResult(
             subject=subject, phases_run=phases_run, graph=graph, hypothesis_store=store,
-            journal=journal, confirmed=store.confirmed(), close_outcome=close_outcome)
+            journal=journal, confirmed=store.confirmed(), close_outcome=close_outcome,
+            origin_node=meta.get("origin_node"))
 
     def load_bundle(self, key: str) -> dict | None:
         """A read-only reopen payload, snapshot-shaped: `export_bundle` of the disk-rebuilt run

@@ -100,3 +100,28 @@ def test_per_intent_write_gates_but_read_does_not():
     reader.advance()
     assert reader.state == SessionState.CLOSED, \
         "a READ intent on the SAME adapter must never gate (per-intent, not per-adapter)"
+
+
+# ── P7 step 5: the subject/origin node is a PLAYBOOK role binding, not a convention ──
+def test_subject_node_binding_drives_the_origin_id():
+    from iw_engine.domain.registry import subject_node_id
+
+    # the packaged binding reproduces the old incident convention EXACTLY (goldens hold)
+    assert subject_node_id(NodeType.INCIDENT, "INC-7734") == "incident:inc-7734"
+    # …but it is DATA: a playbook binding its subject to another type gets that type's
+    # identity — no engine edit, no incident-ism
+    assert subject_node_id(NodeType.ALERT, "ALT-9") == "alert:alt-9"
+
+    pb = load_playbook(PLAYBOOK)
+    assert pb.subject_node is NodeType.INCIDENT      # declared in incident.yaml
+    subject, script, fixtures = __import__("e2e.scenario_database", fromlist=["build"]).build()
+    from iw_engine.capability import MockSource
+    from iw_engine.runtime import Engine
+    layer = CapabilityLayer(default_adapters(), source=MockSource(fixtures))
+    res = Engine(pb, ScriptedPlanner(script), layer=layer,
+                 clock=lambda: datetime(2026, 7, 19, tzinfo=UTC)).run(subject)
+    assert res.origin_node == "incident:inc-7734"
+    from iw_engine.api.bundle import export_bundle
+    flags = {n["id"]: n["origin"] for n in export_bundle(res)["graph"]["nodes"]}
+    assert flags["incident:inc-7734"] is True
+    assert sum(flags.values()) == 1                  # exactly ONE origin node

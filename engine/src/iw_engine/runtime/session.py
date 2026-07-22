@@ -34,10 +34,10 @@ from enum import StrEnum
 
 from ..api.bundle import export_bundle
 from ..capability.layer import CapabilityCall, CapabilityLayer
-from ..domain.enums import Effect, NodeType, Source
+from ..domain.enums import Effect, Source
 from ..domain.operations import UpdateHypothesis
 from ..domain.playbook import Playbook
-from ..domain.registry import node_id
+from ..domain.registry import subject_node_id
 from ..domain.subject import SubjectRef
 from .engine import Engine
 from .planner import PlanContext, Planner, PlanOutput
@@ -110,8 +110,10 @@ class InvestigationSession:
                  store: InvestigationStore | None = None) -> None:
         self.subject = subject
         self.id = subject.key
-        # the ServiceNow incident under investigation → renders as node #1 (obs 1)
-        self._origin_id = node_id(NodeType.INCIDENT, {"incident_id": subject.id})
+        # the SUBJECT under investigation → renders as node #1 (obs 1). P7 step 5: derived
+        # from the playbook's subject_node role binding — "the incident is the first node"
+        # is playbook data, not a session-coded convention.
+        self._origin_id = subject_node_id(playbook.subject_node, subject.id)
         self._clock = clock or (lambda: datetime.now(UTC))
         self._engine = Engine(playbook, _GatePlanner(planner, self), clock=clock, layer=layer)
         # hand a LIVE planner the direct graph ref (full view, parity with run_live);

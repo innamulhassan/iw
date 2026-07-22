@@ -47,6 +47,16 @@ def node_id(ntype: NodeType, props: dict) -> str:
     return f"{ntype.value}:" + "|".join(parts)
 
 
+def subject_node_id(subject_type: NodeType, subject_id: str) -> str:
+    """The investigation's SUBJECT/ORIGIN node id — the owner's "incident is the first
+    node", as playbook DATA (P7 step 5: `Playbook.subject_node` beside `symptom_node`; the
+    engine keys on the role binding, never on an incident convention). The subject's
+    external id lands on the subject-node type's FIRST identity key."""
+    spec = NODE_SPECS[subject_type]
+    key = spec.identity_keys[0] if spec.identity_keys else "id"
+    return node_id(subject_type, {key: subject_id})
+
+
 def missing_identity_keys(ntype: NodeType, props: dict) -> tuple[str, ...]:
     """The identity keys absent (or slug-empty) in `props` — non-empty means `node_id` would
     mint a degenerate id (`generic_ci:`, `service:|prod`). The reducer REJECTS such an AddNode

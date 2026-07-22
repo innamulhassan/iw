@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from ..capability.layer import CapabilityLayer, Invocation
+from ..domain import registry
 from ..domain.enums import VerdictStatus
 from ..domain.hypothesis import Hypothesis
 from ..domain.phase_result import PhaseResult
@@ -38,6 +39,10 @@ class RunResult:
     close_outcome: str | None        # playbook-declared outcome label (P7 step 4), None = open
     rejections: list[Rejection] = field(default_factory=list)
     invocations: list[Invocation] = field(default_factory=list)   # capability audit trail
+    # the SUBJECT/ORIGIN node id per the playbook's subject_node role binding (P7 step 5:
+    # "the incident is the first node" is playbook data — session/bundle read THIS, never
+    # a hardcoded incident convention). None only on legacy disk reopens without the field.
+    origin_node: str | None = None
 
 
 class Engine:
@@ -126,10 +131,12 @@ class Engine:
     def result(self) -> RunResult:
         confirmed = self.hypothesis_store.confirmed()
         outcome = self._close_outcome(self._phases_run, confirmed)
+        origin = (registry.subject_node_id(self.playbook.subject_node, self.subject.id)
+                  if self.subject is not None else None)
         return RunResult(subject=self.subject, phases_run=self._phases_run, graph=self.graph,
                          hypothesis_store=self.hypothesis_store, journal=self.journal,
                          confirmed=confirmed, close_outcome=outcome, rejections=self.rejections,
-                         invocations=self.invocations)
+                         invocations=self.invocations, origin_node=origin)
 
     # ── one phase ─────────────────────────────────────────────────────────────
     def _run_phase(self, phase: str, spec) -> PhaseResult:
