@@ -170,8 +170,25 @@ class Merge(_Op):
     reason: str = ""                   # journaled WHY (which binding proved they are one)
 
 
+class Retype(_Op):
+    """Graduate the escape hatch (P5 step 6 — DOMAIN-v3 §2.4 row 2 / §9.2, closing audit 4
+    S2.4 "re-typing later: no path"): re-key a `generic_ci` as the real NodeType its
+    `class_hint` promised. Mints the canonical entity (identity props for the new type ride on
+    `props`, merged over the old node's — `ci_id`/`class_hint` survive as provenance), remaps
+    every reference through the remap subsystem, and the old id becomes an alias via the
+    graph-level old→new table — write-once identity is never violated (a retype is an alias
+    graduation, not an identity edit). History survives: facts/events/edges re-home, nothing
+    orphans. generic_ci only: canonical typed entities never re-key."""
+
+    op: Literal[OpKind.RETYPE] = OpKind.RETYPE
+    target: str                        # the generic_ci node id (alias forms resolve)
+    new_type: NodeType                 # the real type it turned out to be
+    props: dict = Field(default_factory=dict)   # identity (+any extra) props for the new type
+    reason: str = ""                   # journaled WHY (e.g. "class_hint corroborated 4x")
+
+
 Operation = Annotated[
     AddNode | AddAssertion | AddFact | AddEvent | AddEdge | ProposeHypothesis | UpdateHypothesis
-    | NoEvidence | Retract | Merge,
+    | NoEvidence | Retract | Merge | Retype,
     Field(discriminator="op"),
 ]

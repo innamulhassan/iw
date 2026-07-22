@@ -37,6 +37,7 @@ from ..domain.operations import (
     Operation,
     ProposeHypothesis,
     Retract,
+    Retype,
     UpdateHypothesis,
 )
 from ..domain.phase_result import Rejection, Remap, Retraction
@@ -459,6 +460,53 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 for k, v in batch_aliases.items():
                     if v == old:
                         batch_aliases[k] = new
+
+        elif isinstance(op, Retype):
+            # P5 step 6 (DOMAIN-v3 §2.4 row 2 / §9.2 — closes audit 4 S2.4): generic_ci
+            # graduates to the real type its class_hint promised. Mint the canonical entity,
+            # journal a retype Remap; the fold re-homes every reference and the old id stays
+            # resolvable forever (an alias graduation — write-once identity never violated).
+            old = resolve_ref(op.target)
+            old_n = node_record(old)
+            merged = {**(old_n.props if old_n else {}), **op.props}
+            missing = registry.missing_identity_keys(op.new_type, merged)
+            if old_n is None:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value,
+                                                reason=f"unknown retype target {op.target}"))
+                continue
+            if old_n.type is not NodeType.GENERIC_CI:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"retype applies to the generic_ci escape hatch only — {old} is a "
+                    f"canonical {old_n.type.value} and typed identity never re-keys"))
+                continue
+            if op.new_type in (NodeType.GENERIC_CI, NodeType.HYPOTHESIS):
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"cannot retype to {op.new_type.value}"))
+                continue
+            if missing:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"missing identity key(s) {', '.join(missing)} for {op.new_type.value} — "
+                    "a retype must supply the real type's identity"))
+                continue
+            new_id = registry.node_id(op.new_type, merged)
+            if node_record(new_id) is not None:
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=
+                    f"retype target id {new_id} already exists — canonical entities never "
+                    "merge (R-J5); retype mints, it does not fold"))
+                continue
+            derived = resolver.aliases_from_props(op.new_type, merged)
+            node = Node(id=new_id, type=op.new_type, props=merged, aliases=derived,
+                        created_by=seq)
+            out.nodes.append(node)
+            batch_types[new_id] = op.new_type
+            batch_nodes.setdefault(new_id, node)
+            register_aliases(i, op.op.value, derived, new_id)
+            out.remaps.append(Remap(kind="retype", old_id=old, new_id=new_id,
+                                    reason=op.reason))
+            batch_redirects[old] = new_id
+            for k, v in batch_aliases.items():
+                if v == old:
+                    batch_aliases[k] = new_id
 
         elif isinstance(op, NoEvidence):
             if op.intent in no_weight_intents:

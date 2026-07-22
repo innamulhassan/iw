@@ -23,7 +23,7 @@ from iw_engine.domain.enums import (
 from iw_engine.domain.event import Event
 from iw_engine.domain.fact import Fact
 from iw_engine.domain.node import Node
-from iw_engine.domain.operations import AddEdge, AddFact, AddNode, Merge
+from iw_engine.domain.operations import AddEdge, AddFact, AddNode, Merge, Retype
 from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict, Remap
 from iw_engine.domain.playbook import Tunables
 from iw_engine.domain.registry import edge_id, missing_identity_keys, node_id
@@ -528,3 +528,98 @@ def test_merge_validations_protect_canonical_identity():
     # unknown entities reject
     r = _one_rejection(Merge(provisional_id="service:ghost|prod", canonical_id=SID))
     assert "unknown merge entity" in r
+
+
+# ── step 6: Retype — generic_ci graduates (§2.4 row 2 / §9.2; closes P3's deferral) ──
+GCI = "generic_ci:sys-db1"
+DBID = "database:orders-ora"
+
+
+def test_retype_graduates_generic_ci_with_history_surviving():
+    """Audit 4 S2.4 said re-typing orphans all history. Now: the generic_ci's quarantined
+    facts/events re-home, its airlocked edges re-key against the real type (provisional flag
+    kept — honest airlock lineage), the old id resolves forever, and replay reproduces it all."""
+    clock = lambda: T0  # noqa: E731
+    g, store, jr = Graph(), HypothesisStore(), Journal(clock=clock)
+
+    m1 = _run_phase(g, store, jr, [
+        AddNode(type=NodeType.SERVICE, props={"service_name": "orders-api", "env": "prod"}),
+        AddNode(type=NodeType.GENERIC_CI, props={"ci_id": "SYS-DB1", "name": "orders-ora",
+                                                 "class_hint": "cmdb_ci_db_ora"}),
+        AddEdge(type=EdgeType.DEPENDS_ON, src="service:orders-api|prod", dst=GCI),
+        AddFact(subject=GCI, predicate="ora_apply_lag", value=42, valid_from=T0,
+                observed_at=T0, source=Source.SERVICENOW, source_reliability=0.85),
+    ])
+    assert m1.rejections == []
+    assert g.edges[edge_id(EdgeType.DEPENDS_ON, "service:orders-api|prod", GCI,
+                           Origin.DISCOVERED)].provisional is True   # P3 airlock admitted it
+    qfact = m1.facts[0]
+    assert qfact.predicate == "x.servicenow.ora_apply_lag"           # name-quarantined on the CI
+
+    m2 = _run_phase(g, store, jr, [
+        Retype(target=GCI, new_type=NodeType.DATABASE, props={"db_id": "orders-ora"},
+               reason="class_hint cmdb_ci_db_ora corroborated"),
+        AddFact(subject=DBID, predicate="replication_lag", value=42.0, valid_from=T0,
+                observed_at=T0, source=Source.SERVICENOW, source_reliability=0.85),
+    ], phase=Phase.TRIAGE)
+    assert m2.rejections == []
+    assert [(m.kind, m.old_id, m.new_id) for m in m2.remaps] == [("retype", GCI, DBID)]
+
+    assert GCI not in g.nodes and g.id_remaps[GCI] == DBID
+    db = g.nodes[DBID]
+    assert db.type is NodeType.DATABASE and db.provisional is False
+    assert db.props["class_hint"] == "cmdb_ci_db_ora"        # provenance of the graduation
+    assert db.props["ci_id"] == "SYS-DB1" and db.props["db_id"] == "orders-ora"
+    # history re-homed: the quarantined fact now sits on the database, id unmoved
+    assert g.facts[qfact.id].subject_ref == DBID
+    # the airlocked edge re-keyed against the real type, airlock lineage preserved
+    new_eid = edge_id(EdgeType.DEPENDS_ON, "service:orders-api|prod", DBID, Origin.DISCOVERED)
+    assert g.edges[new_eid].provisional is True
+    assert edge_id(EdgeType.DEPENDS_ON, "service:orders-api|prod", GCI,
+                   Origin.DISCOVERED) not in g.edges
+    # the real type's vocabulary opened up in the SAME batch via the new id
+    assert any(f.predicate == "replication_lag" and f.subject_ref == DBID
+               for f in g.facts.values())
+
+    # a LATER phase still speaking the old id lands on the graduated entity, real vocabulary
+    m3 = _run_phase(g, store, jr, [
+        AddFact(subject=GCI, predicate="conn_pool_util", value=0.97, valid_from=T0,
+                observed_at=T0, source=Source.PROMETHEUS, source_reliability=0.9),
+    ], phase=Phase.INVESTIGATE)
+    assert m3.rejections == []
+    assert m3.facts[0].subject_ref == DBID and m3.facts[0].predicate == "conn_pool_util"
+
+    g2, _ = rebuild(jr)
+    assert g2.to_dict() == g.to_dict()
+    assert g2.id_remaps == g.id_remaps
+
+
+def test_retype_validations():
+    g, tun = Graph(), Tunables()
+    _fold_all(g, materialize([
+        AddNode(type=NodeType.SERVICE, props={"service_name": "orders-api", "env": "prod"}),
+        AddNode(type=NodeType.GENERIC_CI, props={"ci_id": "SYS-DB1", "name": "orders-ora",
+                                                 "class_hint": "cmdb_ci_db_ora"}),
+        AddNode(type=NodeType.DATABASE, props={"db_id": "orders-pg"}),
+    ], 1, g, tun))
+
+    def _one_rejection(op):
+        mat = materialize([op], 2, g, tun)
+        assert mat.remaps == [] and mat.nodes == [] and len(mat.rejections) == 1
+        return mat.rejections[0].reason
+
+    r = _one_rejection(Retype(target="service:orders-api|prod", new_type=NodeType.DATABASE,
+                              props={"db_id": "x"}))
+    assert "generic_ci escape hatch only" in r           # typed identity never re-keys
+    r = _one_rejection(Retype(target=GCI, new_type=NodeType.HYPOTHESIS, props={"hid": "h9"}))
+    assert "cannot retype to hypothesis" in r
+    r = _one_rejection(Retype(target=GCI, new_type=NodeType.GENERIC_CI, props={"ci_id": "z"}))
+    assert "cannot retype to generic_ci" in r
+    r = _one_rejection(Retype(target=GCI, new_type=NodeType.DATABASE, props={}))
+    assert "missing identity key" in r and "db_id" in r
+    r = _one_rejection(Retype(target=GCI, new_type=NodeType.DATABASE,
+                              props={"db_id": "orders-pg"}))
+    assert "already exists" in r and "never merge" in r  # fold-into-existing is not a retype
+    r = _one_rejection(Retype(target="generic_ci:ghost", new_type=NodeType.DATABASE,
+                              props={"db_id": "g"}))
+    assert "unknown retype target" in r
