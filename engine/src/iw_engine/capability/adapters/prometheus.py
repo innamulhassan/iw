@@ -45,5 +45,5 @@ class PrometheusAdapter:
                 continue
             ops.append(AddFact(subject=subject, predicate=m["predicate"], value=m["value"],
                                unit=m.get("unit"), valid_from=m["at"], observed_at=m["at"],
-                               source=Source.PROMETHEUS, source_reliability=m.get("reliability", 0.97)))
+                               source=Source.PROMETHEUS, source_reliability=m.get("reliability")))
         return ops

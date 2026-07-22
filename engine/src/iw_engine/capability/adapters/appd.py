@@ -46,7 +46,7 @@ class AppDAdapter:
                 continue
             ops.append(AddFact(subject=subject, predicate=m["predicate"], value=m["value"],
                                unit=m.get("unit"), valid_from=m["at"], observed_at=m["at"],
-                               source=Source.APPD, source_reliability=m.get("reliability", 0.95)))
+                               source=Source.APPD, source_reliability=m.get("reliability")))
 
         # healthrule_violations — Alert FIRED_ON the underlying Service
         for v in raw.get("violations", []):

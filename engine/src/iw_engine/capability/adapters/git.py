@@ -80,7 +80,7 @@ class GitAdapter:
                     ops.append(AddFact(subject=diff_subject, predicate=predicate, value=value,
                                        valid_from=diff["at"], observed_at=diff["at"],
                                        source=Source.GIT,
-                                       source_reliability=diff.get("reliability", 0.99)))
+                                       source_reliability=diff.get("reliability")))
             changed = diff.get("changed_lines")
             if changed:
                 summary = "; ".join(str(x) for x in changed) if isinstance(changed, list) \
@@ -111,7 +111,7 @@ class GitAdapter:
                     subject=blame_commit_id, predicate="blame_line",
                     value=f"{blame.get('file')}:{blame.get('line')}  {blame['snippet']}",
                     valid_from=blame["at"], observed_at=blame["at"], source=Source.GIT,
-                    source_reliability=blame.get("reliability", 0.98)))
+                    source_reliability=blame.get("reliability")))
 
             es = raw.get("error_signature")
             es_hash = raw.get("error_signature_hash") or (es.get("signature_hash") if es else None)

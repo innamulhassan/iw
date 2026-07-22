@@ -97,6 +97,12 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 continue
             conf = (_level_conf(op.confidence_level, tunables, f"inferred {op.predicate}")
                     if op.confidence_level is not None else None)
+            # INV-9: a MEASURED fact whose payload stated no reliability gets the per-source
+            # default from the playbook tunables (adapters carry no hardcoded constants). An
+            # LLM-sourced fact is inferred (confidence channel) and never takes a reliability.
+            reliability = op.source_reliability
+            if reliability is None and op.source != Source.LLM:
+                reliability = tunables.source_reliability.get(op.source.value)
             fid = registry.fact_id(op.subject, op.predicate, op.valid_from)
             supersedes = None
             for ef in graph.facts_of(op.subject):
@@ -108,7 +114,7 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                     id=fid, subject_ref=op.subject, predicate=op.predicate, value=op.value,
                     unit=op.unit, valid_from=op.valid_from, valid_to=op.valid_to,
                     observed_at=op.observed_at, source=op.source, confidence=conf,
-                    source_reliability=op.source_reliability, evidence=op.evidence,
+                    source_reliability=reliability, evidence=op.evidence,
                     supersedes=supersedes, created_by=seq))
             except (ValueError, AssertionError) as exc:
                 # The Fact model enforces its invariants by raising (e.g. R-C4 belief-channel:

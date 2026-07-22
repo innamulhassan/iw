@@ -89,7 +89,7 @@ class Engine:
         spec = self.playbook.phase(self._phase)
         result = self._run_phase(self._phase, spec)
         self._phases_run.append(self._phase)
-        self._phase = next_phase(self.playbook, spec, result.verdict)
+        self._phase = next_phase(spec, result.verdict)
         return result
 
     def run(self, subject: SubjectRef, *, max_steps: int = 60) -> RunResult:

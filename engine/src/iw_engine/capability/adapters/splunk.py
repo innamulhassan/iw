@@ -67,7 +67,7 @@ class SplunkAdapter:
             sig_id = registry.node_id(NodeType.ERROR_SIGNATURE, sig_key)
 
             at = err["_time"]
-            reliability = err.get("reliability", 0.95)
+            reliability = err.get("reliability")   # None -> reducer fills tunables default
             evidence = [EvidenceRef(kind="trace_id", ref=err["trace_id"])] if err.get("trace_id") else []
             ops.append(AddFact(subject=sig_id, predicate="count", value=err["count"],
                                valid_from=at, observed_at=at, source=Source.SPLUNK,
@@ -95,5 +95,5 @@ class SplunkAdapter:
             at = deny["_time"]
             ops.append(AddFact(subject=rule_id, predicate="deny_count", value=deny.get("deny_count", 1),
                                valid_from=at, observed_at=at, source=Source.SPLUNK,
-                               source_reliability=deny.get("reliability", 0.95)))
+                               source_reliability=deny.get("reliability")))
         return ops

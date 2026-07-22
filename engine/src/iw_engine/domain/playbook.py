@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .enums import NodeType, Phase, Source
+from .enums import NodeType, Phase
 
 
 class Tunables(BaseModel):
@@ -16,17 +16,27 @@ class Tunables(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     confidence_gate: float = 0.8
-    evidence_floors: dict[str, int] = Field(default_factory=dict)      # phase -> min facts
-    max_items: dict[str, int] = Field(default_factory=dict)           # phase -> per-step maxItems
     op_ceiling: dict[str, int] = Field(default_factory=dict)          # phase -> max ops/phase
     max_retries: int = 2
-    theta: float = 0.6                                                # promotion score threshold
     delta: float = 0.15                                               # promotion margin
+    # Per-source fallback reliability for a MEASURED fact whose payload states none: the
+    # reducer fills it, so adapters carry NO hardcoded constants (INV-9). Defaults mirror
+    # the constants formerly hardcoded per adapter (behavior-preserving). Special keys:
+    # "llm" is the default for a model-AUTHORED measured fact that omitted reliability
+    # (an llm-SOURCED fact is inferred — it carries confidence, never reliability);
+    # "engine" covers the reducer's own NoEvidence null-result facts.
     source_reliability: dict[str, float] = Field(
-        default_factory=lambda: {s.value: 0.8 for s in Source})
+        default_factory=lambda: {
+            "prometheus": 0.97, "splunk": 0.95, "appd": 0.95, "servicenow": 0.8,
+            "cmdb": 0.8, "ocp": 0.99, "artifactory": 0.8, "git": 0.99,
+            "bigpanda": 0.8, "llm": 0.9, "human": 0.8, "engine": 1.0})
     confidence_band: dict[str, float] = Field(
         default_factory=lambda: {"low": 0.3, "med": 0.6, "high": 0.9})
-    clock_skew_bound_s: dict[str, float] = Field(default_factory=dict)  # source -> seconds
+    # theta / evidence_floors / max_items / clock_skew_bound_s were DELETED as dead,
+    # never-read knobs (2026-07-22 review, findings 8/4/9/10): gate.min_facts is the live
+    # per-phase evidence floor and op_ceiling the live per-phase bound; a clock-skew bound
+    # returns properly when temporal-join enforcement lands (extra="forbid" makes any
+    # lingering yaml key a loud load error, not a silent no-op).
 
 
 class GateSpec(BaseModel):

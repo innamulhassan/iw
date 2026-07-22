@@ -94,8 +94,7 @@ class OcpAdapter:
             for pred in ("image", "available_replicas", "desired_replicas", "rollout_progress"):
                 if pred in dep and dep[pred] is not None:
                     ops.append(AddFact(subject=dep_id, predicate=pred, value=dep[pred],
-                                       valid_from=at, observed_at=at, source=Source.OCP,
-                                       source_reliability=0.99))
+                                       valid_from=at, observed_at=at, source=Source.OCP))
 
         rollout = raw.get("rollout")
         if rollout:
@@ -135,8 +134,7 @@ class OcpAdapter:
                              "cpu_utilization", "mem_utilization"):
                     if pred in pod and pod[pred] is not None:
                         ops.append(AddFact(subject=pod_id, predicate=pred, value=pod[pred],
-                                           valid_from=at, observed_at=at, source=Source.OCP,
-                                           source_reliability=0.99))
+                                           valid_from=at, observed_at=at, source=Source.OCP))
 
             node_name = pod.get("node_name")
             if node_name:

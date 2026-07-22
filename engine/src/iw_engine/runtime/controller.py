@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from ..domain.enums import GateResult, HypothesisStatus, Phase, VerdictStatus
 from ..domain.phase_result import PhaseResult, PhaseVerdict
-from ..domain.playbook import PhaseSpec, Playbook, Tunables
+from ..domain.playbook import PhaseSpec, Tunables
 from ..ledger.ledger import Ledger
 
 
@@ -52,7 +52,7 @@ def check_gate(spec: PhaseSpec, result: PhaseResult, ledger: Ledger,
     return v.model_copy(update={"gate_result": GateResult.PASS, "gate_reason": None})
 
 
-def next_phase(playbook: Playbook, current: PhaseSpec, verdict: PhaseVerdict) -> Phase | None:
+def next_phase(current: PhaseSpec, verdict: PhaseVerdict) -> Phase | None:
     """Map a (gated) verdict to the next phase; None ends the run."""
     if verdict.status == VerdictStatus.DONE:
         return None
