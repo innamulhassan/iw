@@ -986,6 +986,25 @@
         "source": "git",
         "type": "pull_request"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-checkout-7f3a",
+        "ended_at": "2026-07-19T09:04:00.840000+00:00",
+        "id": "span:bbf6455a3c7118eb",
+        "name": "trace",
+        "observed_at": "2026-07-19T09:04:00.840000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T09:04:00+00:00",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "value": {
+          "error": true
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -1048,6 +1067,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddNode",
         "AddEdge",
@@ -1073,6 +1093,7 @@
           "objective": "checkout-api's rev43 rollout (09:00) never reached available replicas; pods crash-looping by 09:04. checkout-db is the only declared dependency. Declared SEV2. Rollout is stuck (ProgressDeadlineExceeded->rollback) and the pod is CrashLoopBackOff \u2014 it has never reached Ready; its host k8s-node-17 is healthy (CPU 31%, no saturation). Investigate before mitigating.",
           "ops": [
             "AddNode",
+            "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",

@@ -19,7 +19,7 @@ from iw_engine.domain.enums import NodeType as NT
 from iw_engine.domain.enums import Source as S
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -77,6 +77,9 @@ def build():
             fact(EP, "status_code_dist", {"200": 0.94, "504": 0.06}, T_ONSET, source=S.APPD,
                  reliability=0.93),
             edge(ET.EXPOSES, SVC, EP),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=5200),
+                 correlation_id="trace-orders-9d44", value={"error": False}, reliability=0.95),
             edge(ET.AFFECTS, ANOM, SVC),
         ],
         narrative="orders-api p99 latency spiked to 5.2s at 14:05, 8 minutes after CHG-9 "

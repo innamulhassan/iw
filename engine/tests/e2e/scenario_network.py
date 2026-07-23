@@ -33,6 +33,7 @@ from ._helpers import (
     node,
     phase,
     propose,
+    span,
     update,
 )
 
@@ -81,6 +82,9 @@ def build():
             node(NT.NETWORK_SEGMENT, segment_id="SEG-EDGE-12", cidr="10.20.4.0/24", vlan=204,
                  mtu=1400, device="edge-agg-2.dc1", interface="Ethernet1/14",
                  managed_by="netops-team", owner="netops@corp.example"),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=4800),
+                 correlation_id="trace-checkout-7fee", value={"error": True}, reliability=0.9),
             edge(ET.AFFECTS, ANOM, SVC),
             edge(ET.CONNECTS_TO, SVC, NETSEG),
             edge(ET.CHANGED_BY, NETSEG, CHG),

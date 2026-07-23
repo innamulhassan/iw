@@ -639,6 +639,25 @@
         "source": null,
         "type": "hypothesis"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-product-8c21",
+        "ended_at": "2026-07-19T14:16:06.800000+00:00",
+        "id": "span:82c1ced192a615cf",
+        "name": "trace",
+        "observed_at": "2026-07-19T14:16:06.800000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T14:16:00+00:00",
+        "state": "active",
+        "subject": "service:product-api|prod",
+        "unit": null,
+        "value": {
+          "error": false
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -706,6 +725,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddEdge",
         "AddEdge",
@@ -741,6 +761,7 @@
             "AddNode",
             "AddNode",
             "AddNode",
+            "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",

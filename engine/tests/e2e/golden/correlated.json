@@ -642,6 +642,25 @@
         "source": "prometheus",
         "type": "database"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-payments-5b30",
+        "ended_at": "2026-07-19T09:06:04.200000+00:00",
+        "id": "span:b8d9f63d8d42f17d",
+        "name": "trace",
+        "observed_at": "2026-07-19T09:06:04.200000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T09:06:00+00:00",
+        "state": "active",
+        "subject": "service:payments-svc|prod",
+        "unit": null,
+        "value": {
+          "error": false
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -704,6 +723,7 @@
         "AddAssertion",
         "AddEdge",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddEdge"
       ],
@@ -727,6 +747,7 @@
             "AddAssertion",
             "AddAssertion",
             "AddEdge",
+            "AddAssertion",
             "AddAssertion",
             "AddEdge",
             "AddEdge"

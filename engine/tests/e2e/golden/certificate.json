@@ -614,6 +614,25 @@
         "source": "splunk",
         "type": "error_signature"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-auth-3f9d",
+        "ended_at": "2026-07-19T14:30:00.520000+00:00",
+        "id": "span:27e22996b903b670",
+        "name": "trace",
+        "observed_at": "2026-07-19T14:30:00.520000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T14:30:00+00:00",
+        "state": "active",
+        "subject": "service:auth-svc|prod",
+        "unit": null,
+        "value": {
+          "error": true
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -681,6 +700,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddEdge",
         "AddNode",
@@ -704,6 +724,7 @@
             "AddNode",
             "AddNode",
             "AddNode",
+            "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",

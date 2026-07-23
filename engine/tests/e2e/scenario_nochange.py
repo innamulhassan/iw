@@ -39,6 +39,7 @@ from ._helpers import (
     node,
     phase,
     propose,
+    span,
     update,
 )
 
@@ -85,6 +86,9 @@ def build():
             fact(SVC, "tier", "tier-1", T_ONSET, source=S.SERVICENOW),
             fact(SVC, "slo_target", 500, T_ONSET, unit="ms", source=S.SERVICENOW),
             event(SVC, "degraded_started", T_ONSET, source=S.PROMETHEUS),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=6800),
+                 correlation_id="trace-checkout-0d55", value={"error": False}, reliability=0.95),
             edge(ET.AFFECTS, ANOM, SVC),
         ],
         narrative="checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x "

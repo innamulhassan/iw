@@ -21,7 +21,7 @@ from iw_engine.domain.enums import NodeType as NT
 from iw_engine.domain.enums import Source as S
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -87,6 +87,9 @@ def build():
             event(CHG, "implemented", T_FLAG, source=S.SERVICENOW,
                   change="flip feature-flag new-tax-engine 5% → 100%"),
             event(FLAG, "flipped", T_FLAG, source=S.SERVICENOW, rollout=100),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=780),
+                 correlation_id="trace-cart-6e12", value={"error": True}, reliability=0.95),
             edge(ET.AFFECTS, ANOM, SVC),
             edge(ET.FIRED_ON, ALERT, SVC),
             edge(ET.CHANGED_BY, SVC, CHG),

@@ -578,6 +578,25 @@
         "source": null,
         "type": "hypothesis"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-checkout-2c77",
+        "ended_at": "2026-07-19T02:18:01.500000+00:00",
+        "id": "span:c0ac0fefb7968dad",
+        "name": "trace",
+        "observed_at": "2026-07-19T02:18:01.500000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T02:18:00+00:00",
+        "state": "active",
+        "subject": "service:checkout-svc|prod",
+        "unit": null,
+        "value": {
+          "error": true
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -640,6 +659,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddNode",
         "AddNode",
@@ -662,6 +682,7 @@
             "AddAssertion",
             "AddNode",
             "AddNode",
+            "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",

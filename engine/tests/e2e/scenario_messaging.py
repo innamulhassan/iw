@@ -18,7 +18,7 @@ from iw_engine.domain.enums import NodeType as NT
 from iw_engine.domain.enums import Source as S
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -56,6 +56,9 @@ def build():
             fact(SVC, "tier", "tier-1", T_ONSET, source=S.SERVICENOW),
             fact(SVC, "slo_target", 60, T_ONSET, unit="s", source=S.SERVICENOW),
             event(SVC, "degraded_started", T_ONSET, source=S.PROMETHEUS),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=1200),
+                 correlation_id="trace-order-4a90", value={"error": False}, reliability=0.95),
             edge(ET.AFFECTS, ANOM, SVC),
         ],
         narrative="order-processor's consumer group fell behind at 09:42 — lag on the "

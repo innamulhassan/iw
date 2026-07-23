@@ -699,6 +699,25 @@
         "source": "splunk",
         "type": "error_signature"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-cart-6e12",
+        "ended_at": "2026-07-19T14:05:30.780000+00:00",
+        "id": "span:7224d9402e675456",
+        "name": "trace",
+        "observed_at": "2026-07-19T14:05:30.780000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T14:05:30+00:00",
+        "state": "active",
+        "subject": "service:cart-api|prod",
+        "unit": null,
+        "value": {
+          "error": true
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -769,6 +788,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddEdge",
         "AddEdge",
@@ -795,6 +815,7 @@
             "AddNode",
             "AddNode",
             "AddNode",
+            "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",

@@ -15,7 +15,7 @@ from iw_engine.domain.enums import NodeType as NT
 from iw_engine.domain.enums import Source as S
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -71,6 +71,9 @@ def build(refuted_variant: bool = False):
         event(SVC, "degraded_started", T_ONSET, source=S.PROMETHEUS),
         event(ALERT, "fired", T_ONSET, source=S.PROMETHEUS),
         event(CHG, "implemented", T_CHANGE, source=S.SERVICENOW, change="deploy payments-api v4.12.0"),
+        # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+        span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=920),
+             correlation_id="trace-payments-a17e", value={"error": True}, reliability=0.95),
         edge(ET.AFFECTS, ANOM, SVC),
         edge(ET.FIRED_ON, ALERT, SVC),
         edge(ET.CHANGED_BY, SVC, CHG),

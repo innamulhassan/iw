@@ -748,6 +748,25 @@
         "source": null,
         "type": "hypothesis"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-checkout-7fee",
+        "ended_at": "2026-07-19T13:40:04.800000+00:00",
+        "id": "span:22989dac8364ce96",
+        "name": "trace",
+        "observed_at": "2026-07-19T13:40:04.800000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T13:40:00+00:00",
+        "state": "active",
+        "subject": "service:checkout-svc|prod",
+        "unit": null,
+        "value": {
+          "error": true
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -811,6 +830,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddNode",
+        "AddAssertion",
         "AddEdge",
         "AddEdge",
         "AddEdge",
@@ -841,6 +861,7 @@
             "AddAssertion",
             "AddAssertion",
             "AddNode",
+            "AddAssertion",
             "AddEdge",
             "AddEdge",
             "AddEdge",

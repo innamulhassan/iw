@@ -32,7 +32,7 @@ from iw_engine.domain.enums import Source as S
 from iw_engine.domain.operations import AddNode, Merge, Retract, Retype
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -88,6 +88,9 @@ def build():
             # lands under the airlock spelling `x.servicenow.ora_apply_lag`, provisional — it
             # re-homes onto the real DATABASE when the CI graduates (Retype), history intact.
             fact(GCI, "ora_apply_lag", 180, T_ONSET, source=S.SERVICENOW, reliability=0.85),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=4200),
+                 correlation_id="trace-payments-5b30", value={"error": False}, reliability=0.95),
             edge(ET.AFFECTS, ANOM, SVC),
             edge(ET.AFFECTS, INC, SVC),
         ],

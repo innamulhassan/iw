@@ -900,6 +900,25 @@
         "source": null,
         "type": "hypothesis"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-orders-9d44",
+        "ended_at": "2026-07-19T14:05:05.200000+00:00",
+        "id": "span:f802baf4d55cd2b6",
+        "name": "trace",
+        "observed_at": "2026-07-19T14:05:05.200000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T14:05:00+00:00",
+        "state": "active",
+        "subject": "service:orders-api|prod",
+        "unit": null,
+        "value": {
+          "error": false
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -967,6 +986,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddEdge",
+        "AddAssertion",
         "AddEdge",
         "AddNode",
         "AddNode",
@@ -1000,6 +1020,7 @@
             "AddAssertion",
             "AddAssertion",
             "AddEdge",
+            "AddAssertion",
             "AddEdge",
             "AddNode",
             "AddNode",

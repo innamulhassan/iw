@@ -18,7 +18,7 @@ from iw_engine.domain.enums import NodeType as NT
 from iw_engine.domain.enums import Source as S
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -101,6 +101,12 @@ def build(mitigated: bool = False):
             fact(SVC, "red_latency_p99", 250, T_ONSET, unit="ms", source=S.APPD, reliability=0.9),
             fact(SVC, "tier", "tier-1", T_ONSET, source=S.SERVICENOW),
             fact(SVC, "slo_target", 0.999, T_ONSET, source=S.SERVICENOW),
+            # a captured distributed trace at onset — a bounded HAPPENING (start->end/duration) the
+            # service PARTICIPATES in (2026-07-23 primitives §2.6, the SPAN species): the request
+            # 5xx'd against the crash-looping backend. CLOSED (has ended_at); correlation_id=trace_id
+            # joins sibling hops + a future reified BUSINESS_TRANSACTION (§4.4).
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=840),
+                 correlation_id="trace-checkout-7f3a", value={"error": True}, reliability=0.9),
             edge(ET.AFFECTS, ANOM, SVC),
         ],
         "checkout-api's rev43 rollout (09:00) never reached available replicas; pods "

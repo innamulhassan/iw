@@ -19,7 +19,7 @@ from iw_engine.domain.enums import NodeType as NT
 from iw_engine.domain.enums import Source as S
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -61,6 +61,9 @@ def build():
             fact(POD, "node_name", "node-prod-17", T_ONSET, source=S.OCP),
             event(POD, "evicted", T_ONSET, source=S.OCP, reason="Evicted",
                   message="The node was low on resource: memory"),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=1500),
+                 correlation_id="trace-checkout-2c77", value={"error": True}, reliability=0.9),
             edge(ET.AFFECTS, ANOM, SVC),
         ],
         narrative="checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with "

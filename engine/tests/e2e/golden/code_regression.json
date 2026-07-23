@@ -678,6 +678,25 @@
         "source": "splunk",
         "type": "error_signature"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-payments-a17e",
+        "ended_at": "2026-07-19T14:00:00.920000+00:00",
+        "id": "span:c612c9a81710288c",
+        "name": "trace",
+        "observed_at": "2026-07-19T14:00:00.920000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T14:00:00+00:00",
+        "state": "active",
+        "subject": "service:payments-api|prod",
+        "unit": null,
+        "value": {
+          "error": true
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -739,6 +758,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddEdge",
         "AddEdge",
@@ -760,6 +780,7 @@
             "AddNode",
             "AddNode",
             "AddNode",
+            "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",

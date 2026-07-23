@@ -21,7 +21,7 @@ from iw_engine.domain.enums import NodeType as NT
 from iw_engine.domain.enums import Source as S
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -80,6 +80,9 @@ def build():
             event(ALERT, "fired", T_ONSET, source=S.PROMETHEUS),
             event(CHG, "implemented", T_CHANGE, source=S.SERVICENOW,
                   change="deploy product-api v3.4.0"),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=6800),
+                 correlation_id="trace-product-8c21", value={"error": False}, reliability=0.95),
             edge(ET.AFFECTS, ANOM, SVC),
             edge(ET.FIRED_ON, ALERT, SVC),
             edge(ET.CHANGED_BY, SVC, CHG),

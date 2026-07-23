@@ -788,6 +788,25 @@
         "source": "prometheus",
         "type": "network_segment"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-checkout-b8a2",
+        "ended_at": "2026-07-19T09:12:03+00:00",
+        "id": "span:22f94980f9645e15",
+        "name": "trace",
+        "observed_at": "2026-07-19T09:12:03+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T09:12:00+00:00",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "value": {
+          "error": true
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -847,6 +866,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddNode",
         "AddNode",
@@ -869,6 +889,7 @@
           "objective": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05. Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy.",
           "ops": [
             "AddNode",
+            "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",

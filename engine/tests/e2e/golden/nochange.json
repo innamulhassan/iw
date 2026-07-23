@@ -513,6 +513,25 @@
         "source": null,
         "type": "hypothesis"
       }
+    ],
+    "spans": [
+      {
+        "correlation_id": "trace-checkout-0d55",
+        "ended_at": "2026-07-19T09:00:06.800000+00:00",
+        "id": "span:44a6cff5fbeba345",
+        "name": "trace",
+        "observed_at": "2026-07-19T09:00:06.800000+00:00",
+        "source": "appd",
+        "source_native_name": "trace",
+        "span_phase": "closed",
+        "started_at": "2026-07-19T09:00:00+00:00",
+        "state": "active",
+        "subject": "service:checkout-api|prod",
+        "unit": null,
+        "value": {
+          "error": false
+        }
+      }
     ]
   },
   "hypotheses": [
@@ -572,6 +591,7 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "AddAssertion",
         "AddEdge",
         "AddNode",
         "AddNode",
@@ -591,6 +611,7 @@
           "objective": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
           "ops": [
             "AddNode",
+            "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",

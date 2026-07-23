@@ -22,7 +22,7 @@ from iw_engine.domain.enums import NodeType as NT
 from iw_engine.domain.enums import Source as S
 from iw_engine.domain.subject import SubjectRef
 
-from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, update
+from ._helpers import call, edge, event, fact, fid, hid, nid, node, phase, propose, span, update
 
 
 def _t(minutes: int) -> datetime:
@@ -71,6 +71,9 @@ def build(premature_write: bool = False):
             fact(SVC, "slo_target", 0.995, T_ONSET, source=S.SERVICENOW),
             event(SVC, "degraded_started", T_ONSET, source=S.PROMETHEUS),
             event(ANOM, "detected", T_ONSET, source=S.PROMETHEUS),
+            # a captured distributed trace at onset — the SPAN species (§2.6): a bounded happening SVC is in
+            span(SVC, "trace", T_ONSET, ended_at=T_ONSET + timedelta(milliseconds=3000),
+                 correlation_id="trace-checkout-b8a2", value={"error": True}, reliability=0.9),
             edge(ET.AFFECTS, ANOM, SVC),
         ],
         narrative=("checkout-api's calls to the fraud-scoring dependency started erroring "
