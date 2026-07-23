@@ -3,7 +3,7 @@ time-varying is a Fact (DESIGN §2.1 R-G5). `id` is derived deterministically fr
 type + identity_keys (registry.node_id) so upserts are idempotent.
 
 P6 step 2: in the GRAPH, props are backed by DECLARED-channel assertions (identity keys →
-IDENTITY species, the rest → DESCRIPTOR) — the record's `props` dict is the materialized
+IDENTITY species, the rest → PROPERTY) — the record's `props` dict is the materialized
 read view over them, rebuilt by the graph at every upsert/remap, never dual-authored.
 """
 from __future__ import annotations

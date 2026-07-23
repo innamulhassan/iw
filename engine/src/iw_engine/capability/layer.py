@@ -53,7 +53,7 @@ def _summarize_ops(ops: list[Operation]) -> str:
     """A one-line, human-readable summary of what a tool call folded into the graph - the 'out'
     side of the trace (e.g. '2 entities · 12 facts · 1 change'). Everything folds through the ONE
     AddAssertion atom (adapters, twins AND the live planner emit it natively - F4), so the fact/
-    event counts are read off AddAssertion BY SPECIES (EVENT → events; STATE/DESCRIPTOR/READING/
+    event counts are read off AddAssertion BY SPECIES (EVENT → events; STATE/PROPERTY/READING/
     IDENTITY → facts) - the pre-P1b version counted the now-deleted AddFact/AddEvent class names, so
     the dominant assertion-bearing read summarised as 'no new data'."""
     from collections import Counter

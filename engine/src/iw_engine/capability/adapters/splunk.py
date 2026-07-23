@@ -71,7 +71,7 @@ class SplunkAdapter:
             reliability = err.get("reliability")   # None -> reducer fills tunables default
             evidence = [EvidenceRef(kind="trace_id", ref=err["trace_id"])] if err.get("trace_id") else []
             # the deduped occurrence count is a measured READING (stat=count, point window at the
-            # observation time); last_seen is a timestamp DESCRIPTOR (the §9.1 content/identity-
+            # observation time); last_seen is a timestamp PROPERTY (the §9.1 content/identity-
             # adjacent set — the P1a shim classified it so). Both fold to a byte-identical Fact.
             ops.append(AddAssertion(subject=sig_id, name="count", value=err["count"],
                                     species=Species.READING, stat=Stat.COUNT, window=Window(at=at),
@@ -79,7 +79,7 @@ class SplunkAdapter:
                                     source_reliability=reliability, evidence=evidence,
                                     source_native_name="count"))
             ops.append(AddAssertion(subject=sig_id, name="last_seen",
-                                    value=err.get("last_seen", at), species=Species.DESCRIPTOR,
+                                    value=err.get("last_seen", at), species=Species.PROPERTY,
                                     valid_from=at, observed_at=at, source=Source.SPLUNK,
                                     source_reliability=reliability, source_native_name="last_seen"))
 

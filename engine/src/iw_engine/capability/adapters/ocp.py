@@ -33,13 +33,13 @@ from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
 
 # pod_status predicate → (species, stat) for native AddAssertion emission (P1b, §9.1). phase/ready
-# are open-interval STATE; node_name is identity-adjacent DESCRIPTOR; cpu/mem are READING gauges
+# are open-interval STATE; node_name is identity-adjacent PROPERTY; cpu/mem are READING gauges
 # and restart_count a READING counter. Species/stat ride on the assertion only — the reducer's
 # Fact carries neither — so this records the temporal shape without changing any graph output.
 _POD_FACT_SPECIES: dict[str, tuple[Species, Stat | None]] = {
     "phase": (Species.STATE, None),
     "ready": (Species.STATE, None),
-    "node_name": (Species.DESCRIPTOR, None),
+    "node_name": (Species.PROPERTY, None),
     "restart_count": (Species.READING, Stat.COUNTER),
     "cpu_utilization": (Species.READING, Stat.GAUGE),
     "mem_utilization": (Species.READING, Stat.GAUGE),

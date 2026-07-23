@@ -1,6 +1,6 @@
 """Assertion — the ONE record (DOMAIN-v3 §2.2). Fact + Event + node-prop all collapse here.
 
-One provenance envelope, five temporal species (identity · descriptor · state · reading ·
+One provenance envelope, five temporal species (identity · property · state · reading ·
 event) differing only on the time axis. Belief is keyed on `channel` (not on Source identity):
 an INFERRED assertion carries a `confidence`; a MEASURED/DECLARED/ENGINE one carries a
 `source_reliability`. The vendor's own name for the thing survives on `source_native_name`.
@@ -87,7 +87,7 @@ class Assertion(BaseModel):
     channel: Channel                         # belief keyed on channel, NOT Source identity
 
     # ── time — by species ─────────────────────────────────────────────────────
-    valid_from: datetime | None = None       # STATE window start (+ optional on descriptor via shim)
+    valid_from: datetime | None = None       # STATE window start (+ optional on property via shim)
     valid_to: datetime | None = None         # STATE window end (None = still true)
     observed_at: datetime | None = None      # transaction time — all species except identity
     occurred_at: datetime | None = None      # EVENT only — when it happened in the world
@@ -123,7 +123,7 @@ class Assertion(BaseModel):
     def _time_shape(self) -> Assertion:
         """Species/time-shape invariants (build-spec step 1): identity has no observed_at;
         reading requires stat+window; event requires occurred_at; occurred_at is EVENT-only.
-        P6 delta: a DECLARED descriptor may omit observed_at — a node-prop declaration is
+        P6 delta: a DECLARED property may omit observed_at — a node-prop declaration is
         asserted configuration truth, timeless like identity (the fold mints it with no
         observation instant, keeping journal replay deterministic — no wall-clock stamp)."""
         if self.species is Species.IDENTITY:
@@ -131,7 +131,7 @@ class Assertion(BaseModel):
                 raise ValueError(f"assertion {self.id}: identity is write-once — no observed_at")
             if self.valid_from is not None or self.valid_to is not None:
                 raise ValueError(f"assertion {self.id}: identity carries no validity window")
-        elif not (self.species is Species.DESCRIPTOR and self.channel is Channel.DECLARED):
+        elif not (self.species is Species.PROPERTY and self.channel is Channel.DECLARED):
             if self.observed_at is None:
                 raise ValueError(f"assertion {self.id}: {self.species.value} requires observed_at")
 
@@ -175,6 +175,6 @@ class Assertion(BaseModel):
 
     @property
     def is_open(self) -> bool:
-        """A still-true state (open valid window) or a live descriptor. Mirrors Fact.is_open —
+        """A still-true state (open valid window) or a live property. Mirrors Fact.is_open —
         the supersession-scan predicate the reducer keys on."""
         return self.valid_to is None and self.state == FactState.ACTIVE

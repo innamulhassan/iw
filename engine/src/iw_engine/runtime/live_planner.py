@@ -183,7 +183,7 @@ OUTPUT: a single JSON object, no markdown, exactly:
     {"op":"update_hypothesis","hid":"h2","new_status":"refuted","basis":"...","add_refuting":[]},
     {"op":"no_evidence","intent":"<tool intent>","scope":"<node id>","basis":"...","at":"2026-07-19T14:20:00+00:00"}
   ],
-  (add_assertion is the atom: species one of state|descriptor|reading|event. The ergonomic
+  (add_assertion is the atom: species one of state|property|reading|event. The ergonomic
    add_fact/add_event shorthand is also accepted and folded to add_assertion.)
   "todos": [
     {"objective":"<short aim for this step>",

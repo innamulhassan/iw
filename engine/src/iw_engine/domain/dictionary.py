@@ -91,8 +91,8 @@ _FACT_ENTRIES: tuple[DictEntry, ...] = (
     DictEntry("replication_lag", Species.READING, (_NT.DATABASE,), "float", "s", "up", stat=Stat.GAUGE),
     DictEntry("slow_query_rate", Species.READING, (_NT.DATABASE,), "int", "per_min", "up",
               stat=Stat.RATE),
-    DictEntry("index_health", Species.DESCRIPTOR, (_NT.SCHEMA,), "float", None, "down"),
-    DictEntry("table_count", Species.DESCRIPTOR, (_NT.SCHEMA,), "int", None, None),
+    DictEntry("index_health", Species.PROPERTY, (_NT.SCHEMA,), "float", None, "down"),
+    DictEntry("table_count", Species.PROPERTY, (_NT.SCHEMA,), "int", None, None),
     DictEntry("consumer_lag", Species.READING, (_NT.MESSAGE_QUEUE,), "int", "msgs", "up",
               stat=Stat.GAUGE),
     DictEntry("dlq_depth", Species.READING, (_NT.MESSAGE_QUEUE,), "int", "msgs", "up", stat=Stat.GAUGE),
@@ -112,7 +112,7 @@ _FACT_ENTRIES: tuple[DictEntry, ...] = (
     DictEntry("restart_count", Species.READING, (_NT.POD,), "int", None, "up", stat=Stat.COUNTER),
     DictEntry("phase", Species.STATE, (_NT.POD,), "str", None, None),
     DictEntry("ready", Species.STATE, (_NT.POD,), "bool", None, "down"),
-    DictEntry("node_name", Species.DESCRIPTOR, (_NT.POD,), "str", None, None),
+    DictEntry("node_name", Species.PROPERTY, (_NT.POD,), "str", None, None),
     # network segment
     DictEntry("packet_loss", Species.READING, (_NT.NETWORK_SEGMENT,), "float", "ratio", "up",
               stat=Stat.RATIO),
@@ -125,7 +125,7 @@ _FACT_ENTRIES: tuple[DictEntry, ...] = (
     DictEntry("available_replicas", Species.STATE, (_NT.DEPLOYMENT,), "int", None, "down"),
     DictEntry("desired_replicas", Species.STATE, (_NT.DEPLOYMENT,), "int", None, None),
     DictEntry("rollout_progress", Species.STATE, (_NT.DEPLOYMENT,), "int", None, "down"),
-    DictEntry("last_duration", Species.DESCRIPTOR, (_NT.BATCH_JOB,), "int", "s", "up"),
+    DictEntry("last_duration", Species.PROPERTY, (_NT.BATCH_JOB,), "int", "s", "up"),
     DictEntry("backlog_size", Species.READING, (_NT.BATCH_JOB,), "int", "rows", "up", stat=Stat.GAUGE),
     DictEntry("deny_count", Species.READING, (_NT.FIREWALL_RULE,), "int", None, "up", stat=Stat.COUNT),
     DictEntry("days_to_expiry", Species.STATE, (_NT.CERTIFICATE,), "int", "days", "down"),
@@ -140,14 +140,14 @@ _FACT_ENTRIES: tuple[DictEntry, ...] = (
     DictEntry("severity_score", Species.STATE, (_NT.ANOMALY,), "int", None, "up"),
     DictEntry("onset_value", Species.STATE, (_NT.ANOMALY,), "float", None, "up"),  # P7 -> onset_<quantity>
     DictEntry("count", Species.READING, (_NT.ERROR_SIGNATURE,), "int", None, "up", stat=Stat.COUNT),
-    DictEntry("last_seen", Species.DESCRIPTOR, (_NT.ERROR_SIGNATURE,), "str", None, None),
-    DictEntry("status_code_dist", Species.DESCRIPTOR, (_NT.API_ENDPOINT,), "dict", None, None),
+    DictEntry("last_seen", Species.PROPERTY, (_NT.ERROR_SIGNATURE,), "str", None, None),
+    DictEntry("status_code_dist", Species.PROPERTY, (_NT.API_ENDPOINT,), "dict", None, None),
     # change content (git)
-    DictEntry("files_changed", Species.DESCRIPTOR, (_NT.CODE_COMMIT, _NT.CHANGE_EVENT), "int", None, None),
-    DictEntry("lines_added", Species.DESCRIPTOR, (_NT.CODE_COMMIT, _NT.CHANGE_EVENT), "int", None, None),
-    DictEntry("lines_deleted", Species.DESCRIPTOR, (_NT.CODE_COMMIT, _NT.CHANGE_EVENT), "int", None, None),
-    DictEntry("diff_summary", Species.DESCRIPTOR, (_NT.CODE_COMMIT, _NT.CHANGE_EVENT), "content", None, None),
-    DictEntry("blame_line", Species.DESCRIPTOR, (_NT.CODE_COMMIT,), "content", None, None),
+    DictEntry("files_changed", Species.PROPERTY, (_NT.CODE_COMMIT, _NT.CHANGE_EVENT), "int", None, None),
+    DictEntry("lines_added", Species.PROPERTY, (_NT.CODE_COMMIT, _NT.CHANGE_EVENT), "int", None, None),
+    DictEntry("lines_deleted", Species.PROPERTY, (_NT.CODE_COMMIT, _NT.CHANGE_EVENT), "int", None, None),
+    DictEntry("diff_summary", Species.PROPERTY, (_NT.CODE_COMMIT, _NT.CHANGE_EVENT), "content", None, None),
+    DictEntry("blame_line", Species.PROPERTY, (_NT.CODE_COMMIT,), "content", None, None),
 )
 
 
@@ -259,7 +259,7 @@ def applies_to_ok(canonical: str, ntype: NodeType) -> bool:
 
 
 def fact_names_for(ntype: NodeType) -> tuple[str, ...]:
-    """The canonical fact/reading/state/descriptor names legal on a type — a DERIVED view of
+    """The canonical fact/reading/state/property names legal on a type — a DERIVED view of
     `applies_to` (replaces `NodeSpec.fact_predicates` for the LLM catalog, build-spec step 5)."""
     return tuple(sorted(e.name for e in DICTIONARY.values()
                         if e.species is not Species.EVENT and ntype in e.applies_to))

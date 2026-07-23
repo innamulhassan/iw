@@ -32,7 +32,7 @@ class AddNode(_Op):
 
 
 class AddAssertion(_Op):
-    """The ONE atom op (build-spec §2.2) — the state/descriptor/reading/event assertion carrying its
+    """The ONE atom op (build-spec §2.2) — the state/property/reading/event assertion carrying its
     species + reading qualifiers. Adapters, scenario twins AND the live planner all emit it natively
     (F4 retired the AddFact/AddEvent compat shims that used to map onto it). `channel` is optional:
     the reducer defaults it from the source. Belief stays UNRESOLVED here (a coarse `confidence_level`

@@ -21,13 +21,13 @@ from .event import Event
 from .fact import Fact
 
 # ── §9.1 boundary test as data ────────────────────────────────────────────────
-# DESCRIPTOR = knowledge ABOUT the entity whose history never participates in causal
-# reasoning: identity-adjacent facts (repo, owner, language, node_name) and content payloads
-# (diff/blame/distribution/change-size). Everything else a measured/inferred fact asserts is
-# operational and its onset value can matter → STATE. Readings (metrics with an explicit
-# stat+window) are handled separately; a hand-authored fact never has a stat/window, so measured
-# metrics fall through to STATE, matching "when in doubt → State".
-_DESCRIPTOR_PREDICATES: frozenset[str] = frozenset({
+# PROPERTY (renamed from DESCRIPTOR, 2026-07-23 primitives §2.2) = knowledge ABOUT the entity
+# whose history never participates in causal reasoning: identity-adjacent facts (repo, owner,
+# language, node_name) and content payloads (diff/blame/distribution/change-size). Everything else
+# a measured/inferred fact asserts is operational and its onset value can matter → STATE. Readings
+# (metrics with an explicit stat+window) are handled separately; a hand-authored fact never has a
+# stat/window, so measured metrics fall through to STATE, matching "when in doubt → State".
+_PROPERTY_PREDICATES: frozenset[str] = frozenset({
     # identity-adjacent / timeless facts about the entity
     "repo", "owner", "language", "node_name", "image", "table_count", "index_health",
     # content payloads (must stay renderable to the LLM — never demoted to evidence[])
@@ -39,11 +39,11 @@ _DESCRIPTOR_PREDICATES: frozenset[str] = frozenset({
 def species_for_predicate(predicate: str, *, has_reading_shape: bool = False) -> Species:
     """The boundary test: EVENT is decided by the op kind (species=EVENT), never here. A fact with
     an explicit reading shape (stat+window) is a READING; a content/identity-adjacent predicate is a
-    DESCRIPTOR; otherwise STATE (the cheap default)."""
+    PROPERTY; otherwise STATE (the cheap default)."""
     if has_reading_shape:
         return Species.READING
-    if predicate in _DESCRIPTOR_PREDICATES:
-        return Species.DESCRIPTOR
+    if predicate in _PROPERTY_PREDICATES:
+        return Species.PROPERTY
     return Species.STATE
 
 

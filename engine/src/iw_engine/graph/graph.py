@@ -67,7 +67,7 @@ class Graph:
     # ── mutation (only the fold calls these) ──────────────────────────────────
     def upsert_node(self, node: Node) -> Node:
         """Upsert an entity. P6 step 2: each prop becomes a DECLARED-channel assertion in the
-        one collection (identity keys → IDENTITY species, the rest → DESCRIPTOR), attributed to
+        one collection (identity keys → IDENTITY species, the rest → PROPERTY), attributed to
         the arrival's `node.source` (P1b's AddNode.source, threaded by the reducer) — so
         per-prop provenance is REAL, not inferred. The stored record's `props` dict is the
         materialized read view over those assertions, rebuilt here — never dual-authored.
@@ -112,7 +112,7 @@ class Graph:
         identity = spec is not None and key in spec.identity_keys
         self.assertions[aid] = Assertion(
             id=aid, subject_ref=nid, name=key, value=value,
-            species=Species.IDENTITY if identity else Species.DESCRIPTOR,
+            species=Species.IDENTITY if identity else Species.PROPERTY,
             channel=Channel.DECLARED, source=source or Source.ENGINE,
             source_reliability=None if identity else 1.0, created_by=seq)
         self._rev += 1

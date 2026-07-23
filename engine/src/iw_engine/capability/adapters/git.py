@@ -78,14 +78,14 @@ class GitAdapter:
         diff = raw.get("diff")
         diff_subject = commit_id or change_id
         if diff and diff_subject and diff.get("at"):
-            # diff stats + the diff summary are change-size / content DESCRIPTORs (the §9.1 content
+            # diff stats + the diff summary are change-size / content PROPERTYs (the §9.1 content
             # set the P1a shim classified) — timeless knowledge about the change, not an evolving
             # state. Folds to a byte-identical Fact; the vendor's own name survives.
             for predicate in ("files_changed", "lines_added", "lines_deleted"):
                 value = diff.get(predicate)
                 if value is not None:
                     ops.append(AddAssertion(subject=diff_subject, name=predicate, value=value,
-                                            species=Species.DESCRIPTOR, valid_from=diff["at"],
+                                            species=Species.PROPERTY, valid_from=diff["at"],
                                             observed_at=diff["at"], source=Source.GIT,
                                             source_reliability=diff.get("reliability"),
                                             source_native_name=predicate))
@@ -94,7 +94,7 @@ class GitAdapter:
                 summary = "; ".join(str(x) for x in changed) if isinstance(changed, list) \
                     else str(changed)
                 ops.append(AddAssertion(subject=diff_subject, name="diff_summary", value=summary,
-                                        species=Species.DESCRIPTOR, valid_from=diff["at"],
+                                        species=Species.PROPERTY, valid_from=diff["at"],
                                         observed_at=diff["at"], source=Source.GIT,
                                         source_reliability=diff.get("reliability", 0.99),
                                         source_native_name="diff_summary"))
@@ -118,7 +118,7 @@ class GitAdapter:
             # sees the code, not just a count. Live-only: hermetic fixtures carry no blame snippet.
             if blame.get("snippet") and blame.get("at"):
                 ops.append(AddAssertion(
-                    subject=blame_commit_id, name="blame_line", species=Species.DESCRIPTOR,
+                    subject=blame_commit_id, name="blame_line", species=Species.PROPERTY,
                     value=f"{blame.get('file')}:{blame.get('line')}  {blame['snippet']}",
                     valid_from=blame["at"], observed_at=blame["at"], source=Source.GIT,
                     source_reliability=blame.get("reliability"), source_native_name="blame_line"))

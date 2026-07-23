@@ -61,16 +61,29 @@ class ConfidenceLevel(StrEnum):
 
 
 class Species(StrEnum):
-    """The five temporal species of an Assertion (DOMAIN-v3 §2.2). One provenance envelope,
-    differing only on the time axis: what IS this (identity), what do we know ABOUT it
-    (descriptor), what is TRUE over time (state), what did we MEASURE (reading), what HAPPENED
-    (event). The atom that collapses today's prop/fact/event trichotomy into one record."""
+    """The five temporal species of an Assertion (DOMAIN-v3 §2.2 / NODE-EDGE-PRIMITIVES 2026-07-23
+    §2). One provenance envelope, differing only on the time axis: what IS this (identity), what do
+    we know ABOUT it (property), what is TRUE over time (state), what did we MEASURE (reading), what
+    HAPPENED (event). The atom that collapses today's prop/fact/event trichotomy into one record.
+
+    PROPERTY was renamed from DESCRIPTOR (2026-07-23 primitives §2.2 — the timeless,
+    supersede-with-trail datum-shape ABOUT an entity). `DESCRIPTOR` survives as a
+    back-compat ALIAS (same value) so every existing `Species.DESCRIPTOR` call site keeps resolving,
+    and `_missing_` maps a legacy serialized `"descriptor"` string onto PROPERTY — so an old persisted
+    graph cache / journal still loads. The alias is excluded from iteration, so every schema DERIVED
+    from this enum (the LLM's JSON schema, the registry) sees only the canonical PROPERTY."""
 
     IDENTITY = "identity"
-    DESCRIPTOR = "descriptor"
+    PROPERTY = "property"
     STATE = "state"
     READING = "reading"
     EVENT = "event"
+    DESCRIPTOR = "property"   # back-compat alias → PROPERTY (renamed 2026-07-23); hidden from iteration
+
+    @classmethod
+    def _missing_(cls, value: object) -> Species | None:
+        # forward-map the pre-rename serialized value so old caches/journals still deserialize.
+        return cls.PROPERTY if value == "descriptor" else None
 
 
 class Channel(StrEnum):

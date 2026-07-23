@@ -450,12 +450,38 @@ def test_species_state_is_the_default():
 
 
 def test_species_descriptor_for_content_and_identity_adjacent():
+    # exercises the DESCRIPTOR back-compat ALIAS: it resolves, and IS the renamed PROPERTY.
     from iw_engine.domain.enums import Species
     from iw_engine.domain.projection import species_for_predicate
     assert species_for_predicate("repo") is Species.DESCRIPTOR
     assert species_for_predicate("diff_summary") is Species.DESCRIPTOR
     assert species_for_predicate("status_code_dist") is Species.DESCRIPTOR
     assert species_for_predicate("node_name") is Species.DESCRIPTOR
+
+
+def test_property_renamed_from_descriptor_is_backcompat():
+    """DESCRIPTOR → PROPERTY rename (2026-07-23 primitives §2.2). The canonical member is
+    PROPERTY (value "property"); DESCRIPTOR survives as an alias so old call sites resolve and
+    old serialized "descriptor" strings still load; the alias is hidden from iteration so every
+    derived schema sees only the six canonical species."""
+    from iw_engine.domain.enums import Species
+    from iw_engine.domain.projection import species_for_predicate
+    # the rename landed: the canonical member is PROPERTY and its value is "property"
+    assert Species.PROPERTY.value == "property"
+    # attribute-access back-compat — the alias IS the renamed member (not a distinct species)
+    assert Species.DESCRIPTOR is Species.PROPERTY
+    # value lookups: the new value is canonical; the legacy value forward-maps via _missing_
+    assert Species("property") is Species.PROPERTY
+    assert Species("descriptor") is Species.PROPERTY
+    # the alias is excluded from iteration — the derived LLM/registry schema never sees a
+    # duplicate "descriptor" species (only identity/property/state/reading/event[/span]). The
+    # alias IS PROPERTY, so it can't be "not in" the list; what must hold is that iteration
+    # yields the canonical name only, and "property" appears exactly once (no shadow member).
+    assert "DESCRIPTOR" not in [s.name for s in Species]
+    assert [s.value for s in Species].count("property") == 1
+    assert "descriptor" not in [s.value for s in Species]
+    # the classifier now returns the canonical PROPERTY
+    assert species_for_predicate("repo") is Species.PROPERTY
 
 
 def test_species_reading_when_reading_shaped():
