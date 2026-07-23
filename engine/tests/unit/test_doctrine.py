@@ -77,6 +77,28 @@ def test_custom_doctrine_overrides_the_packaged_default():
     assert "PROGRESSION RULE: advance the moment the ledger balances" in planner._build_prompt(ctx)
 
 
+def test_entry_seed_hint_is_doctrine_data_not_engine_vocab():
+    """M23: the entry-phase seed literal ("emit the Anomaly node + an onset_value fact NOW") is
+    DOCTRINE DATA, not baked in engine code. The engine _OUTPUT_CONTRACT is domain-neutral now, and
+    the replan nudge reads doctrine.entry_seed_hint keyed on the entry_phase role binding."""
+    from iw_engine.domain.subject import SubjectRef
+    from iw_engine.runtime import live_planner as lp
+    pb = load_playbook(PLAYBOOK)
+    assert pb.doctrine.entry_seed_hint == "emit the Anomaly node + an onset_value fact NOW."
+    # the engine's output-contract constant no longer bakes any incident vocabulary
+    for literal in ("onset_value", "anomaly", "healthrule_violations", "cleared"):
+        assert literal not in lp._OUTPUT_CONTRACT
+    # the replan nudge (attempt>1 at the entry phase) reads the doctrine hint by role binding
+    spec = pb.phase(pb.entry_phase)
+    ctx = PlanContext(subject=SubjectRef(domain="app-incident", id="INC-1", kind="incident"),
+                      phase=pb.entry_phase, entry_phase=pb.entry_phase, phase_spec=spec,
+                      goal=spec.goal, tunables=pb.tunables)
+    planner = LivePlanner(client=None, catalog_text="", tools_text="", tool_intents=set(),
+                          verbose=False)
+    planner._attempts[pb.entry_phase] = 2   # force the replan nudge
+    assert "emit the Anomaly node + an onset_value fact NOW." in planner._build_prompt(ctx)
+
+
 def test_intent_hints_is_gone():
     # 50 lines of dead, hand-restated per-tool docs — deleted; tool docs derive from
     # each capability's own `meta` via render_tools()

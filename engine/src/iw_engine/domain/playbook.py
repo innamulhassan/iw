@@ -120,6 +120,10 @@ class Doctrine(BaseModel):
     verify_advance: str       # when VERIFY confirms and advances (symptom cleared)
     hypothesis_method: str    # always a leader + a distinct rival; actively refute
     progression: str          # the per-turn progression rule (phase scope; advance on gate-pass)
+    entry_seed_hint: str      # the entry-phase replan nudge — the domain symptom+onset to seed
+                              #   NOW (e.g. "emit the Anomaly node + an onset_value fact NOW."):
+                              #   the ONE incident-vocab literal the engine's replan feedback used
+                              #   to bake in code (M23), now DATA the planner reads by role binding
 
 
 class GateSpec(BaseModel):

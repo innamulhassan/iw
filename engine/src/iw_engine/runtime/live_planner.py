@@ -174,12 +174,12 @@ OUTPUT: a single JSON object, no markdown, exactly:
   "reasoning": "your differential reasoning for THIS phase (2-5 sentences)",
   "calls": [{"intent": "<tool intent>", "params": {}}],
   "ops": [
-    {"op":"add_node","type":"anomaly","props":{"anomaly_id":"ANOM-1"}},
-    {"op":"add_fact","subject":"anomaly:anom-1","predicate":"onset_value","value":5200,"unit":"ms","source":"prometheus","at":"2026-07-19T14:05:00+00:00"},
-    {"op":"add_event","entity":"anomaly:anom-1","type":"cleared","source":"prometheus","at":"2026-07-19T14:50:00+00:00"},
+    {"op":"add_node","type":"<node type>","props":{"<id key>":"<id value>"}},
+    {"op":"add_fact","subject":"<node id>","predicate":"<predicate>","value":<value>,"unit":"<unit>","source":"<source>","at":"2026-07-19T14:05:00+00:00"},
+    {"op":"add_event","entity":"<node id>","type":"<event type>","source":"<source>","at":"2026-07-19T14:50:00+00:00"},
     {"op":"propose_hypothesis","hid":"h1","statement":"...","root_candidate":"<node id>","confidence_level":"med"},
     {"op":"update_hypothesis","hid":"h2","new_status":"refuted","basis":"...","add_refuting":[]},
-    {"op":"no_evidence","intent":"healthrule_violations","scope":"<node id>","basis":"...","at":"2026-07-19T14:20:00+00:00"}
+    {"op":"no_evidence","intent":"<tool intent>","scope":"<node id>","basis":"...","at":"2026-07-19T14:20:00+00:00"}
   ],
   "narrative": "concise phase narrative for the journal",
   "verdict": {"status":"advance|repeat|backtrack|blocked|done","confidence_level":"low|med|high","basis":"why this verdict"},
@@ -369,7 +369,9 @@ class LivePlanner:
                 f"\n# !! REPLAN NOTICE: this is attempt #{attempt} at the '{ctx.phase}' phase. "
                 + why
                 + "Do something DIFFERENT this time — do not repeat the same calls. "
-                + (f"In {ctx.phase.upper()}, emit the Anomaly node + an onset_value fact NOW. "
+                # M23: the incident-domain seed literal is DOCTRINE DATA, not engine code — the
+                # phase gating still keys on the entry_phase role binding, only the vocab moved out.
+                + (f"In {ctx.phase.upper()}, {self.doctrine.entry_seed_hint} "
                    if ctx.phase == ctx.entry_phase else "")
                 + (f"Tools you have already called (data, if any, is already in the graph above): "
                    f"{sorted(self._called)}."))

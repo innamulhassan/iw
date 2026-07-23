@@ -171,3 +171,7 @@ doctrine:
       bleeding NOW" is not a phase — enter ACT early with a mitigation action when impact demands
       it (every production-changing action, mitigation or remediation alike, is a human-gated ACT
       action). Only verdict=repeat when a REQUIRED output is genuinely still missing this phase.
+  # the entry-phase replan nudge (M23): the incident-domain symptom+onset the planner is told to
+  # seed on a re-plan of the entry phase — DATA the engine's replan feedback reads by role binding,
+  # not a vocab literal baked in engine code. Duplicates the frame_contract intent, tersely.
+  entry_seed_hint: emit the Anomaly node + an onset_value fact NOW.
