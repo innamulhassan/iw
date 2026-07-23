@@ -108,6 +108,19 @@ def render_catalog(registry, playbook: Playbook) -> str:
        code_commit with sha="abc123" -> "code_commit:abc123".
   ALWAYS copy an exact id verbatim from the CURRENT GRAPH slice when the node already exists.
 
+## QUERY GRAMMAR — the DESK (pushed) + REACHING for more
+  Your DESK each turn is the FOCUS SLICE (pre-tiered: focus + cause-path + suspects in full, the
+  frontier to expand along, healthy nodes collapsed to a count) + the ranked hypotheses + the
+  engine-computed GRAPH PROJECTIONS. REASON over them; what the engine reaches for lands on the desk:
+    - state as-of-T   — the STATE tile TRUE at an instant (a version/image/severity AT onset, not now)
+    - metric summary  — a READING summarised over a window (through the metric_query handle)
+    - spans of a node — the SPAN datums it participates in, span_phase ALWAYS shown; a span whose
+                        interval CONTAINS onset IS the RCA overlap join (change window / outage / rollout)
+    - change-trail    — the STATE supersede-chain + the change-index (events, spans, change_events,
+                        AND every STATE version-boundary — so a silent bump is never missed)
+  You EXPAND over the OBSERVED spine; you only READ the derived causal/evidence layer as the slice
+  renders it (a topology query never drags in hypotheses).
+
 ## PHASES (you are driving ONE phase per turn; the engine routes on your verdict)
 {render_phases(playbook)}
 

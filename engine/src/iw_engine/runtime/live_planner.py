@@ -145,6 +145,44 @@ _RULE_CLOSED_VOCAB = """\
 - Use ONLY node/edge types and intents from the provided grammar/tool list. Inventing a
   label, an illegal edge pair, or an unknown tool wastes the turn (it is rejected)."""
 
+# The SPECIES ROUTER (2026-07-23 primitives §8.1/§8.4) — the crisp mental model of the six datum
+# categories the whole atom collapses to. Engine MECHANICS (the six shapes are the closed `species`
+# vocabulary), not domain method: it teaches the ONE question, defers the concrete predicate→category
+# mapping to the per-type catalog (which lists each predicate under its category — the §2 schema step).
+_RULE_SPECIES_ROUTER = """\
+- SIX DATUM CATEGORIES, one atom (`add_assertion`), one question. Set `species` by asking ONLY
+  "what is this datum's temporal EXTENT?":
+    · a write-once KEY that MAKES the entity what it is -> identity
+    · a timeless fact ABOUT it you never slice as-of-a-time (incl. renderable CONTENT: a diff,
+      a blame line, a distribution) -> property
+    · a value TRUE over a window you WILL slice as-of-T (a status, a version, a count, a severity)
+      -> state (valid_from; valid_to=null = still true)
+    · a measured NUMBER qualified by a stat+window -> reading (append-only, NEVER superseded)
+    · a point thing that HAPPENED, frozen at an instant -> event (occurred_at; retract-not-supersede)
+    · a bounded HAPPENING with start/end/outcome a subject PARTICIPATES in, maybe still open ->
+      span (started_at/ended_at; subject may be a NODE or an EDGE; the engine sets its phase)
+  TIE-BREAK property-vs-state: choose STATE (a window you never query is free; a missing one destroys
+  as-of-onset reconstruction). The NODE TYPES catalog lists each predicate UNDER its category, so you
+  never have to guess which species a known predicate is."""
+
+# The HANDLE LADDER (2026-07-23 primitives §3/§8.1) — the ONE stream rule that makes metrics, logs
+# and spans compose identically. The composability spine that justified dropping LOG as a category.
+_RULE_HANDLE_LADDER = """\
+- NEVER inline a raw high-volume stream. Author the judgment-granularity UNIT plus a HANDLE — one
+  rule, three ways: a metric -> a summary READING + a metric_query handle; a log -> a promoted EVENT
+  (or an error_signature) + a log_link; a trace -> a SPAN datum + its trace_id (correlation_id). The
+  engine fetches the curve live; the graph holds only the units you extract."""
+
+# The LINK rule (2026-07-23 primitives §8.3) — how a datum of ANY species becomes evidence. The
+# counterpart to the edge-ban: you never DRAW the evidence edge, you CITE the id.
+_RULE_LINK_CITE = """\
+- LINK a datum to a hypothesis by CITING its id in the hypothesis `supporting`/`refuting` — an id of
+  ANY species (a state/reading fact OR an event/span), copied from the graph, never prose. The
+  interval-overlap IS the evidence: a SPAN whose window CONTAINS onset (a vendor outage, a change
+  window, a rollout) is `supporting`; a SPAN that does NOT overlap onset (ended before / started
+  after) is `refuting`. A span with a lost close reads ABANDONED (the query surface tells you which)
+  — never over-link a dropped close as a live outage covering onset."""
+
 _RULE_EDGE_BAN = """\
 - NEVER emit `add_edge`. Every structural edge (depends_on, connects_to, ...) comes from a tool
   and every causal/evidence edge (caused_by, supports, refutes) is DERIVED by the engine from
@@ -179,12 +217,15 @@ OUTPUT: a single JSON object, no markdown, exactly:
     {"op":"add_node","type":"<node type>","props":{"<id key>":"<id value>"}},
     {"op":"add_assertion","subject":"<node id>","name":"<predicate>","value":<value>,"unit":"<unit>","species":"state","source":"<source>","at":"2026-07-19T14:05:00+00:00"},
     {"op":"add_assertion","subject":"<node id>","name":"<event type>","species":"event","source":"<source>","at":"2026-07-19T14:50:00+00:00"},
+    {"op":"add_assertion","subject":"<node OR edge id>","name":"<span name>","species":"span","started_at":"2026-07-19T10:00:00+00:00","ended_at":"2026-07-19T10:05:00+00:00","correlation_id":"<trace_id>","source":"<source>"},
     {"op":"propose_hypothesis","hid":"h1","statement":"...","root_candidate":"<node id>","confidence_level":"med"},
     {"op":"update_hypothesis","hid":"h2","new_status":"refuted","basis":"...","add_refuting":[]},
     {"op":"no_evidence","intent":"<tool intent>","scope":"<node id>","basis":"...","at":"2026-07-19T14:20:00+00:00"}
   ],
-  (add_assertion is the atom: species one of state|property|reading|event. The ergonomic
-   add_fact/add_event shorthand is also accepted and folded to add_assertion.)
+  (add_assertion is the atom: species one of identity|property|state|reading|event|span. A span's
+   subject may be a NODE or an EDGE; started_at/ended_at bound it (ended_at null = still open) and
+   the engine sets its phase — never author it. The ergonomic add_fact/add_event shorthand is also
+   accepted and folded to add_assertion.)
   "todos": [
     {"objective":"<short aim for this step>",
      "calls":[{"intent":"<tool intent>","params":{}}],
@@ -223,8 +264,11 @@ def render_system(doctrine: Doctrine) -> str:
         "",
         "HARD RULES",
         _RULE_CLOSED_VOCAB,
+        _RULE_SPECIES_ROUTER,
+        _RULE_HANDLE_LADDER,
         doctrine.evidence_ops,
         _RULE_EDGE_BAN,
+        _RULE_LINK_CITE,
         doctrine.fact_rules,
         doctrine.frame_contract,
         _RULE_GRAPH_LAG,
@@ -474,6 +518,22 @@ Plan this phase. Return ONLY the JSON object."""
                 near = ", ".join(f"{n['id']}@{n['hops']}" for n in w["nodes"] if n["id"] != rid)
                 if near:
                     lines.append(f"leader evidence neighbourhood (walk <=2 hops from {rid}): {near}")
+        # SchemaUsability query grammar (§8.2) — the RCA-first reach surfaced on the desk: what
+        # CHANGED on the symptom's affected surface (trail_of: STATE version-boundaries + events +
+        # spans + change_events, so a silent version bump is never blind-spotted), and the spans it
+        # participates in with span_phase ALWAYS exposed (spans_of: the interval-overlap RCA join —
+        # a CLOSED change-window covering onset supports; an ABANDONED span never reads as ongoing).
+        for a in affected[:2]:
+            tr = graph_tools.trail_of(g, a)
+            if tr["changes"]:
+                lines.append(f"change-trail of {a}: "
+                             + "; ".join(f"{c['kind']}:{c['detail']}" for c in tr["changes"][:5]))
+            sp = graph_tools.spans_of(g, a)
+            if sp["spans"] or sp["participations"]:
+                span_txt = ", ".join(f"{s['name']}[{s['span_phase']}]" for s in sp["spans"][:4])
+                part_txt = ", ".join(p["occurrence"] for p in sp["participations"][:3])
+                lines.append(f"spans on {a}: " + (span_txt or "(none)")
+                             + (f"  participates in: {part_txt}" if part_txt else ""))
         if not lines:
             return ""
         return ("\n\n# GRAPH PROJECTIONS (engine-computed governed traversals — REASON over"
@@ -592,9 +652,27 @@ Plan this phase. Return ONLY the JSON object."""
                 return AddNode(type=NodeType(o["type"]), props=o.get("props") or {}), None
             if kind == "add_assertion":
                 # the NATIVE atom (F4): the model authors species explicitly. A non-event asserts
-                # onto a node like a fact (predicate legality checked); an event carries a payload.
+                # onto a node like a fact (predicate legality checked); an event carries a payload;
+                # a span (§2.6/§8.1) is a bounded happening addressed to a node OR an edge.
                 subject, name = self._canon(o["subject"]), o["name"]
                 species = self._species(o.get("species"), name)
+                if species is Species.SPAN:
+                    # started_at->valid_from, ended_at->valid_to (null = in-flight). The engine
+                    # DERIVES span_phase (never authored) and applies the reification tests; the LLM
+                    # only ever authors `subject = node-or-edge`. A span name illegal for a NODE
+                    # subject is repaired like a fact; an EDGE subject has no node type to check.
+                    bad = self._illegal_predicate(subject, name)
+                    if bad is not None:
+                        return None, bad
+                    started = self._dt(o.get("started_at") or o.get("at") or o.get("valid_from"))
+                    ended = self._dt_opt(o.get("ended_at") or o.get("valid_to"))
+                    src, lvl, rel = self._belief_channel(o)
+                    return AddAssertion(
+                        subject=subject, name=name, value=self._fact_value(o.get("value")),
+                        unit=o.get("unit"), species=Species.SPAN, valid_from=started, valid_to=ended,
+                        observed_at=self._dt(o.get("observed_at"), ended or started),
+                        correlation_id=(str(o["correlation_id"]) if o.get("correlation_id") else None),
+                        source=src, confidence_level=lvl, source_reliability=rel), None
                 if species is not Species.EVENT:
                     bad = self._illegal_predicate(subject, name)
                     if bad is not None:
@@ -816,6 +894,20 @@ Plan this phase. Return ONLY the JSON object."""
             except ValueError:
                 pass
         return default or self.default_at
+
+    def _dt_opt(self, x) -> datetime | None:
+        """Parse an OPTIONAL datetime (a span's `ended_at`): a real datetime / ISO string -> that
+        instant; absent / blank / "null" / unparseable -> None (in-flight), NOT the `default_at`
+        fallback `_dt` applies — a span left open must stay OPEN, never be silently CLOSED at a
+        default instant."""
+        if isinstance(x, datetime):
+            return x
+        if isinstance(x, str) and x and x.lower() != "null":
+            try:
+                return datetime.fromisoformat(x.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        return None
 
     def _log(self, t: PhaseTrace) -> None:
         print(f"  ── {t.phase.upper()} → verdict={t.verdict}")

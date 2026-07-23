@@ -358,3 +358,100 @@ def test_engine_hands_the_focus_slice_every_phase():
     for phase_id, sl in probe.seen[1:]:
         assert sl["focus"] == "anomaly:anom-1", phase_id   # symptom bound from then on
         assert len(sl["nodes"]) + len(sl["frontier"]) + sl["collapsed_count"] == sl["total"]
+
+
+# ── SchemaUsability: the planner-prompt INTUITION (§8) + span authoring (§8.1) ──────────
+def test_output_contract_advertises_the_six_species_and_a_span_example():
+    from iw_engine.runtime import live_planner as lp
+
+    assert "identity|property|state|reading|event|span" in lp._OUTPUT_CONTRACT
+    assert '"species":"span"' in lp._OUTPUT_CONTRACT and "correlation_id" in lp._OUTPUT_CONTRACT
+    assert "node OR edge id" in lp._OUTPUT_CONTRACT           # a span's subject may be either
+    # still domain-neutral — the router is engine MECHANICS; the doctrine owns the incident vocab
+    for literal in ("onset_value", "anomaly", "healthrule_violations"):
+        assert literal not in lp._OUTPUT_CONTRACT
+
+
+def test_system_prompt_teaches_the_router_the_handle_ladder_and_the_link_rule():
+    from iw_engine.runtime.live_planner import _default_doctrine, render_system
+
+    sysp = render_system(_default_doctrine())
+    # the six-category router keyed on temporal EXTENT + the property-vs-state tie-break
+    assert "SIX DATUM CATEGORIES" in sysp and "temporal EXTENT" in sysp
+    assert "TIE-BREAK property-vs-state" in sysp and "choose STATE" in sysp
+    # the ONE handle-ladder rule (metrics/logs/spans identical)
+    assert "NEVER inline a raw high-volume stream" in sysp
+    assert "metric_query" in sysp and "log_link" in sysp and "trace_id" in sysp
+    # the link rule: cite an id of ANY species; the span overlap join; the ABANDONED honesty rule
+    assert "CITING its id" in sysp and "ANY species" in sysp
+    assert "CONTAINS onset" in sysp and "ABANDONED" in sysp
+
+
+def test_live_planner_authors_a_span_on_a_node_or_an_edge_subject():
+    from iw_engine.domain.enums import Species
+
+    planner = LivePlanner(client=None, catalog_text="", tools_text="", tool_intents=set(),
+                          verbose=False)
+    # a CLOSED node-subject span (started+ended) with a correlation_id
+    op, err = planner._parse_op({
+        "op": "add_assertion", "subject": "business_transaction:checkout", "name": "trace",
+        "species": "span", "started_at": "2026-07-19T10:00:00+00:00",
+        "ended_at": "2026-07-19T10:00:01+00:00", "correlation_id": "trace-abc", "source": "appd"})
+    assert err is None and isinstance(op, AddAssertion) and op.species is Species.SPAN
+    assert op.valid_from is not None and op.valid_to is not None and op.correlation_id == "trace-abc"
+    # an OPEN (in-flight) span: no ended_at -> valid_to stays None (engine sets span_phase=OPEN,
+    # never the default_at fallback that would silently CLOSE it)
+    op2, err2 = planner._parse_op({
+        "op": "add_assertion", "subject": "service:orders-api|prod", "name": "hop",
+        "species": "span", "started_at": "2026-07-19T10:00:00+00:00", "source": "appd"})
+    assert err2 is None and op2.species is Species.SPAN and op2.valid_to is None
+    # a Rung-1 hop addressed to an EDGE subject is legal (no node type to reject against)
+    op3, err3 = planner._parse_op({
+        "op": "add_assertion", "subject": "edge:calls:svc->db:discovered", "name": "hop",
+        "species": "span", "started_at": "2026-07-19T10:00:00+00:00", "source": "appd"})
+    assert err3 is None and op3.subject == "edge:calls:svc->db:discovered"
+
+
+def test_prompt_surfaces_the_change_trail_and_spans_query_grammar():
+    """The GRAPH PROJECTIONS render the SchemaUsability query grammar for the symptom's affected
+    surface: trail_of (change-trail incl. STATE version-boundaries — §9 fix J) and spans_of
+    (span_phase ALWAYS shown — §4.6)."""
+    from datetime import UTC, datetime
+
+    from iw_engine.domain.assertion import Assertion
+    from iw_engine.domain.enums import Channel, SpanPhase, Species
+    from iw_engine.domain.fact import Fact
+
+    g = _spine_graph()
+    svc = "service:orders-api|prod"
+    ts = datetime(2026, 7, 19, 13, 50, tzinfo=UTC)
+    g.add_fact(Fact(id="fv", subject_ref=svc, predicate="tier", value="gold", valid_from=ts,
+                    observed_at=ts, source=Source.CMDB, source_reliability=0.9, created_by=1))
+    g.add_span(Assertion(id="span:r", subject_ref=svc, name="trace", species=Species.SPAN,
+                         channel=Channel.MEASURED, valid_from=ts, valid_to=ts, observed_at=ts,
+                         span_phase=SpanPhase.CLOSED, source=Source.APPD, source_reliability=0.9,
+                         created_by=1))
+    planner = LivePlanner(client=None, catalog_text="# CAT", tools_text="# TOOLS",
+                          tool_intents=set(), verbose=False)
+    planner.graph = g
+    prompt = planner._build_prompt(_ctx_for(g))
+    assert f"change-trail of {svc}:" in prompt
+    assert "tier=gold" in prompt                 # the STATE version-boundary surfaced (§9 fix J)
+    assert f"spans on {svc}:" in prompt
+    assert "trace[closed]" in prompt             # span_phase ALWAYS exposed (§4.6)
+
+
+def test_catalog_advertises_the_query_grammar_and_the_category_split():
+    import pathlib
+
+    import iw_engine
+    from iw_engine.domain import registry
+    from iw_engine.domain.catalog import render_catalog
+    from iw_engine.runtime.loader import load_playbook
+
+    pb = load_playbook(pathlib.Path(iw_engine.__file__).parent / "playbooks" / "incident.yaml")
+    cat = render_catalog(registry, pb)
+    assert "QUERY GRAMMAR" in cat and "state as-of-T" in cat and "change-trail" in cat
+    assert "span_phase ALWAYS shown" in cat
+    # the per-type category split (the §2 typed-schema step) rides in the NODE TYPES section
+    assert "reading=[" in cat and "span=[" in cat and "state=[" in cat
