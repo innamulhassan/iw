@@ -48,10 +48,15 @@ def build(refuted_variant: bool = False):
     subject = SubjectRef(domain="app-incident", id="INC-4821", kind="incident")
 
     frame = phase("frame", [
-        node(NT.SERVICE, service_name="payments-api", env="prod"),
+        node(NT.SERVICE, service_name="payments-api", env="prod",
+             owner="payments-platform@corp.example", version="v4.12.0"),
         node(NT.ANOMALY, anomaly_id="ANOM-1"),
         node(NT.ALERT, alert_id="ALT-1"),
-        node(NT.CHANGE_EVENT, change_id="CHG-1"),
+        node(NT.CHANGE_EVENT, change_id="CHG-1",
+             short_description="Deploy payments-api v4.12.0 to prod (intl tax-calc)",
+             description="Standard release of payments-api v4.12.0 via Argo Rollouts; bumps the "
+                         "shared taxcalc library to add intl VAT regions. Blue/green with a 10% "
+                         "canary, auto-promoted after the analysis gate."),
         fact(SVC, "red_errors", 0.40, T_ONSET, source=S.PROMETHEUS, reliability=0.97),
         fact(SVC, "degraded", True, T_ONSET, source=S.PROMETHEUS),
         # the full onset RED snapshot: throughput holding but 40% of calls 5xx-ing, and the
@@ -76,9 +81,14 @@ def build(refuted_variant: bool = False):
         node(NT.INCIDENT, incident_id="INC-4821",
              title="payments-api elevated 5xx errors",
              short_description="payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
+             description="PagerDuty routed High5xxRate to SRE at 14:00 UTC. payments-api (prod, "
+                         "tier-1) is 5xx-ing on ~40% of requests; throughput holds but the error "
+                         "tail drags p99 to 4.2s while p50 stays flat — a code-fault shape. Onset "
+                         "is 13 minutes after release v4.12.0 (13:47). Card auth + capture impacted.",
              work_notes="High5xxRate paged SRE; v4.12.0 shipped just before onset.",
              caller_id="monitoring.alerting"),
-        node(NT.DATABASE, db_id="payments-ora"),
+        node(NT.DATABASE, db_id="payments-ora", engine="oracle", version="19c",
+             owner="payments-platform@corp.example"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.DEPENDS_ON, SVC, DB, origin="declared"),
         fact(SVC, "red_latency_p99", 4200, T_ONSET, unit="ms", source=S.APPD, reliability=0.95),
@@ -88,13 +98,18 @@ def build(refuted_variant: bool = False):
 
     # INVESTIGATE opens the hypothesize⇄evidence loop (verdict=repeat keeps looping)
     investigate_open = phase("investigate", [
-        node(NT.CODE_COMMIT, sha="abc123"),
+        node(NT.CODE_COMMIT, sha="abc123", repo="payments-api", author="dev-kco",
+             message="feat(tax): add intl VAT regions via shared taxcalc v4.12.0 (PR #1487)"),
         edge(ET.INTRODUCED_BY, CHG, COMMIT),
         # related priors (ServiceNow list_related_incidents): billing-api + invoicing-api filed
         # the same NPE in the same window after adopting the shared taxcalc lib — a hypothesis
         # prior that sharpens H1. SIMILAR_TO off the primary incident (additive; H1 still wins).
-        node(NT.INCIDENT, incident_id="INC-4788", severity="3 - Moderate"),
-        node(NT.INCIDENT, incident_id="INC-4790", severity="4 - Low"),
+        node(NT.INCIDENT, incident_id="INC-4788", severity="3 - Moderate",
+             title="billing-api 5xx after v4.12.0",
+             short_description="billing-api NPE in TaxCalculator after adopting shared taxcalc"),
+        node(NT.INCIDENT, incident_id="INC-4790", severity="4 - Low",
+             title="invoicing-api intermittent 5xx",
+             short_description="invoicing-api same TaxCalculator NPE, lower volume"),
         event(INC_R1, "declared", T_ONSET, source=S.SERVICENOW, affected_ci="billing-api"),
         event(INC_R2, "declared", T_ONSET, source=S.SERVICENOW, affected_ci="invoicing-api"),
         edge(ET.SIMILAR_TO, INC, INC_R1, level="high"),
@@ -121,7 +136,9 @@ def build(refuted_variant: bool = False):
             fact(DB, "slow_query_rate", 3, T_INV, unit="per_min", source=S.PROMETHEUS, reliability=0.98),
             node(NT.ERROR_SIGNATURE, signature_hash="npe-taxcalc",
                  exception_class="NullPointerException", first_seen=T_ONSET,
-                 file_line="TaxCalculator.java:88"),
+                 file_line="TaxCalculator.java:88",
+                 message="Cannot invoke \"com.corp.geo.Region.getCode()\" because the return value "
+                         "of \"com.corp.order.Order.getRegion()\" is null"),
             fact(ERRSIG, "count", 152, T_INV, source=S.SPLUNK, reliability=0.98),
             fact(ERRSIG, "last_seen", T_INV.isoformat(), T_INV, source=S.SPLUNK, reliability=0.98),
             edge(ET.EMITTED, SVC, ERRSIG),

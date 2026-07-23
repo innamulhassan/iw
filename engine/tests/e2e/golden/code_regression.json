@@ -516,7 +516,9 @@
         "origin": false,
         "props": {
           "env": "prod",
-          "service_name": "payments-api"
+          "owner": "payments-platform@corp.example",
+          "service_name": "payments-api",
+          "version": "v4.12.0"
         },
         "source": "prometheus",
         "type": "service"
@@ -552,7 +554,9 @@
         "last_seen": "2026-07-19T13:47:00+00:00",
         "origin": false,
         "props": {
-          "change_id": "CHG-1"
+          "change_id": "CHG-1",
+          "description": "Standard release of payments-api v4.12.0 via Argo Rollouts; bumps the shared taxcalc library to add intl VAT regions. Blue/green with a 10% canary, auto-promoted after the analysis gate.",
+          "short_description": "Deploy payments-api v4.12.0 to prod (intl tax-calc)"
         },
         "source": "servicenow",
         "type": "change_event"
@@ -565,6 +569,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "PagerDuty routed High5xxRate to SRE at 14:00 UTC. payments-api (prod, tier-1) is 5xx-ing on ~40% of requests; throughput holds but the error tail drags p99 to 4.2s while p50 stays flat \u2014 a code-fault shape. Onset is 13 minutes after release v4.12.0 (13:47). Card auth + capture impacted.",
           "incident_id": "INC-4821",
           "short_description": "payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
           "title": "payments-api elevated 5xx errors",
@@ -580,7 +585,10 @@
         "last_seen": "2026-07-19T14:12:00+00:00",
         "origin": false,
         "props": {
-          "db_id": "payments-ora"
+          "db_id": "payments-ora",
+          "engine": "oracle",
+          "owner": "payments-platform@corp.example",
+          "version": "19c"
         },
         "source": "prometheus",
         "type": "database"
@@ -592,6 +600,9 @@
         "last_seen": null,
         "origin": false,
         "props": {
+          "author": "dev-kco",
+          "message": "feat(tax): add intl VAT regions via shared taxcalc v4.12.0 (PR #1487)",
+          "repo": "payments-api",
           "sha": "abc123"
         },
         "source": null,
@@ -605,7 +616,9 @@
         "origin": false,
         "props": {
           "incident_id": "INC-4788",
-          "severity": "3 - Moderate"
+          "severity": "3 - Moderate",
+          "short_description": "billing-api NPE in TaxCalculator after adopting shared taxcalc",
+          "title": "billing-api 5xx after v4.12.0"
         },
         "source": "servicenow",
         "type": "incident"
@@ -618,7 +631,9 @@
         "origin": false,
         "props": {
           "incident_id": "INC-4790",
-          "severity": "4 - Low"
+          "severity": "4 - Low",
+          "short_description": "invoicing-api same TaxCalculator NPE, lower volume",
+          "title": "invoicing-api intermittent 5xx"
         },
         "source": "servicenow",
         "type": "incident"
@@ -657,6 +672,7 @@
           "exception_class": "NullPointerException",
           "file_line": "TaxCalculator.java:88",
           "first_seen": "2026-07-19 14:00:00+00:00",
+          "message": "Cannot invoke \"com.corp.geo.Region.getCode()\" because the return value of \"com.corp.order.Order.getRegion()\" is null",
           "signature_hash": "npe-taxcalc"
         },
         "source": "splunk",
