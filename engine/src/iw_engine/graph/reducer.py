@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..domain import dictionary, registry
+from ..domain.assertion import Assertion, channel_for_source
 from ..domain.common import Confidence
 from ..domain.edge import Edge
 from ..domain.enums import (
@@ -21,6 +22,7 @@ from ..domain.enums import (
     NodeType,
     Origin,
     Source,
+    SpanPhase,
     Species,
 )
 from ..domain.event import Event
@@ -52,6 +54,7 @@ class Materialized:
     nodes: list[Node] = field(default_factory=list)
     facts: list[Fact] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)
+    spans: list[Assertion] = field(default_factory=list)   # SPAN species — raw atoms (§2.6)
     edges: list[Edge] = field(default_factory=list)
     hyp_deltas: list[HypDelta] = field(default_factory=list)
     retractions: list[Retraction] = field(default_factory=list)
@@ -233,6 +236,39 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 id=eid, entity_ref=subject, type=canonical, occurred_at=op.occurred_at,
                 observed_at=op.observed_at, payload=payload, source=op.source,
                 source_native_name=native, provisional=provisional, created_by=seq))
+            return
+
+        if op.species is Species.SPAN:
+            # SPAN fold (2026-07-23 primitives §2.6/§4/§8.1). The ENGINE derives span_phase — never
+            # the LLM: OPEN while in-flight (no `ended_at`), CLOSED once `valid_to` (ended_at)
+            # arrives. ABANDONED is the journaled TTL reaper's deterministic decision (§4.6), never
+            # a wall-clock read here. The OPEN datum and the later CLOSED datum share ONE
+            # `started_at` -> ONE span_id, so the close overwrites the open IN PLACE
+            # (two-phase-then-frozen) — no supersession chain, unlike a STATE tile. `subject` is
+            # already resolved above and may be a NODE or an EDGE (Rung-1 hops address the edge);
+            # `correlation_id` (trace_id/BT-id) joins sibling hops to a Rung-2 occurrence (§4.4).
+            phase = SpanPhase.CLOSED if op.valid_to is not None else SpanPhase.OPEN
+            channel = op.channel or channel_for_source(op.source)
+            conf = (_level_conf(op.confidence_level, tunables, f"inferred {canonical}")
+                    if op.confidence_level is not None else None)
+            reliability = op.source_reliability
+            if reliability is None and op.source != Source.LLM:
+                reliability = tunables.source_reliability.get(op.source.value)
+            sid = registry.span_id(subject, native, op.valid_from)
+            try:
+                out.spans.append(Assertion(
+                    id=sid, subject_ref=subject, name=canonical, value=op.value, unit=op.unit,
+                    species=Species.SPAN, channel=channel, valid_from=op.valid_from,
+                    valid_to=op.valid_to, observed_at=op.observed_at, span_phase=phase,
+                    correlation_id=op.correlation_id, source=op.source, source_native_name=native,
+                    confidence=conf, source_reliability=reliability, evidence=op.evidence,
+                    provisional=provisional, created_by=seq))
+            except (ValueError, AssertionError) as exc:
+                # mirror the Fact path's defensive reject-and-continue (the atom enforces its
+                # span/belief invariants by raising; a slipped-through malformed span rejects,
+                # never crashes the run).
+                out.rejections.append(Rejection(op_index=i, op_kind=op_kind,
+                                                reason=f"invalid span: {exc}"))
             return
 
         conf = (_level_conf(op.confidence_level, tunables, f"inferred {canonical}")

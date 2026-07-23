@@ -187,7 +187,7 @@ def export_bundle(res: RunResult) -> dict:
     # the engine computed it from the playbook's subject_node role binding — no incident
     # convention here (None on a legacy reopen simply flags no node as origin).
     origin_id = res.origin_node
-    return {
+    bundle: dict = {
         "subject": res.subject.model_dump(),
         "outcome": res.close_outcome or "open",
         "phases": list(res.phases_run),
@@ -253,3 +253,22 @@ def export_bundle(res: RunResult) -> dict:
         "discovery": discovery_counters(g),
         "postmortem": render_postmortem(res.subject, g, store, jr, res.close_outcome),
     }
+    # SPAN species (2026-07-23 primitives §2.6) — bounded happenings, injected into the graph view
+    # ONLY when present, so the pre-span goldens stay byte-identical (mirrors the `provisional`-
+    # when-true discipline every fact/event key already follows). A span is rendered as the RAW
+    # atom with its `span_phase` ALWAYS exposed (§4.6: an ABANDONED span can never read as
+    # 'ongoing'); `subject` may be a NODE or an EDGE id (a Rung-1 hop addresses the discovered
+    # CALLS edge), and `correlation_id` (trace_id/BT-id) joins sibling hops to a reified occurrence.
+    if g.spans:
+        bundle["graph"]["spans"] = [
+            {"id": s.id, "subject": s.subject_ref, "name": s.name, "value": s.value,
+             "unit": s.unit, "started_at": s.valid_from.isoformat(),
+             "ended_at": s.valid_to.isoformat() if s.valid_to else None,
+             "span_phase": s.span_phase.value if s.span_phase else None,
+             "correlation_id": s.correlation_id,
+             "observed_at": s.observed_at.isoformat() if s.observed_at else None,
+             "source": s.source.value, "source_native_name": s.source_native_name,
+             "state": s.state.value,
+             **({"provisional": True} if s.provisional else {})}
+            for s in g.spans.values()]
+    return bundle

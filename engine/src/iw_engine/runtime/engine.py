@@ -298,7 +298,8 @@ class Engine:
 
         result = PhaseResult(
             phase_id=phase, goal_restated=spec.goal, facts_added=mat.facts,
-            events_added=mat.events, nodes_touched=mat.nodes, edges_added=mat.edges,
+            events_added=mat.events, spans_added=mat.spans,
+            nodes_touched=mat.nodes, edges_added=mat.edges,
             hypotheses_updated=mat.hyp_deltas, narrative=plan.narrative,
             next_actions=plan.next_actions, verdict=plan.verdict,
             retractions=mat.retractions,   # tombstones ride the delta (P3 step 6 — R-J3)

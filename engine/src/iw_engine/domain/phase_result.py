@@ -10,6 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .assertion import Assertion
 from .common import Confidence
 from .edge import Edge
 from .enums import GateResult, VerdictStatus
@@ -83,6 +84,7 @@ class PhaseResult(BaseModel):
     goal_restated: str
     facts_added: list[Fact] = Field(default_factory=list)          # -> GRAPH
     events_added: list[Event] = Field(default_factory=list)        # -> GRAPH
+    spans_added: list[Assertion] = Field(default_factory=list)     # -> GRAPH (SPAN species §2.6)
     nodes_touched: list[Node] = Field(default_factory=list)        # -> GRAPH
     edges_added: list[Edge] = Field(default_factory=list)          # -> GRAPH
     hypotheses_updated: list[HypDelta] = Field(default_factory=list)  # -> HYPOTHESIS STORE
@@ -97,6 +99,6 @@ class PhaseResult(BaseModel):
     rejections: list[Rejection] = Field(default_factory=list)
 
     def is_empty_delta(self) -> bool:
-        return not (self.facts_added or self.events_added or self.nodes_touched
-                    or self.edges_added or self.hypotheses_updated or self.retractions
-                    or self.remaps)
+        return not (self.facts_added or self.events_added or self.spans_added
+                    or self.nodes_touched or self.edges_added or self.hypotheses_updated
+                    or self.retractions or self.remaps)

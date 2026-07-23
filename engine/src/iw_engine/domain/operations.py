@@ -52,6 +52,9 @@ class AddAssertion(_Op):
     occurred_at: datetime | None = None            # EVENT only
     stat: Stat | None = None                       # READING only
     window: Window | None = None                   # READING only
+    correlation_id: str | None = None              # SPAN only — trace_id/BT-id (§4.4); the engine
+    #                                                DERIVES span_phase from valid_to (OPEN in-flight /
+    #                                                CLOSED once ended), so it is never op-authored.
     source: Source
     source_native_name: str | None = None
     confidence_level: ConfidenceLevel | None = None      # for inferred assertions

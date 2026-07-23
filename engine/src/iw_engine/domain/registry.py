@@ -107,6 +107,16 @@ def event_id(entity: str, etype: str, occurred_at: datetime | str) -> str:
     return "evt:" + hashlib.sha1(raw.encode()).hexdigest()[:16]
 
 
+def span_id(subject: str, name: str, started_at: datetime | str) -> str:
+    """A SPAN's stable id (2026-07-23 primitives §2.6/§4). Keyed on (subject, name, started_at) so
+    a span's two-phase capture is idempotent by id: the OPEN datum and the later CLOSED datum share
+    one `started_at`, hence ONE id — the close overwrites the open in place (two-phase-then-frozen),
+    and a late close likewise re-homes onto the same id. `subject` may be a NodeId OR an EdgeId
+    (§4.1: subject_ref reaches a node or an edge — the Rung-1 hop addresses the discovered edge)."""
+    raw = f"{subject}|{name}|{started_at}"
+    return "span:" + hashlib.sha1(raw.encode()).hexdigest()[:16]
+
+
 def edge_id(etype: EdgeType, src: str, dst: str, origin: Origin) -> str:
     return f"edge:{etype.value}:{src}->{dst}:{origin.value}"
 

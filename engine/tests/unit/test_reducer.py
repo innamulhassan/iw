@@ -207,18 +207,25 @@ def test_edge_subject_assertion_is_reachable():
 def test_edge_borne_illegal_predicate_is_governed():
     """M30 — the ungoverned lane closed: a KNOWN predicate that is NOT legal on the edge type now
     REJECTS (parallel to a node's applies_to), so the otherwise-closed vocabulary has no free lane
-    through edge subjects. `degraded` is a real Service predicate but is not RED an edge carries."""
+    through edge subjects. `cpu_utilization` is a real Host/Pod reading but is not something a CALLS
+    edge carries.
+
+    (The example moved off `degraded` in the SpanFold phase: 2026-07-23 primitives §4.2 Rung 0
+    made a `degraded` CALLS a legitimate state-of-the-relationship datum ABOUT the edge, so it is
+    now IN CALLS.fact_predicates. The test's guarantee is unchanged — a known predicate illegal on
+    the edge still rejects with its exact reason; only the illegal exemplar was re-picked.)"""
     eid = edge_id(EdgeType.CALLS, SID, SID2, Origin.DISCOVERED)
     ops = [
         _svc("payments-api"),
         _svc("checkout-api"),
         AddEdge(type=EdgeType.CALLS, src=SID, dst=SID2),
-        AddAssertion(subject=eid, name="degraded", value=True, species=Species.STATE,
+        AddAssertion(subject=eid, name="cpu_utilization", value=0.9, species=Species.STATE,
                      valid_from=T0, observed_at=T0, source=Source.PROMETHEUS),
     ]
     mat = materialize(ops, 1, Graph(), Tunables())
     assert mat.facts == []
-    assert [r.reason for r in mat.rejections] == ["predicate 'degraded' not allowed on edge calls"]
+    assert [r.reason for r in mat.rejections] == \
+        ["predicate 'cpu_utilization' not allowed on edge calls"]
 
 
 def test_edge_borne_predicate_on_ungoverned_edge_type_rejects():

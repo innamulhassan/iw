@@ -22,6 +22,8 @@ def _apply_to_graph(result: PhaseResult, graph: Graph) -> None:
         graph.add_fact(f)
     for e in result.events_added:
         graph.add_event(e)
+    for s in result.spans_added:        # SPAN species (§2.6) — raw atoms, idempotent by span_id
+        graph.add_span(s)
     for e in result.edges_added:
         graph.add_edge(e)
     # retractions after additions (P3 step 6 — the Retract op, R-J3): tombstones apply after

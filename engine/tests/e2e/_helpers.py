@@ -66,6 +66,21 @@ def event(entity: str, etype: str, at: datetime, *, source: Source = Source.OCP,
                         observed_at=at, value=payload, source=source, source_native_name=etype)
 
 
+def span(subject: str, name: str, started_at: datetime, *, ended_at: datetime | None = None,
+         value=None, correlation_id: str | None = None, source: Source = Source.APPD,
+         reliability: float = 0.95, unit: str | None = None,
+         observed_at: datetime | None = None) -> AddAssertion:
+    """A SPAN datum (2026-07-23 primitives §2.6): `[started_at, ended_at)` a subject PARTICIPATES
+    in. `ended_at=None` = in-flight (the engine stamps span_phase=OPEN; a later call with the same
+    `started_at` + an `ended_at` CLOSES it in place). `subject` may be a NodeId OR an EdgeId (the
+    Rung-1 hop addresses the discovered CALLS edge). The engine derives span_phase — never authored."""
+    return AddAssertion(subject=subject, name=name, value=value, unit=unit, species=Species.SPAN,
+                        valid_from=started_at, valid_to=ended_at,
+                        observed_at=observed_at or ended_at or started_at,
+                        correlation_id=correlation_id, source=source,
+                        source_reliability=reliability, source_native_name=name)
+
+
 def edge(t: EdgeType, src: str, dst: str, *, origin: str | None = None,
          level: str | None = None) -> AddEdge:
     return AddEdge(type=t, src=src, dst=dst, origin=Origin(origin) if origin else None,

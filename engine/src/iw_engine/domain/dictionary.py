@@ -82,6 +82,14 @@ _FACT_ENTRIES: tuple[DictEntry, ...] = (
               "up", stat=Stat.RATE),
     DictEntry("delta_vs_baseline", Species.READING, (_NT.BUSINESS_TRANSACTION,), "float", None, "up",
               stat=Stat.DELTA_VS_BASELINE),
+    # SPAN canonicals (2026-07-23 primitives §2.6) — bounded happenings a subject PARTICIPATES in,
+    # `[started_at, ended_at)` with an outcome, two-phase-then-frozen. `trace` is a distributed
+    # trace captured on a BT/Service (the Rung-2 reification candidate keyed by correlation_id=trace_id);
+    # `hop` is the Rung-1 atomic A->B call span addressed to the discovered CALLS EDGE (applies_to
+    # names the legal node scope for a node-subject span; the edge-borne case is governed by
+    # CALLS.fact_predicates). value carries the outcome (e.g. {"status": "ok"|"error"}).
+    DictEntry("trace", Species.SPAN, (_NT.BUSINESS_TRANSACTION, _NT.SERVICE), "dict", None, None),
+    DictEntry("hop", Species.SPAN, (_NT.SERVICE, _NT.API_ENDPOINT), "dict", None, None),
     # USE — data & messaging
     DictEntry("conn_pool_util", Species.READING, (_NT.DATABASE,), "float", "ratio", "up",
               stat=Stat.GAUGE),

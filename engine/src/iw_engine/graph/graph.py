@@ -179,6 +179,17 @@ class Graph:
         self._rev += 1
         return event
 
+    def add_span(self, span: Assertion) -> Assertion:
+        """Store a SPAN-species assertion (2026-07-23 primitives §2.6). A span is stored as the RAW
+        atom (never a Fact/Event view) so its `span_phase`/`correlation_id` survive and the query
+        surface always exposes the phase (§4.6). Idempotent by id: the two-phase capture keys the
+        OPEN datum and its later CLOSED datum on ONE `started_at` -> ONE span_id, so the close
+        OVERWRITES the open in place (two-phase-then-frozen) — a late close likewise re-homes onto
+        the same id. No supersede-trail (that is a STATE tile's discipline, not a span's)."""
+        self.assertions[span.id] = span
+        self._rev += 1
+        return span
+
     def remap_id(self, old: str, new: str) -> None:
         """P5 step 4 — the deterministic reference remap (DOMAIN-v3 §9.2; the subsystem P3
         deferred Retype/Merge to). Applied ONLY by the fold from journaled Remap records, so a

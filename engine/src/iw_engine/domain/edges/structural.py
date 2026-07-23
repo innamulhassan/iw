@@ -52,7 +52,12 @@ SPECS: tuple[EdgeSpec, ...] = (
         # dictionary canonicalization (M30), parallel to node `applies_to`, so this lists what
         # a discovered CALLS legally carries in canonical form: the vendor exit-call spellings
         # (call_rate/call_error_rate/call_latency_p99) merge to these before the legality check.
-        fact_predicates=("request_rate", "error_rate", "latency_p99"),
+        # `hop` is the Rung-1 atomic-hop SPAN a subject participates in, addressed to THIS edge
+        # (2026-07-23 primitives §4.2 Rung 1: a datum-ABOUT-the-edge, never edge-payload / never a
+        # per-instance edge) — the same edge-borne surface RED rides, now carrying the bounded call.
+        # `degraded` is the Rung-0 STATE-of-the-relationship ("this CALLS was degraded t1->t2",
+        # §4.2 Rung 0) — a state ON the relationship, distinct from the edge's own lifecycle.
+        fact_predicates=("request_rate", "error_rate", "latency_p99", "hop", "degraded"),
     ),
     EdgeSpec(
         type=EdgeType.REALIZES,
