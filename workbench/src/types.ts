@@ -232,15 +232,23 @@ export interface PostmortemRootCause {
   statement: string;
   root_candidate: string | null;
   confidence: number;
-  chain: unknown[];
+  chain: ChainLink[];
+}
+
+/** One surviving contributing factor (an alive-but-not-confirmed hypothesis). */
+export interface PostmortemContributing {
+  statement: string;
+  confidence: number;
 }
 
 export interface Postmortem {
   subject?: Subject;
   outcome?: Outcome;
-  root_cause: PostmortemRootCause;
+  /** null when the investigation closed WITHOUT a confirmed root (a `mitigated` outcome) — the
+   *  engine's render_postmortem returns None there, so the card shows "no confirmed root cause". */
+  root_cause: PostmortemRootCause | null;
   ruled_out: { statement: string; basis: string }[];
-  contributing: unknown[];
+  contributing: PostmortemContributing[];
   timeline: PostmortemTimelineEntry[];
   narrative: PostmortemNarrativeEntry[];
 }

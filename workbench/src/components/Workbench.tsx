@@ -7,6 +7,7 @@ import ChatPane from "./ChatPane";
 import LiveGraph from "./LiveGraph";
 import HypothesisPanel from "./HypothesisPanel";
 import DiscoveryPanel from "./DiscoveryPanel";
+import PostmortemCard from "./PostmortemCard";
 
 interface Props {
   live: LiveState;
@@ -62,6 +63,14 @@ export default function Workbench({
             lives in the "← Incidents" back button; similar/related incidents surface in the
             graph), and Discovery appears only when it has something to show. */}
         <aside className="workbench__sidebar">
+          {/* the close-out card (M29): once the investigation is CLOSED, lead the sidebar with the
+              postmortem the engine served in every bundle (root cause · ruled-out-with-basis ·
+              timeline · narrative) — previously computed and rendered by nothing. */}
+          {live.state === "closed" && live.postmortem && (
+            <section className="pane pane--postmortem">
+              <PostmortemCard postmortem={live.postmortem} outcome={live.outcome} />
+            </section>
+          )}
           <section className="pane pane--hypotheses">
             <HypothesisPanel
               hypotheses={hypothesisList(live)}

@@ -13,6 +13,7 @@ import type {
   JournalEntry,
   PhaseRailItem,
   PhaseReviewOpenedEvent,
+  Postmortem,
   RejectionItem,
   SessionEvent,
   SessionState,
@@ -161,6 +162,10 @@ export interface LiveState {
   reviewDecisions: Record<string, Decision>; // review_id → the operator's direction decision
   phasesRun: string[]; // phases reached, in order (unique)
   phaseRail: PhaseRailItem[]; // the full declared phase rail (M22) — the stepper renders from this
+  // the close-out projection (M29): root cause + ruled-out-rivals-with-basis + structured timeline +
+  // per-phase narrative, folded from the journal by the engine and served in every bundle. The
+  // close-out card renders it once the investigation closes; null until a snapshot lands one.
+  postmortem: Postmortem | null;
   error: string | null; // a live drive failure, surfaced in the chat
   lastSeq: number;
 }
@@ -189,6 +194,7 @@ export function emptyState(): LiveState {
     reviewDecisions: {},
     phasesRun: [],
     phaseRail: [],
+    postmortem: null,
     error: null,
     lastSeq: 0,
   };
@@ -483,6 +489,7 @@ function seed(snap: Snapshot): LiveState {
   s.state = snap.state;
   s.outcome = snap.outcome;
   s.phaseRail = snap.phase_rail ?? []; // the served declared rail (M22); [] until a snapshot lands
+  s.postmortem = snap.postmortem ?? null; // the close-out projection (M29); rendered on close
   for (const n of snap.graph.nodes)
     s.nodes[n.id] = {
       id: n.id,
@@ -563,6 +570,7 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
     // carried them; reconcile's fresh bundle does) — keeps live parity with the reopen fold.
     turns: enrichTurnsFromJournal(state.turns, snap.journal, rejections),
     phaseRail: snap.phase_rail ?? state.phaseRail, // static rail; prefer fresh, keep what we had
+    postmortem: snap.postmortem ?? state.postmortem, // the close-out projection (M29)
     outcome: snap.outcome,
   };
 }

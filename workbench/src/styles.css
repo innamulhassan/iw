@@ -897,6 +897,101 @@ code {
 .discovery-chip__name { color: var(--violet); }
 .discovery-chip__count { font-weight: 700; color: var(--text-muted); }
 
+/* ---------- postmortem / close-out card (M29) — the served-but-unrendered projection ---------- */
+.pane--postmortem { flex: 0 0 auto; border-top: 3px solid var(--gold-root); }
+.postmortem__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.postmortem__outcome {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+}
+.postmortem__outcome--mitigated { background: var(--amber-soft); color: var(--amber); }
+.postmortem__outcome--open { background: var(--red-soft); color: var(--red); }
+.postmortem__section { margin-top: 12px; }
+.postmortem__label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: 5px;
+}
+.postmortem__root {
+  border-left: 3px solid var(--gold-root);
+  background: var(--gold-root-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 8px 10px;
+}
+.postmortem__root-statement { margin: 0 0 6px; font-size: 13px; line-height: 1.45; color: var(--text); }
+.postmortem__root-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.postmortem__root-node {
+  font-size: 11.5px;
+  color: var(--amber);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+.postmortem__conf { font-size: 11.5px; font-weight: 700; color: var(--text-muted); }
+.postmortem__none {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.postmortem__ruledout, .postmortem__contributing {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.postmortem__ruledout-item { font-size: 12.5px; line-height: 1.4; }
+.postmortem__ruledout-stmt { color: var(--text); text-decoration: line-through; text-decoration-color: var(--text-faint); }
+.postmortem__ruledout-basis { color: var(--text-muted); }
+.postmortem__contributing li { font-size: 12.5px; line-height: 1.4; color: var(--text); }
+.postmortem__fold { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.postmortem__fold-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.postmortem__fold-summary::-webkit-details-marker { display: none; }
+.postmortem__fold-chevron { font-size: 8px; transition: transform 0.15s ease; color: var(--text-faint); }
+.postmortem__fold[open] .postmortem__fold-chevron { transform: rotate(90deg); }
+.postmortem__timeline { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.postmortem__timeline-item { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
+.postmortem__timeline-at { color: var(--text-faint); font-variant-numeric: tabular-nums; font-weight: 600; }
+.postmortem__timeline-type { color: var(--text); }
+.postmortem__timeline-entity { color: var(--text-muted); font-size: 11px; }
+.postmortem__narrative { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.postmortem__narrative-item { display: flex; flex-direction: column; gap: 2px; }
+.postmortem__narrative-phase {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.postmortem__narrative-text { font-size: 12.5px; line-height: 1.45; color: var(--text-muted); }
+
 /* ---------- provisional (P3 airlock) — quarantined knowledge reads as TENTATIVE ---------- */
 
 .is-provisional { opacity: 0.62; }

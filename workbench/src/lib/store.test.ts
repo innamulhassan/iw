@@ -250,6 +250,28 @@ describe("store reducer — the live event fold", () => {
     expect(reduce(emptyState(), { kind: "seed", snapshot: base as unknown as Snapshot }).phaseRail).toEqual([]);
   });
 
+  it("seeds the served postmortem into state (M29) — the close-out card renders THIS on close", () => {
+    const snap = mkSnap({
+      state: "closed",
+      outcome: "resolved",
+      postmortem: {
+        outcome: "resolved",
+        root_cause: { statement: "CHG-DB-500 dropped the index", root_candidate: "change_event:chg-db-500", confidence: 0.88, chain: [] },
+        ruled_out: [{ statement: "code deploy rival", basis: "no deploy in window" }],
+        contributing: [],
+        timeline: [{ at: "2026-07-19T09:00:00+00:00", entity: "change_event:chg-db-500", type: "implemented", payload: {} }],
+        narrative: [{ seq: 1, phase: "frame", text: "latency spiked" }],
+      },
+    });
+    const s = reduce(emptyState(), { kind: "seed", snapshot: snap });
+    expect(s.postmortem).not.toBeNull();
+    expect(s.postmortem?.root_cause?.root_candidate).toBe("change_event:chg-db-500");
+    expect(s.postmortem?.ruled_out[0].basis).toBe("no deploy in window");
+    // a snapshot without one degrades to null (an older bundle) — the card simply doesn't render
+    const s2 = reduce(emptyState(), { kind: "seed", snapshot: { ...snap, postmortem: undefined } as unknown as Snapshot });
+    expect(s2.postmortem).toBeNull();
+  });
+
   it("carries the invocation OUTCOME on the tool call — error is a failed call, never 'no data'", () => {
     const evs: SessionEvent[] = [
       { seq: 1, ts: "t", type: "phase_started", phase: "investigate" },
