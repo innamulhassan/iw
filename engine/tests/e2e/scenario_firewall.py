@@ -82,9 +82,16 @@ def build(premature_write: bool = False):
         node(NT.INCIDENT, incident_id="INC-7702",
              title="fraud-scoring egress calls failing",
              short_description="fraud-scoring egress failing ~7m after CHG-3311 ACL change",
+             description="ExternalDependencyErrorRateHigh fired for checkout-api at 09:12 UTC. "
+                         "Outbound calls to the third-party fraud-scoring vendor "
+                         "(fraud-score.vendor.com:443) are failing ~98%, and FraudScoreCheck is "
+                         "RED. Errors are scoped to that one egress path — geoip + payment-gw "
+                         "egress stay clean. CHG-3311 tightened the prod-vpc egress ACL at 09:05. "
+                         "This recurs INC-7699 (same rule).",
              work_notes="ExternalDependencyErrorRateHigh; recurrence of INC-7699.",
              caller_id="monitoring.alerting"),
-        node(NT.EXTERNAL_SERVICE, service_name="fraud-score-vendor", vendor="FraudScoreCo"),
+        node(NT.EXTERNAL_SERVICE, service_name="fraud-score-vendor", vendor="FraudScoreCo",
+             endpoint="fraud-score.vendor.com:443", integration="egress-fraud-scoring"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.DEPENDS_ON, SVC, EXT, origin="declared"),
         fact(SVC, "red_latency_p99", 900, T_ONSET, unit="ms", source=S.APPD, reliability=0.9),
@@ -119,7 +126,9 @@ def build(premature_write: bool = False):
         ops=[
             node(NT.NETWORK_SEGMENT, segment_id="egress-fraud-score", cidr="10.20.0.0/24"),
             node(NT.FIREWALL_RULE, rule_id="FW-EGR-118", direction="egress", proto="tcp",
-                 port_range="443", src="10.20.0.0/24", dst="fraud-score.vendor.com/32"),
+                 port_range="443", src="10.20.0.0/24", dst="fraud-score.vendor.com/32",
+                 rule_name="prod-vpc-egress-allowlist", firewall="pafw-prod-01",
+                 policy="egress-default", zone="prod-vpc->internet", owner="netops@corp.example"),
             edge(ET.CONNECTS_TO, SVC, SEG_FRAUD),
             edge(ET.SECURED_BY, SEG_FRAUD, RULE),
             edge(ET.CHANGED_BY, RULE, CHG),
@@ -201,7 +210,12 @@ def build(premature_write: bool = False):
             "changes": [{
                 "number": "CHG-3311",
                 "type": "network",
-                "cmdb_ci": {"display_value": "checkout-api"},
+                "short_description": "Tighten egress ACL on prod-vpc (FW-EGR-118)",
+                "description": "Automated NetOps change tightening the prod-vpc egress ACL as part "
+                               "of the quarterly least-privilege sweep. Narrows FW-EGR-118's allowed "
+                               "destinations; the fraud-score vendor CIDR was dropped from the allow "
+                               "list in error. Pushed via Terraform, no canary.",
+                "cmdb_ci": {"display_value": "checkout-api", "owner": "netops@corp.example"},
                 "start_date": T_CHANGE,
                 "requested_by": "netops-automation",
                 "env": "prod",
@@ -233,7 +247,9 @@ def build(premature_write: bool = False):
             "primary_incident": "INC-7702",
             "related_incidents": [
                 {"number": "INC-7699", "priority": "2 - High", "opened_at": _t(-43200),
-                 "cmdb_ci": "checkout-api", "relation": "recurrence", "confidence": "high"},
+                 "cmdb_ci": "checkout-api", "relation": "recurrence", "confidence": "high",
+                 "title": "fraud-scoring egress blocked by ACL (last quarter)",
+                 "short_description": "Same FW-EGR-118 egress deny to the fraud vendor; reverted"},
             ],
         },
         "search_fw_denies": {
@@ -241,7 +257,10 @@ def build(premature_write: bool = False):
                 "rule_id": "FW-EGR-118", "action": "blocked", "direction": "egress",
                 "proto": "tcp", "port_range": "443", "src": "10.20.0.0/24",
                 "dst": "fraud-score.vendor.com/32", "_time": T_INV, "deny_count": 214,
-                "reliability": 0.97,
+                "reliability": 0.97, "rule_name": "prod-vpc-egress-allowlist",
+                "firewall": "pafw-prod-01", "sourcetype": "pan:traffic", "index": "prod_firewall",
+                "sample_log": "2026-07-19T09:25:04Z pafw-prod-01 DENY egress tcp "
+                              "10.20.0.31:51442 -> 34.120.88.4:443 rule=FW-EGR-118 action=blocked",
             }],
         },
         "ocp__restart": {},  # never reached — the write-gate blocks before normalize()

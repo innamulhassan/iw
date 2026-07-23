@@ -635,6 +635,8 @@
           "actor": "netops-automation",
           "change_id": "CHG-3311",
           "change_type": "network",
+          "description": "Automated NetOps change tightening the prod-vpc egress ACL as part of the quarterly least-privilege sweep. Narrows FW-EGR-118's allowed destinations; the fraud-score vendor CIDR was dropped from the allow list in error. Pushed via Terraform, no canary.",
+          "short_description": "Tighten egress ACL on prod-vpc (FW-EGR-118)",
           "target_ref": "checkout-api",
           "ticket_id": "CHG-3311"
         },
@@ -661,6 +663,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "ExternalDependencyErrorRateHigh fired for checkout-api at 09:12 UTC. Outbound calls to the third-party fraud-scoring vendor (fraud-score.vendor.com:443) are failing ~98%, and FraudScoreCheck is RED. Errors are scoped to that one egress path \u2014 geoip + payment-gw egress stay clean. CHG-3311 tightened the prod-vpc egress ACL at 09:05. This recurs INC-7699 (same rule).",
           "incident_id": "INC-7702",
           "short_description": "fraud-scoring egress failing ~7m after CHG-3311 ACL change",
           "title": "fraud-scoring egress calls failing",
@@ -676,6 +679,8 @@
         "last_seen": "2026-07-19T09:12:00+00:00",
         "origin": false,
         "props": {
+          "endpoint": "fraud-score.vendor.com:443",
+          "integration": "egress-fraud-scoring",
           "service_name": "fraud-score-vendor",
           "vendor": "FraudScoreCo"
         },
@@ -691,7 +696,9 @@
         "props": {
           "commander": null,
           "incident_id": "INC-7699",
-          "severity": "2 - High"
+          "severity": "2 - High",
+          "short_description": "Same FW-EGR-118 egress deny to the fraud vendor; reverted",
+          "title": "fraud-scoring egress blocked by ACL (last quarter)"
         },
         "source": "servicenow",
         "type": "incident"
@@ -718,10 +725,15 @@
         "props": {
           "direction": "egress",
           "dst": "fraud-score.vendor.com/32",
+          "firewall": "pafw-prod-01",
+          "owner": "netops@corp.example",
+          "policy": "egress-default",
           "port_range": "443",
           "proto": "tcp",
           "rule_id": "FW-EGR-118",
-          "src": "10.20.0.0/24"
+          "rule_name": "prod-vpc-egress-allowlist",
+          "src": "10.20.0.0/24",
+          "zone": "prod-vpc->internet"
         },
         "source": "splunk",
         "type": "firewall_rule"
