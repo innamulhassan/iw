@@ -58,6 +58,11 @@ def build(mitigated: bool = False):
 
     fixtures["get_dependencies"] = {
         "env": "prod",
+        "ci_attrs": {
+            "checkout-api": {"owner": "checkout-platform@corp.example", "version": "rev43"},
+            "checkout-db": {"engine": "postgresql", "owner": "checkout-platform@corp.example",
+                            "version": "15.4"},
+        },
         "dependencies": [
             {"parent": "checkout-api", "parent_type": "cmdb_ci_service",
              "child": "checkout-db", "child_type": "cmdb_ci_database",
@@ -67,7 +72,13 @@ def build(mitigated: bool = False):
     fixtures["find_recent_changes"] = {
         "changes": [
             {"number": "CHG-DEP-99", "type": "deployment",
-             "cmdb_ci": {"display_value": "checkout-api"}, "requested_by": "svc-deploy-bot",
+             "short_description": "Deploy checkout-api rev43 (PR #482 — config cleanup)",
+             "description": "Automated deploy of checkout-api rev43 via the delivery pipeline. "
+                            "PR #482 'chore(config): prune unused ConfigMap keys' merged as commit "
+                            "9f2a1e0. Rolling update, maxUnavailable=0, progressDeadlineSeconds=120.",
+             "cmdb_ci": {"display_value": "checkout-api",
+                         "owner": "checkout-platform@corp.example", "version": "rev43"},
+             "requested_by": "svc-deploy-bot",
              "start_date": T_DEPLOY, "env": "prod",
              "u_release_tag": "checkout-api-rev43", "u_commit_sha": "9f2a1e0"},
         ],
@@ -133,6 +144,11 @@ def build(mitigated: bool = False):
         node(NT.INCIDENT, incident_id="INC-7731",
              title="checkout-api pods CrashLoopBackOff",
              short_description="checkout-api rev43 rollout stuck 0/3 ready; pods crash-loop",
+             description="KubePodCrashLooping + ProgressDeadlineExceeded fired for checkout-api "
+                         "(prod, tier-1) at 09:04 UTC. The rev43 rollout is stuck at 0/3 available; "
+                         "pods CrashLoopBackOff with 14 restarts and never reach Ready. Availability "
+                         "collapsed and checkout is down. Deploy CHG-DEP-99 (rev43, 9f2a1e0) began "
+                         "at 09:00.",
              work_notes="KubePodCrashLooping; ProgressDeadlineExceeded. Suspect rev43.",
              caller_id="svc-deploy-bot"),
         edge(ET.AFFECTS, INC, SVC),
@@ -172,7 +188,8 @@ def build(mitigated: bool = False):
     }
     fixtures["diff_range"] = {
         "commit": {"sha": "9f2a1e0", "repo": "checkout-api", "author": "jdoe",
-                   "parent_sha": "7a1c220", "authored_at": T_DEPLOY},
+                   "parent_sha": "7a1c220", "authored_at": T_DEPLOY,
+                   "message": "chore(config): prune unused ConfigMap keys (PR #482)"},
         "pr": {"pr_id": "482", "repo": "checkout-api", "author": "jdoe",
                "merged_sha": "9f2a1e0", "event": "merged", "at": T_DEPLOY},
         "diff": {"at": T_INV, "files_changed": 1, "lines_added": 0, "lines_deleted": 3,

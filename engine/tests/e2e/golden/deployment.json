@@ -780,7 +780,9 @@
         "origin": false,
         "props": {
           "env": "prod",
-          "service_name": "checkout-api"
+          "owner": "checkout-platform@corp.example",
+          "service_name": "checkout-api",
+          "version": "rev43"
         },
         "source": "prometheus",
         "type": "service"
@@ -792,7 +794,10 @@
         "last_seen": "2026-07-19T09:18:00+00:00",
         "origin": false,
         "props": {
-          "db_id": "checkout-db"
+          "db_id": "checkout-db",
+          "engine": "postgresql",
+          "owner": "checkout-platform@corp.example",
+          "version": "15.4"
         },
         "source": "prometheus",
         "type": "database"
@@ -807,6 +812,8 @@
           "actor": "svc-deploy-bot",
           "change_id": "CHG-DEP-99",
           "change_type": "deployment",
+          "description": "Automated deploy of checkout-api rev43 via the delivery pipeline. PR #482 'chore(config): prune unused ConfigMap keys' merged as commit 9f2a1e0. Rolling update, maxUnavailable=0, progressDeadlineSeconds=120.",
+          "short_description": "Deploy checkout-api rev43 (PR #482 \u2014 config cleanup)",
           "target_ref": "checkout-api",
           "ticket_id": "CHG-DEP-99"
         },
@@ -835,6 +842,7 @@
         "props": {
           "author": "jdoe",
           "authored_at": "2026-07-19 09:00:00+00:00",
+          "message": "chore(config): prune unused ConfigMap keys (PR #482)",
           "parent_sha": "7a1c220",
           "repo": "checkout-api",
           "sha": "9f2a1e0"
@@ -915,6 +923,7 @@
         "origin": true,
         "props": {
           "caller_id": "svc-deploy-bot",
+          "description": "KubePodCrashLooping + ProgressDeadlineExceeded fired for checkout-api (prod, tier-1) at 09:04 UTC. The rev43 rollout is stuck at 0/3 available; pods CrashLoopBackOff with 14 restarts and never reach Ready. Availability collapsed and checkout is down. Deploy CHG-DEP-99 (rev43, 9f2a1e0) began at 09:00.",
           "incident_id": "INC-7731",
           "short_description": "checkout-api rev43 rollout stuck 0/3 ready; pods crash-loop",
           "title": "checkout-api pods CrashLoopBackOff",
