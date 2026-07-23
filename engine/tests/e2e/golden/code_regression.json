@@ -520,7 +520,23 @@
           "incident_id": "INC-4821",
           "short_description": "payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
           "title": "payments-api elevated 5xx errors",
-          "work_notes": "High5xxRate paged SRE; v4.12.0 shipped just before onset."
+          "work_notes": [
+            {
+              "at": "14:00",
+              "author": "monitoring.alerting",
+              "text": "PagerDuty routed High5xxRate to SRE \u2014 payments-api 5xx spiking to ~40%."
+            },
+            {
+              "at": "14:02",
+              "author": "sre-oncall",
+              "text": "Acked. v4.12.0 shipped 13:47, ~13m before onset \u2014 deploy is the leading suspect."
+            },
+            {
+              "at": "14:03",
+              "author": "sre-oncall",
+              "text": "Declared SEV2 \u2014 card auth + capture impacted, tier-1 SLO burning."
+            }
+          ]
         },
         "source": "servicenow",
         "type": "incident"

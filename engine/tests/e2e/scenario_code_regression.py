@@ -73,7 +73,18 @@ def build(refuted_variant: bool = False):
                                   "tier-1) is 5xx-ing on ~40% of requests; throughput holds but the error "
                                   "tail drags p99 to 4.2s while p50 stays flat — a code-fault shape. Onset "
                                   "is 13 minutes after release v4.12.0 (13:47). Card auth + capture impacted.",
-                      work_notes="High5xxRate paged SRE; v4.12.0 shipped just before onset.",
+                      # work_notes is the incident LOG (§negative-space): an append-only, per-note
+                      # TIMESTAMPED work-log — each {at, author, text}, not a flat blob. These are the
+                      # notes present at declaration time (paging → ack → SEV2); the UI renders them as
+                      # a timestamped journal (LiveGraph.parseWorkNotes), still accepting a legacy string.
+                      work_notes=[
+                          {"at": "14:00", "author": "monitoring.alerting",
+                           "text": "PagerDuty routed High5xxRate to SRE — payments-api 5xx spiking to ~40%."},
+                          {"at": "14:02", "author": "sre-oncall",
+                           "text": "Acked. v4.12.0 shipped 13:47, ~13m before onset — deploy is the leading suspect."},
+                          {"at": "14:03", "author": "sre-oncall",
+                           "text": "Declared SEV2 — card auth + capture impacted, tier-1 SLO burning."},
+                      ],
                       caller_id="monitoring.alerting"),
                  fact(SVC, "tier", "tier-1", T_ONSET, source=S.SERVICENOW),
                  fact(SVC, "slo_target", 0.999, T_ONSET, source=S.SERVICENOW),
