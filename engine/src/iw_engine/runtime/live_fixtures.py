@@ -212,7 +212,13 @@ def database() -> tuple[SubjectRef, dict, str]:
         "prometheus": {
             "*": {"service": {"name": "orders-api", "env": "prod"},
                   "alerts": [{"id": "ALT-1", "alertname": "HighLatencyP99", "at": t_on,
-                              "state": "firing"}],
+                              "state": "firing", "severity": "critical", "for": "5m",
+                              "runbook_url": "https://runbooks.corp.example/HighLatencyP99",
+                              "labels": {"service": "orders-api", "env": "prod", "team": "orders",
+                                         "namespace": "orders-prod"},
+                              "expr": "histogram_quantile(0.99, sum(rate("
+                                      "http_request_duration_seconds_bucket{service=\"orders-api\"}"
+                                      "[5m])) by (le)) > 1"}],
                   "metrics": [{"predicate": "red_latency_p99", "value": 5200, "unit": "ms",
                                "at": t_on, "reliability": 0.95}]},
             "verify": {"service": {"name": "orders-api", "env": "prod"},
@@ -300,7 +306,12 @@ def network() -> tuple[SubjectRef, dict, str]:
         "prometheus": {
             "*": {"service": {"name": "checkout-svc", "env": "prod"},
                   "alerts": [{"id": "ALT-1", "alertname": "HighRetransSegs", "at": t_on,
-                              "state": "firing"}],
+                              "state": "firing", "severity": "warning", "for": "3m",
+                              "runbook_url": "https://runbooks.corp.example/HighRetransSegs",
+                              "labels": {"service": "checkout-svc", "env": "prod", "team": "checkout",
+                                         "segment": "SEG-EDGE-12", "namespace": "checkout-prod"},
+                              "expr": "rate(node_netstat_Tcp_RetransSegs{segment=\"SEG-EDGE-12\"}"
+                                      "[5m]) > 100"}],
                   "metrics": [{"predicate": "degraded", "value": True, "at": t_on,
                                "reliability": 0.95}]},
             "investigate": {"service": {"name": "checkout-svc", "env": "prod"},
@@ -409,7 +420,12 @@ def deployment() -> tuple[SubjectRef, dict, str]:
             # onset RED: 0 ready replicas -> availability collapsed, near-100% of the trickle 5xx.
             "*": {"service": {"name": "checkout-api", "env": "prod"},
                   "alerts": [{"id": "ALT-1", "alertname": "KubePodCrashLooping", "at": t_on,
-                              "state": "firing"}],
+                              "state": "firing", "severity": "critical", "for": "2m",
+                              "runbook_url": "https://runbooks.corp.example/KubePodCrashLooping",
+                              "labels": {"service": "checkout-api", "env": "prod", "team": "checkout",
+                                         "namespace": "checkout-prod", "deployment": "checkout-api"},
+                              "expr": "max_over_time(kube_pod_container_status_restarts_total{"
+                                      "namespace=\"checkout-prod\"}[10m]) > 5"}],
                   "metrics": [{"predicate": "degraded", "value": True, "at": t_on,
                                "reliability": 0.98},
                               {"predicate": "red_errors", "value": 1.0, "at": t_on,
@@ -626,7 +642,13 @@ def firewall() -> tuple[SubjectRef, dict, str]:
         "prometheus": {
             "*": {"service": {"name": "checkout-api", "env": "prod"},
                   "alerts": [{"id": "ALT-1", "alertname": "ExternalDependencyErrorRateHigh",
-                              "at": t_on, "state": "firing"}],
+                              "at": t_on, "state": "firing", "severity": "critical", "for": "5m",
+                              "runbook_url": "https://runbooks.corp.example/ExternalDependencyErrorRateHigh",
+                              "labels": {"service": "checkout-api", "env": "prod", "team": "checkout",
+                                         "dependency": "fraud-score-vendor", "namespace": "checkout-prod"},
+                              "expr": "sum(rate(external_call_errors_total{service=\"checkout-api\","
+                                      "target=\"fraud-score-vendor\"}[5m])) / sum(rate("
+                                      "external_call_total{target=\"fraud-score-vendor\"}[5m])) > 0.1"}],
                   # scoped onset: ~18% of calls (the fraud-scoring dependency) error out.
                   "metrics": [{"predicate": "degraded", "value": True, "at": t_on,
                                "reliability": 0.97},
@@ -783,7 +805,12 @@ def nochange() -> tuple[SubjectRef, dict, str]:
             # with the onset — a USE trend with no change behind it.
             "*": {"service": {"name": "checkout-api", "env": "prod"},
                   "alerts": [{"id": "ALT-1", "alertname": "HighConnPoolUtilization",
-                              "at": t_on, "state": "firing"}],
+                              "at": t_on, "state": "firing", "severity": "warning", "for": "5m",
+                              "runbook_url": "https://runbooks.corp.example/HighConnPoolUtilization",
+                              "labels": {"service": "checkout-api", "env": "prod", "team": "checkout",
+                                         "database": "checkout-db", "namespace": "checkout-prod"},
+                              "expr": "pg_pool_connections_in_use{db=\"checkout-db\"} / "
+                                      "pg_pool_connections_max{db=\"checkout-db\"} > 0.85"}],
                   "metrics": [
                       {"predicate": "red_latency_p99", "value": 6800, "unit": "ms",
                        "at": t_on, "reliability": 0.96},
@@ -916,7 +943,13 @@ def messaging() -> tuple[SubjectRef, dict, str]:
         "prometheus": {
             "*": {"service": {"name": "order-processor", "env": "prod"},
                   "alerts": [{"id": "ALT-7", "alertname": "HighConsumerLag", "at": t_on,
-                              "state": "firing"}],
+                              "state": "firing", "severity": "warning", "for": "5m",
+                              "runbook_url": "https://runbooks.corp.example/HighConsumerLag",
+                              "labels": {"service": "order-processor", "env": "prod",
+                                         "team": "fulfillment", "topic": "orders.events",
+                                         "consumer_group": "order-processor"},
+                              "expr": "sum(kafka_consumergroup_lag{group=\"order-processor\","
+                                      "topic=\"orders.events\"}) > 20000"}],
                   "metrics": [
                       {"predicate": "degraded", "value": True, "at": t_on, "reliability": 0.96},
                       {"predicate": "red_rate", "value": 320, "unit": "rpm", "at": t_on,
@@ -1049,7 +1082,13 @@ def infra() -> tuple[SubjectRef, dict, str]:
         "prometheus": {
             "*": {"service": {"name": "checkout-svc", "env": "prod"},
                   "alerts": [{"id": "ALT-9", "alertname": "PodEvicted", "at": t_on,
-                              "state": "firing"}],
+                              "state": "firing", "severity": "critical", "for": "0m",
+                              "runbook_url": "https://runbooks.corp.example/PodEvicted",
+                              "labels": {"service": "checkout-svc", "env": "prod", "team": "checkout",
+                                         "node": "node-prod-17", "namespace": "checkout",
+                                         "reason": "MemoryPressure"},
+                              "expr": "kube_pod_status_reason{reason=\"Evicted\","
+                                      "namespace=\"checkout\"} == 1"}],
                   "metrics": [{"predicate": "degraded", "value": True, "at": t_on,
                                "reliability": 0.96},
                               {"predicate": "tier", "value": "tier-1", "at": t_on,
@@ -1154,7 +1193,13 @@ def cache() -> tuple[SubjectRef, dict, str]:
         "prometheus": {
             "*": {"service": {"name": "product-api", "env": "prod"},
                   "alerts": [{"id": "ALT-1", "alertname": "HighLatencyP99", "at": t_on,
-                              "state": "firing"}],
+                              "state": "firing", "severity": "critical", "for": "5m",
+                              "runbook_url": "https://runbooks.corp.example/HighLatencyP99",
+                              "labels": {"service": "product-api", "env": "prod", "team": "catalog",
+                                         "cache": "product-redis", "namespace": "product-prod"},
+                              "expr": "histogram_quantile(0.99, sum(rate("
+                                      "http_request_duration_seconds_bucket{service=\"product-api\"}"
+                                      "[5m])) by (le)) > 1"}],
                   "metrics": [{"subject": cache, "predicate": "hit_rate", "value": 0.41,
                                "at": t_inv, "reliability": 0.97, "unit": "ratio"},
                               {"subject": cache, "predicate": "eviction_rate", "value": 420,
@@ -1259,7 +1304,13 @@ def featureflag() -> tuple[SubjectRef, dict, str]:
         "prometheus": {
             "*": {"service": {"name": "cart-api", "env": "prod"},
                   "alerts": [{"id": "ALT-1", "alertname": "High5xxRate", "at": t_on,
-                              "state": "firing"}],
+                              "state": "firing", "severity": "critical", "for": "2m",
+                              "runbook_url": "https://runbooks.corp.example/High5xxRate",
+                              "labels": {"service": "cart-api", "env": "prod", "team": "cart",
+                                         "flag": "new-tax-engine", "namespace": "cart-prod"},
+                              "expr": "sum(rate(http_requests_total{code=~\"5..\","
+                                      "service=\"cart-api\"}[5m])) / sum(rate(http_requests_total{"
+                                      "service=\"cart-api\"}[5m])) > 0.05"}],
                   "metrics": [{"predicate": "red_errors", "value": 0.34, "at": t_on,
                                "reliability": 0.97},
                               {"subject": flag, "predicate": "rollout_percentage", "value": 100,
@@ -1358,7 +1409,13 @@ def certificate() -> tuple[SubjectRef, dict, str]:
         "prometheus": {
             "*": {"service": {"name": "auth-svc", "env": "prod"},
                   "alerts": [{"id": "ALT-1", "alertname": "High5xxRate", "at": t_on,
-                              "state": "firing"}],
+                              "state": "firing", "severity": "critical", "for": "2m",
+                              "runbook_url": "https://runbooks.corp.example/High5xxRate",
+                              "labels": {"service": "auth-svc", "env": "prod", "team": "identity",
+                                         "endpoint": "/oauth/token", "namespace": "auth-prod"},
+                              "expr": "sum(rate(http_requests_total{code=~\"5..\","
+                                      "service=\"auth-svc\"}[5m])) / sum(rate(http_requests_total{"
+                                      "service=\"auth-svc\"}[5m])) > 0.05"}],
                   "metrics": [{"predicate": "red_errors", "value": 0.40, "at": t_on,
                                "reliability": 0.97},
                               {"subject": cert, "predicate": "days_to_expiry", "value": 0,
