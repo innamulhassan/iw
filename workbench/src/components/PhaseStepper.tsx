@@ -43,7 +43,11 @@ export default function PhaseStepper({ subject, reached, current, state, outcome
         <div className="phase-bar__status">
           {state && (
             <span className={`state-badge state-badge--${state}`}>
-              {state === "suspended" ? "awaiting approval" : state}
+              {state === "suspended"
+                ? "awaiting approval"
+                : state === "awaiting_review"
+                  ? "awaiting review"
+                  : state}
             </span>
           )}
           <span className={`outcome-badge outcome-badge--${outcome}`}>{OUTCOME_LABEL[outcome] ?? outcome}</span>

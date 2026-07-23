@@ -75,6 +75,22 @@ export async function advance(id: string): Promise<{ events: SessionEvent[]; sta
   );
 }
 
+/** Answer an open phase-review (owner 2026-07-23): approve (advance) · refine (re-run the phase
+ *  with `text` as a steer) · deny (halt). Parallels decideGate but on the DIRECTION, not a write. */
+export async function decideReview(
+  id: string,
+  decision: GateDecision,
+  opts: { text?: string } = {}
+): Promise<{ events: SessionEvent[]; state: SessionState }> {
+  return json(
+    await fetchSafe(`${BASE}/sessions/${encodeURIComponent(id)}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision, text: opts.text ?? "" }),
+    })
+  );
+}
+
 /** Send an operator chat turn — steering while running, an answer while suspended (obs 2). */
 export async function sendMessage(id: string, text: string): Promise<{ message: unknown }> {
   return json(

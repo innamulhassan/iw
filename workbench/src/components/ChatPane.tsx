@@ -4,6 +4,7 @@ import { phaseCounts } from "../lib/store";
 import type { GateDecision } from "../lib/api";
 import ToolCallCard from "./ToolCallCard";
 import ApprovalCard from "./ApprovalCard";
+import ReviewCard from "./ReviewCard";
 
 const PHASE_ICON: Record<string, string> = {
   frame: "🔭",
@@ -17,6 +18,7 @@ interface Props {
   live: LiveState;
   busy: boolean;
   onDecide: (gateId: string, d: GateDecision, opts: { params?: Record<string, unknown>; reason?: string }) => void;
+  onReview: (reviewId: string, d: GateDecision, opts: { text?: string }) => void;
   onSend: (text: string) => void;
 }
 
@@ -27,13 +29,13 @@ type Item = { seq: number; kind: "turn"; turn: Turn } | { seq: number; kind: "ms
 // journal holds for that phase — objective · plan · reasoning · tool calls · observations ·
 // rejections · the write-gate — as a compact SUMMARY the owner can EXPAND for depth. The
 // operator's own messages interleave by seq, and a composer lets the human steer or answer.
-export default function ChatPane({ live, busy, onDecide, onSend }: Props) {
+export default function ChatPane({ live, busy, onDecide, onReview, onSend }: Props) {
   const endRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState("");
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [live.turns.length, live.turns.at(-1)?.calls.length, live.messages.length, live.gate?.gate_id, live.state]);
+  }, [live.turns.length, live.turns.at(-1)?.calls.length, live.messages.length, live.gate?.gate_id, live.review?.review_id, live.state]);
 
   // interleave agent turns + operator messages by seq
   const items: Item[] = [
@@ -61,7 +63,7 @@ export default function ChatPane({ live, busy, onDecide, onSend }: Props) {
   };
 
   const canChat = live.sessionId != null && live.state !== "closed";
-  const suspended = live.state === "suspended";
+  const suspended = live.state === "suspended" || live.state === "awaiting_review";
 
   return (
     <div className="chat">
@@ -89,6 +91,7 @@ export default function ChatPane({ live, busy, onDecide, onSend }: Props) {
               iteration={iterByKey.get(it.turn.key) ?? 1}
               looped={(totals[it.turn.phase] ?? 0) > 1}
               onDecide={onDecide}
+              onReview={onReview}
             />
           )
         )}
@@ -134,16 +137,21 @@ interface TurnCardProps {
   iteration: number;
   looped: boolean;
   onDecide: (gateId: string, d: GateDecision, opts: { params?: Record<string, unknown>; reason?: string }) => void;
+  onReview: (reviewId: string, d: GateDecision, opts: { text?: string }) => void;
 }
 
 // One agent turn = one phase, rendered as the COMPLETE journal entry: (a) phase header, (b) the
 // objective, (c) the plan (collapsed), (d) the reasoning, (e) the tool-call cards, (f) the
 // observations (collapsed), (g) any rejections inline, (h) the write-gate. Default view is
 // compact — objective + reasoning with plan/tools/observations collapsed; the owner expands.
-function TurnCard({ turn, live, busy, iteration, looped, onDecide }: TurnCardProps) {
+function TurnCard({ turn, live, busy, iteration, looped, onDecide, onReview }: TurnCardProps) {
   const gate = turn.gateId ? live.gates[turn.gateId] : undefined;
   const decision = turn.gateId ? live.decisions[turn.gateId] : undefined;
   const isOpenGate = gate && live.gate?.gate_id === gate.gate_id && !decision;
+  // the phase-review (owner 2026-07-23) — parallels the write-gate, on its own turn slot
+  const review = turn.reviewId ? live.reviews[turn.reviewId] : undefined;
+  const reviewDecision = turn.reviewId ? live.reviewDecisions[turn.reviewId] : undefined;
+  const isOpenReview = review && live.review?.review_id === review.review_id && !reviewDecision;
 
   return (
     <article className="turn">
@@ -202,6 +210,16 @@ function TurnCard({ turn, live, busy, iteration, looped, onDecide }: TurnCardPro
           decision={decision}
           busy={busy}
           onDecide={(d, opts) => onDecide(gate.gate_id, d, opts)}
+        />
+      )}
+
+      {/* (i) the phase-review — ReviewCard (the DIRECTION approval before advancing) */}
+      {review && (isOpenReview || reviewDecision) && (
+        <ReviewCard
+          review={review}
+          decision={reviewDecision}
+          busy={busy}
+          onDecide={(d, opts) => onReview(review.review_id, d, opts)}
         />
       )}
     </article>

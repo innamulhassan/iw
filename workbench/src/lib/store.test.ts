@@ -668,4 +668,91 @@ describe("store reducer — the live event fold", () => {
     expect(frame.obs.nodeIds).toEqual(["service:pay", "anomaly:a1"]); // deduped, order preserved
     expect(frame.obs.factIds).toEqual(["f1", "f2"]);
   });
+
+  // ── the phase-review gate (owner 2026-07-23) ────────────────────────────────────────
+  it("opens a phase-review, stamps the turn, records the direction decision, clears on advance", () => {
+    let s = reduce(emptyState(), {
+      kind: "events",
+      events: [
+        { seq: 1, ts: "t", type: "phase_started", phase: "frame" },
+        { seq: 2, ts: "t", type: "reasoning", phase: "frame", narrative: "framed the 5xx" },
+        {
+          seq: 3,
+          ts: "t",
+          type: "phase_review_opened",
+          review_id: "r1",
+          phase: "frame",
+          to_phase: "investigate",
+          summary: "'frame' is complete — proposing to advance to 'investigate'.",
+          goal: "normalize the signal",
+          narrative: "framed the 5xx",
+          verdict: "advance",
+          discovered: { facts: 3, nodes: 2, events: 1, edges: 1, hypotheses: 0 },
+          hypothesis: { id: "hyp:h1", statement: "deploy broke it", status: "proposed", confidence: 0.5, root_candidate: "code_commit:abc" },
+          facts: ["f1"],
+          nodes: ["service:pay"],
+        },
+        { seq: 4, ts: "t", type: "session_state", state: "awaiting_review", phase: "frame" },
+      ],
+    });
+    expect(s.state).toBe("awaiting_review");
+    expect(s.review?.review_id).toBe("r1");
+    expect(s.reviews["r1"].to_phase).toBe("investigate");
+    expect(s.turns.at(-1)?.reviewId).toBe("r1"); // the completed frame turn carries the review
+    expect(s.gate).toBeNull(); // the write-gate slot is untouched — no collision between the two
+
+    // the human approves → the engine advances; the decision is recorded and the open review clears
+    s = reduce(s, {
+      kind: "events",
+      events: [
+        { seq: 5, ts: "t", type: "phase_review_decision", review_id: "r1", decision: "approve", actor: "alice@oncall", source: "human", reason: "", phase: "frame", to_phase: "investigate" },
+        { seq: 6, ts: "t", type: "phase_started", phase: "investigate" },
+        { seq: 7, ts: "t", type: "session_state", state: "running", phase: "investigate" },
+      ],
+    });
+    expect(s.reviewDecisions["r1"].decision).toBe("approve");
+    expect(s.reviewDecisions["r1"].actor).toBe("alice@oncall");
+    expect(s.reviewDecisions["r1"].source).toBe("human");
+    expect(s.review).toBeNull(); // cleared the moment the run left the review pause
+  });
+
+  it("optimistically records a review decision and clears the open review (reviewDecision action)", () => {
+    const s = reduce(emptyState(), {
+      kind: "events",
+      events: [
+        { seq: 1, ts: "t", type: "phase_started", phase: "frame" },
+        { seq: 2, ts: "t", type: "phase_review_opened", review_id: "r1", phase: "frame", to_phase: "investigate", summary: "advance?", hypothesis: null },
+        { seq: 3, ts: "t", type: "session_state", state: "awaiting_review", phase: "frame" },
+      ],
+    });
+    expect(s.review?.review_id).toBe("r1");
+    const decided = reduce(s, { kind: "reviewDecision", reviewId: "r1", decision: "refine", reason: "check the cache first" });
+    expect(decided.review).toBeNull(); // the open review clears immediately (parallels the write-gate)
+    expect(decided.reviewDecisions["r1"].decision).toBe("refine");
+    expect(decided.reviewDecisions["r1"].reason).toBe("check the cache first");
+  });
+
+  it("reopen rebuilds the phase-review + its human decision from the journal (read-only)", () => {
+    const snapshot = mkSnap({
+      state: "closed",
+      outcome: "resolved",
+      phases: ["frame", "investigate"],
+      hypotheses: [{ id: "hyp:h1", statement: "the deploy broke it", status: "confirmed", confidence: 0.9, basis: "b", root_candidate: "code_commit:abc", supporting: [], refuting: [], chain: [] }],
+      journal: [
+        { seq: 1, kind: "phase", ts: "t1", phase: "frame", actor: "engine", narrative: "framed", goal: "frame", verdict: "advance", refs: {} },
+        { seq: 2, kind: "phase_review", ts: "t2", phase: "frame", actor: "engine", narrative: "'frame' complete — advance to investigate", review_id: "r1", to_phase: "investigate", verdict: "advance", hypothesis: "hyp:h1", facts: [], nodes: [] },
+        { seq: 3, kind: "review_decision", ts: "t3", phase: "frame", actor: "alice@oncall", source: "human", decision: "approve", review_id: "r1", to_phase: "investigate", narrative: "looks right", action: { review_id: "r1", to_phase: "investigate" }, observation: { decision: "approve", actor: "alice@oncall" } },
+        { seq: 4, kind: "phase", ts: "t4", phase: "investigate", actor: "engine", narrative: "found the NPE", goal: "investigate", verdict: "advance", refs: {} },
+      ],
+    });
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    // the frame turn carries its reviewId; the review + its decision are hydrated from the journal
+    const frame = s.turns.find((t) => t.phase === "frame")!;
+    expect(frame.reviewId).toBe("r1");
+    expect(s.reviews["r1"].to_phase).toBe("investigate");
+    expect(s.reviews["r1"].hypothesis?.statement).toBe("the deploy broke it"); // hydrated by id
+    expect(s.reviewDecisions["r1"].decision).toBe("approve");
+    expect(s.reviewDecisions["r1"].actor).toBe("alice@oncall");
+    expect(s.reviewDecisions["r1"].source).toBe("human");
+  });
 });

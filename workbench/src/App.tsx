@@ -6,7 +6,7 @@ import StartScreen from "./components/StartScreen";
 import Workbench from "./components/Workbench";
 
 export default function App() {
-  const { state, error, busy, open, openExisting, decide, send, reset } = useInvestigation();
+  const { state, error, busy, open, openExisting, decide, review, send, reset } = useInvestigation();
   const [view, setView] = useState<"start" | "workbench">("start");
   const [layers, setLayers] = useState<Record<string, string>>({});
 
@@ -49,6 +49,7 @@ export default function App() {
       error={error}
       layer={state.subject ? layers[state.subject.id] : undefined}
       onDecide={decide}
+      onReview={review}
       onSend={send}
       onBack={back}
     />

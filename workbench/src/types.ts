@@ -185,6 +185,11 @@ export interface JournalEntry {
   action?: Record<string, unknown>;
   observation?: Record<string, unknown>;
   event?: string; // lifecycle event name (started/resumed/closed/…)
+  // phase_review / review_decision — the between-phases DIRECTION review + its answer
+  review_id?: string;
+  to_phase?: string; // the phase the review proposes advancing to
+  facts?: string[]; // ids the reviewed phase discovered (phase_review)
+  nodes?: string[]; // ids the reviewed phase discovered (phase_review)
 }
 
 export interface PostmortemNarrativeEntry {
@@ -232,7 +237,9 @@ export interface InvestigationBundle {
 
 // ── The interactive session surface (server.py / runtime/session.py) ──────────────
 
-export type SessionState = "running" | "suspended" | "closed";
+// "awaiting_review" = paused at a between-phases DIRECTION review (the phase-review gate — owner
+// 2026-07-23): the agent finished a phase and asks the human to approve advancing to the next one.
+export type SessionState = "running" | "suspended" | "awaiting_review" | "closed";
 
 /** One runnable incident on the start selector (GET /catalog). */
 export interface CatalogItem {
@@ -380,6 +387,45 @@ export interface GateOpenedEvent extends EventBase {
   hypothesis: GateHypothesis | null;
   evidence: GateEvidence[];
 }
+
+/** Counts of what a phase discovered — surfaced in the phase-review summary. */
+export interface PhaseReviewDiscovered {
+  facts: number;
+  nodes: number;
+  events: number;
+  edges: number;
+  hypotheses: number;
+}
+
+/** The between-phases DIRECTION review (owner 2026-07-23): the agent finished `phase` and asks the
+ *  human to approve advancing to `to_phase`. The summary body (goal + narrative + discovered counts
+ *  + the leading hypothesis), NOT a proposed write — decided approve/refine/deny on the same card. */
+export interface PhaseReviewOpenedEvent extends EventBase {
+  type: "phase_review_opened";
+  review_id: string;
+  phase: string; // the phase that just completed
+  to_phase: string; // the phase the engine proposes to advance to
+  summary: string; // "‘frame’ is complete — proposing to advance to ‘investigate’."
+  goal?: string;
+  narrative?: string;
+  verdict?: string;
+  discovered?: PhaseReviewDiscovered;
+  hypothesis: GateHypothesis | null;
+  facts?: string[];
+  nodes?: string[];
+}
+
+/** The human's phase-review answer — approve (advance) · refine (re-run with a steer) · deny (halt). */
+export interface PhaseReviewDecisionEvent extends EventBase {
+  type: "phase_review_decision";
+  review_id: string;
+  decision: string;
+  actor: string;
+  source: string;
+  reason: string;
+  phase: string;
+  to_phase: string;
+}
 export interface SessionStateEvent extends EventBase {
   type: "session_state";
   state: SessionState;
@@ -420,6 +466,8 @@ export type SessionEvent =
   | HypothesesDeltaEvent
   | GateOpenedEvent
   | GateDecisionEvent
+  | PhaseReviewOpenedEvent
+  | PhaseReviewDecisionEvent
   | UserMessageEvent
   | SessionErrorEvent
   | SessionStateEvent;
@@ -429,6 +477,7 @@ export interface Snapshot extends InvestigationBundle {
   session_id: string;
   state: SessionState;
   pending_gate: GateOpenedEvent | null;
+  pending_review: PhaseReviewOpenedEvent | null;
   messages: { seq: number; text: string; at: string; kind: string }[];
   events: SessionEvent[];
 }

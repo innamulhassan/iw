@@ -14,6 +14,7 @@ interface Props {
   error: string | null;
   layer?: string;
   onDecide: (gateId: string, d: GateDecision, opts: { params?: Record<string, unknown>; reason?: string }) => void;
+  onReview: (reviewId: string, d: GateDecision, opts: { text?: string }) => void;
   onSend: (text: string) => void;
   onBack: () => void;
 }
@@ -24,6 +25,7 @@ export default function Workbench({
   error,
   layer,
   onDecide,
+  onReview,
   onSend,
   onBack,
 }: Props) {
@@ -45,7 +47,7 @@ export default function Workbench({
       {error && <div className="workbench__error">{error}</div>}
       <div className="workbench__body">
         <section className="pane pane--chat">
-          <ChatPane live={live} busy={busy} onDecide={onDecide} onSend={onSend} />
+          <ChatPane live={live} busy={busy} onDecide={onDecide} onReview={onReview} onSend={onSend} />
         </section>
         <section className="pane pane--graph">
           <LiveGraph live={live} selection={selection} onSelect={setSelection} />

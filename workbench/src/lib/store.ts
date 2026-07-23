@@ -11,6 +11,7 @@ import type {
   GraphFact,
   HypothesisItem,
   JournalEntry,
+  PhaseReviewOpenedEvent,
   RejectionItem,
   SessionEvent,
   SessionState,
@@ -114,6 +115,7 @@ export interface Turn {
   obs: TurnObs;
   rejections: RejectionItem[]; // reducer rejections attributed to THIS phase (evidence withheld)
   gateId?: string;
+  reviewId?: string; // the phase-review opened when this phase completed (owner 2026-07-23)
 }
 
 /** Build a bare turn with the uniform enriched shape — used by BOTH folds so objective/plan/
@@ -149,6 +151,11 @@ export interface LiveState {
   gate: GateOpenedEvent | null; // the currently-open write-gate, or null
   gates: Record<string, GateOpenedEvent>; // every gate ever opened, by gate_id
   decisions: Record<string, Decision>; // gate_id → the operator's decision
+  // the phase-review gate (owner 2026-07-23) — parallels gate/gates/decisions so the two
+  // suspend surfaces never collide (a distinct slot + a distinct AWAITING_REVIEW state).
+  review: PhaseReviewOpenedEvent | null; // the currently-open phase-review, or null
+  reviews: Record<string, PhaseReviewOpenedEvent>; // every phase-review ever opened, by review_id
+  reviewDecisions: Record<string, Decision>; // review_id → the operator's direction decision
   phasesRun: string[]; // phases reached, in order (unique)
   error: string | null; // a live drive failure, surfaced in the chat
   lastSeq: number;
@@ -173,6 +180,9 @@ export function emptyState(): LiveState {
     gate: null,
     gates: {},
     decisions: {},
+    review: null,
+    reviews: {},
+    reviewDecisions: {},
     phasesRun: [],
     error: null,
     lastSeq: 0,
@@ -184,7 +194,8 @@ export type StoreAction =
   | { kind: "seed"; snapshot: Snapshot }
   | { kind: "events"; events: SessionEvent[] }
   | { kind: "mergeDetail"; snapshot: Snapshot }
-  | { kind: "decision"; gateId: string; decision: GateDecision; reason?: string };
+  | { kind: "decision"; gateId: string; decision: GateDecision; reason?: string }
+  | { kind: "reviewDecision"; reviewId: string; decision: GateDecision; reason?: string };
 
 export function reduce(state: LiveState, action: StoreAction): LiveState {
   switch (action.kind) {
@@ -199,6 +210,11 @@ export function reduce(state: LiveState, action: StoreAction): LiveState {
     case "decision": {
       const decisions = { ...state.decisions, [action.gateId]: { decision: action.decision, reason: action.reason } };
       return { ...state, decisions, gate: null };
+    }
+    case "reviewDecision": {
+      // optimistic: record the direction decision + clear the open review (parallels "decision")
+      const reviewDecisions = { ...state.reviewDecisions, [action.reviewId]: { decision: action.decision, reason: action.reason } };
+      return { ...state, reviewDecisions, review: null };
     }
   }
 }
@@ -276,6 +292,14 @@ function turnsFromJournal(journal: JournalEntry[]): Turn[] {
       turns.push(turn);
     }
     turn.gateId = e.gate_id;
+  }
+  // attach the phase-review: a phase_review entry annotates the COMPLETED phase's turn (the phase
+  // ran, THEN paused for the direction review — so its turn already exists, unlike a gate).
+  for (const e of journal) {
+    if ((e as { kind?: string }).kind !== "phase_review" || !e.review_id) continue;
+    const phase = String(e.phase);
+    const turn = [...turns].reverse().find((t) => t.phase === phase && !t.reviewId);
+    if (turn) turn.reviewId = e.review_id;
   }
   turns.sort((a, b) => a.key - b.key);
   return turns;
@@ -373,8 +397,32 @@ function gateEventFromJournal(
   };
 }
 
-// Rebuild the gates, operator decisions and operator messages from the journal on reopen, so
-// ApprovalCard + the two-way chat tail render identically to live (the journal is the record).
+// Reconstruct a live-shaped PhaseReviewOpenedEvent from a phase_review journal entry, hydrating
+// the leading hypothesis by id from the snapshot (the journal stores it by id, like a gate).
+function reviewEventFromJournal(
+  e: JournalEntry,
+  hypById: Map<string, HypothesisItem>
+): PhaseReviewOpenedEvent {
+  const h = e.hypothesis ? hypById.get(e.hypothesis) : undefined;
+  return {
+    type: "phase_review_opened",
+    seq: e.seq,
+    ts: e.ts ?? "",
+    review_id: e.review_id ?? "",
+    phase: String(e.phase),
+    to_phase: e.to_phase ?? "",
+    summary: e.narrative ?? "",
+    verdict: e.verdict,
+    hypothesis: h
+      ? { id: h.id, statement: h.statement, status: h.status, confidence: h.confidence, root_candidate: h.root_candidate }
+      : null,
+    facts: e.facts ?? [],
+    nodes: e.nodes ?? [],
+  };
+}
+
+// Rebuild the gates, phase-reviews, operator decisions and operator messages from the journal on
+// reopen, so ApprovalCard / ReviewCard + the two-way chat tail render identically to live.
 function hydrateFromJournal(s: LiveState, snap: Snapshot): void {
   const hypById = new Map(snap.hypotheses.map((h) => [h.id, h]));
   const factById = new Map(snap.graph.facts.map((f) => [f.id, f]));
@@ -382,10 +430,22 @@ function hydrateFromJournal(s: LiveState, snap: Snapshot): void {
     const kind = (e as { kind?: string }).kind;
     if (kind === "gate_opened" && e.gate_id) {
       s.gates[e.gate_id] = gateEventFromJournal(e, hypById, factById);
+    } else if (kind === "phase_review" && e.review_id) {
+      s.reviews[e.review_id] = reviewEventFromJournal(e, hypById);
     } else if (kind === "gate_decision" || kind === "step") {
       const gateId = (e.action as { gate_id?: string } | undefined)?.gate_id;
       if (gateId && e.decision) {
         s.decisions[gateId] = {
+          decision: e.decision as GateDecision,
+          reason: e.narrative || undefined,
+          actor: e.actor,
+          source: e.source ?? undefined,
+        };
+      }
+    } else if (kind === "review_decision") {
+      const rid = e.review_id ?? (e.action as { review_id?: string } | undefined)?.review_id;
+      if (rid && e.decision) {
+        s.reviewDecisions[rid] = {
           decision: e.decision as GateDecision,
           reason: e.narrative || undefined,
           actor: e.actor,
@@ -403,8 +463,9 @@ function hydrateFromJournal(s: LiveState, snap: Snapshot): void {
       });
     }
   }
-  // the currently-open gate on a suspended reopen (for ApprovalCard's live state)
+  // the currently-open gate / review on a suspended reopen (for the live card state)
   if (snap.state === "suspended" && snap.pending_gate) s.gate = snap.pending_gate;
+  if (snap.state === "awaiting_review" && snap.pending_review) s.review = snap.pending_review;
 }
 
 // ── seed: full cold-load from the snapshot bundle, then replay its events ───────────
@@ -510,6 +571,8 @@ function applyEvents(prev: LiveState, evs: SessionEvent[], fresh = false): LiveS
     messages: [...prev.messages],
     gates: { ...prev.gates },
     decisions: { ...prev.decisions },
+    reviews: { ...prev.reviews },
+    reviewDecisions: { ...prev.reviewDecisions },
     phasesRun: [...prev.phasesRun],
   };
   for (const ev of evs) {
@@ -691,6 +754,25 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
       };
       break;
     }
+    case "phase_review_opened": {
+      // the between-phases DIRECTION review — parallels gate_opened: set the currently-open review,
+      // index it by review_id, and stamp the current turn (the completed phase) with its review_id.
+      s.review = ev;
+      s.reviews[ev.review_id] = ev;
+      mutateTurn(s, (t) => ({ ...t, reviewId: ev.review_id }));
+      break;
+    }
+    case "phase_review_decision": {
+      // WHO approved/refined/denied the advance — enrich the optimistic decision with the actor.
+      const prevR = s.reviewDecisions[ev.review_id];
+      s.reviewDecisions[ev.review_id] = {
+        decision: (ev.decision as GateDecision) ?? prevR?.decision ?? "approve",
+        reason: ev.reason || prevR?.reason,
+        actor: ev.actor,
+        source: ev.source,
+      };
+      break;
+    }
     case "user_message": {
       // an operator turn in the two-way chat (obs 2) — interleaved with phase turns by seq
       s.messages.push({ seq: ev.seq, text: ev.text, kind: ev.kind, actor: ev.actor, phase: ev.phase });
@@ -704,6 +786,8 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
       s.state = ev.state;
       if (ev.outcome) s.outcome = ev.outcome;
       if (ev.state !== "suspended") s.gate = null;
+      // the open review clears the moment the run leaves the review pause (advance/refine/deny/close)
+      if (ev.state !== "awaiting_review") s.review = null;
       break;
     }
   }

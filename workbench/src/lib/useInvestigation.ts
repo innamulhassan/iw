@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { SessionEvent, SessionState, Subject } from "../types";
-import { advance, createSession, decideGate, getSnapshot, sendMessage, streamUrl } from "./api";
+import { advance, createSession, decideGate, decideReview, getSnapshot, sendMessage, streamUrl } from "./api";
 import type { GateDecision } from "./api";
 import { emptyState, reduce } from "./store";
 
@@ -12,6 +12,8 @@ const EVENT_TYPES: SessionEvent["type"][] = [
   "hypotheses_delta",
   "gate_opened",
   "gate_decision",
+  "phase_review_opened",
+  "phase_review_decision",
   "user_message",
   "session_error",
   "session_state",
@@ -32,6 +34,7 @@ export function useInvestigation() {
   const esRef = useRef<EventSource | null>(null);
   const idRef = useRef<string | null>(null);
   const answeredGates = useRef<Set<string>>(new Set()); // gate ids already submitted (dedupe)
+  const answeredReviews = useRef<Set<string>>(new Set()); // review ids already submitted (dedupe)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef(0); // consecutive failed (re)connects since the last healthy open
   const lastSeqRef = useRef(0); // latest APPLIED seq — the resume cursor for reconnects
@@ -139,6 +142,7 @@ export function useInvestigation() {
       setError(null);
       closeStream(); // drop the previous stream + any pending reconnect before reseeding
       answeredGates.current.clear();
+      answeredReviews.current.clear();
       dispatch({ kind: "reset" });
       try {
         const res = await createSession(subject);
@@ -160,6 +164,7 @@ export function useInvestigation() {
       setError(null);
       closeStream(); // drop the previous stream + any pending reconnect before reseeding
       answeredGates.current.clear();
+      answeredReviews.current.clear();
       dispatch({ kind: "reset" });
       try {
         const snap = await getSnapshot(id);
@@ -192,6 +197,34 @@ export function useInvestigation() {
         await reconcile(id);
       } catch (err) {
         // a 409 means the backend already advanced past this gate — self-heal by reconciling
+        if (err instanceof Error && err.message.startsWith("409")) {
+          await reconcile(id);
+        } else {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        setBusy(false);
+      }
+    },
+    [reconcile]
+  );
+
+  /** Answer the open phase-review: approve (advance) | refine (re-run the phase with a steer) |
+   *  deny (halt). The DIRECTION counterpart to `decide` — same optimistic + dedupe + 409-self-heal
+   *  round-trip, but through POST /review, and the summary card carries no write params. */
+  const review = useCallback(
+    async (reviewId: string, decision: GateDecision, opts: { text?: string } = {}) => {
+      const id = idRef.current;
+      if (!id || answeredReviews.current.has(reviewId)) return; // answer each review exactly once
+      answeredReviews.current.add(reviewId);
+      dispatch({ kind: "reviewDecision", reviewId, decision, reason: opts.text });
+      setBusy(true);
+      try {
+        const res = await decideReview(id, decision, opts);
+        dispatch({ kind: "events", events: res.events });
+        await reconcile(id);
+      } catch (err) {
+        // a 409 means the backend already advanced past this review — self-heal by reconciling
         if (err instanceof Error && err.message.startsWith("409")) {
           await reconcile(id);
         } else {
@@ -244,11 +277,12 @@ export function useInvestigation() {
     idRef.current = null;
     reconnectAttempts.current = 0;
     answeredGates.current.clear();
+      answeredReviews.current.clear();
     dispatch({ kind: "reset" });
     setError(null);
   }, [closeStream]);
 
   useEffect(() => () => closeStream(), [closeStream]);
 
-  return { state, error, busy, open, openExisting, decide, send, step, reset };
+  return { state, error, busy, open, openExisting, decide, review, send, step, reset };
 }

@@ -1088,6 +1088,12 @@ code {
 }
 .approval__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .approval__badge { font-size: 12px; font-weight: 700; color: var(--amber); }
+/* the phase-review card is a DIRECTION approval, not an irreversible write — a calmer accent
+   (blue) than the amber write-gate, so the two suspends read as different asks. */
+.approval--review { border-color: var(--accent); background: var(--accent-soft); }
+.approval--review .approval__badge { color: var(--accent); }
+.approval--review .approval__action { border-color: #cfe0ff; }
+.review__discovered { margin: 6px 0 0; font-size: 11.5px; color: var(--text-faint); }
 .approval__phase { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); }
 .approval__reasoning { margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: var(--text); }
 .approval__action { background: #fff; border: 1px solid #f0d9b0; border-radius: var(--radius-sm); padding: 8px 10px; }
