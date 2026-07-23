@@ -183,8 +183,9 @@ def test_add_assertion_event_materializes_event():
 
 def test_edge_subject_assertion_is_reachable():
     """known() learns edge subjects (F11): an edge-borne assertion on a same-batch CALLS edge is
-    materialized (not rejected as an unknown subject). Edge-predicate legality is not enforced in
-    P1a (type_of(edge) is None), so the assertion lands on the edge id."""
+    materialized (not rejected as an unknown subject). M30: edge-predicate legality IS now enforced
+    (parallel to node `applies_to`) — but `call_error_rate` canonicalizes to `error_rate`, a LEGAL
+    CALLS predicate, so it is admitted and lands on the edge id."""
     eid = edge_id(EdgeType.CALLS, SID, SID2, Origin.DISCOVERED)
     ops = [
         _svc("payments-api"),
@@ -195,12 +196,45 @@ def test_edge_subject_assertion_is_reachable():
     ]
     mat = materialize(ops, 1, Graph(), Tunables())
     assert mat.rejections == []
-    # P2: call_error_rate canonicalizes to error_rate (the CALLS-edge error-rate alias); the edge
-    # subject carries no NodeType so the applies_to check is bypassed (edge-predicate legality is
-    # a later phase). The native spelling survives on source_native_name.
+    # P2: call_error_rate canonicalizes to error_rate (the CALLS-edge error-rate alias) — a
+    # canonical predicate the CALLS EdgeSpec's fact_predicates admits (M30). The native spelling
+    # survives on source_native_name.
     assert [(f.subject_ref, f.predicate, f.value) for f in mat.facts] == \
            [(eid, "error_rate", 0.2)]
     assert mat.facts[0].source_native_name == "call_error_rate"
+
+
+def test_edge_borne_illegal_predicate_is_governed():
+    """M30 — the ungoverned lane closed: a KNOWN predicate that is NOT legal on the edge type now
+    REJECTS (parallel to a node's applies_to), so the otherwise-closed vocabulary has no free lane
+    through edge subjects. `degraded` is a real Service predicate but is not RED an edge carries."""
+    eid = edge_id(EdgeType.CALLS, SID, SID2, Origin.DISCOVERED)
+    ops = [
+        _svc("payments-api"),
+        _svc("checkout-api"),
+        AddEdge(type=EdgeType.CALLS, src=SID, dst=SID2),
+        AddAssertion(subject=eid, name="degraded", value=True, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.PROMETHEUS),
+    ]
+    mat = materialize(ops, 1, Graph(), Tunables())
+    assert mat.facts == []
+    assert [r.reason for r in mat.rejections] == ["predicate 'degraded' not allowed on edge calls"]
+
+
+def test_edge_borne_predicate_on_ungoverned_edge_type_rejects():
+    """An edge type whose spec declares NO fact_predicates (DEPENDS_ON) carries no edge-borne facts
+    at all — any known predicate rejects. Only CALLS opts a discovered RED lane in (§C2)."""
+    eid = edge_id(EdgeType.DEPENDS_ON, SID, "database:orders-db", Origin.DECLARED)
+    ops = [
+        _svc("payments-api"),
+        AddNode(type=NodeType.DATABASE, props={"db_id": "orders-db"}),
+        AddEdge(type=EdgeType.DEPENDS_ON, src=SID, dst="database:orders-db"),
+        AddAssertion(subject=eid, name="error_rate", value=0.2, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.PROMETHEUS),
+    ]
+    mat = materialize(ops, 1, Graph(), Tunables())
+    assert mat.facts == []
+    assert [r.reason for r in mat.rejections] == ["predicate 'error_rate' not allowed on edge depends_on"]
 
 
 def test_edge_subject_assertion_rejected_when_edge_absent():

@@ -144,6 +144,15 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         n = graph.node(nid)
         return n.type if n else None
 
+    def edge_type_of(eid: str) -> EdgeType | None:
+        """The EdgeType of a known edge subject — the graph's edge first, else this batch's mint —
+        so an edge-borne assertion can be governed by that edge type's `fact_predicates` allow-list
+        (M30 / §C2), parallel to `applies_to` on a node subject."""
+        e = graph.edges.get(eid)
+        if e is None:
+            e = next((be for be in out.edges if be.id == eid), None)
+        return e.type if e is not None else None
+
     def known(nid: str) -> bool:
         # subjects may be nodes OR edges — the reducer's known() learns edge subjects so
         # edge-borne assertions (a discovered CALLS carrying RED) are finally reachable
@@ -184,13 +193,24 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         provisional = canonical is None
         if provisional:
             canonical = dictionary.quarantine_name(op.source, native)   # never erased, never silent
-        # applies_to on nodes; edge subjects carry no NodeType (nt is None) so edge-borne
-        # assertions bypass the type check (edge-predicate legality is §C2 / a later phase);
-        # quarantined names carry no applies_to until a human promotes them.
-        if not provisional and nt is not None and not dictionary.applies_to_ok(canonical, nt):
-            out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=
-                                            f"{name_word} '{canonical}' not allowed on {nt.value}"))
-            return
+        # applies_to governs NODE-borne assertions; an edge-borne assertion (a discovered CALLS
+        # carrying RED) is governed IN PARALLEL by that edge type's own `fact_predicates` allow-list
+        # (§C2 — M30 closes the ungoverned lane the reducer used to leave open: a KNOWN predicate
+        # illegal on the edge now REJECTS, exactly like an illegal predicate on a node). A quarantined
+        # (unknown) name carries no allow-list on EITHER surface until a human core-registry promotion
+        # assigns it one, so it lands provisional here regardless (checked below).
+        if not provisional:
+            if nt is not None:
+                if not dictionary.applies_to_ok(canonical, nt):
+                    out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=
+                                                    f"{name_word} '{canonical}' not allowed on {nt.value}"))
+                    return
+            else:
+                et = edge_type_of(subject)   # known() passed + nt is None ⇒ subject is an edge
+                if et is not None and canonical not in registry.edge_spec(et).fact_predicates:
+                    out.rejections.append(Rejection(op_index=i, op_kind=op_kind, reason=
+                        f"{name_word} '{canonical}' not allowed on edge {et.value}"))
+                    return
         if not provisional:
             # SHAPE QUARANTINE (P3 step 6 / DOMAIN-v3 §9.1 — the airlock's second lane): a KNOWN
             # name with an invalid shape (unit mismatch, reading without stat+window) lands

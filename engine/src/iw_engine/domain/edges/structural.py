@@ -46,7 +46,11 @@ SPECS: tuple[EdgeSpec, ...] = (
         ),
         default_origin=Origin.DISCOVERED,
         requires_confidence=False,
-        fact_predicates=("call_rate", "call_error_rate", "call_latency_p99"),  # edge-borne RED (§C2)
+        # edge-borne RED (§C2), as CANONICAL names — the reducer governs the assertion AFTER
+        # dictionary canonicalization (M30), parallel to node `applies_to`, so this lists what
+        # a discovered CALLS legally carries in canonical form: the vendor exit-call spellings
+        # (call_rate/call_error_rate/call_latency_p99) merge to these before the legality check.
+        fact_predicates=("request_rate", "error_rate", "latency_p99"),
     ),
     EdgeSpec(
         type=EdgeType.REALIZES,
