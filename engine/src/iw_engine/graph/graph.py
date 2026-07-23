@@ -13,7 +13,7 @@ exactly as decision 2 fixed —
     events view = species = EVENT                          (occurrences)
     props view  = channel = DECLARED                       (node-declared — P6 step 2)
 The views return the same Fact/Event records as the pre-flip store (converted via
-domain.shim's exact-inverse pair), so fold/render/bundle/hypothesis/postmortem are
+domain.projection's exact-inverse pair), so fold/render/bundle/hypothesis/postmortem are
 unchanged and the goldens stay byte-identical. Mutation stays method-only (fold-driven);
 the views are cached per mutation generation, so repeated reads between folds return
 the same objects.
@@ -31,13 +31,13 @@ from ..domain.event import Event
 from ..domain.fact import Fact
 from ..domain.node import Node
 from ..domain.nodes import NODE_SPECS
-from ..domain.registry import edge_id as _edge_id
-from ..domain.shim import (
+from ..domain.projection import (
     assertion_of_event,
     assertion_of_fact,
     event_of_assertion,
     fact_of_assertion,
 )
+from ..domain.registry import edge_id as _edge_id
 from . import resolver
 
 

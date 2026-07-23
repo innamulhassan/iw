@@ -21,8 +21,8 @@ from e2e._helpers import call, fact, phase, update
 import iw_engine
 from iw_engine.capability import CapabilityLayer
 from iw_engine.capability.adapters import default_adapters
-from iw_engine.domain.enums import Binding, Effect, Source
-from iw_engine.domain.operations import AddEvent, Operation
+from iw_engine.domain.enums import Binding, Effect, Source, Species
+from iw_engine.domain.operations import AddAssertion, Operation
 from iw_engine.graph import rebuild
 from iw_engine.runtime import ScriptedPlanner, load_playbook
 from iw_engine.runtime.session import GateDecision, InvestigationSession, SessionState
@@ -46,9 +46,9 @@ class _RollbackAdapter:
     binding = Binding.A2A
 
     def normalize(self, raw: dict) -> list[Operation]:
-        return [AddEvent(entity=s1.SVC, type="deployed", occurred_at=s1.T_FIX,
-                         observed_at=s1.T_FIX, source=Source.OCP,
-                         payload={"action": "rollback", "to_version": raw.get("to_version", "?")})]
+        return [AddAssertion(subject=s1.SVC, name="deployed", species=Species.EVENT,
+                             occurred_at=s1.T_FIX, observed_at=s1.T_FIX, source=Source.OCP,
+                             value={"action": "rollback", "to_version": raw.get("to_version", "?")})]
 
 
 class _WriteAwareMock:

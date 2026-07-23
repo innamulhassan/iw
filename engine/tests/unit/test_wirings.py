@@ -18,8 +18,8 @@ from e2e._helpers import call
 import iw_engine
 from iw_engine.capability import CapabilityLayer
 from iw_engine.capability.adapters import default_adapters
-from iw_engine.domain.enums import Binding, Effect, NodeType, Source
-from iw_engine.domain.operations import AddEvent, Merge, Operation, Retype
+from iw_engine.domain.enums import Binding, Effect, NodeType, Source, Species
+from iw_engine.domain.operations import AddAssertion, Merge, Operation, Retype
 from iw_engine.runtime import ScriptedPlanner, load_playbook
 from iw_engine.runtime.live_planner import LivePlanner
 from iw_engine.runtime.session import InvestigationSession, SessionState
@@ -59,6 +59,47 @@ def test_live_parser_repairs_bad_merge_and_retype():
     assert op is None and err is not None
 
 
+# ── 1b. native AddAssertion emit (F4): the planner folds add_fact/add_event/add_assertion JSON to
+#      the ONE atom — the AddFact/AddEvent op classes + shim are retired ─────────────────────────
+def test_live_parser_emits_add_assertion_from_add_fact_shorthand():
+    """The ergonomic add_fact shorthand folds to an AddAssertion; species is INFERRED by the §9.1
+    boundary test (STATE for a measured metric), the measured belief channel repaired to reliability."""
+    op, err = _lp()._parse_op({"op": "add_fact", "subject": "service:pay", "predicate": "red_errors",
+                               "value": 0.4, "source": "prometheus", "source_reliability": 0.9,
+                               "at": "2026-07-19T14:05:00+00:00"})
+    assert err is None and isinstance(op, AddAssertion)
+    assert op.name == "red_errors" and op.species is Species.STATE
+    assert op.source is Source.PROMETHEUS and op.source_reliability == 0.9 and op.confidence_level is None
+
+
+def test_live_parser_infers_descriptor_species_for_content_predicate():
+    op, err = _lp()._parse_op({"op": "add_fact", "subject": "code_commit:abc", "predicate": "diff_summary",
+                               "value": {"files": 3}, "source": "git", "source_reliability": 0.9,
+                               "at": "2026-07-19T14:05:00+00:00"})
+    assert err is None and isinstance(op, AddAssertion) and op.species is Species.DESCRIPTOR
+
+
+def test_live_parser_emits_add_assertion_from_add_event_shorthand():
+    """The ergonomic add_event shorthand folds to an AddAssertion species=EVENT — type→name,
+    payload→value; source_reliability is left unset (the reducer applies the INV-9 default)."""
+    op, err = _lp()._parse_op({"op": "add_event", "entity": "deployment:web", "type": "rollout_complete",
+                               "payload": {"image": "v2"}, "source": "ocp",
+                               "at": "2026-07-19T14:50:00+00:00"})
+    assert err is None and isinstance(op, AddAssertion)
+    assert op.name == "rollout_complete" and op.species is Species.EVENT
+    assert op.value == {"image": "v2"} and op.source is Source.OCP and op.occurred_at is not None
+
+
+def test_live_parser_accepts_the_native_add_assertion_atom():
+    """The documented native op is now REACHABLE (F4): add_assertion parses directly, species stated
+    by the model — the pre-F4 parser dropped it as 'unknown op'."""
+    op, err = _lp()._parse_op({"op": "add_assertion", "subject": "service:pay", "name": "red_errors",
+                               "value": 0.4, "species": "state", "source": "prometheus",
+                               "source_reliability": 0.9, "at": "2026-07-19T14:05:00+00:00"})
+    assert err is None and isinstance(op, AddAssertion)
+    assert op.name == "red_errors" and op.species is Species.STATE and op.source_reliability == 0.9
+
+
 # ── 2. the write-gate keys on the PER-INTENT effect ────────────────────────────
 class _MixedAdapter:
     """One adapter, mixed intents: a READ default with a per-intent WRITE override —
@@ -71,8 +112,8 @@ class _MixedAdapter:
     binding = Binding.MCP
 
     def normalize(self, raw: dict) -> list[Operation]:
-        return [AddEvent(entity=s1.SVC, type="restarted",
-                         occurred_at=s1.T_FIX, observed_at=s1.T_FIX, source=Source.OCP)]
+        return [AddAssertion(subject=s1.SVC, name="restarted", species=Species.EVENT,
+                             occurred_at=s1.T_FIX, observed_at=s1.T_FIX, source=Source.OCP)]
 
 
 class _EchoMock:

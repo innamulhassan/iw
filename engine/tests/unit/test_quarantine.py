@@ -15,7 +15,7 @@ from e2e._helpers import fact, node, phase
 
 from iw_engine.domain.dictionary import is_quarantined, quarantine_name
 from iw_engine.domain.enums import NodeType, Source, Species
-from iw_engine.domain.operations import AddAssertion, AddFact, AddNode
+from iw_engine.domain.operations import AddAssertion, AddNode
 from iw_engine.domain.playbook import Tunables
 from iw_engine.graph import Graph
 from iw_engine.graph.reducer import materialize
@@ -49,11 +49,11 @@ def test_unknown_fact_name_lands_quarantined_not_rejected():
     assert f.source_reliability == 0.9                      # belief discipline unchanged
 
 
-def test_unknown_name_via_the_addfact_shim_quarantines_too():
+def test_unknown_name_from_another_source_quarantines_too():
     ops = [
         _svc(),
-        AddFact(subject=SID, predicate="mystery_gauge", value=1, valid_from=T0, observed_at=T0,
-                source=Source.SPLUNK, source_reliability=0.9),
+        AddAssertion(subject=SID, name="mystery_gauge", value=1, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.SPLUNK, source_reliability=0.9),
     ]
     mat = materialize(ops, 1, Graph(), Tunables())
     assert mat.rejections == []
@@ -112,9 +112,9 @@ def test_unknown_subject_still_rejects():
 def test_known_name_on_wrong_type_still_rejects():
     ops = [
         AddNode(type=NodeType.ANOMALY, props={"anomaly_id": "ANOM-1"}),
-        AddFact(subject="anomaly:anom-1", predicate="degraded", value=True,
-                valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
-                source_reliability=0.9),
+        AddAssertion(subject="anomaly:anom-1", name="degraded", value=True, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
+                     source_reliability=0.9),
     ]
     mat = materialize(ops, 1, Graph(), Tunables())
     assert mat.facts == []

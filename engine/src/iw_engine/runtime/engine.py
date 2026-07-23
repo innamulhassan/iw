@@ -229,7 +229,7 @@ class Engine:
                 self._journal_invocation(seq, phase, inv, why=plan.narrative)
         # The per-phase op ceiling guards against RUNAWAY PLANNER OUTPUT only — it never
         # touches the adapters' data ops. Those are deterministic tool folds and internally
-        # referential (a call's AddFact lands on a node a sibling call's AddNode creates);
+        # referential (a call's AddAssertion lands on a node a sibling call's AddNode creates);
         # the old `(data_ops + plan.ops)[:ceiling]` cut proved doubly unsafe on the live
         # path (retest 2026-07-22): first it silently truncated the model's propose/update/
         # cleared-event ops (plan.ops sat LAST behind 45-52 data ops vs investigate's

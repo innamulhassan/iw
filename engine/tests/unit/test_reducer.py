@@ -24,8 +24,6 @@ from iw_engine.domain.node import Node
 from iw_engine.domain.operations import (
     AddAssertion,
     AddEdge,
-    AddEvent,
-    AddFact,
     AddNode,
     ProposeHypothesis,
 )
@@ -52,15 +50,15 @@ def test_materialize_partial_accepts_mixed_batch_with_exact_rejections():
         AddNode(type=NodeType.SERVICE,                                        # 0 valid
                 props={"service_name": "payments-api", "env": "prod"}),
         AddNode(type=NodeType.ANOMALY, props={"anomaly_id": "ANOM-1"}),       # 1 valid
-        AddFact(subject=SID, predicate="red_errors", value=0.4,               # 2 valid
-                valid_from=T0, observed_at=T0,
-                source=Source.PROMETHEUS, source_reliability=0.95),
-        AddFact(subject="database:ghost|prod", predicate="pool_util",         # 3 unknown subject
-                value=0.99, valid_from=T0, observed_at=T0,
-                source=Source.PROMETHEUS, source_reliability=0.95),
-        AddFact(subject="anomaly:anom-1", predicate="degraded", value=True,   # 4 illegal predicate
-                valid_from=T0, observed_at=T0,
-                source=Source.PROMETHEUS, source_reliability=0.95),
+        AddAssertion(subject=SID, name="red_errors", value=0.4, species=Species.STATE,  # 2 valid
+                     valid_from=T0, observed_at=T0,
+                     source=Source.PROMETHEUS, source_reliability=0.95),
+        AddAssertion(subject="database:ghost|prod", name="pool_util",         # 3 unknown subject
+                     value=0.99, species=Species.STATE, valid_from=T0, observed_at=T0,
+                     source=Source.PROMETHEUS, source_reliability=0.95),
+        AddAssertion(subject="anomaly:anom-1", name="degraded", value=True,   # 4 illegal predicate
+                     species=Species.STATE, valid_from=T0, observed_at=T0,
+                     source=Source.PROMETHEUS, source_reliability=0.95),
         AddEdge(type=EdgeType.DEPENDS_ON, src=SID, dst="anomaly:anom-1"),     # 5 illegal edge pair
         ProposeHypothesis(hid="h1", statement="bad change",                   # 6 valid
                           root_candidate=SID, confidence_level="med"),
@@ -81,8 +79,8 @@ def test_materialize_partial_accepts_mixed_batch_with_exact_rejections():
 
     # exactly one rejection per illegal op, with the exact reason + index + kind
     assert [(r.op_index, r.op_kind, r.reason) for r in mat.rejections] == [
-        (3, "add_fact", "unknown subject database:ghost|prod"),
-        (4, "add_fact", "predicate 'degraded' not allowed on anomaly"),
+        (3, "add_assertion", "unknown subject database:ghost|prod"),
+        (4, "add_assertion", "predicate 'degraded' not allowed on anomaly"),
         (5, "add_edge", "illegal edge service-depends_on->anomaly"),
     ]
 
@@ -145,52 +143,42 @@ def test_inv6_planner_emitted_supports_edge_rejected_but_fold_derives_it():
         assert e.confidence == hyp.confidence        # projected from the ledger record
 
 
-# ── P1a step 3: AddAssertion materializes natively; AddFact/AddEvent route the shim ──
+# ── the AddAssertion atom materializes natively (F4 retired the AddFact/AddEvent compat shims) ──
 def _svc(name: str) -> AddNode:
     return AddNode(type=NodeType.SERVICE, props={"service_name": name, "env": "prod"})
 
 
-def test_add_assertion_state_materializes_identically_to_add_fact():
-    """A native AddAssertion (species STATE) and the equivalent AddFact produce the SAME Fact —
-    same id, value, belief, INV-9-defaulted reliability. This is the shim's green-keeping
-    invariant made explicit at the reducer boundary."""
-    common = dict(subject=SID, value=0.4, unit="ratio", valid_from=T0, observed_at=T0,
-                  source=Source.PROMETHEUS)
-    via_fact = materialize(
-        [_svc("payments-api"), AddFact(predicate="red_errors", **common)], 1, Graph(), Tunables())
-    via_assertion = materialize(
+def test_add_assertion_state_materializes_the_expected_fact():
+    """A native AddAssertion (species STATE) materializes the expected Fact — the canonicalized name
+    over a native-keyed id, INV-9-defaulted reliability, measured channel (no confidence)."""
+    mat = materialize(
         [_svc("payments-api"),
-         AddAssertion(name="red_errors", species=Species.STATE, **common)], 1, Graph(), Tunables())
+         AddAssertion(subject=SID, name="red_errors", value=0.4, unit="ratio", species=Species.STATE,
+                      valid_from=T0, observed_at=T0, source=Source.PROMETHEUS)],
+        1, Graph(), Tunables())
 
-    assert len(via_fact.facts) == len(via_assertion.facts) == 1
-    f1, f2 = via_fact.facts[0], via_assertion.facts[0]
-    assert f1.id == f2.id
-    # P2: both paths canonicalize red_errors -> error_rate and keep the native spelling; the id is
-    # native-keyed so it is byte-identical to the pre-canonicalization id (no provenance/ref churn).
-    assert (f2.subject_ref, f2.predicate, f2.value, f2.unit) == (SID, "error_rate", 0.4, "ratio")
-    assert f1.source_native_name == f2.source_native_name == "red_errors"
-    assert f2.id == fact_id(SID, "red_errors", T0)
-    # INV-9 default reliability applied on both paths, no confidence (measured channel)
-    assert f1.source_reliability == f2.source_reliability
-    assert f2.source_reliability is not None and f2.confidence is None
+    assert len(mat.facts) == 1
+    f = mat.facts[0]
+    # P2: red_errors canonicalizes -> error_rate; the id stays native-keyed (byte-identical to the
+    # pre-canonicalization id — no provenance/ref churn) and the native spelling survives.
+    assert (f.subject_ref, f.predicate, f.value, f.unit) == (SID, "error_rate", 0.4, "ratio")
+    assert f.source_native_name == "red_errors"
+    assert f.id == fact_id(SID, "red_errors", T0)
+    # INV-9 default reliability applied (measured channel — reliability set, no confidence)
+    assert f.source_reliability is not None and f.confidence is None
 
 
 def test_add_assertion_event_materializes_event():
-    """A native AddAssertion (species EVENT) materializes an Event — name→type, value→payload —
-    matching the AddEvent shim."""
-    seed = _svc("payments-api")
-    via_event = materialize(
-        [seed, AddEvent(entity=SID, type="deployed", occurred_at=T0, observed_at=T0,
-                        payload={"key": "v"}, source=Source.SERVICENOW)], 1, Graph(), Tunables())
-    via_assertion = materialize(
-        [seed, AddAssertion(subject=SID, name="deployed", species=Species.EVENT,
-                            value={"key": "v"}, occurred_at=T0, observed_at=T0,
-                            source=Source.SERVICENOW)], 1, Graph(), Tunables())
-    assert len(via_event.events) == len(via_assertion.events) == 1
-    e1, e2 = via_event.events[0], via_assertion.events[0]
-    assert e1.id == e2.id
-    assert (e2.entity_ref, e2.type, e2.payload) == (SID, "deployed", {"key": "v"})
-    assert e2.state == FactState.ACTIVE
+    """A native AddAssertion (species EVENT) materializes an Event — name→type, value→payload."""
+    mat = materialize(
+        [_svc("payments-api"),
+         AddAssertion(subject=SID, name="deployed", species=Species.EVENT,
+                      value={"key": "v"}, occurred_at=T0, observed_at=T0,
+                      source=Source.SERVICENOW)], 1, Graph(), Tunables())
+    assert len(mat.events) == 1
+    e = mat.events[0]
+    assert (e.entity_ref, e.type, e.payload) == (SID, "deployed", {"key": "v"})
+    assert e.state == FactState.ACTIVE
 
 
 def test_edge_subject_assertion_is_reachable():

@@ -29,8 +29,6 @@ from ..domain.node import Node
 from ..domain.operations import (
     AddAssertion,
     AddEdge,
-    AddEvent,
-    AddFact,
     AddNode,
     Merge,
     NoEvidence,
@@ -42,7 +40,6 @@ from ..domain.operations import (
 )
 from ..domain.phase_result import Rejection, Remap, Retraction
 from ..domain.playbook import Tunables
-from ..domain.shim import assertion_from_event, assertion_from_fact
 from . import graph as graph_mod
 from . import resolver
 
@@ -334,16 +331,10 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
         if isinstance(op, AddNode):
             continue
 
-        # AddFact/AddEvent are compat shims mapped onto the AddAssertion atom; AddAssertion is
-        # materialized natively. All three flow through emit_assertion → identical graph output.
+        # AddAssertion is the ONE atom op (F4 retired the AddFact/AddEvent compat shims — the live
+        # planner emits AddAssertion natively, adapters + scenario twins already did).
         if isinstance(op, AddAssertion):
             emit_assertion(op, i, op.op.value)
-
-        elif isinstance(op, AddFact):
-            emit_assertion(assertion_from_fact(op), i, op.op.value)
-
-        elif isinstance(op, AddEvent):
-            emit_assertion(assertion_from_event(op), i, op.op.value)
 
         elif isinstance(op, AddEdge):
             if registry.edge_spec(op.type).derived:

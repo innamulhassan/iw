@@ -5,12 +5,12 @@ event) differing only on the time axis. Belief is keyed on `channel` (not on Sou
 an INFERRED assertion carries a `confidence`; a MEASURED/DECLARED/ENGINE one carries a
 `source_reliability`. The vendor's own name for the thing survives on `source_native_name`.
 
-P1a ships this atom behind a compat shim (see operations.AddFact/AddEvent → AddAssertion and
-the reducer): today's Fact/Event/props keep working, re-authored natively in P1b.
+Adapters, scenario twins AND the live planner all emit this atom natively via `operations.
+AddAssertion` (F4 retired the AddFact/AddEvent compat shims that used to map onto it).
 
 P6 (the store-flip, part2 §3 + the P1a design decisions): the graph now stores ONE assertion
 collection; Fact/Event become read views over it (graph.facts/graph.events, converted via
-domain.shim). The atom therefore carries every Fact/Event lifecycle field — `where` (Fact's
+domain.projection). The atom therefore carries every Fact/Event lifecycle field — `where` (Fact's
 spatial W), `provisional` (the P3 airlock flag), and `invalidated_by` (decision 1: the
 retraction lifecycle covers events too, so the tombstone's cause lives on the atom).
 """

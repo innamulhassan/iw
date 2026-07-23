@@ -176,7 +176,8 @@ def test_reducer_soft_rejects_belief_channel_violation():
     but the reducer must not crash the run when a malformed fact reaches it — it records a
     Rejection and continues, exactly like every other malformed op. This is the engine's
     resilience contract: a single bad op never kills the investigation."""
-    from iw_engine.domain.operations import AddFact, AddNode
+    from iw_engine.domain.enums import Species
+    from iw_engine.domain.operations import AddAssertion, AddNode
     from iw_engine.domain.playbook import Tunables
     from iw_engine.graph.reducer import materialize
 
@@ -191,9 +192,10 @@ def test_reducer_soft_rejects_belief_channel_violation():
     for n in seed.nodes:
         g.upsert_node(n)
 
-    # a fact violating R-C4: a measured source (PROMETHEUS) carrying BOTH belief channels
-    bad = AddFact(subject=sid, predicate="red_errors", value=0.4, valid_from=T0, observed_at=T0,
-                  source=Source.PROMETHEUS, source_reliability=0.9, confidence_level="high")
+    # an assertion violating R-C4: a measured source (PROMETHEUS) carrying BOTH belief channels
+    bad = AddAssertion(subject=sid, name="red_errors", value=0.4, species=Species.STATE,
+                       valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
+                       source_reliability=0.9, confidence_level="high")
     mat = materialize([bad], 2, g, tun)
     assert len(mat.facts) == 0                       # the bad fact did NOT land
     assert len(mat.rejections) == 1                  # it was recorded instead
@@ -433,3 +435,30 @@ def test_journal_mid_file_corruption_raises_not_skips():
     lines[1] = lines[1][: len(lines[1]) // 2]              # damage entry 1, entry 2 intact after it
     with pytest.raises(_json.JSONDecodeError):
         Journal.from_ndjson("\n".join(lines) + "\n")
+
+
+# ── §9.1 species boundary test (domain.projection — relocated from the retired shim, F4) ──
+# species rides on the Assertion, never on the reconstructed Fact, so a misclassification can never
+# move a byte in any rendered view/golden; when in doubt the boundary test says STATE.
+def test_species_state_is_the_default():
+    from iw_engine.domain.enums import Species
+    from iw_engine.domain.projection import species_for_predicate
+    assert species_for_predicate("degraded") is Species.STATE
+    assert species_for_predicate("red_errors") is Species.STATE
+    assert species_for_predicate("slo_target") is Species.STATE
+    assert species_for_predicate("some_unknown_metric") is Species.STATE
+
+
+def test_species_descriptor_for_content_and_identity_adjacent():
+    from iw_engine.domain.enums import Species
+    from iw_engine.domain.projection import species_for_predicate
+    assert species_for_predicate("repo") is Species.DESCRIPTOR
+    assert species_for_predicate("diff_summary") is Species.DESCRIPTOR
+    assert species_for_predicate("status_code_dist") is Species.DESCRIPTOR
+    assert species_for_predicate("node_name") is Species.DESCRIPTOR
+
+
+def test_species_reading_when_reading_shaped():
+    from iw_engine.domain.enums import Species
+    from iw_engine.domain.projection import species_for_predicate
+    assert species_for_predicate("red_errors", has_reading_shape=True) is Species.READING

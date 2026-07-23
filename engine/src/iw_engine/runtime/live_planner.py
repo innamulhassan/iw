@@ -9,7 +9,8 @@ tool) BEFORE it reaches the reducer, which is the second, authoritative guard.
 
 The LLM never emits free-form graph mutations except through the closed op set:
   calls:[{intent,params}]        -> CapabilityCall  (tool -> data ops via the layer)
-  ops:[typed op dicts]           -> AddNode/AddFact/AddEvent/AddEdge/Propose/Update/NoEvidence
+  ops:[typed op dicts]           -> AddNode/AddAssertion/AddEdge/Propose/Update/NoEvidence
+                                    (add_fact/add_event JSON shorthand is folded to AddAssertion)
   narrative, verdict{status,confidence_level,basis}, next_actions
 """
 from __future__ import annotations
@@ -32,12 +33,12 @@ from ..domain.enums import (
     OpKind,
     Origin,
     Source,
+    Species,
     VerdictStatus,
 )
 from ..domain.operations import (
+    AddAssertion,
     AddEdge,
-    AddEvent,
-    AddFact,
     AddNode,
     Merge,
     NoEvidence,
@@ -49,6 +50,7 @@ from ..domain.operations import (
 )
 from ..domain.phase_result import PhaseVerdict
 from ..domain.playbook import Doctrine
+from ..domain.projection import species_for_predicate
 from ..graph import tools as graph_tools
 from .planner import PlanContext, PlanOutput
 
@@ -175,12 +177,14 @@ OUTPUT: a single JSON object, no markdown, exactly:
   "calls": [{"intent": "<tool intent>", "params": {}}],
   "ops": [
     {"op":"add_node","type":"<node type>","props":{"<id key>":"<id value>"}},
-    {"op":"add_fact","subject":"<node id>","predicate":"<predicate>","value":<value>,"unit":"<unit>","source":"<source>","at":"2026-07-19T14:05:00+00:00"},
-    {"op":"add_event","entity":"<node id>","type":"<event type>","source":"<source>","at":"2026-07-19T14:50:00+00:00"},
+    {"op":"add_assertion","subject":"<node id>","name":"<predicate>","value":<value>,"unit":"<unit>","species":"state","source":"<source>","at":"2026-07-19T14:05:00+00:00"},
+    {"op":"add_assertion","subject":"<node id>","name":"<event type>","species":"event","source":"<source>","at":"2026-07-19T14:50:00+00:00"},
     {"op":"propose_hypothesis","hid":"h1","statement":"...","root_candidate":"<node id>","confidence_level":"med"},
     {"op":"update_hypothesis","hid":"h2","new_status":"refuted","basis":"...","add_refuting":[]},
     {"op":"no_evidence","intent":"<tool intent>","scope":"<node id>","basis":"...","at":"2026-07-19T14:20:00+00:00"}
   ],
+  (add_assertion is the atom: species one of state|descriptor|reading|event. The ergonomic
+   add_fact/add_event shorthand is also accepted and folded to add_assertion.)
   "narrative": "concise phase narrative for the journal",
   "verdict": {"status":"advance|repeat|backtrack|blocked|done","confidence_level":"low|med|high","basis":"why this verdict"},
   "next_actions": ["what the next phase should do"]
@@ -189,12 +193,12 @@ OUTPUT: a single JSON object, no markdown, exactly:
 _RETRACT_NOTE = """\
 (`retract` tombstones a WRONG fact/event you previously folded — {"op":"retract","target":"<fact/event/edge id>","reason":"..."}; use it only for observations proven wrong, never to hide refuting evidence.)"""
 
-# The op kinds the model may author = exactly `_parse_op`'s dispatch set, derived from the
-# enum. ADD_ASSERTION is excluded on purpose: it is the adapters' NATIVE atom (P1b); the
-# model authors facts/events through the add_fact/add_event compat shims — advertising the
-# atom would invite ops the parser drops.
-_PLANNER_OP_KINDS: tuple[str, ...] = tuple(
-    k.value for k in OpKind if k is not OpKind.ADD_ASSERTION)
+# The op kinds the model may author, derived from the enum. ADD_ASSERTION is now the ADVERTISED
+# atom (F4): the parser emits it natively, so it is reachable — the pre-F4 exclusion (which dropped
+# a model-authored add_assertion as "unknown") is gone. The parser ALSO still accepts the ergonomic
+# add_fact/add_event JSON shorthand and folds it to AddAssertion (a model on the older grammar keeps
+# working); those are no longer OpKind members, so they are not in this advertised list.
+_PLANNER_OP_KINDS: tuple[str, ...] = tuple(k.value for k in OpKind)
 
 
 def render_system(doctrine: Doctrine) -> str:
@@ -514,8 +518,8 @@ Plan this phase. Return ONLY the JSON object."""
                     trace.updated.append(f"{op.hid}->{op.new_status or op.confidence_level}")
                 elif isinstance(op, AddNode):
                     trace.nodes.append(op.type.value)
-                elif isinstance(op, AddFact):
-                    trace.facts.append(f"{op.subject.split(':')[0]}.{op.predicate}")
+                elif isinstance(op, AddAssertion) and op.species is not Species.EVENT:
+                    trace.facts.append(f"{op.subject.split(':')[0]}.{op.name}")
                 elif isinstance(op, AddEdge):
                     trace.edges.append(f"{op.type.value}:{op.src}->{op.dst}")
             else:
@@ -545,30 +549,55 @@ Plan this phase. Return ONLY the JSON object."""
             kind = (o.get("op") or "").strip().lower()
             if kind == "add_node":
                 return AddNode(type=NodeType(o["type"]), props=o.get("props") or {}), None
+            if kind == "add_assertion":
+                # the NATIVE atom (F4): the model authors species explicitly. A non-event asserts
+                # onto a node like a fact (predicate legality checked); an event carries a payload.
+                subject, name = self._canon(o["subject"]), o["name"]
+                species = self._species(o.get("species"), name)
+                if species is not Species.EVENT:
+                    bad = self._illegal_predicate(subject, name)
+                    if bad is not None:
+                        return None, bad
+                    at = self._dt(o.get("at") or o.get("valid_from"))
+                    src, lvl, rel = self._belief_channel(o)
+                    return AddAssertion(
+                        subject=subject, name=name, value=self._fact_value(o.get("value")),
+                        unit=o.get("unit"), species=species, valid_from=at,
+                        observed_at=self._dt(o.get("observed_at"), at),
+                        source=src, confidence_level=lvl, source_reliability=rel), None
+                at = self._dt(o.get("at") or o.get("occurred_at"))
+                return AddAssertion(
+                    subject=subject, name=name, value=o.get("value") or o.get("payload") or {},
+                    species=Species.EVENT, occurred_at=at,
+                    observed_at=self._dt(o.get("observed_at"), at),
+                    source=Source(o.get("source", "llm"))), None
             if kind == "add_fact":
+                # ergonomic shorthand for a fact-shaped assertion: species is INFERRED by the §9.1
+                # boundary test (the model needn't classify), folded to the AddAssertion atom (F4).
                 subject, predicate = self._canon(o["subject"]), o["predicate"]
                 bad = self._illegal_predicate(subject, predicate)
                 if bad is not None:
                     return None, bad
                 at = self._dt(o.get("at") or o.get("valid_from"))
                 src, lvl, rel = self._belief_channel(o)
-                return AddFact(
-                    subject=subject, predicate=predicate, value=self._fact_value(o.get("value")),
-                    unit=o.get("unit"), valid_from=at, observed_at=self._dt(o.get("observed_at"), at),
-                    source=src, confidence_level=lvl, source_reliability=rel,
-                ), None
+                return AddAssertion(
+                    subject=subject, name=predicate, value=self._fact_value(o.get("value")),
+                    unit=o.get("unit"), species=species_for_predicate(predicate), valid_from=at,
+                    observed_at=self._dt(o.get("observed_at"), at),
+                    source=src, confidence_level=lvl, source_reliability=rel), None
             if kind == "add_event":
+                # ergonomic shorthand for an occurrence, folded to the AddAssertion EVENT atom (F4).
+                # accept the `subject` alias for `entity` (the live grok KeyError'd on 'entity' every
+                # verify turn) — canon it like add_fact so a cleared event lands on the canonical node.
                 at = self._dt(o.get("at") or o.get("occurred_at"))
-                # add_fact's twin shim: models mirror add_fact's `subject` field here (the
-                # live grok runs KeyError'd on 'entity' every verify turn until the contract
-                # gained an add_event example) — accept the alias, and canon the ref exactly
-                # like add_fact does so a cleared event lands on the canonical symptom node.
                 entity = o.get("entity") or o.get("subject")
                 if not entity:
                     return None, "add_event missing entity/subject"
-                return AddEvent(entity=self._canon(entity), type=o["type"], occurred_at=at,
-                                observed_at=self._dt(o.get("observed_at"), at),
-                                payload=o.get("payload") or {}, source=Source(o.get("source", "llm"))), None
+                return AddAssertion(
+                    subject=self._canon(entity), name=o["type"], value=o.get("payload") or {},
+                    species=Species.EVENT, occurred_at=at,
+                    observed_at=self._dt(o.get("observed_at"), at),
+                    source=Source(o.get("source", "llm"))), None
             if kind == "add_edge":
                 return AddEdge(
                     type=EdgeType(o["type"]), src=o["src"], dst=o["dst"],
@@ -710,6 +739,17 @@ Plan this phase. Return ONLY the JSON object."""
             return s
         prefix, rest = s.split(":", 1)
         return f"{prefix}:{rest.replace(' ', '-').replace('/', '-').lower()}"
+
+    def _species(self, raw, name: str) -> Species:
+        """Parse a model-authored species for a native add_assertion; fall back to the §9.1 boundary
+        test for a fact-shaped name so an omitted/bad species is still classified (never dropped).
+        EVENT must be stated explicitly — the boundary test never returns EVENT."""
+        if raw:
+            try:
+                return Species(str(raw).strip().lower())
+            except ValueError:
+                pass
+        return species_for_predicate(name)
 
     def _level(self, x) -> ConfidenceLevel | None:
         if not x:

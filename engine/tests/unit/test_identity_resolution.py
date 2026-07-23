@@ -17,12 +17,13 @@ from iw_engine.domain.enums import (
     NodeType,
     Origin,
     Source,
+    Species,
     VerdictStatus,
 )
 from iw_engine.domain.event import Event
 from iw_engine.domain.fact import Fact
 from iw_engine.domain.node import Node
-from iw_engine.domain.operations import AddEdge, AddFact, AddNode, Merge, Retype
+from iw_engine.domain.operations import AddAssertion, AddEdge, AddNode, Merge, Retype
 from iw_engine.domain.phase_result import PhaseResult, PhaseVerdict, Remap
 from iw_engine.domain.playbook import Tunables
 from iw_engine.domain.registry import edge_id, missing_identity_keys, node_id
@@ -72,9 +73,9 @@ def test_reducer_rejects_add_node_with_missing_identity_key():
     g, tun = Graph(), Tunables()
     ops = [
         AddNode(type=NodeType.GENERIC_CI, props={"class_hint": "cmdb_ci_lb_netscaler"}),  # 0
-        AddFact(subject="generic_ci:", predicate="anything", value=1,                     # 1
-                valid_from=T0, observed_at=T0,
-                source=Source.SERVICENOW, source_reliability=0.9),
+        AddAssertion(subject="generic_ci:", name="anything", value=1, species=Species.STATE,  # 1
+                     valid_from=T0, observed_at=T0,
+                     source=Source.SERVICENOW, source_reliability=0.9),
     ]
     mat = materialize(ops, 1, g, tun)
     assert mat.nodes == []
@@ -174,9 +175,9 @@ def test_split_brain_unification_via_shared_tool_id():
     twin_id = node_id(NodeType.SERVICE, twin_props)          # what the adapter would compute
     mat = materialize([
         AddNode(type=NodeType.SERVICE, props=twin_props),
-        AddFact(subject=twin_id, predicate="degraded", value=True,
-                valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
-                source_reliability=0.95),
+        AddAssertion(subject=twin_id, name="degraded", value=True, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
+                     source_reliability=0.95),
     ], 2, g, tun)
     assert mat.rejections == []
     assert [n.id for n in mat.nodes] == [SID]                # resolved, no twin minted
@@ -207,8 +208,8 @@ def test_alias_keyed_subject_and_edge_endpoint_resolve():
     g, tun = Graph(), Tunables()
     _fold_all(g, materialize([AddNode(type=NodeType.SERVICE, props=dict(SVC_PROPS))], 1, g, tun))
     mat = materialize([
-        AddFact(subject="appd:APM-PAYMEN", predicate="degraded", value=True,
-                valid_from=T0, observed_at=T0, source=Source.APPD, source_reliability=0.9),
+        AddAssertion(subject="appd:APM-PAYMEN", name="degraded", value=True, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.APPD, source_reliability=0.9),
         AddNode(type=NodeType.ALERT, props={"alert_id": "alt-9"}),
         AddEdge(type=EdgeType.FIRED_ON, src="alert:alt-9", dst="servicenow:sys_2fe9a1"),
     ], 2, g, tun)
@@ -220,9 +221,9 @@ def test_alias_keyed_subject_and_edge_endpoint_resolve():
 
 def test_unresolvable_alias_subject_still_rejects_unknown():
     g, tun = Graph(), Tunables()
-    mat = materialize([AddFact(subject="appd:GHOST", predicate="degraded", value=True,
-                               valid_from=T0, observed_at=T0, source=Source.APPD,
-                               source_reliability=0.9)], 1, g, tun)
+    mat = materialize([AddAssertion(subject="appd:GHOST", name="degraded", value=True,
+                                    species=Species.STATE, valid_from=T0, observed_at=T0,
+                                    source=Source.APPD, source_reliability=0.9)], 1, g, tun)
     assert len(mat.rejections) == 1 and "unknown subject appd:GHOST" in mat.rejections[0].reason
 
 
@@ -376,9 +377,9 @@ def test_resolve_record_makes_the_redirect_permanent_across_phases():
     assert "servicenow:sys_2fe9a1" in mat.remaps[0].reason
     _fold_all(g, mat)
 
-    mat3 = materialize([AddFact(subject=twin_id, predicate="degraded", value=True,
-                                valid_from=T0, observed_at=T0, source=Source.PROMETHEUS,
-                                source_reliability=0.9)], 3, g, tun)
+    mat3 = materialize([AddAssertion(subject=twin_id, name="degraded", value=True,
+                                     species=Species.STATE, valid_from=T0, observed_at=T0,
+                                     source=Source.PROMETHEUS, source_reliability=0.9)], 3, g, tun)
     assert mat3.rejections == []
     assert mat3.facts[0].subject_ref == SID
     g2 = Graph.from_dict(g.to_dict())
@@ -441,8 +442,8 @@ def test_provisional_mint_then_late_alias_binding_auto_merges():
 
     m1 = _run_phase(g, store, jr, [
         AddNode(type=NodeType.SERVICE, props={"app_id": "APM-PAYMEN", "note": "appd-only"}),
-        AddFact(subject="appd:APM-PAYMEN", predicate="degraded", value=True,
-                valid_from=T0, observed_at=T0, source=Source.APPD, source_reliability=0.9),
+        AddAssertion(subject="appd:APM-PAYMEN", name="degraded", value=True, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.APPD, source_reliability=0.9),
     ])
     assert m1.rejections == []
     prov = g.nodes[PROV_ID]
@@ -490,8 +491,8 @@ def test_explicit_merge_op_graduates_a_provisional():
     ])
     m = _run_phase(g, store, jr, [
         Merge(provisional_id=PROV_ID, canonical_id=SID, reason="operator confirmed identity"),
-        AddFact(subject=PROV_ID, predicate="degraded", value=True, valid_from=T0,
-                observed_at=T0, source=Source.APPD, source_reliability=0.9),
+        AddAssertion(subject=PROV_ID, name="degraded", value=True, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.APPD, source_reliability=0.9),
     ], phase="triage")
     assert m.rejections == []
     assert PROV_ID not in g.nodes and g.id_remaps[PROV_ID] == SID
@@ -546,8 +547,8 @@ def test_retype_graduates_generic_ci_with_history_surviving():
         AddNode(type=NodeType.GENERIC_CI, props={"ci_id": "SYS-DB1", "name": "orders-ora",
                                                  "class_hint": "cmdb_ci_db_ora"}),
         AddEdge(type=EdgeType.DEPENDS_ON, src="service:orders-api|prod", dst=GCI),
-        AddFact(subject=GCI, predicate="ora_apply_lag", value=42, valid_from=T0,
-                observed_at=T0, source=Source.SERVICENOW, source_reliability=0.85),
+        AddAssertion(subject=GCI, name="ora_apply_lag", value=42, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.SERVICENOW, source_reliability=0.85),
     ])
     assert m1.rejections == []
     assert g.edges[edge_id(EdgeType.DEPENDS_ON, "service:orders-api|prod", GCI,
@@ -558,8 +559,8 @@ def test_retype_graduates_generic_ci_with_history_surviving():
     m2 = _run_phase(g, store, jr, [
         Retype(target=GCI, new_type=NodeType.DATABASE, props={"db_id": "orders-ora"},
                reason="class_hint cmdb_ci_db_ora corroborated"),
-        AddFact(subject=DBID, predicate="replication_lag", value=42.0, valid_from=T0,
-                observed_at=T0, source=Source.SERVICENOW, source_reliability=0.85),
+        AddAssertion(subject=DBID, name="replication_lag", value=42.0, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.SERVICENOW, source_reliability=0.85),
     ], phase="triage")
     assert m2.rejections == []
     assert [(m.kind, m.old_id, m.new_id) for m in m2.remaps] == [("retype", GCI, DBID)]
@@ -582,8 +583,8 @@ def test_retype_graduates_generic_ci_with_history_surviving():
 
     # a LATER phase still speaking the old id lands on the graduated entity, real vocabulary
     m3 = _run_phase(g, store, jr, [
-        AddFact(subject=GCI, predicate="conn_pool_util", value=0.97, valid_from=T0,
-                observed_at=T0, source=Source.PROMETHEUS, source_reliability=0.9),
+        AddAssertion(subject=GCI, name="conn_pool_util", value=0.97, species=Species.STATE,
+                     valid_from=T0, observed_at=T0, source=Source.PROMETHEUS, source_reliability=0.9),
     ], phase="investigate")
     assert m3.rejections == []
     assert m3.facts[0].subject_ref == DBID and m3.facts[0].predicate == "conn_pool_util"

@@ -14,7 +14,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from .assertion import AssertionValue, Window
 from .common import EvidenceRef
 from .enums import Channel, ConfidenceLevel, EdgeType, NodeType, OpKind, Origin, Source, Species, Stat
-from .fact import FactValue
 from .hypothesis import ChainLink
 
 
@@ -33,12 +32,12 @@ class AddNode(_Op):
 
 
 class AddAssertion(_Op):
-    """The P1a atom op (build-spec §2.2) — a superset of AddFact carrying the species + reading
-    qualifiers. AddFact/AddEvent are deprecated compat shims that map onto this (domain.shim).
-    `channel` is optional: the reducer defaults it from the source. Belief stays UNRESOLVED here
-    (a coarse `confidence_level` rubric / raw `source_reliability`); the reducer resolves the
-    rubric to a numeric band and applies the INV-9 per-source reliability default, exactly as it
-    does for AddFact."""
+    """The ONE atom op (build-spec §2.2) — the state/descriptor/reading/event assertion carrying its
+    species + reading qualifiers. Adapters, scenario twins AND the live planner all emit it natively
+    (F4 retired the AddFact/AddEvent compat shims that used to map onto it). `channel` is optional:
+    the reducer defaults it from the source. Belief stays UNRESOLVED here (a coarse `confidence_level`
+    rubric / raw `source_reliability`); the reducer resolves the rubric to a numeric band and applies
+    the INV-9 per-source reliability default."""
 
     op: Literal[OpKind.ADD_ASSERTION] = OpKind.ADD_ASSERTION
     subject: str                       # NodeId or EdgeId
@@ -58,41 +57,6 @@ class AddAssertion(_Op):
     confidence_level: ConfidenceLevel | None = None      # for inferred assertions
     source_reliability: float | None = None              # for measured assertions
     evidence: list[EvidenceRef] = Field(default_factory=list)
-
-
-class AddFact(_Op):
-    """DEPRECATED compat op — a state/descriptor/reading assertion in the pre-atom shape. Retained
-    post-P1b (adapters + scenarios now emit AddAssertion) solely as the LivePlanner's model-JSON
-    parse target (`add_fact`) + the reducer compat tests; routed onto AddAssertion via domain.shim.
-    Deleted once the planner emits AddAssertion natively (a later phase)."""
-
-    op: Literal[OpKind.ADD_FACT] = OpKind.ADD_FACT
-    subject: str                       # NodeId (or EdgeId)
-    predicate: str
-    value: FactValue = None
-    unit: str | None = None
-    valid_from: datetime
-    valid_to: datetime | None = None
-    observed_at: datetime
-    source: Source
-    confidence_level: ConfidenceLevel | None = None      # for inferred facts
-    source_reliability: float | None = None              # for measured facts
-    evidence: list[EvidenceRef] = Field(default_factory=list)
-
-
-class AddEvent(_Op):
-    """DEPRECATED compat op — an occurrence in the pre-atom shape. Retained post-P1b (adapters +
-    scenarios now emit AddAssertion with species=event) solely as the LivePlanner's model-JSON
-    parse target (`add_event`) + the reducer compat tests; routed onto AddAssertion via domain.shim.
-    Deleted once the planner emits AddAssertion natively (a later phase)."""
-
-    op: Literal[OpKind.ADD_EVENT] = OpKind.ADD_EVENT
-    entity: str                        # NodeId
-    type: str
-    occurred_at: datetime
-    observed_at: datetime
-    payload: dict = Field(default_factory=dict)
-    source: Source
 
 
 class AddEdge(_Op):
@@ -188,7 +152,7 @@ class Retype(_Op):
 
 
 Operation = Annotated[
-    AddNode | AddAssertion | AddFact | AddEvent | AddEdge | ProposeHypothesis | UpdateHypothesis
+    AddNode | AddAssertion | AddEdge | ProposeHypothesis | UpdateHypothesis
     | NoEvidence | Retract | Merge | Retype,
     Field(discriminator="op"),
 ]

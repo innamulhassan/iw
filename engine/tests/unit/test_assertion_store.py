@@ -13,7 +13,7 @@ from iw_engine.domain.enums import Channel, FactState, NodeType, Source, Species
 from iw_engine.domain.event import Event
 from iw_engine.domain.fact import Fact
 from iw_engine.domain.node import Node
-from iw_engine.domain.shim import (
+from iw_engine.domain.projection import (
     assertion_of_event,
     assertion_of_fact,
     event_of_assertion,

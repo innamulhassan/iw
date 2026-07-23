@@ -263,9 +263,7 @@ class EdgeType(StrEnum):
 # ── Operation kinds (the LLM's only output channel — DESIGN §2.1/§2.2) ─────────
 class OpKind(StrEnum):
     ADD_NODE = "add_node"
-    ADD_ASSERTION = "add_assertion"   # the P1a atom — AddFact/AddEvent are compat shims over it
-    ADD_FACT = "add_fact"
-    ADD_EVENT = "add_event"
+    ADD_ASSERTION = "add_assertion"   # the ONE atom op (F4 retired the AddFact/AddEvent compat shims)
     ADD_EDGE = "add_edge"
     PROPOSE_HYPOTHESIS = "propose_hypothesis"
     UPDATE_HYPOTHESIS = "update_hypothesis"

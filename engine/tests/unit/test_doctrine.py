@@ -51,12 +51,13 @@ def test_system_prompt_is_doctrine_plus_derived_validity_lists():
     assert "bigpanda" in s
     assert ("valid hypothesis statuses: "
             + ", ".join(x.value for x in HypothesisStatus) + ".") in s
-    # op kinds advertise exactly the parser's dispatch set: every OpKind EXCEPT the
-    # adapters' native AddAssertion atom (the model authors via the add_fact/add_event shims)
+    # op kinds advertise the parser's full dispatch set INCLUDING the native add_assertion atom
+    # (F4 made it reachable; the add_fact/add_event shorthand is accepted but no longer OpKind members)
     kinds_line = next(ln for ln in s.splitlines() if ln.startswith("valid op kinds: "))
     kinds = kinds_line.removeprefix("valid op kinds: ").rstrip(".").split(", ")
-    assert kinds == [k.value for k in OpKind if k is not OpKind.ADD_ASSERTION]
-    assert "add_assertion" not in kinds_line
+    assert kinds == [k.value for k in OpKind]
+    assert "add_assertion" in kinds_line
+    assert "add_fact" not in kinds and "add_event" not in kinds
 
 
 def test_custom_doctrine_overrides_the_packaged_default():

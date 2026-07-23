@@ -24,7 +24,7 @@ from iw_engine.domain.operations import (
     UpdateHypothesis,
 )
 from iw_engine.domain.phase_result import PhaseVerdict
-from iw_engine.domain.shim import species_for_predicate
+from iw_engine.domain.projection import species_for_predicate
 from iw_engine.runtime.planner import PlanOutput
 
 BAND = {"low": 0.3, "med": 0.6, "high": 0.9}
