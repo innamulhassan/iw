@@ -72,9 +72,16 @@ def build():
         node(NT.INCIDENT, incident_id="INC-8900",
              title="checkout-svc pod evicted (memory pressure)",
              short_description="checkout-svc pod evicted after node-prod-17 ran low on memory",
+             description="PodEvicted fired for checkout-svc at 02:18 UTC. A tier-1 checkout-svc pod "
+                         "on node-prod-17 was evicted by the kubelet under node memory pressure "
+                         "(threshold 100Mi, available 84Mi). The host's memory is pegged at 98% "
+                         "while the evicted pod's OWN working set is only 55% — a co-tenancy fault, "
+                         "not a checkout-svc leak. The co-scheduled etl-nightly batch job overran "
+                         "its window ~4x and is holding a huge working set.",
              work_notes="PodEvicted; host mem pegged, pod mem moderate. Noisy neighbor?",
              caller_id="monitoring.alerting"),
-        node(NT.HOST, fqdn="node-prod-17"),
+        node(NT.HOST, fqdn="node-prod-17", region="us-east-1", instance_type="m6i.4xlarge",
+             kubelet_version="v1.28.6", owner="platform-sre@corp.example"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.RUNS_ON, POD, HOST, origin="declared"),
         fact(HOST, "mem_utilization", 0.97, T_ONSET, source=S.PROMETHEUS, reliability=0.97),
@@ -86,7 +93,9 @@ def build():
         calls=[call("find_recent_changes"), call("list_related_incidents")],
         status="repeat",
         ops=[
-            node(NT.BATCH_JOB, job_name="etl-nightly", schedule_id="sched-3"),
+            node(NT.BATCH_JOB, job_name="etl-nightly", schedule_id="sched-3",
+                 schedule="0 2 * * *", runtime="spark-3.5", priority_class="best-effort",
+                 owner="data-eng@corp.example", managed_by="data-engineering"),
             edge(ET.RUNS_ON, BATCH, HOST, origin="discovered"),
             fact(BATCH, "backlog_size", 8400000, T_ONSET, unit="rows", source=S.OCP, reliability=0.95),
             propose("h1", "the etl-nightly batch job (co-scheduled on node-prod-17) grew its "
@@ -187,7 +196,9 @@ def build():
             "primary_incident": "INC-8900",
             "related_incidents": [
                 {"number": "INC-8901", "priority": "4 - Low", "opened_at": _t(19),
-                 "cmdb_ci": "search-svc", "confidence": "med"},
+                 "cmdb_ci": "search-svc", "confidence": "med",
+                 "title": "search-svc pod restart on node-prod-17",
+                 "short_description": "search-svc briefly evicted from the same memory-pressured node"},
             ],
         },
     }

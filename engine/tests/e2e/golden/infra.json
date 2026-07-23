@@ -482,7 +482,11 @@
         "last_seen": "2026-07-19T02:55:00+00:00",
         "origin": false,
         "props": {
-          "fqdn": "node-prod-17"
+          "fqdn": "node-prod-17",
+          "instance_type": "m6i.4xlarge",
+          "kubelet_version": "v1.28.6",
+          "owner": "platform-sre@corp.example",
+          "region": "us-east-1"
         },
         "source": "prometheus",
         "type": "host"
@@ -507,6 +511,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "PodEvicted fired for checkout-svc at 02:18 UTC. A tier-1 checkout-svc pod on node-prod-17 was evicted by the kubelet under node memory pressure (threshold 100Mi, available 84Mi). The host's memory is pegged at 98% while the evicted pod's OWN working set is only 55% \u2014 a co-tenancy fault, not a checkout-svc leak. The co-scheduled etl-nightly batch job overran its window ~4x and is holding a huge working set.",
           "incident_id": "INC-8900",
           "short_description": "checkout-svc pod evicted after node-prod-17 ran low on memory",
           "title": "checkout-svc pod evicted (memory pressure)",
@@ -524,7 +529,9 @@
         "props": {
           "commander": null,
           "incident_id": "INC-8901",
-          "severity": "4 - Low"
+          "severity": "4 - Low",
+          "short_description": "search-svc briefly evicted from the same memory-pressured node",
+          "title": "search-svc pod restart on node-prod-17"
         },
         "source": "servicenow",
         "type": "incident"
@@ -537,6 +544,11 @@
         "origin": false,
         "props": {
           "job_name": "etl-nightly",
+          "managed_by": "data-engineering",
+          "owner": "data-eng@corp.example",
+          "priority_class": "best-effort",
+          "runtime": "spark-3.5",
+          "schedule": "0 2 * * *",
           "schedule_id": "sched-3"
         },
         "source": "ocp",
