@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from iw_engine.domain.assertion import Assertion
-from iw_engine.domain.enums import Channel, FactState, NodeType, Source, Species
+from iw_engine.domain.enums import Channel, FactState, NodeType, Source, SpanPhase, Species
 from iw_engine.domain.event import Event
 from iw_engine.domain.fact import Fact
 from iw_engine.domain.node import Node
@@ -87,6 +87,61 @@ def test_declared_channel_is_excluded_from_the_facts_view():
     g._rev += 1
     assert "p1" in g.assertions and "p1" not in g.facts and "p1" not in g.events
     assert set(g.facts) == {"f1"}
+
+
+# ── SPAN — the sixth species view (2026-07-23 primitives §2.6/§4.6) ────────────
+def _span(sid="s1", subject=SID, started=T0, ended=None, phase=SpanPhase.OPEN, **kw) -> Assertion:
+    base = dict(id=sid, subject_ref=subject, name="trace", value={"status": "ok"},
+                species=Species.SPAN, channel=Channel.MEASURED, valid_from=started, valid_to=ended,
+                observed_at=started, source=Source.APPD, source_reliability=0.9, span_phase=phase,
+                correlation_id="trace-abc", created_by=1)
+    base.update(kw)
+    return Assertion(**base)
+
+
+def test_spans_land_in_their_own_view_excluded_from_facts_and_events():
+    """A SPAN is neither a fact nor an event: it stays OUT of both views (facts view unchanged =
+    {f1}) and lands in the `spans` view. Subject may be a node OR an edge (§4.1)."""
+    g = Graph()
+    g.upsert_node(_node())
+    g.add_fact(_fact())
+    g.assertions["s1"] = _span("s1", started=T0, phase=SpanPhase.OPEN)                  # on the node
+    g.assertions["s2"] = _span("s2", subject="edge:calls:a:b",
+                               started=T0 + timedelta(minutes=1),
+                               ended=T0 + timedelta(minutes=2), phase=SpanPhase.CLOSED)  # on an EDGE
+    g._rev += 1
+    assert set(g.facts) == {"f1"} and set(g.events) == set()   # spans pollute neither view
+    assert set(g.spans) == {"s1", "s2"}
+
+
+def test_spans_of_exposes_phase_and_duration_for_node_and_edge_subjects():
+    g = Graph()
+    g.upsert_node(_node())
+    g.assertions["s1"] = _span("s1", started=T0, phase=SpanPhase.OPEN)
+    edge_subj = "edge:calls:a:b"
+    g.assertions["s2"] = _span("s2", subject=edge_subj, started=T0 + timedelta(minutes=1),
+                               ended=T0 + timedelta(minutes=2), phase=SpanPhase.CLOSED)
+    g._rev += 1
+    node_spans = g.spans_of(SID)
+    assert [s.id for s in node_spans] == ["s1"]
+    assert node_spans[0].span_phase is SpanPhase.OPEN       # phase ALWAYS exposed (§4.6)
+    assert node_spans[0].duration is None                   # OPEN → no duration
+    edge_spans = g.spans_of(edge_subj)                      # subject_ref reached an edge
+    assert [s.id for s in edge_spans] == ["s2"]
+    assert edge_spans[0].span_phase is SpanPhase.CLOSED
+    assert edge_spans[0].duration == timedelta(minutes=1)   # CLOSED → measured interval
+
+
+def test_spans_of_sorted_by_started_at_and_active_only():
+    g = Graph()
+    g.upsert_node(_node())
+    g.assertions["late"] = _span("late", started=T0 + timedelta(minutes=5))
+    g.assertions["early"] = _span("early", started=T0)
+    g.assertions["dead"] = _span("dead", started=T0 + timedelta(minutes=1),
+                                 phase=SpanPhase.ABANDONED, state=FactState.RETRACTED)
+    g._rev += 1
+    assert [s.id for s in g.spans_of(SID)] == ["early", "late"]                     # active, sorted
+    assert [s.id for s in g.spans_of(SID, active_only=False)] == ["early", "dead", "late"]
 
 
 # ── converter round-trips (the byte-identity seam) ────────────────────────────

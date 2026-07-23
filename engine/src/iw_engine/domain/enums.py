@@ -61,29 +61,52 @@ class ConfidenceLevel(StrEnum):
 
 
 class Species(StrEnum):
-    """The five temporal species of an Assertion (DOMAIN-v3 §2.2 / NODE-EDGE-PRIMITIVES 2026-07-23
+    """The SIX temporal species of an Assertion (DOMAIN-v3 §2.2 / NODE-EDGE-PRIMITIVES 2026-07-23
     §2). One provenance envelope, differing only on the time axis: what IS this (identity), what do
     we know ABOUT it (property), what is TRUE over time (state), what did we MEASURE (reading), what
-    HAPPENED (event). The atom that collapses today's prop/fact/event trichotomy into one record.
+    HAPPENED at an instant (event), and a bounded HAPPENING a subject participates in (span). The
+    atom that collapses today's prop/fact/event trichotomy into one record.
+
+    SPAN is the sixth species (2026-07-23 primitives §2.6): an interval `[started_at, ended_at)`
+    with a duration + outcome, two-phase-then-frozen (OPEN -> CLOSED once), carrying a `span_phase`
+    orthogonal to FactState; its `subject_ref` may reach a NODE or an EDGE.
 
     PROPERTY was renamed from DESCRIPTOR (2026-07-23 primitives §2.2 — the timeless,
     supersede-with-trail datum-shape ABOUT an entity). `DESCRIPTOR` survives as a
     back-compat ALIAS (same value) so every existing `Species.DESCRIPTOR` call site keeps resolving,
     and `_missing_` maps a legacy serialized `"descriptor"` string onto PROPERTY — so an old persisted
     graph cache / journal still loads. The alias is excluded from iteration, so every schema DERIVED
-    from this enum (the LLM's JSON schema, the registry) sees only the canonical PROPERTY."""
+    from this enum (the LLM's JSON schema, the registry) sees only the canonical six."""
 
     IDENTITY = "identity"
     PROPERTY = "property"
     STATE = "state"
     READING = "reading"
     EVENT = "event"
+    SPAN = "span"
     DESCRIPTOR = "property"   # back-compat alias → PROPERTY (renamed 2026-07-23); hidden from iteration
 
     @classmethod
     def _missing_(cls, value: object) -> Species | None:
         # forward-map the pre-rename serialized value so old caches/journals still deserialize.
         return cls.PROPERTY if value == "descriptor" else None
+
+
+class SpanPhase(StrEnum):
+    """A SPAN's two-phase-then-frozen lifecycle (2026-07-23 primitives §2.6/§4.6), ORTHOGONAL to
+    FactState{active,superseded,retracted}: FactState is the belief-lifecycle every species shares;
+    span_phase is the SPAN's own capture state, and a span carries BOTH independently.
+
+    OPEN at the start-signal (end unknown); CLOSED once the end-signal arrives (end + duration +
+    outcome, frozen after); ABANDONED by a journaled reaper when no close arrives within the
+    span-type TTL — a DETERMINISTIC replay decision, never a wall-clock check on read.
+    `valid_to=None + OPEN` = still running; `valid_to=None + ABANDONED` = close lost (the one
+    distinction STATE's `valid_to=None` cannot express). A late close SUPERSEDES ABANDONED ->
+    CLOSED (bitemporal honesty)."""
+
+    OPEN = "open"
+    CLOSED = "closed"
+    ABANDONED = "abandoned"
 
 
 class Channel(StrEnum):

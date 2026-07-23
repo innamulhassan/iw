@@ -3,14 +3,14 @@ time-shape invariants. Types only; nothing wires it yet. These lock the envelope
 invariants so the compat shim (steps 2-3) can lean on them."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
 
 from iw_engine.domain.assertion import Assertion, Window, channel_for_source
 from iw_engine.domain.common import Confidence
-from iw_engine.domain.enums import Channel, Source, Species, Stat
+from iw_engine.domain.enums import Channel, FactState, Source, SpanPhase, Species, Stat
 
 T0 = datetime(2026, 7, 19, 14, 0, tzinfo=UTC)
 T1 = datetime(2026, 7, 19, 15, 0, tzinfo=UTC)
@@ -247,3 +247,67 @@ def test_window_range_needs_both_ends():
 def test_window_range_order():
     with pytest.raises(ValidationError, match="end < start"):
         Window(start=T1, end=T0)
+
+
+# ── SPAN — the sixth species (2026-07-23 primitives §2.6/§4.6) ─────────────────
+def _span(**kw):
+    base = dict(id="sp1", subject_ref="service:x", name="trace", value={"status": "ok"},
+                species=Species.SPAN, channel=Channel.MEASURED, valid_from=T0, observed_at=T0,
+                source=Source.APPD, source_reliability=0.9, span_phase=SpanPhase.OPEN, created_by=1)
+    base.update(kw)
+    return Assertion(**base)
+
+
+def test_span_is_the_sixth_canonical_species():
+    assert Species.SPAN.value == "span"
+    assert [s.value for s in Species] == ["identity", "property", "state", "reading", "event", "span"]
+    assert [p.value for p in SpanPhase] == ["open", "closed", "abandoned"]
+
+
+def test_span_requires_valid_from():
+    with pytest.raises(ValidationError, match="span requires valid_from"):
+        _span(valid_from=None)
+
+
+def test_span_requires_a_span_phase():
+    with pytest.raises(ValidationError, match="span requires a span_phase"):
+        _span(span_phase=None)
+
+
+def test_span_phase_is_span_only():
+    with pytest.raises(ValidationError, match="span_phase is SPAN-only"):
+        _state(span_phase=SpanPhase.OPEN)
+
+
+def test_correlation_id_is_span_only():
+    with pytest.raises(ValidationError, match="correlation_id is SPAN-only"):
+        _state(correlation_id="trace-abc")
+
+
+def test_span_phase_is_orthogonal_to_factstate():
+    """FactState and span_phase are independent axes (§4.6): a span carries BOTH. An ABANDONED span
+    (lost close) is still an ACTIVE record — the two axes never collapse into one."""
+    s = _span(state=FactState.ACTIVE, span_phase=SpanPhase.OPEN)
+    assert s.state is FactState.ACTIVE and s.span_phase is SpanPhase.OPEN
+    ab = _span(valid_to=None, span_phase=SpanPhase.ABANDONED, state=FactState.ACTIVE)
+    assert ab.span_phase is SpanPhase.ABANDONED and ab.state is FactState.ACTIVE
+
+
+def test_span_duration_open_vs_closed():
+    # OPEN/ABANDONED (no close) → no measurable duration; CLOSED → the [start,end) interval
+    assert _span(valid_to=None, span_phase=SpanPhase.OPEN).duration is None
+    assert _span(valid_to=None, span_phase=SpanPhase.ABANDONED).duration is None
+    assert _span(valid_to=T1, span_phase=SpanPhase.CLOSED).duration == timedelta(hours=1)
+
+
+def test_span_subject_may_be_a_node_or_an_edge():
+    # subject_ref is EntityId|EdgeId — a Rung-1 hop-span is ABOUT an edge (§4.1/§4.2)
+    on_edge = _span(subject_ref="edge:calls:a:b", correlation_id="trace-xyz")
+    assert on_edge.subject_ref == "edge:calls:a:b" and on_edge.correlation_id == "trace-xyz"
+
+
+def test_span_carries_belief_by_channel():
+    # SPAN is observed by default → source_reliability, via the ONE shared belief enforcer
+    assert _span().source_reliability == 0.9
+    with pytest.raises(ValidationError, match="must carry source_reliability"):
+        _span(source_reliability=None)

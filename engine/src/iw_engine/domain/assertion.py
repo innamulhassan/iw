@@ -16,12 +16,12 @@ too, so the tombstone's cause lives on the atom).
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .common import Confidence, EvidenceRef, enforce_belief_exclusivity
-from .enums import Channel, FactState, Source, Species, Stat
+from .enums import Channel, FactState, Source, SpanPhase, Species, Stat
 
 # an assertion value is one of a small typed set; `unit` qualifies numbers (mirrors FactValue).
 # P6 widens it with datetime/list: node props are DECLARED assertions now, and vendor-declared
@@ -96,6 +96,14 @@ class Assertion(BaseModel):
     stat: Stat | None = None                 # READING only
     window: Window | None = None             # READING only
 
+    # ── span qualifiers (2026-07-23 primitives §2.6) ───────────────────────────
+    # A SPAN is a bounded happening a subject PARTICIPATES in: the interval `[started_at, ended_at)`
+    # reuses `valid_from`/`valid_to` (valid_to=None = in-flight), the outcome rides on `value`, and
+    # `subject_ref` may reach a NODE or an EDGE (it is already EntityId|EdgeId above — §4.1). These
+    # two fields are meaningful for SPAN only (validated below).
+    span_phase: SpanPhase | None = None      # SPAN only — two-phase-then-frozen, orthogonal to state
+    correlation_id: str | None = None        # SPAN only — trace_id/BT-id; joins sibling/reified spans
+
     # ── provenance / belief ────────────────────────────────────────────────────
     source: Source
     source_native_name: str | None = None    # the vendor's own name for this (P2 populates from aliases)
@@ -144,6 +152,11 @@ class Assertion(BaseModel):
                 raise ValueError(f"assertion {self.id}: event requires occurred_at")
         elif self.occurred_at is not None:
             raise ValueError(f"assertion {self.id}: occurred_at is EVENT-only")
+
+        if self.species is Species.SPAN and self.valid_from is None:
+            # started_at -> valid_from is the span's ground truth; ended_at -> valid_to may be
+            # None (in-flight). occurred_at is EVENT-only, already forbidden above for a span.
+            raise ValueError(f"assertion {self.id}: span requires valid_from (started_at)")
         return self
 
     @model_validator(mode="after")
@@ -173,8 +186,34 @@ class Assertion(BaseModel):
             confidence=self.confidence, source_reliability=self.source_reliability)
         return self
 
+    @model_validator(mode="after")
+    def _span_shape(self) -> Assertion:
+        """SPAN-only fields (2026-07-23 primitives §2.6/§4.6). `span_phase` is REQUIRED on a span —
+        two-phase capture means a span always HAS a phase (OPEN at the start-signal) — and forbidden
+        on every other species, so every query path returning a span EXPOSES its phase (the §4.6
+        universality invariant: an ABANDONED span must never read as 'ongoing'). `correlation_id`
+        (trace_id/BT-id) is SPAN-only. span_phase is orthogonal to `state` (FactState): a span
+        carries both — e.g. an ACTIVE + OPEN in-flight span, or an ACTIVE + CLOSED finished one."""
+        if self.species is Species.SPAN:
+            if self.span_phase is None:
+                raise ValueError(f"assertion {self.id}: span requires a span_phase (OPEN at start)")
+        else:
+            if self.span_phase is not None:
+                raise ValueError(f"assertion {self.id}: span_phase is SPAN-only")
+            if self.correlation_id is not None:
+                raise ValueError(f"assertion {self.id}: correlation_id is SPAN-only")
+        return self
+
     @property
     def is_open(self) -> bool:
         """A still-true state (open valid window) or a live property. Mirrors Fact.is_open —
         the supersession-scan predicate the reducer keys on."""
         return self.valid_to is None and self.state == FactState.ACTIVE
+
+    @property
+    def duration(self) -> timedelta | None:
+        """A SPAN's elapsed interval `[started_at, ended_at)` (= `[valid_from, valid_to)`). None
+        while OPEN/ABANDONED — a span with no close has no end instant to measure to. SPAN-only."""
+        if self.species is Species.SPAN and self.valid_from is not None and self.valid_to is not None:
+            return self.valid_to - self.valid_from
+        return None

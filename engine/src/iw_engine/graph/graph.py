@@ -7,16 +7,17 @@ closes the prior one's valid_to. MultiDiGraph so a structural DEPENDS_ON and an 
 CAUSED_BY between the same pair coexist (distinct edge ids).
 
 P6 STORE-FLIP (part2 §3 + the P1a design decisions): the graph stores ONE assertion
-collection (`self.assertions`); `facts`/`events` are read VIEWS over it, discriminated
-exactly as decision 2 fixed —
-    facts view  = species ≠ EVENT  ∧  channel ≠ DECLARED   (observed knowledge)
-    events view = species = EVENT                          (occurrences)
-    props view  = channel = DECLARED                       (node-declared — P6 step 2)
-The views return the same Fact/Event records as the pre-flip store (converted via
+collection (`self.assertions`); `facts`/`events`/`spans` are read VIEWS over it, discriminated
+exactly as decision 2 fixed (+ the 2026-07-23 sixth-species addition) —
+    facts view  = species ∉ {EVENT, SPAN}  ∧  channel ≠ DECLARED   (observed knowledge)
+    events view = species = EVENT                                  (occurrences)
+    spans view  = species = SPAN                                   (bounded happenings — §2.6)
+    props view  = channel = DECLARED                               (node-declared — P6 step 2)
+The facts/events views return the same Fact/Event records as the pre-flip store (converted via
 domain.projection's exact-inverse pair), so fold/render/bundle/hypothesis/postmortem are
-unchanged and the goldens stay byte-identical. Mutation stays method-only (fold-driven);
-the views are cached per mutation generation, so repeated reads between folds return
-the same objects.
+unchanged and the goldens stay byte-identical. The spans view returns the raw Assertion so the
+query surface ALWAYS exposes `span_phase` (§4.6). Mutation stays method-only (fold-driven); the
+views are cached per mutation generation, so repeated reads between folds return the same objects.
 """
 from __future__ import annotations
 
@@ -52,6 +53,7 @@ class Graph:
         self._rev = 0                              # mutation generation — invalidates the views
         self._facts_cache: tuple[int, dict[str, Fact]] = (-1, {})
         self._events_cache: tuple[int, dict[str, Event]] = (-1, {})
+        self._spans_cache: tuple[int, dict[str, Assertion]] = (-1, {})
         # P5 identity layer (DOMAIN-v3 §2.1, R-J5's alias table): "scheme:id" → node id.
         # Maintained here (upsert_node is fold-only) so journal replay rebuilds it exactly;
         # first binding wins per key — a later conflicting claim never silently rebinds
@@ -265,7 +267,8 @@ class Graph:
         rev, view = self._facts_cache
         if rev != self._rev:
             view = {a.id: fact_of_assertion(a) for a in self.assertions.values()
-                    if a.species is not Species.EVENT and a.channel is not Channel.DECLARED}
+                    if a.species is not Species.EVENT and a.species is not Species.SPAN
+                    and a.channel is not Channel.DECLARED}
             self._facts_cache = (self._rev, view)
         return self._facts_cache[1]
 
@@ -278,6 +281,18 @@ class Graph:
                     if a.species is Species.EVENT}
             self._events_cache = (self._rev, view)
         return self._events_cache[1]
+
+    @property
+    def spans(self) -> dict[str, Assertion]:
+        """Bounded happenings (2026-07-23 primitives §2.6): every SPAN-species assertion, returned as
+        the raw Assertion — NOT a Fact/Event view — so the query surface ALWAYS exposes `span_phase`
+        (the §4.6 universality invariant). A span's `subject_ref` may be a node OR an edge. Cached per
+        mutation generation, like facts/events."""
+        rev, view = self._spans_cache
+        if rev != self._rev:
+            view = {a.id: a for a in self.assertions.values() if a.species is Species.SPAN}
+            self._spans_cache = (self._rev, view)
+        return self._spans_cache[1]
 
     # ── queries ───────────────────────────────────────────────────────────────
     def node(self, nid: str) -> Node | None:
@@ -295,6 +310,16 @@ class Graph:
     def events_of(self, entity_ref: str) -> list[Event]:
         return sorted((e for e in self.events.values() if e.entity_ref == entity_ref),
                       key=lambda e: e.occurred_at)
+
+    def spans_of(self, subject_ref: str, *, active_only: bool = True) -> list[Assertion]:
+        """The SPAN view beside facts_of/events_of (2026-07-23 primitives §7): every span whose
+        subject is this node OR edge, sorted by started_at (`valid_from`). Returns the raw Assertion
+        so EVERY returned span exposes `span_phase` — an ABANDONED span can never read as 'ongoing'
+        (§4.6). `active_only` drops retracted/superseded spans, mirroring `facts_of`."""
+        out = [s for s in self.spans.values() if s.subject_ref == subject_ref]
+        if active_only:
+            out = [s for s in out if s.state == FactState.ACTIVE]
+        return sorted(out, key=lambda s: (s.valid_from, s.id))
 
     def out_edges(self, nid: str, etype: EdgeType | None = None) -> list[Edge]:
         return [self.edges[k] for _, _, k in self._g.out_edges(nid, keys=True)
