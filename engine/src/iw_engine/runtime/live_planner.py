@@ -52,7 +52,7 @@ from ..domain.phase_result import PhaseVerdict
 from ..domain.playbook import Doctrine
 from ..domain.projection import species_for_predicate
 from ..graph import tools as graph_tools
-from .planner import PlanContext, PlanOutput
+from .planner import PlanContext, PlanOutput, Todo
 
 
 def _hid(x) -> str:
@@ -185,10 +185,20 @@ OUTPUT: a single JSON object, no markdown, exactly:
   ],
   (add_assertion is the atom: species one of state|descriptor|reading|event. The ergonomic
    add_fact/add_event shorthand is also accepted and folded to add_assertion.)
+  "todos": [
+    {"objective":"<short aim for this step>",
+     "calls":[{"intent":"<tool intent>","params":{}}],
+     "ops":[ /* the SAME typed ops as above that serve THIS objective */ ]}
+  ],
   "narrative": "concise phase narrative for the journal",
   "verdict": {"status":"advance|repeat|backtrack|blocked|done","confidence_level":"low|med|high","basis":"why this verdict"},
   "next_actions": ["what the next phase should do"]
-}"""
+}
+Group your plan into a CHECKLIST of `todos`: each a short `objective` with the `calls`+`ops` that
+serve it, so the plan reads as to-dos executing one by one. When you emit `todos`, the engine reads
+calls/ops FROM them — do NOT also fill the top-level calls/ops. `todos` is OPTIONAL: a flat
+calls/ops with no todos still works — it becomes one to-do. Keep it lightweight — one objective per
+genuine step; do not over-split."""
 
 _RETRACT_NOTE = """\
 (`retract` tombstones a WRONG fact/event you previously folded — {"op":"retract","target":"<fact/event/edge id>","reason":"..."}; use it only for observations proven wrong, never to hide refuting evidence.)"""
@@ -489,9 +499,47 @@ Plan this phase. Return ONLY the JSON object."""
         trace = PhaseTrace(phase=phase, reasoning=str(raw.get("reasoning", "")),
                            narrative=str(raw.get("narrative", "")), verdict="", raw=raw)
 
-        # calls — drop any intent the layer cannot resolve (non-dict entries included)
+        # calls + ops — F1: when the model GROUPS its plan into to-dos, parse each to-do's calls +
+        # ops under its objective (the plan reads as a CHECKLIST); otherwise parse the flat
+        # calls/ops (which PlanOutput folds into ONE synthesized to-do). Both share the SAME
+        # reject+repair helpers, so off-catalog tools / unparseable ops are dropped identically and
+        # the trace is populated the same way regardless of grouping. `todos` is authoritative when
+        # present — PlanOutput derives the flat calls/ops from it, so execution stays 1:1.
+        todos_raw = raw.get("todos")
+        if isinstance(todos_raw, list) and todos_raw:
+            todos: list[Todo] = []
+            for t in todos_raw:
+                if not isinstance(t, dict):
+                    msg = f"[{phase}] dropped non-dict todo entry: {str(t)[:120]!r}"
+                    trace.repairs.append(msg)
+                    self.repairs.append(msg)
+                    continue
+                todos.append(Todo(
+                    objective=str(t.get("objective") or t.get("goal") or ""),
+                    calls=self._parse_calls(t.get("calls"), phase, trace),
+                    ops=self._parse_ops(t.get("ops"), phase, trace)))
+            plan_kwargs: dict = {"todos": todos}
+        else:
+            plan_kwargs = {"calls": self._parse_calls(raw.get("calls"), phase, trace),
+                           "ops": self._parse_ops(raw.get("ops"), phase, trace)}
+
+        narrative = trace.narrative or trace.reasoning or f"{phase} phase"
+        verdict = self._parse_verdict(raw.get("verdict"), narrative,
+                                      ctx.tunables.confidence_band)
+        trace.verdict = verdict.status.value
+        self.traces.append(trace)
+        if self.verbose:
+            self._log(trace)
+        return PlanOutput(phase=ctx.phase, narrative=narrative, verdict=verdict,
+                          next_actions=[str(x) for x in (raw.get("next_actions") or [])],
+                          repairs=list(self.repairs[repairs_mark:]), **plan_kwargs)
+
+    def _parse_calls(self, raw_calls, phase: str, trace: PhaseTrace) -> list[CapabilityCall]:
+        """Filter a raw calls list to on-catalog intents — dropping non-dict entries and unknown
+        tools as repairs. Shared by the flat path AND each to-do (F1), so grouping the plan into
+        to-dos changes NOTHING about the reject+repair guard."""
         calls: list[CapabilityCall] = []
-        for c in raw.get("calls", []) or []:
+        for c in raw_calls or []:
             if not isinstance(c, dict):
                 msg = f"[{phase}] dropped non-dict call entry: {str(c)[:120]!r}"
                 trace.repairs.append(msg)
@@ -505,10 +553,13 @@ Plan this phase. Return ONLY the JSON object."""
                 msg = f"[{phase}] dropped off-catalog tool intent: {intent!r}"
                 trace.repairs.append(msg)
                 self.repairs.append(msg)
+        return calls
 
-        # ops — parse each into a typed Operation; drop the unparseable (repair)
+    def _parse_ops(self, raw_ops, phase: str, trace: PhaseTrace) -> list[Operation]:
+        """Parse a raw ops list into typed Operations — dropping the unparseable as repairs — and
+        populate the trace. Shared by the flat path AND each to-do (F1)."""
         ops: list[Operation] = []
-        for o in raw.get("ops", []) or []:
+        for o in raw_ops or []:
             op, err = self._parse_op(o)
             if op is not None:
                 ops.append(op)
@@ -530,17 +581,7 @@ Plan this phase. Return ONLY the JSON object."""
                 m = f"[{phase}] dropped op {label!r}: {err}"
                 trace.repairs.append(m)
                 self.repairs.append(m)
-
-        narrative = trace.narrative or trace.reasoning or f"{phase} phase"
-        verdict = self._parse_verdict(raw.get("verdict"), narrative,
-                                      ctx.tunables.confidence_band)
-        trace.verdict = verdict.status.value
-        self.traces.append(trace)
-        if self.verbose:
-            self._log(trace)
-        return PlanOutput(phase=ctx.phase, calls=calls, ops=ops, narrative=narrative,
-                          verdict=verdict, next_actions=[str(x) for x in (raw.get("next_actions") or [])],
-                          repairs=list(self.repairs[repairs_mark:]))
+        return ops
 
     def _parse_op(self, o):
         if not isinstance(o, dict):   # untrusted payload: repair, never raise (INV-7)

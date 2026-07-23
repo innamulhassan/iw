@@ -248,6 +248,82 @@ def test_prompt_projections_absent_without_a_graph_ref():
     assert "CURRENT GRAPH — FOCUS SLICE" in prompt   # the slice still renders (engine-computed)
 
 
+# ── F1: the live planner groups its plan into a CHECKLIST of to-dos (LLM authors them) ──
+def test_output_contract_advertises_todo_grouping():
+    from iw_engine.runtime import live_planner as lp
+
+    assert '"todos"' in lp._OUTPUT_CONTRACT and "objective" in lp._OUTPUT_CONTRACT
+    assert "CHECKLIST of `todos`" in lp._OUTPUT_CONTRACT
+    # still domain-neutral (doctrine owns the vocab) — no incident literals leaked in
+    for literal in ("onset_value", "anomaly", "healthrule_violations"):
+        assert literal not in lp._OUTPUT_CONTRACT
+
+
+def test_live_planner_groups_plan_into_todos_with_exact_attribution():
+    """A model that emits `todos` yields a PlanOutput whose to-dos are authoritative: the flat
+    calls/ops derive from them (execution stays 1:1) and each call/op attributes to its to-do."""
+    g = _spine_graph()
+    planner = LivePlanner(client=None, catalog_text="", tools_text="",
+                          tool_intents={"find_recent_changes", "active_alerts"}, verbose=False)
+    planner.graph = g
+    raw = {
+        "reasoning": "two-step frame",
+        "todos": [
+            {"objective": "pull recent changes",
+             "calls": [{"intent": "find_recent_changes", "params": {"ci": "db"}}], "ops": []},
+            {"objective": "read alerts + propose the change-first theory",
+             "calls": [{"intent": "active_alerts", "params": {}}],
+             "ops": [{"op": "propose_hypothesis", "hid": "h1", "statement": "chg-9 dropped the index",
+                      "root_candidate": "change_event:chg-9", "confidence_level": "med"}]},
+        ],
+        "narrative": "framed", "verdict": {"status": "advance", "confidence_level": "med"},
+    }
+    out = planner._to_plan_output(_ctx_for(g), raw)
+    assert [t.objective for t in out.todos] == ["pull recent changes",
+                                                "read alerts + propose the change-first theory"]
+    # the flat lists derive from the to-dos (the engine executes THESE, 1:1)
+    assert [c.intent for c in out.calls] == ["find_recent_changes", "active_alerts"]
+    assert [type(o).__name__ for o in out.ops] == ["ProposeHypothesis"]
+    # attribution: call 0 → to-do 0, call 1 → to-do 1; the propose op is under to-do 1
+    assert out.call_todo_indices() == [0, 1]
+    assert out.op_todo_indices() == [1]
+
+
+def test_live_planner_flat_plan_still_becomes_a_single_todo():
+    """Back-compat: a model that ignores `todos` and emits flat calls/ops yields one synthesized
+    to-do (the plan still reads as a checklist), the flat path is byte-for-byte unchanged."""
+    g = _spine_graph()
+    planner = LivePlanner(client=None, catalog_text="", tools_text="",
+                          tool_intents={"active_alerts"}, verbose=False)
+    planner.graph = g
+    raw = {"reasoning": "r", "calls": [{"intent": "active_alerts", "params": {}}], "ops": [],
+           "narrative": "n", "verdict": {"status": "advance"}}
+    out = planner._to_plan_output(_ctx_for(g), raw)
+    assert out.todos == []                     # none authored — flat path
+    assert len(out.effective_todos) == 1       # but the plan reads as one to-do
+    assert [c.intent for c in out.calls] == ["active_alerts"]
+    assert out.call_todo_indices() == [0]
+
+
+def test_live_planner_reject_repair_inside_a_todo():
+    """The reject+repair guard is per-to-do too: an off-catalog call + an unparseable op inside a
+    to-do are DROPPED (recorded as repairs), the valid call survives — never a reducer rejection."""
+    g = _spine_graph()
+    planner = LivePlanner(client=None, catalog_text="", tools_text="",
+                          tool_intents={"active_alerts"}, verbose=False)
+    planner.graph = g
+    raw = {"reasoning": "r",
+           "todos": [{"objective": "mixed", "calls": [{"intent": "active_alerts"},
+                                                      {"intent": "nonexistent_tool"}],
+                      "ops": [{"op": "bogus_op"}]}],
+           "narrative": "n", "verdict": {"status": "advance"}}
+    out = planner._to_plan_output(_ctx_for(g), raw)
+    assert [c.intent for c in out.todos[0].calls] == ["active_alerts"]   # off-catalog dropped
+    assert out.todos[0].ops == []                                        # unparseable dropped
+    assert any("nonexistent_tool" in r for r in out.repairs)
+    assert any("bogus_op" in r for r in out.repairs)
+
+
 def test_engine_hands_the_focus_slice_every_phase():
     """The engine enriches EVERY PlanContext with the focus slice (B9.3 invariant held), and
     binds the focus to the symptom node from the phase after FRAME onward."""
