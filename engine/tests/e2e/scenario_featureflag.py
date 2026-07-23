@@ -55,11 +55,19 @@ def build():
                call("active_alerts", service="cart-api", env="prod")],
         ops=[
             node(NT.ANOMALY, anomaly_id="ANOM-1"),
-            node(NT.SERVICE, service_name="cart-api", env="prod"),
-            node(NT.FEATURE_FLAG, flag_key="new-tax-engine", env="prod"),
+            node(NT.SERVICE, service_name="cart-api", env="prod",
+                 owner="cart-platform@corp.example", version="v6.1.4"),
+            node(NT.FEATURE_FLAG, flag_key="new-tax-engine", env="prod",
+                 provider="LaunchDarkly", owner="tax-platform@corp.example",
+                 description="Routes cart tax computation through the rewritten tax engine"),
             node(NT.ALERT, alert_id="ALT-1"),
             node(NT.CHANGE_EVENT, change_id="CHG-77", change_type="feature-flag",
-                 target_ref="new-tax-engine", actor="tax-platform"),
+                 target_ref="new-tax-engine", actor="tax-platform",
+                 short_description="Ramp new-tax-engine flag to 100% in prod",
+                 description="Progressive-delivery change: ramp the new-tax-engine LaunchDarkly "
+                             "flag from 5% to 100% in prod. Enables the rewritten tax engine for "
+                             "all cart-api traffic; the gated path raises TaxEngineException on "
+                             "carts >5 items — surfaced only at full rollout."),
             # onset RED snapshot: 5xx errors spiked, rate steady, p99 elevated — an error
             # shape (not a saturation shape). p50 still sane.
             fact(ANOM, "onset_value", 0.34, T_ONSET, source=S.PROMETHEUS),
@@ -93,6 +101,11 @@ def build():
         node(NT.INCIDENT, incident_id="INC-5600",
              title="cart-api 5xx after feature-flag flip",
              short_description="cart-api 5xx began at the new-tax-engine flag flip to 100%",
+             description="High5xxRate fired for cart-api (prod, tier-1) at 14:05 UTC, coincident "
+                         "with the new-tax-engine flag ramping to 100%. 5xx jumped to 34%; a "
+                         "brand-new TaxEngineException first appears exactly at the flip. No code "
+                         "deploy in the window (last deploy was 3 days ago). Errors concentrate on "
+                         "bulk carts (>5 items), where the newly-enabled tax branch raises.",
              work_notes="High5xxRate; new TaxEngineException at the flip. Flag suspected.",
              caller_id="monitoring.alerting"),
         node(NT.API_ENDPOINT, service_name="cart-api", env="prod", method="POST",
@@ -115,7 +128,9 @@ def build():
                call("list_related_incidents", cmdb_ci="cart-api")],
         status="repeat",
         ops=[
-            node(NT.CODE_COMMIT, sha="c3d4e5f"),  # the last deploy — 3 days ago, pre-flag
+            node(NT.CODE_COMMIT, sha="c3d4e5f", repo="cart-api", author="tax-platform",
+                 message="feat(tax): dark-launch new-tax-engine behind a flag (default off) "
+                         "(PR #1203)"),  # the last deploy — 3 days ago, pre-flag (innocent)
             # NOTE: feature_flag is edge-isolated in the model (no typed edges to/from it);
             # the causal link to the gated code path is carried by the hypothesis
             # (CAUSED_BY H1 → FLAG) and the change_event correlation, not a direct edge.
@@ -223,7 +238,8 @@ def build():
         "git": {
             "log": [
                 {"sha": "c3d4e5f", "date": _t(-4320).isoformat(),  # 3 days ago
-                 "message": "cart-api: routine tax-table refresh"},
+                 "author": "tax-platform",
+                 "message": "feat(tax): dark-launch new-tax-engine behind a flag (default off)"},
             ],
             "blame": [
                 {"sha": "c3d4e5f", "file": "services/cart-api/src/tax/engine.py",
@@ -234,7 +250,9 @@ def build():
             "primary_incident": "INC-5600",
             "related_incidents": [
                 {"number": "INC-4988", "priority": "3 - Moderate", "opened_at": _t(-2880),
-                 "cmdb_ci": "pricing-api", "confidence": "high"},
+                 "cmdb_ci": "pricing-api", "confidence": "high",
+                 "title": "pricing-api errors on bulk quotes",
+                 "short_description": "pricing-api errored on large carts — same new-tax-engine flag"},
             ],
         },
     }
