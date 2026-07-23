@@ -465,6 +465,7 @@
         "props": {
           "caller_id": "bigpanda-correlation",
           "commander": "sre-oncall",
+          "description": "BigPanda correlated a latency-alert storm across payments-svc, orders-svc and ledger-svc into ONE P1 (INC-6001) at 09:06 UTC \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. All three services read through the same payments datastore; p99 is blown while p50 stays flat, pointing at the shared DB boundary, not any one app's code. The backing CI returned unclassified from CMDB.",
           "incident_id": "INC-6001",
           "severity": "P1",
           "short_description": "payments/orders/ledger latency SEV1; AIOps rolled 3 alerts into one incident",
@@ -483,8 +484,10 @@
         "props": {
           "app_id": "APM-PAY",
           "env": "prod",
+          "owner": "payments-platform@corp.example",
           "service_name": "payments-svc",
-          "sys_id": "SYS-PAY-1"
+          "sys_id": "SYS-PAY-1",
+          "version": "v8.3.0"
         },
         "source": "prometheus",
         "type": "service"
@@ -577,6 +580,8 @@
           "actor": "dba-team",
           "change_id": "CHG-DB-500",
           "change_type": "db-migration",
+          "description": "Scheduled maintenance migration on the payments datastore. Drops a legacy composite index believed superseded, to speed up writes ahead of the quarter-end batch. No application read-path review \u2014 the migration forces full-table scans that saturate the pool and cascade latency across every service reading the datastore.",
+          "short_description": "Payments datastore migration \u2014 drop legacy index",
           "target_ref": "payments-svc",
           "ticket_id": "CHG-DB-500"
         },
@@ -629,7 +634,10 @@
           "ci_id": "SYS-DB77",
           "class_hint": "cmdb_ci_db_ora",
           "db_id": "payments-ora",
-          "name": "payments-ora"
+          "engine": "oracle",
+          "name": "payments-ora",
+          "owner": "payments-platform@corp.example",
+          "version": "19c"
         },
         "source": "prometheus",
         "type": "database"

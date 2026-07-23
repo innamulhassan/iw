@@ -137,7 +137,9 @@ def build():
                   "AppD-only observation into the canonical entity"),
             # RETYPE the generic_ci to its real DATABASE type — its quarantined fact + airlocked
             # edge re-home to the real entity, opening the DATABASE vocabulary.
-            Retype(target=GCI, new_type=NT.DATABASE, props={"db_id": "payments-ora"},
+            Retype(target=GCI, new_type=NT.DATABASE,
+                   props={"db_id": "payments-ora", "engine": "oracle", "version": "19c",
+                          "owner": "payments-platform@corp.example"},
                    reason="class_hint cmdb_ci_db_ora corroborated by the DBA migration ticket + "
                    "the JDBC exit-call boundary — the CI is the payments datastore"),
             # the real DATABASE telemetry, now legal on the graduated entity: replication lag and
@@ -222,10 +224,19 @@ def build():
                 "title": "payments platform P1 — correlated latency storm",
                 "short_description": "payments/orders/ledger latency SEV1; AIOps rolled 3 alerts "
                                      "into one incident",
+                "description": "BigPanda correlated a latency-alert storm across payments-svc, "
+                               "orders-svc and ledger-svc into ONE P1 (INC-6001) at 09:06 UTC — 6 "
+                               "minutes after CHG-DB-500 (a DB migration) landed at 09:00. All three "
+                               "services read through the same payments datastore; p99 is blown "
+                               "while p50 stays flat, pointing at the shared DB boundary, not any "
+                               "one app's code. The backing CI returned unclassified from CMDB.",
                 "work_notes": "BigPanda correlated 3 alerts across 3 services. Suspect the 09:00 "
                               "DB migration CHG-DB-500.",
                 "caller_id": "bigpanda-correlation",
-                "cmdb_ci": {"display_value": "payments-svc", "sys_id": "SYS-PAY-1"},
+                "assignment_group": "SRE - Payments Platform", "business_service": "Payments",
+                "impact": "1 - High", "urgency": "1 - High",
+                "cmdb_ci": {"display_value": "payments-svc", "sys_id": "SYS-PAY-1",
+                            "owner": "payments-platform@corp.example", "version": "v8.3.0"},
             },
         },
         # the backing datastore CI is UNCLASSIFIED (sys_class_name is not cmdb_ci_service) → the
@@ -238,7 +249,15 @@ def build():
         "find_recent_changes": {
             "changes": [
                 {"number": "CHG-DB-500", "type": "db-migration",
-                 "cmdb_ci": {"display_value": "payments-svc"}, "requested_by": "dba-team",
+                 "short_description": "Payments datastore migration — drop legacy index",
+                 "description": "Scheduled maintenance migration on the payments datastore. Drops "
+                                "a legacy composite index believed superseded, to speed up writes "
+                                "ahead of the quarter-end batch. No application read-path review — "
+                                "the migration forces full-table scans that saturate the pool and "
+                                "cascade latency across every service reading the datastore.",
+                 "cmdb_ci": {"display_value": "payments-svc",
+                             "owner": "payments-platform@corp.example"},
+                 "requested_by": "dba-team",
                  "start_date": T_MIG, "env": "prod"},
             ],
         },
