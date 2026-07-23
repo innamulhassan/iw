@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from ..api.bundle import export_bundle, phase_rail
+from ..api.bundle import export_bundle, label_dictionary, phase_rail
 from ..capability.layer import CapabilityCall, CapabilityLayer
 from ..domain.enums import Effect, Source, VerdictStatus
 from ..domain.operations import UpdateHypothesis
@@ -405,6 +405,9 @@ class InvestigationSession:
             # the full declared phase rail as data (M22) — the UI stepper reads THIS instead of a
             # hardcoded ALL_PHASES; playbook context, so it rides the snapshot envelope not the bundle.
             "phase_rail": phase_rail(self._engine.playbook),
+            # the canonical label dictionary (M25) — the UI reads predicate/relation/intent labels
+            # from here instead of re-authoring the vocab; envelope context like phase_rail.
+            "dictionary": label_dictionary(),
             "pending_gate": self.pending_gate,
             "pending_review": self.pending_review,
             "messages": list(self._messages),

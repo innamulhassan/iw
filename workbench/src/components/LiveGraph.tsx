@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { LiveState, LiveNode, Selection } from "../lib/store";
 import { nodesWithOrder, relatedIncidents } from "../lib/store";
 import { humanizePredicate } from "../lib/format";
+import { servedRelationLabel } from "../lib/labels";
 import { TIER_LABELS, TIER_ORDER, layerLabelForType, tierForType } from "../lib/tiers";
 
 const NODE_W = 168;
@@ -102,7 +103,8 @@ const RELATION_LABELS: Record<string, string> = {
   introduced_by: "introduced by",
 };
 function humanizeRelation(t: string): string {
-  return RELATION_LABELS[t] ?? t.replace(/_/g, " ");
+  // M25 layering: curated override → engine-served relation label → de-underscored fallback
+  return RELATION_LABELS[t] ?? servedRelationLabel(t) ?? t.replace(/_/g, " ");
 }
 
 interface Props {

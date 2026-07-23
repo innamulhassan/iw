@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ToolCall } from "../lib/store";
+import { servedIntentPurpose } from "../lib/labels";
 
 // A capability call shown as a compact agent-trace card (obs: "say what the query IN is and what
 // came OUT"): the tool + a one-line RESULT collapsed, expandable to WHY it ran, the QUERY it sent,
@@ -100,7 +101,8 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
   const dur = fmtDuration(call.durationMs);
   const started = fmtClock(call.startedAt);
   const kind = call.kind ?? (isWrite ? "workflow" : "tool");
-  const purpose = PURPOSE[call.intent] ?? call.intent.replace(/_/g, " ");
+  // M25 layering: curated per-intent purpose → engine-served capability purpose → de-underscored
+  const purpose = PURPOSE[call.intent] ?? servedIntentPurpose(call.intent) ?? call.intent.replace(/_/g, " ");
   const paramEntries = Object.entries(call.params ?? {});
   const out = outText(call, outcome);
 

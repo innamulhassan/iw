@@ -142,6 +142,39 @@ def phase_rail(playbook) -> list[dict]:
     return [{"id": p.id, "focus": i < gate_idx} for i, p in enumerate(phases)]
 
 
+def label_dictionary() -> dict:
+    """The engine's canonical vocab served to the UI as labels (M25), so the workbench stops
+    RE-AUTHORING the vocabulary in client-side maps. Three sub-maps of what the engine authoritatively
+    owns:
+      - `predicates`: every canonical fact-predicate name -> a default humanized label
+      - `relations` : every edge type -> a default humanized label
+      - `intents`   : every capability intent -> its capability's purpose (CapabilityMeta.summary)
+    The UI layers its own curated labels as OVERRIDES and falls back to a de-underscored raw string,
+    so a NEW predicate/edge/intent is served with a sane default automatically (drift-prevention),
+    while every current label is preserved exactly.
+
+    SCOPE (reported): the engine authors the VOCAB + per-capability summaries + a default label; it
+    does NOT model the UI's finer per-intent purposes or the graph LANE layout (`tiers.ts`), which
+    stay UI presentation — moving those into the shared-core ontology is a separate F3-boundary
+    decision, out of this pass. Global + static; served on the snapshot envelope like `phase_rail`
+    (NOT `export_bundle`), so the 11 goldens stay byte-identical."""
+    from ..capability.adapters import default_adapters
+    from ..capability.adapters.remediation import RemediationAdapter
+    from ..domain.dictionary import DICTIONARY
+    from ..domain.enums import EdgeType
+
+    def humanize(s: str) -> str:
+        return s.replace("_", " ")
+
+    adapters = [*default_adapters(), RemediationAdapter()]
+    return {
+        "predicates": {name: humanize(name) for name in sorted(DICTIONARY)},
+        "relations": {e.value: humanize(e.value) for e in EdgeType},
+        "intents": {i: a.meta.summary for a in adapters if getattr(a, "meta", None)
+                    for i in sorted(a.intents)},
+    }
+
+
 def export_bundle(res: RunResult) -> dict:
     g: Graph = res.graph
     store: HypothesisStore = res.hypothesis_store

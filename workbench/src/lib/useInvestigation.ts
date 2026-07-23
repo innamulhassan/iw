@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { SessionEvent, SessionState, Subject } from "../types";
 import { createSession, decideGate, decideReview, getSnapshot, sendMessage, streamUrl } from "./api";
 import type { GateDecision } from "./api";
+import { setServedDictionary } from "./labels";
 import { emptyState, reduce } from "./store";
 
 const EVENT_TYPES: SessionEvent["type"][] = [
@@ -146,6 +147,7 @@ export function useInvestigation() {
       dispatch({ kind: "reset" });
       try {
         const res = await createSession(subject);
+        setServedDictionary(res.snapshot.dictionary); // capture the engine's label vocab (M25)
         dispatch({ kind: "seed", snapshot: res.snapshot });
         await load(res.session_id, res.snapshot.events.at(-1)?.seq ?? 0);
       } catch (err) {
@@ -168,6 +170,7 @@ export function useInvestigation() {
       dispatch({ kind: "reset" });
       try {
         const snap = await getSnapshot(id);
+        setServedDictionary(snap.dictionary); // capture the engine's label vocab (M25)
         dispatch({ kind: "seed", snapshot: snap });
         if (snap.state === "closed") {
           closeStream(); // nothing more to stream

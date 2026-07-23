@@ -23,6 +23,17 @@ export interface PhaseRailItem {
   focus: boolean;
 }
 
+/** The engine's canonical label dictionary (M25) — served so the UI stops re-authoring the vocab.
+ *  `predicates`/`relations` map a canonical name to a default humanized label; `intents` maps each
+ *  capability intent to its capability purpose. The UI layers its own curated labels as overrides
+ *  and falls back to a de-underscored raw string, so a new engine vocab item is labelled by default
+ *  (drift-prevention). NB: the graph LANE layout (tiers.ts) is UI presentation, not served here. */
+export interface InvestigationDictionary {
+  predicates: Record<string, string>;
+  relations: Record<string, string>;
+  intents: Record<string, string>;
+}
+
 export type Outcome = "resolved" | "mitigated" | "open" | string;
 
 export interface Subject {
@@ -494,6 +505,9 @@ export interface Snapshot extends InvestigationBundle {
   /** The full declared phase rail (M22) — playbook context the stepper renders from, not a
    *  hardcoded list. Optional: an older snapshot without it falls back to the reached phases. */
   phase_rail?: PhaseRailItem[];
+  /** The engine's canonical label dictionary (M25) — the UI reads vocab labels from here (with its
+   *  curated maps as overrides). Optional: an older snapshot without it keeps the local labels. */
+  dictionary?: InvestigationDictionary;
   pending_gate: GateOpenedEvent | null;
   pending_review: PhaseReviewOpenedEvent | null;
   messages: { seq: number; text: string; at: string; kind: string }[];

@@ -1,5 +1,8 @@
 // Human-readable labels for the engine's fact predicates, so the UI reads naturally
-// ("latency p99" instead of "red_latency_p99"). Falls back to a de-underscored form.
+// ("latency p99" instead of "red_latency_p99"). Layering (M25): this CURATED map is the override,
+// the engine-served dictionary fills gaps (drift-prevention for new predicates), and a de-underscored
+// raw string is the final fallback.
+import { servedPredicateLabel } from "./labels";
 
 const PRED_LABELS: Record<string, string> = {
   red_latency_p50: "latency p50",
@@ -48,5 +51,5 @@ const PRED_LABELS: Record<string, string> = {
 };
 
 export function humanizePredicate(p: string): string {
-  return PRED_LABELS[p] ?? p.replace(/_/g, " ");
+  return PRED_LABELS[p] ?? servedPredicateLabel(p) ?? p.replace(/_/g, " ");
 }

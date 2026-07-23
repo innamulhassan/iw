@@ -257,7 +257,7 @@ class InvestigationStore:
             return None
         res, meta = r
         # lazy import: avoids an import cycle at module load
-        from ..api.bundle import export_bundle, phase_rail
+        from ..api.bundle import export_bundle, label_dictionary, phase_rail
         bundle = export_bundle(res)
         rail = (phase_rail(playbook) if playbook is not None
                 else [{"id": p, "focus": True} for p in res.phases_run])
@@ -267,6 +267,7 @@ class InvestigationStore:
             "state": meta.get("state", "closed"),
             "read_only": True,
             "phase_rail": rail,
+            "dictionary": label_dictionary(),   # canonical label vocab for the UI (M25)
             "pending_gate": None,
             "pending_review": None,
             "messages": [],
