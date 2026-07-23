@@ -239,5 +239,8 @@ def live_build_manager(*, playbook: Playbook | None = None,
 
     # background_drive: a live phase is one or more LLM round-trips (seconds) — drive off the HTTP
     # thread so POST /sessions,/advance,/gate return immediately and the SSE stream shows progress.
+    # auto_review=False: this is the INTERACTIVE workbench backend — every phase transition SUSPENDS
+    # for the real human's direction approval (owner 2026-07-23). The scripted mock backend
+    # (build_manager) keeps the default auto_review=True (a deterministic CI net that never hangs).
     return SessionManager(pb, planner_factory, layer_factory=layer_factory, clock=clock,
-                          background_drive=True, store=store)
+                          background_drive=True, auto_review=False, store=store)

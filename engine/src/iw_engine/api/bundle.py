@@ -102,6 +102,20 @@ def _journal_entry(e: JournalEntry) -> dict:
                 "hypothesis": o.get("hypothesis"), "evidence": o.get("evidence", [])}
     if e.kind == "lifecycle":
         return {**base, "event": e.reasoning, "outcome": e.decision, "detail": e.action}
+    if e.kind == "phase_review":
+        # the between-phases DIRECTION review: WHAT the phase did (summary) + the proposed advance
+        # (to_phase) + the leading hypothesis + discovered ids. Never in a golden (batch has no
+        # session), so serving it here is additive-only.
+        return {**base, "narrative": e.reasoning, "review_id": a.get("review_id"),
+                "to_phase": a.get("to_phase"), "verdict": a.get("verdict"),
+                "hypothesis": o.get("hypothesis"), "facts": o.get("facts", []),
+                "nodes": o.get("nodes", [])}
+    if e.kind == "review_decision":
+        # the human DIRECTION answer: approve/refine/deny + WHO + the proposed advance.
+        return {**base, "source": e.source.value if e.source else None,
+                "decision": e.decision, "narrative": e.reasoning,
+                "review_id": a.get("review_id"), "to_phase": a.get("to_phase"),
+                "action": e.action, "observation": e.observation}
     if e.kind in ("step", "gate_decision", "message"):
         # the human's role: the gate DECISION (approve/refine/deny) + WHO + the operator turn.
         return {**base, "source": e.source.value if e.source else None,

@@ -34,7 +34,7 @@ from enum import StrEnum
 
 from ..api.bundle import export_bundle
 from ..capability.layer import CapabilityCall, CapabilityLayer
-from ..domain.enums import Effect, Source
+from ..domain.enums import Effect, Source, VerdictStatus
 from ..domain.operations import UpdateHypothesis
 from ..domain.playbook import Playbook
 from ..domain.registry import subject_node_id
@@ -46,7 +46,8 @@ from .store import InvestigationStore
 
 class SessionState(StrEnum):
     RUNNING = "running"
-    SUSPENDED = "suspended"   # paused at an open write-gate awaiting a human decision
+    SUSPENDED = "suspended"          # paused at an open write-gate awaiting a human decision
+    AWAITING_REVIEW = "awaiting_review"   # paused at a between-phases DIRECTION review (owner 2026-07-23)
     CLOSED = "closed"
 
 
@@ -54,6 +55,17 @@ class GateDecision(StrEnum):
     APPROVE = "approve"       # apply the proposed write + continue
     REFINE = "refine"         # edit the write params, then apply + continue
     DENY = "deny"             # drop the write; record the denial as feedback → replan
+
+
+class ReviewDecision(StrEnum):
+    """A human DIRECTION decision on a phase-review (owner 2026-07-23). Reuses the approve/refine/
+    deny vocabulary but means direction, not a write: APPROVE advances to the proposed next phase;
+    REFINE re-runs the just-completed phase with the operator's steer as a message; DENY halts the
+    investigation (terminal)."""
+
+    APPROVE = "approve"       # advance to the proposed next phase
+    REFINE = "refine"         # re-enter/repeat the completed phase with the steer as an operator message
+    DENY = "deny"             # halt the investigation — terminal
 
 
 class _GateSuspend(Exception):
@@ -75,6 +87,19 @@ class _Decision:
     decision: GateDecision
     params: dict = field(default_factory=dict)
     reason: str = ""
+
+
+@dataclass
+class _PendingReview:
+    """A between-phases DIRECTION review awaiting a human decision (owner 2026-07-23). Parallels
+    `_Pending` (the write-gate) but sits in its OWN slot + state so decisions never mis-route:
+    the write-gate suspends mid-step (before a write); a review suspends between steps (before the
+    NEXT phase runs)."""
+
+    from_phase: str          # the phase that just completed its goal
+    to_phase: str            # the phase the engine proposes to advance to
+    review_id: str
+    payload: dict            # the assembled summary (also the phase_review_opened event body)
 
 
 class _GatePlanner:
@@ -106,10 +131,18 @@ class InvestigationSession:
     def __init__(self, subject: SubjectRef, playbook: Playbook, planner: Planner, *,
                  layer: CapabilityLayer | None = None,
                  clock: Callable[[], datetime] | None = None, max_steps: int = 60,
-                 background_drive: bool = False,
+                 background_drive: bool = False, auto_review: bool = True,
                  store: InvestigationStore | None = None) -> None:
         self.subject = subject
         self.id = subject.key
+        # PHASE-REVIEW mode (owner 2026-07-23). auto_review=True (the DEFAULT) is the
+        # NON-INTERACTIVE / hermetic mode the owner mandates for scripted planners: reviewable
+        # transitions AUTO-APPROVE (never suspend, exactly as the write-gate is structurally absent
+        # in batch), so a scripted/CI session drives straight through and never hangs. auto_review=
+        # False is the INTERACTIVE workbench mode (the LivePlanner backend): a reviewable transition
+        # SUSPENDS for the real human's direction approval. The batch Engine.run() path never
+        # constructs a session at all, so goldens are untouched either way.
+        self._auto_review = auto_review
         # the SUBJECT under investigation → renders as node #1 (obs 1). P7 step 5: derived
         # from the playbook's subject_node role binding — "the incident is the first node"
         # is playbook data, not a session-coded convention.
@@ -135,6 +168,13 @@ class InvestigationSession:
         self._pending: _Pending | None = None
         self._decision: _Decision | None = None
         self._gate_count = 0
+        # PHASE-REVIEW slots (owner 2026-07-23) — DISTINCT from the write-gate's `_pending` so the
+        # decision router (answer_gate vs answer_review) never mis-fires. `_gated_phases` records
+        # which phases opened a write-gate this run, so their phase-review is SUBSUMED (dedup: one
+        # pause at Act, not a write-gate then a redundant advance-review).
+        self._pending_review: _PendingReview | None = None
+        self._review_count = 0
+        self._gated_phases: set[str] = set()
         self._messages: list[dict] = []      # operator steering / answers
         self._outcome: str = "open"
         # background drive: a live LLM phase is seconds of latency — run the drive loop off the
@@ -189,6 +229,44 @@ class InvestigationSession:
             self._drive()
         return self.events(after=start)
 
+    def answer_review(self, decision: ReviewDecision | str, *, text: str = "",
+                      actor: str = "operator") -> list[dict]:
+        """Resolve an open phase-review — APPROVE (advance to the proposed next phase) · REFINE
+        (re-run the just-completed phase with `text` as an operator steer) · DENY (halt, terminal).
+
+        The DIRECTION counterpart to answer_gate(): the write-gate approves the irreversible ACTION;
+        a phase-review approves the DIRECTION at a phase transition. Records WHO decided + WHEN in
+        the durable journal (a `review_decision` entry, Source.HUMAN) and on the event stream, then
+        continues to the next pause (approve/refine) or closes the run (deny)."""
+        if self.state != SessionState.AWAITING_REVIEW or self._pending_review is None:
+            raise RuntimeError("no open phase-review to answer")
+        start = self._event_seq
+        dec = ReviewDecision(decision)
+        pr = self._pending_review
+        self._record_review_decision(dec, actor=actor, reason=text)
+        self.state = SessionState.RUNNING
+        if dec == ReviewDecision.DENY:
+            self._pending_review = None
+            self._deny_close(pr, actor=actor)
+            return self.events(after=start)
+        # JOURNAL v2 lifecycle: the run RESUMES from the review (question → answer → resume),
+        # mirroring the write-gate's resumed record so the interactive journal stays diagnosable.
+        self._engine.journal.append_lifecycle(
+            "resumed", phase_id=pr.from_phase,
+            detail={"review": dec.value, "actor": actor, "to_phase": pr.to_phase})
+        if dec == ReviewDecision.REFINE:
+            # re-enter/repeat the just-completed phase with the steer buffered for the (live)
+            # planner as an operator message; the engine pointer moves BACK to that phase.
+            if text:
+                self.add_message(text, actor=actor)
+            self._engine.reenter_phase(pr.from_phase)
+        self._pending_review = None          # APPROVE leaves the engine pointed at the next phase
+        if self._background:
+            self._drive_async()
+        else:
+            self._drive()
+        return self.events(after=start)
+
     # ── background drive (live path — long LLM latency off the HTTP thread) ──────
     def _drive_async(self) -> None:
         """Start the drive loop on a daemon thread if one isn't already running (idempotent, so a
@@ -237,6 +315,34 @@ class InvestigationSession:
                    actor=actor, source=Source.HUMAN.value, reason=reason,
                    phase=p.phase)
 
+    def _record_review_decision(self, decision: ReviewDecision, *, actor: str,
+                                reason: str) -> None:
+        """Journal the human DIRECTION answer (source-of-truth) + emit a `phase_review_decision`
+        event. A typed `review_decision` entry whose seq is assigned at append — nothing reserved,
+        so the completed phase behind it keeps its seq gap-free (parallels append_gate_decision)."""
+        pr = self._pending_review
+        assert pr is not None
+        self._engine.journal.append_review_decision(
+            pr.from_phase, review_id=pr.review_id, to_phase=pr.to_phase,
+            decision=decision.value, actor=actor, reason=reason)
+        self._emit("phase_review_decision", review_id=pr.review_id, decision=decision.value,
+                   actor=actor, source=Source.HUMAN.value, reason=reason,
+                   phase=pr.from_phase, to_phase=pr.to_phase)
+
+    def _deny_close(self, pr: _PendingReview, *, actor: str) -> None:
+        """DENY halts the investigation at the review — terminal. A durable `closed` lifecycle
+        record names WHY (phase_review_denied) so the run ends DIAGNOSABLY (never a zombie), and
+        the SSE stream closes. The outcome is the engine's terminal label (open — close was never
+        reached)."""
+        self.state = SessionState.CLOSED
+        res = self._engine.result()
+        self._outcome = res.close_outcome or "open"
+        self._engine.journal.append_lifecycle(
+            "closed", phase_id=pr.from_phase, outcome=self._outcome,
+            detail={"reason": "phase_review_denied", "actor": actor, "to_phase": pr.to_phase})
+        self._emit("session_state", state=self.state.value, phase=None, outcome=self._outcome)
+        self._persist()
+
     def add_message(self, text: str, *, actor: str = "operator") -> dict:
         """Record an operator turn in the two-way chat (obs 2). The message becomes a first-class
         `user_message` event on the stream AND a `step` entry in the durable journal (Source.HUMAN),
@@ -271,6 +377,17 @@ class InvestigationSession:
                 return e
         return None
 
+    @property
+    def pending_review(self) -> dict | None:
+        """The last phase_review_opened payload while AWAITING_REVIEW (for reconnect / cold-load).
+        Distinct from pending_gate so the two suspend surfaces never collide."""
+        if self.state != SessionState.AWAITING_REVIEW:
+            return None
+        for e in reversed(self._events):
+            if e["type"] == "phase_review_opened":
+                return e
+        return None
+
     def snapshot(self) -> dict:
         """export_bundle-shaped cold-load payload (+ session envelope). The engine's journal is
         the checkpointer, so `graph`/`hypothesis store` here equal a fresh journal replay."""
@@ -281,6 +398,7 @@ class InvestigationSession:
             "session_id": self.id,
             "state": self.state.value,
             "pending_gate": self.pending_gate,
+            "pending_review": self.pending_review,
             "messages": list(self._messages),
             "events": list(self._events),
         }
@@ -310,6 +428,14 @@ class InvestigationSession:
                 self._pending = None
                 self._decision = None
             self._persist()                  # durable after every fold/step
+            # PHASE-REVIEW (owner 2026-07-23): a phase completed its goal and would advance to a
+            # DIFFERENT phase — pause for the human's DIRECTION approval BEFORE the next phase runs.
+            # A between-steps pause (the completed phase already claimed + journaled its seq), so it
+            # is the SESSION driver's construct, never an engine gate — the batch Engine.run() path
+            # (gen_golden/run_live) never reaches here. Skipped in auto_review mode (scripted/CI).
+            if not self._auto_review and self._should_review(result):
+                self._open_review(result)
+                return                       # phase_review_opened + session_state already emitted
         if self._engine.current_phase is None:
             self._close()
         elif self._engine.done():
@@ -336,6 +462,10 @@ class InvestigationSession:
         self._gate_count += 1
         gate_id = f"{self.id}:gate:{self._gate_count}"
         self._pending = _Pending(phase=ctx.phase, plan=out, write_calls=write_calls, gate_id=gate_id)
+        # PHASE-REVIEW dedup (owner 2026-07-23): this phase opened the human write-gate, so its
+        # own advance-review is SUBSUMED — one pause at Act, never the write-gate THEN a redundant
+        # "approve advancing past act" review.
+        self._gated_phases.add(ctx.phase)
         self.state = SessionState.SUSPENDED
         self._emit("phase_started", phase=ctx.phase)
         payload = self._gate_payload(ctx, write_calls, gate_id, out.narrative)
@@ -374,6 +504,66 @@ class InvestigationSession:
             evidence = [self._fact_view(fid) for fid in lead.supporting_facts]
         return {"gate_id": gate_id, "phase": ctx.phase, "reasoning": narrative,
                 "actions": actions, "hypothesis": hypothesis, "evidence": evidence}
+
+    # ── phase-review machinery (between-steps DIRECTION approval — owner 2026-07-23) ─────
+    def _should_review(self, result) -> bool:
+        """A phase-review fires iff: the completed phase's verdict is a genuine ADVANCE to a
+        DIFFERENT, non-terminal phase (never a REPEAT loop or the DONE terminal), the playbook
+        DECLARES `review_before_advance` for that phase, and the phase did NOT open the write-gate
+        this run (the write-gate subsumes its review — one pause, not two)."""
+        if result.verdict.status != VerdictStatus.ADVANCE:
+            return False
+        nxt = self._engine.current_phase          # the phase the NEXT step() would run
+        if nxt is None or nxt == result.phase_id:  # terminal, or a same-phase repeat — no review
+            return False
+        if result.phase_id in self._gated_phases:  # the write-gate already paused this phase
+            return False
+        spec = self._engine.playbook.phase(result.phase_id)
+        return spec.review_before_advance
+
+    def _open_review(self, result) -> None:
+        self._review_count += 1
+        review_id = f"{self.id}:review:{self._review_count}"
+        payload = self._review_payload(result, review_id)
+        self._pending_review = _PendingReview(
+            from_phase=result.phase_id, to_phase=self._engine.current_phase,
+            review_id=review_id, payload=payload)
+        self.state = SessionState.AWAITING_REVIEW
+        # durable, gate_opened-style: WHAT the phase did + the proposed direction, on what evidence.
+        self._engine.journal.append_phase_review(
+            result.phase_id, review_id=review_id, to_phase=payload["to_phase"],
+            summary=payload["summary"], verdict=payload["verdict"],
+            hypothesis=payload["hypothesis"]["id"] if payload["hypothesis"] else None,
+            facts=payload["facts"], nodes=payload["nodes"])
+        self._emit("phase_review_opened", **payload)
+        self._emit("session_state", state=self.state.value, phase=result.phase_id)
+        self._persist()                      # a run awaiting review is durable at the pause
+
+    def _review_payload(self, result, review_id: str) -> dict:
+        """Assemble the SUMMARY the human reviews: the phase's goal + reasoning narrative, the
+        counts of what it discovered, the leading hypothesis, and the proposed advance + why."""
+        to_phase = self._engine.current_phase
+        lead = self._engine.hypothesis_store.leading()
+        hypothesis = None
+        if lead is not None:
+            hypothesis = {"id": lead.id, "statement": lead.statement,
+                          "status": lead.status.value,
+                          "confidence": self._engine.hypothesis_store.score(lead),
+                          "root_candidate": lead.root_candidate}
+        gate = result.verdict.gate_result.value
+        summary = (f"'{result.phase_id}' is complete ({gate} gate) — proposing to advance to "
+                   f"'{to_phase}'.")
+        return {
+            "review_id": review_id, "phase": result.phase_id, "to_phase": to_phase,
+            "goal": result.goal_restated, "narrative": result.narrative,
+            "verdict": result.verdict.status.value, "summary": summary,
+            "discovered": {"facts": len(result.facts_added), "nodes": len(result.nodes_touched),
+                           "events": len(result.events_added), "edges": len(result.edges_added),
+                           "hypotheses": len(result.hypotheses_updated)},
+            "hypothesis": hypothesis,
+            "facts": [f.id for f in result.facts_added],
+            "nodes": [n.id for n in result.nodes_touched],
+        }
 
     def _resolve_pending_plan(self, ctx: PlanContext) -> PlanOutput:
         """Return the plan the operator's decision implies for the gated phase (called on the
@@ -523,7 +713,7 @@ class SessionManager:
     def __init__(self, playbook: Playbook, planner_factory: Callable[[SubjectRef], Planner], *,
                  layer_factory: Callable[[SubjectRef], CapabilityLayer | None] | None = None,
                  clock: Callable[[], datetime] | None = None, max_steps: int = 60,
-                 background_drive: bool = False,
+                 background_drive: bool = False, auto_review: bool = True,
                  store: InvestigationStore | None = None) -> None:
         self.playbook = playbook
         self._planner_factory = planner_factory
@@ -531,6 +721,10 @@ class SessionManager:
         self._clock = clock
         self._max_steps = max_steps
         self._background_drive = background_drive     # live path: drive off the HTTP thread
+        # PHASE-REVIEW mode for every session this manager creates (owner 2026-07-23): auto_review=
+        # True (default) is the scripted/CI backend (build_manager) — reviews auto-approve; the LIVE
+        # workbench backend (live_build_manager) sets False so the real human approves each advance.
+        self._auto_review = auto_review
         # durability (opt-in): when set, sessions persist as they drive and reopen read-only from
         # disk after a restart. None keeps the pure in-memory behaviour (the hermetic suite).
         self._store = store
@@ -544,7 +738,8 @@ class SessionManager:
         layer = self._layer_factory(subject) if self._layer_factory else None
         session = InvestigationSession(subject, self.playbook, self._planner_factory(subject),
                                        layer=layer, clock=self._clock, max_steps=self._max_steps,
-                                       background_drive=self._background_drive, store=self._store)
+                                       background_drive=self._background_drive,
+                                       auto_review=self._auto_review, store=self._store)
         self._sessions[session.id] = session       # register (overwrites a prior run of the same id)
         if advance:
             session.advance()                      # run to the first pause / gate

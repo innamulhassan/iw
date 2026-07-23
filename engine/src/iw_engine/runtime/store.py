@@ -229,6 +229,7 @@ class InvestigationStore:
             "state": meta.get("state", "closed"),
             "read_only": True,
             "pending_gate": None,
+            "pending_review": None,
             "messages": [],
             "events": [],
         }

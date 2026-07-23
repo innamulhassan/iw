@@ -99,6 +99,13 @@ class Engine:
         a phase-scoped fixture transport — between steps without reaching into internals."""
         return self._phase
 
+    def reenter_phase(self, phase_id: str) -> None:
+        """Point the next `step()` back at `phase_id`. The interactive session's phase-review
+        REFINE uses this to RE-RUN the just-completed phase with the operator's steer. Purely a
+        between-steps pointer reset — NON-blocking and never called by `run()`/gen_golden/run_live,
+        so the batch path and every golden are untouched (the review lives entirely in the driver)."""
+        self._phase = phase_id
+
     def step(self) -> PhaseResult | None:
         """Run exactly one phase and route to the next. Returns the PhaseResult, or None when
         the investigation is complete. The interactive driver calls this to pause between

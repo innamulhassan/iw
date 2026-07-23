@@ -42,7 +42,7 @@ import iw_engine
 from ..domain.subject import SubjectRef
 from ..runtime.loader import load_playbook
 from ..runtime.planner import Planner
-from ..runtime.session import GateDecision, SessionManager, SessionState
+from ..runtime.session import GateDecision, ReviewDecision, SessionManager, SessionState
 from ..runtime.store import InvestigationStore
 
 
@@ -65,6 +65,11 @@ class GateBody(BaseModel):
     decision: str
     params: dict | None = None
     reason: str = ""
+
+
+class ReviewBody(BaseModel):
+    decision: str          # approve | refine | deny
+    text: str = ""         # the operator steer (refine) or note
 
 
 class MessageBody(BaseModel):
@@ -152,6 +157,15 @@ def create_server(manager: SessionManager | None = None, *,
         try:
             events = session.answer_gate(GateDecision(body.decision),
                                          params=body.params, reason=body.reason)
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"events": events, "state": session.state.value}
+
+    @app.post("/sessions/{session_id}/review")
+    def review(session_id: str, body: ReviewBody) -> dict:
+        session = _require(session_id)
+        try:
+            events = session.answer_review(ReviewDecision(body.decision), text=body.text)
         except (RuntimeError, ValueError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return {"events": events, "state": session.state.value}

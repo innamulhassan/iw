@@ -158,6 +158,13 @@ class PhaseSpec(BaseModel):
     gate: GateSpec = Field(default_factory=GateSpec)
     on_verdict: dict[str, str] = Field(default_factory=dict)    # verdict status -> next phase id
     writes_allowed: bool = False    # this phase may execute write-effect capabilities (the human-gated phase)
+    # PHASE-REVIEW (owner 2026-07-23): when this phase COMPLETES its goal and would ADVANCE to a
+    # DIFFERENT phase, pause for a human DIRECTION approval first (summary → approve/refine/deny).
+    # PLAYBOOK DATA the interactive session driver reads — the batch Engine.run()/gen_golden/
+    # run_live path never consults it, so goldens are untouched (the review is a session-driver
+    # pause, never an engine/controller gate predicate). A phase that opens the Act WRITE-gate has
+    # its review SUBSUMED by that gate (one pause, not two — the write-gate is the human checkpoint).
+    review_before_advance: bool = False
 
 
 class Playbook(BaseModel):

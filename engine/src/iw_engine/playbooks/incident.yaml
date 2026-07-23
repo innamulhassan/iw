@@ -28,6 +28,7 @@ phases:
     produces_required: [nodes_touched, facts_added]
     gate: {min_facts: 1}
     on_verdict: {advance: investigate, repeat: frame}
+    review_before_advance: true   # summarize + get human OK before advancing frame -> investigate
 
   - id: investigate
     goal: "ONE loop — hypothesize ⇄ gather evidence ⇄ refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals."
@@ -35,6 +36,7 @@ phases:
     produces_required: [facts_added, hypotheses_updated]
     gate: {promotion: true, refutation_attempted: true}
     on_verdict: {advance: act, repeat: investigate, backtrack: investigate}
+    review_before_advance: true   # summarize the diagnosis + get human OK before advancing to act
 
   - id: act
     goal: "Execute the chosen production-changing action through the human approval gate — early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action."
@@ -45,6 +47,9 @@ phases:
     # to the investigate loop — an unmapped backtrack here terminated a live run "open"
     # (network retest 2026-07-22) when the model rightly refused to write unanchored.
     on_verdict: {advance: verify, repeat: act, backtrack: investigate}
+    # declared for completeness, but the Act WRITE-gate SUBSUMES this review: when act opens the
+    # human write-gate, the driver suppresses act's phase-review (one pause at act, not two).
+    review_before_advance: true
 
   - id: verify
     goal: "Did the symptom clear and does the confirmed chain still hold?"
@@ -52,6 +57,7 @@ phases:
     produces_required: [facts_added]
     gate: {symptom_cleared: true}      # recovery is PROVEN on the symptom node, never asserted
     on_verdict: {advance: close, backtrack: investigate}
+    review_before_advance: true   # summarize recovery + get human OK before advancing to close
 
   - id: close
     goal: "Postmortem: the confirmed causal chain + timeline, folded from the journal."

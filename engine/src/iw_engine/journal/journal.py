@@ -63,9 +63,13 @@ class JournalEntry(BaseModel):
     #                   ride PhaseResult.rejections — derived, not duplicated)
     #   repair        — a planner repair record (dropped ops, coercions; live path)
     #   lifecycle     — run started/resumed/max-steps-exhausted/terminal outcome
+    #   phase_review  — the between-phases DIRECTION review shown to the human (summary + the
+    #                   proposed advance), durable like gate_opened (owner 2026-07-23)
+    #   review_decision — approve/refine/deny of a phase-review + actor (the direction consent)
     #   step          — the v1 union of gate_decision+message, accepted read-only
     kind: Literal["phase", "plan", "step", "invocation", "gate_opened", "gate_decision",
-                  "message", "rejection", "repair", "lifecycle"] = "phase"
+                  "message", "rejection", "repair", "lifecycle",
+                  "phase_review", "review_decision"] = "phase"
     phase_id: str | None = None              # playbook-declared phase id (P7 phase-as-data)
     actor: str = "engine"                    # WHO produced this entry (engine, or a human approver)
     source: Source | None = None             # provenance of a decision entry (Source.HUMAN on a gate answer)
@@ -159,6 +163,30 @@ class Journal:
             ts=self._clock(), kind="gate_decision", phase_id=phase_id, actor=actor,
             source=Source.HUMAN, intent=intent, reasoning=reasoning, action=action,
             observation=observation, decision=decision))
+
+    def append_phase_review(self, phase_id: str, *, review_id: str, to_phase: str,
+                            summary: str, verdict: str, hypothesis: str | None,
+                            facts: list[str], nodes: list[str]) -> JournalEntry:
+        """The phase-review OPENING is durable (owner 2026-07-23), gate_opened-style: WHAT the
+        phase accomplished (summary), the proposed advance (to_phase), the leading hypothesis and
+        the delta ids it discovered — so the journal shows the DIRECTION the human was asked to
+        approve, not just their answer. Seq is assigned at append (nothing reserved), so the
+        completed phase behind it keeps its own seq gap-free."""
+        return self.append(JournalEntry(
+            ts=self._clock(), kind="phase_review", phase_id=phase_id, actor="engine",
+            reasoning=summary,
+            action={"review_id": review_id, "to_phase": to_phase, "verdict": verdict},
+            observation={"hypothesis": hypothesis, "facts": facts, "nodes": nodes}))
+
+    def append_review_decision(self, phase_id: str, *, review_id: str, to_phase: str,
+                               decision: str, actor: str, reason: str = "") -> JournalEntry:
+        """The human DIRECTION decision on a phase-review (approve/refine/deny) + WHO — the
+        consent record for advancing (or repeating/halting), Source.HUMAN, seq assigned at append."""
+        return self.append(JournalEntry(
+            ts=self._clock(), kind="review_decision", phase_id=phase_id, actor=actor,
+            source=Source.HUMAN, reasoning=reason or f"phase-review {decision} by {actor}",
+            action={"review_id": review_id, "to_phase": to_phase},
+            observation={"decision": decision, "actor": actor}, decision=decision))
 
     def append_message(self, phase_id: str | None, *, text: str, message_kind: str,
                        actor: str) -> JournalEntry:
