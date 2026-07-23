@@ -717,6 +717,43 @@ describe("store reducer — the live event fold", () => {
     expect(byIntent["active_alerts"]).toBe(1);
   });
 
+  it("threads the reasoned-step STORY (per-call why/result/produced + to-do observation) onto reopened turns", () => {
+    // JOURNAL story fidelity: each invocation carries the planner's OWN why (its narrative), the
+    // human result line, and a per-op produced summary; the plan to-do carries the step observation.
+    // The fold threads them onto the turn's calls (by execution order) + to-dos, so the chat can
+    // tell the full reasoned story, not just "N ops".
+    const snapshot = mkSnap({
+      state: "closed",
+      journal: [
+        {
+          seq: 2, kind: "plan", ts: "t2", phase: "frame", actor: "engine", narrative: "frame plan",
+          available: ["get_incident", "range_query"], plan_calls: ["get_incident", "range_query"], plan_ops: ["AddNode"],
+          todos: [
+            { objective: "pull the incident record", calls: ["get_incident"], ops: ["AddNode"], status: "pending", observation: "INC-4821: payments-api tier-1, declared SEV2." },
+            { objective: "frame the rival hypotheses", calls: [], ops: ["ProposeHypothesis", "ProposeHypothesis"], status: "pending", observation: "change-first: the deploy is the prime suspect (H1)." },
+          ],
+        },
+        { seq: 2, kind: "invocation", ts: "t2", phase: "frame", actor: "engine", intent: "get_incident", provider: "servicenow", effect: "read", outcome: "empty", op_count: 5, blocked: false, reason: null, narrative: "start from the incident of record — who paged, what tier", params: { incident_id: "INC-4821" }, todo: 0, result: "INC-4821: payments-api tier-1, declared SEV2.", produced: ["node incident INC-4821", "fact tier=tier-1"] },
+        { seq: 2, kind: "phase", ts: "t2", phase: "frame", actor: "engine", narrative: "5xx spiked", goal: "frame the symptom", verdict: "advance", next_actions: [], refs: {} },
+      ],
+    });
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    const frame = s.turns.find((t) => t.phase === "frame")!;
+    // the tool call carries the planner's OWN why (rationale = the invocation narrative), the result
+    // line, the per-op produced summary, and the attributed op count — the full reasoned step
+    const gi = frame.calls.find((c) => c.intent === "get_incident")!;
+    expect(gi.rationale).toBe("start from the incident of record — who paged, what tier");
+    expect(gi.result).toBe("INC-4821: payments-api tier-1, declared SEV2.");
+    expect(gi.produced).toEqual(["node incident INC-4821", "fact tier=tier-1"]);
+    expect(gi.op_count).toBe(5);
+    expect(gi.todo).toBe(0);
+    // the reasoning-only to-do (no calls) carries its conclusion as the step observation
+    const reasoningTodo = frame.todos!.find((td) => td.plannedCalls.length === 0)!;
+    expect(reasoningTodo.observation).toBe("change-first: the deploy is the prime suspect (H1).");
+    // a call-bearing to-do keeps its observation too (mirrors the invocation result)
+    expect(frame.todos![0].observation).toBe("INC-4821: payments-api tier-1, declared SEV2.");
+  });
+
   it("carries the F1 to-do index on a live capability_call, and threads the checklist via mergeDetail", () => {
     // live fold: the SSE capability_call carries `todo`; the checklist (journal-only) arrives on the
     // reconcile bundle and mergeDetail threads it onto the live turn — parity with the reopen fold.

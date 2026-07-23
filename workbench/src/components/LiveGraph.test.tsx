@@ -176,4 +176,26 @@ describe("LiveGraph — node-detail: the six datum-shape categories", () => {
     expect(notes.querySelectorAll(".node-detail__journal li").length).toBe(2);
     expect(within(notes).getByText(/High5xxRate paged/)).toBeTruthy();
   });
+
+  it("renders a structured {at, author, text}[] work-log as a timestamped journal (forward-compat)", () => {
+    // work_notes may promote from a flat string to an append-only LOG of timestamped notes; the
+    // node-detail must render each as time + author + text without any component change.
+    const snap = nodeDetailSnapshot();
+    setServedDictionary(snap.dictionary);
+    (snap.graph.nodes[0].props as Record<string, unknown>).work_notes = [
+      { at: "2026-07-19T09:02:00Z", author: "oncall", text: "High5xxRate paged; v4.12 suspect" },
+      { at: "2026-07-19T09:26:00Z", author: "sre-lead", text: "rollback staged" },
+    ];
+    const live = reduce(emptyState(), { kind: "seed", snapshot: snap });
+    render(<LiveGraph live={live} selection={{ kind: "node", id: SVC }} onSelect={() => {}} />);
+    const detail = document.querySelector(".node-detail") as HTMLElement;
+    const notes = within(detail).getByText(/^Work notes/).closest(".cat") as HTMLElement;
+    expect(notes.querySelectorAll(".node-detail__journal li").length).toBe(2);
+    // each note carries its author + text (the timestamped log render)
+    expect(within(notes).getByText("oncall")).toBeTruthy();
+    expect(within(notes).getByText("sre-lead")).toBeTruthy();
+    expect(within(notes).getByText(/rollback staged/)).toBeTruthy();
+    // and a time stamp is lifted from `at` (rendered as a clock time)
+    expect(notes.querySelectorAll(".journal__stamp").length).toBe(2);
+  });
 });

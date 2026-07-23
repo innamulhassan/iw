@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import ToolCallCard from "./ToolCallCard";
 import type { ToolCall } from "../lib/store";
 
@@ -59,5 +59,50 @@ describe("ToolCallCard — outcome honesty", () => {
     render(<ToolCallCard call={call({ op_count: 3, summary: "3 ops" })} />);
     expect(document.querySelector(".toolcall--data")).toBeTruthy();
     expect(document.querySelector(".toolcall__outcome")).toBeNull();
+  });
+});
+
+// JOURNAL story fidelity: the WHY is the planner's OWN rationale (never a canned purpose when
+// reasoning exists), the summary leads with the result LINE (not "N ops"), and a reasoned step that
+// produced findings reads as "data" even when the mock transport outcome was "empty".
+describe("ToolCallCard — the reasoned step's story", () => {
+  afterEach(() => cleanup());
+
+  it("shows the planner's own rationale as the why — not the hardcoded purpose", () => {
+    render(
+      <ToolCallCard
+        call={call({
+          intent: "get_incident", // PURPOSE map has "pull the incident record" — must NOT win
+          rationale: "start from the incident of record — who paged, what tier is at risk",
+          outcome: "empty",
+        })}
+      />
+    );
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.getByText("start from the incident of record — who paged, what tier is at risk")).toBeTruthy();
+    expect(screen.queryByText("pull the incident record")).toBeNull(); // the canned purpose is suppressed
+  });
+
+  it("leads the summary with the result line and reads as data despite an 'empty' transport outcome", () => {
+    render(
+      <ToolCallCard
+        call={call({
+          intent: "range_query",
+          outcome: "empty", // the mock had no fixture — but the reasoned step produced real findings
+          op_count: 13,
+          result: "40% of ~820 rpm are 5xx; p50 holds at 58ms, p99 drags to 4.2s",
+          produced: ["fact red_errors=0.4", "fact red_rate=820 rpm", "node anomaly ANOM-1"],
+        })}
+      />
+    );
+    // the summary shows the result, never "13 ops", and the attributed findings flip it to data
+    expect(screen.getByText(/40% of ~820 rpm are 5xx/)).toBeTruthy();
+    expect(document.querySelector(".toolcall--data")).toBeTruthy();
+    expect(document.querySelector(".toolcall--empty")).toBeNull();
+    expect(screen.queryByText(/no data — clean empty/)).toBeNull();
+    // expand → the produced ops are itemized as the step's evidence
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.getByText("fact red_errors=0.4")).toBeTruthy();
+    expect(screen.getByText("node anomaly ANOM-1")).toBeTruthy();
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import ChatPane from "./ChatPane";
 import { emptyState } from "../lib/store";
 import type { LiveState, ToolCall, Turn } from "../lib/store";
@@ -92,5 +92,48 @@ describe("ChatPane — the to-do checklist (F1)", () => {
     render(<ChatPane live={live(t)} busy={false} onDecide={noop} onReview={noop} onSend={noop} />);
     expect(document.querySelector(".turn__todos")).toBeNull(); // no checklist
     expect(screen.getByText("get_dependencies")).toBeTruthy(); // the flat card still renders
+  });
+
+  it("renders a reasoning step's conclusion as a finding, and does not duplicate a fetch step's observation", () => {
+    const t = turn({
+      calls: [toolCall({ seq: 1, intent: "get_commit", todo: 0 })],
+      todos: [
+        { objective: "read the commit", plannedCalls: ["get_commit"], plannedOps: ["AddNode"], status: "pending", observation: "abc123 adds intl VAT regions" },
+        { objective: "frame the rival hypotheses", plannedCalls: [], plannedOps: ["ProposeHypothesis", "ProposeHypothesis"], status: "pending", observation: "the deploy is the prime suspect (H1)" },
+      ],
+    });
+    render(<ChatPane live={live(t)} busy={false} onDecide={noop} onReview={noop} onSend={noop} />);
+    // the reasoning-only step surfaces its conclusion as a finding line + a "reasoning" tag
+    expect(screen.getByText(/the deploy is the prime suspect \(H1\)/)).toBeTruthy();
+    expect(screen.getByText("reasoning")).toBeTruthy();
+    // the call-bearing step does NOT re-render its observation — the tool card carries the result
+    expect(screen.queryByText("abc123 adds intl VAT regions")).toBeNull();
+  });
+});
+
+// Full-window story mode — the chat can expand to the whole workbench for reading end to end.
+describe("ChatPane — full-window toggle", () => {
+  afterEach(() => cleanup());
+
+  it("renders an accessible maximize button that toggles and reflects the expanded state", () => {
+    const onToggle = vi.fn();
+    const { rerender } = render(
+      <ChatPane live={live(turn({}))} busy={false} onDecide={noop} onReview={noop} onSend={noop} expanded={false} onToggleExpand={onToggle} />
+    );
+    const btn = screen.getByRole("button", { name: /expand the chat to full window/i });
+    expect(btn.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(btn);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    // once expanded, the control offers to restore (aria reflects the pressed state)
+    rerender(
+      <ChatPane live={live(turn({}))} busy={false} onDecide={noop} onReview={noop} onSend={noop} expanded={true} onToggleExpand={onToggle} />
+    );
+    const restore = screen.getByRole("button", { name: /restore the workbench layout/i });
+    expect(restore.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("omits the toggle when no handler is wired (standalone render)", () => {
+    render(<ChatPane live={live(turn({}))} busy={false} onDecide={noop} onReview={noop} onSend={noop} />);
+    expect(screen.queryByRole("button", { name: /full window/i })).toBeNull();
   });
 });

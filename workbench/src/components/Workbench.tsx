@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LiveState, Selection } from "../lib/store";
 import { activePhase, hypothesisList, phaseCounts } from "../lib/store";
 import type { GateDecision } from "../lib/api";
@@ -35,6 +35,19 @@ export default function Workbench({
   // one selection shared by the graph + the hypotheses (obs 8): clicking a fact/hypothesis
   // cross-highlights the node + fact in the graph, and clicking a node selects it here.
   const [selection, setSelection] = useState<Selection | null>(null);
+
+  // full-window story mode (owner: "I should be able to see the chat in a full window"): the chat
+  // pane expands to the whole workbench body — graph + sidebar hidden — for reading the complete
+  // investigation end to end. Esc restores the split layout (accessible: keyboard escape hatch).
+  const [chatExpanded, setChatExpanded] = useState(false);
+  useEffect(() => {
+    if (!chatExpanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setChatExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [chatExpanded]);
 
   // The blank-page fix: a NEW investigation spins up through `open()` (reset → createSession →
   // seed) / `openExisting()` (reset → getSnapshot → seed). Between the reset and the seed the store
@@ -77,18 +90,30 @@ export default function Workbench({
         onBack={onBack}
       />
       {error && <div className="workbench__error">{error}</div>}
-      <div className="workbench__body">
-        <section className="pane pane--chat">
-          <ChatPane live={live} busy={busy} onDecide={onDecide} onReview={onReview} onSend={onSend} />
+      <div className={`workbench__body${chatExpanded ? " workbench__body--chat-full" : ""}`}>
+        <section className={`pane pane--chat${chatExpanded ? " pane--chat-full" : ""}`}>
+          <ChatPane
+            live={live}
+            busy={busy}
+            onDecide={onDecide}
+            onReview={onReview}
+            onSend={onSend}
+            expanded={chatExpanded}
+            onToggleExpand={() => setChatExpanded((v) => !v)}
+          />
         </section>
+        {/* graph + sidebar collapse away in full-window story mode — the chat is the whole view */}
+        {!chatExpanded && (
         <section className="pane pane--graph">
           <LiveGraph live={live} selection={selection} onSelect={setSelection} />
         </section>
+        )}
         {/* The right side holds only what's about THIS investigation: the LIVE belief state.
             The chat IS the complete journal (so the Journal + Rejections panels are gone —
             rejections render inline in their turn), the incident SWITCHER is gone (navigation
             lives in the "← Incidents" back button; similar/related incidents surface in the
             graph), and Discovery appears only when it has something to show. */}
+        {!chatExpanded && (
         <aside className="workbench__sidebar">
           {/* the close-out card (M29): once the investigation is CLOSED, lead the sidebar with the
               postmortem the engine served in every bundle (root cause · ruled-out-with-basis ·
@@ -114,6 +139,7 @@ export default function Workbench({
             </section>
           )}
         </aside>
+        )}
       </div>
     </div>
   );

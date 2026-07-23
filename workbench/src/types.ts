@@ -206,6 +206,10 @@ export interface JournalTodo {
   calls: string[]; // capability intents this to-do calls
   ops: string[]; // direct op kinds this to-do authors
   status: string; // pending | done (authored; the UI derives completion as calls land)
+  /** The human "what we found" line for this reasoned step (JOURNAL story fidelity) — the step's
+   *  takeaway. For a call-bearing step it equals the serving invocation's `result`; a reasoning-only
+   *  step (a hypothesis propose/update) carries its conclusion here. Absent on a legacy journal. */
+  observation?: string;
   op_budget?: number | null;
   delegate?: boolean;
 }
@@ -240,6 +244,11 @@ export interface JournalEntry {
   outcome?: string;
   op_count?: number;
   todo?: number | null; // F1 — the plan to-do index this call served (invocation entries)
+  // JOURNAL story fidelity — the reasoned-step RESULT (`result`, the human "what came back" line)
+  // and PRODUCED facts (`produced`, a per-op summary) ride an invocation ONLY when the serving plan
+  // authored to-dos; absent on a call from a no-to-do plan (so the pre-story goldens stay byte-stable).
+  result?: string; // what the call returned, as a human line (= the serving to-do's observation)
+  produced?: string[]; // per-op summary of what the call folded ("fact red_errors=0.40", "node …")
   blocked?: boolean;
   reason?: string | null;
   served_by?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1

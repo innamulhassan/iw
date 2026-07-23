@@ -109,10 +109,33 @@ function stateTrails(stateFacts: GraphFact[]): StateTrail[] {
  *  and lifts a leading `[HH:MM] actor:` stamp when present, so the terse single-line twins and the
  *  multi-line timestamped live records both read as a journal. */
 interface WorkNote {
-  stamp: string | null;
+  stamp: string | null; // the note's time — a formatted `at`, or a lifted [HH:MM] prefix
+  author: string | null; // who logged it (the structured LOG shape carries it; a flat line has none)
   text: string;
 }
 function parseWorkNotes(raw: unknown): WorkNote[] {
+  // The forward-compatible LOG shape (§3 ANNOTATION): an append-only array of independently-
+  // timestamped notes, each `{ at, author, text }`, rendered as a timestamped work-log. work_notes
+  // may still arrive as a flat STRING (a terse twin / a legacy field) — split it into lines, lifting
+  // a leading `[HH:MM]` stamp when present — so both shapes render through the same journal.
+  if (Array.isArray(raw)) {
+    return raw
+      .map((n): WorkNote | null => {
+        if (n && typeof n === "object") {
+          const o = n as { at?: unknown; author?: unknown; text?: unknown };
+          const text = typeof o.text === "string" ? o.text : "";
+          if (!text.trim()) return null;
+          const at = typeof o.at === "string" ? o.at : null;
+          return {
+            stamp: (at && clockTime(at)) || at,
+            author: typeof o.author === "string" ? o.author : null,
+            text: text.trim(),
+          };
+        }
+        return typeof n === "string" && n.trim() ? { stamp: null, author: null, text: n.trim() } : null;
+      })
+      .filter((n): n is WorkNote => n !== null);
+  }
   if (typeof raw !== "string" || !raw.trim()) return [];
   return raw
     .split(/\r?\n/)
@@ -120,7 +143,7 @@ function parseWorkNotes(raw: unknown): WorkNote[] {
     .filter(Boolean)
     .map((line) => {
       const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
-      return m ? { stamp: m[1], text: m[2] } : { stamp: null, text: line };
+      return m ? { stamp: m[1], author: null, text: m[2] } : { stamp: null, author: null, text: line };
     });
 }
 
@@ -838,6 +861,7 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                   {workNotes.map((n, i) => (
                     <li key={i}>
                       {n.stamp && <span className="journal__stamp">{n.stamp}</span>}
+                      {n.author && <span className="journal__author">{n.author}</span>}
                       <span className="journal__text">{n.text}</span>
                     </li>
                   ))}

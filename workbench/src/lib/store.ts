@@ -55,6 +55,13 @@ export interface ToolCall {
   servedBy?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
   binding?: string | null; // the adapter's declared Binding (mcp|rest|a2a) — M1
   todo?: number | null; // F1 — the plan to-do index this call served (groups cards under a to-do)
+  // JOURNAL story fidelity — the reasoned step's own detail, threaded from the journal invocation
+  // (the live SSE stream doesn't carry it). `rationale` is the per-call WHY the planner authored
+  // (the invocation's narrative) — the REAL reasoning, shown instead of a canned purpose. `result`
+  // is the human "what came back" line; `produced` summarizes the ops the call folded.
+  rationale?: string; // per-call WHY (the planner's reason for this call, NOT a hardcoded purpose)
+  result?: string; // the "what came back" line (= the serving to-do's observation)
+  produced?: string[]; // per-op summary of what the call produced ("fact red_errors=0.40", …)
 }
 
 /** An operator turn in the two-way chat (obs 2). */
@@ -117,6 +124,7 @@ export interface TurnTodo {
   plannedCalls: string[]; // capability intents this to-do calls
   plannedOps: string[]; // direct op kinds this to-do authors
   status: string; // pending | done
+  observation?: string; // the step's "what we found" takeaway (a reasoning step's conclusion)
   opBudget?: number | null;
   delegate?: boolean;
 }
@@ -371,6 +379,18 @@ function enrichTurnsFromJournal(
     if (e.narrative) planNarrativeBySeq.set(e.seq, e.narrative);
     if (e.todos && e.todos.length) todosBySeq.set(e.seq, e.todos.map(toTurnTodo));
   }
+  // the per-call reasoned-step DETAIL (why/result/produced) lives ONLY in the journal invocations —
+  // the live SSE capability_call carries none of it — so index them by their (shared) phase seq, in
+  // execution order, to thread onto each turn's calls below. BOTH folds run this: a reopen builds
+  // its calls from these same entries (so the k-th call ↔ k-th invocation), and a live turn's calls
+  // arrive in the same execution order, so index-zip aligns them either way.
+  const invsBySeq = new Map<number, JournalEntry[]>();
+  for (const e of journal) {
+    if ((e as { kind?: string }).kind !== "invocation") continue;
+    const list = invsBySeq.get(e.seq);
+    if (list) list.push(e);
+    else invsBySeq.set(e.seq, [e]);
+  }
   // reducer rejections attributed to a phase entry (rejection.seq === that entry's seq)
   const rejBySeq = new Map<number, RejectionItem[]>();
   for (const r of rejections) {
@@ -395,12 +415,33 @@ function enrichTurnsFromJournal(
     const plan = planBySeq.get(entry.seq);
     const todos = todosBySeq.get(entry.seq);
     const rej = rejBySeq.get(entry.seq);
+    const invs = invsBySeq.get(entry.seq);
     return {
       ...t,
       objective: entry.goal || planNarrativeBySeq.get(entry.seq) || "",
       ...(plan ? { plan } : {}),
       ...(todos ? { todos } : {}),
       ...(rej && rej.length ? { rejections: rej } : {}),
+      ...(invs && invs.length ? { calls: enrichCalls(t.calls, invs) } : {}),
+    };
+  });
+}
+
+/** Thread the reasoned-step DETAIL (per-call why/result/produced) from the journal invocations onto
+ *  a phase's tool calls, matched by execution order. Additive: a call with no matching invocation is
+ *  left untouched, and a legacy invocation without result/produced only adds the `rationale` (its
+ *  narrative), so pre-story recordings render exactly as before. */
+function enrichCalls(calls: ToolCall[], invs: JournalEntry[]): ToolCall[] {
+  return calls.map((c, i) => {
+    const inv = invs[i];
+    if (!inv) return c;
+    return {
+      ...c,
+      ...(inv.narrative ? { rationale: inv.narrative } : {}),
+      ...(inv.result != null ? { result: inv.result } : {}),
+      ...(inv.produced ? { produced: inv.produced } : {}),
+      ...(inv.op_count != null ? { op_count: inv.op_count } : {}),
+      ...(inv.todo != null ? { todo: inv.todo } : {}),
     };
   });
 }
@@ -413,6 +454,7 @@ function toTurnTodo(jt: JournalTodo): TurnTodo {
     plannedCalls: jt.calls ?? [],
     plannedOps: jt.ops ?? [],
     status: jt.status ?? "pending",
+    ...(jt.observation ? { observation: jt.observation } : {}),
     ...(jt.op_budget != null ? { opBudget: jt.op_budget } : {}),
     ...(jt.delegate ? { delegate: true } : {}),
   };

@@ -70,6 +70,12 @@ function fmtVal(v: unknown): string {
  *  blocked. Older recorded streams may lack the field — fall back to blocked-or-data so a
  *  legacy card never claims an honesty level the engine didn't assert. */
 function outcomeOf(call: ToolCall): string {
+  // JOURNAL story fidelity: a reasoned step's ops are planner-authored, so the mock TRANSPORT
+  // outcome reads "empty" (no fixture) even though the step produced real findings. Prefer the
+  // ATTRIBUTED result/produced over the transport outcome, so a step that found something renders
+  // as "data", not "no data — clean empty". A genuinely empty read carries neither, so it is
+  // untouched — the honesty boundary is preserved.
+  if ((call.produced && call.produced.length > 0) || (call.result && call.result.trim())) return "data";
   if (call.outcome) return call.outcome;
   return call.blocked ? "blocked" : "data";
 }
@@ -90,7 +96,9 @@ function outText(call: ToolCall, outcome: string): string {
     case "empty":
       return "no data — clean empty (the provider answered; nothing to fold)";
     default:
-      return call.summary || `${call.op_count} ops`;
+      // the reasoned-step RESULT (what came back, in words) leads; then the live one-liner; the
+      // raw op count is the last resort — never the whole story.
+      return call.result || call.summary || `${call.op_count} ops`;
   }
 }
 
@@ -101,8 +109,11 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
   const dur = fmtDuration(call.durationMs);
   const started = fmtClock(call.startedAt);
   const kind = call.kind ?? (isWrite ? "workflow" : "tool");
-  // M25 layering: curated per-intent purpose → engine-served capability purpose → de-underscored
-  const purpose = PURPOSE[call.intent] ?? servedIntentPurpose(call.intent) ?? call.intent.replace(/_/g, " ");
+  // The WHY, in priority order: the planner's OWN per-call rationale (the real reasoning it
+  // authored) → curated per-intent purpose → engine-served capability purpose → de-underscored raw.
+  // The hardcoded purpose is only a fallback when no reasoning exists — never over the real why.
+  const purpose =
+    call.rationale ?? PURPOSE[call.intent] ?? servedIntentPurpose(call.intent) ?? call.intent.replace(/_/g, " ");
   const paramEntries = Object.entries(call.params ?? {});
   const out = outText(call, outcome);
 
@@ -159,6 +170,19 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
               {out}
             </span>
           </div>
+          {/* the ops this call FOLDED into the graph — the reasoned step's evidence, itemized */}
+          {call.produced && call.produced.length > 0 && (
+            <div className="tr-row">
+              <span className="tr-k">made</span>
+              <span className="tr-v">
+                <span className="tr-produced">
+                  {call.produced.map((p, i) => (
+                    <code key={`${p}-${i}`} className="tr-prod">{p}</code>
+                  ))}
+                </span>
+              </span>
+            </div>
+          )}
           <div className="tr-row">
             <span className="tr-k">outcome</span>
             <span className="tr-v tr-muted">

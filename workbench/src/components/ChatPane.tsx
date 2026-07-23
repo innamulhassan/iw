@@ -24,6 +24,11 @@ interface Props {
   onDecide: (gateId: string, d: GateDecision, opts: { params?: Record<string, unknown>; reason?: string }) => void;
   onReview: (reviewId: string, d: GateDecision, opts: { text?: string }) => void;
   onSend: (text: string) => void;
+  /** Full-window story mode (owner: "I should be able to see the chat in a full window") — the chat
+   *  IS the sellable artifact, so it can expand to the whole workbench (graph + sidebar hidden) for
+   *  reading the complete investigation end to end. Optional so the pane renders standalone in tests. */
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 type Item = { seq: number; kind: "turn"; turn: Turn } | { seq: number; kind: "msg"; msg: UserMsg };
@@ -33,7 +38,7 @@ type Item = { seq: number; kind: "turn"; turn: Turn } | { seq: number; kind: "ms
 // journal holds for that phase — objective · plan · reasoning · tool calls · observations ·
 // rejections · the write-gate — as a compact SUMMARY the owner can EXPAND for depth. The
 // operator's own messages interleave by seq, and a composer lets the human steer or answer.
-export default function ChatPane({ live, busy, onDecide, onReview, onSend }: Props) {
+export default function ChatPane({ live, busy, onDecide, onReview, onSend, expanded, onToggleExpand }: Props) {
   const endRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState("");
 
@@ -72,7 +77,21 @@ export default function ChatPane({ live, busy, onDecide, onReview, onSend }: Pro
   return (
     <div className="chat">
       <div className="chat__header">
-        <h2 className="pane-title">Investigation chat</h2>
+        <div className="chat__header-row">
+          <h2 className="pane-title">Investigation chat</h2>
+          {onToggleExpand && (
+            <button
+              type="button"
+              className="chat__maximize"
+              onClick={onToggleExpand}
+              aria-pressed={!!expanded}
+              aria-label={expanded ? "Restore the workbench layout" : "Expand the chat to full window"}
+              title={expanded ? "Restore (Esc)" : "Read the full story — expand to full window"}
+            >
+              {expanded ? "⤢ Restore" : "⤢ Full window"}
+            </button>
+          )}
+        </div>
         <p className="pane-subtitle">
           The complete journal — objective, plan, reasoning, tools and findings, per phase. Expand
           any step for detail; steer the agent any time.
@@ -308,11 +327,15 @@ function TodoChecklist({ todos, calls }: { todos: TurnTodo[]; calls: ToolCall[] 
       {todos.map((td, i) => {
         const cards = cardsFor(i);
         const state = todoState(td, cards);
+        // a reasoning step (a hypothesis propose/update, or any to-do that authors ops without a
+        // tool call) is a REASONING act, not a fetch — mark it so, and show its conclusion inline.
+        const isReasoning = td.plannedCalls.length === 0 && cards.length === 0;
         return (
-          <li key={i} className={`turn__todo turn__todo--${state}`}>
+          <li key={i} className={`turn__todo turn__todo--${state}${isReasoning ? " turn__todo--reasoning" : ""}`}>
             <div className="turn__todo-head">
               <span className="turn__todo-tick" aria-hidden="true">{TODO_TICK[state]}</span>
               <span className="turn__todo-objective">{td.objective || `step ${i + 1}`}</span>
+              {isReasoning && <span className="turn__todo-tag" title="a planner reasoning act, not a tool call">reasoning</span>}
               {td.plannedOps.length > 0 && (
                 <span className="turn__todo-ops" title="direct graph/hypothesis ops this to-do authors">
                   {td.plannedOps.length} op{td.plannedOps.length === 1 ? "" : "s"}
@@ -330,6 +353,11 @@ function TodoChecklist({ todos, calls }: { todos: TurnTodo[]; calls: ToolCall[] 
                   <ToolCallCard key={c.seq} call={c} />
                 ))}
               </div>
+            )}
+            {/* the step's finding — for a call-bearing step the card's result line already carries it,
+                so surface it here only when there is no card (a reasoning act's conclusion). */}
+            {cards.length === 0 && td.observation && (
+              <p className="turn__todo-finding">→ {td.observation}</p>
             )}
           </li>
         );
