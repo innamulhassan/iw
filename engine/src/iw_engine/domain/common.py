@@ -17,13 +17,31 @@ EventId = str
 Seq = int  # monotonic journal sequence — the event-sourcing spine
 
 
+class Deriver(BaseModel):
+    """WHO produced a DERIVED belief — the reasoner/detector id and the version that minted it
+    (2026-07-23 primitives §6). For an LLM-reasoned (inferred) datum this is
+    {model_id, playbook/prompt version}; the ENGINE stamps it at fold time from run context —
+    the LLM never sets its own deriver. Frozen: an audit stamp is never edited after the fact."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str = Field(min_length=1)
+    version: str = Field(min_length=1)
+
+
 class Confidence(BaseModel):
-    """A belief with a MANDATORY basis — never a naked float (principle 10)."""
+    """A belief with a MANDATORY basis — never a naked float (principle 10). A DERIVED belief may
+    also carry a `deriver` {id, version}: since ONLY inferred-channel data carries a Confidence
+    (measured/declared/engine carry `source_reliability`), nesting the deriver here AUTO-SCOPES the
+    version stamp to inferred data — the settled "deriver inside Confidence" placement
+    (2026-07-23 primitives §6). Optional + additive: every existing belief round-trips unchanged
+    (`deriver=None`), so the fold can begin stamping inferred data without a migration."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     value: float = Field(ge=0.0, le=1.0)
     basis: str = Field(min_length=1)
+    deriver: Deriver | None = None
 
 
 class EvidenceRef(BaseModel):

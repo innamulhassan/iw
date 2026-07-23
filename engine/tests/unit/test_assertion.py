@@ -69,6 +69,32 @@ def test_engine_channel_uses_reliability():
     assert a.channel is Channel.ENGINE and a.source_reliability == 1.0
 
 
+# ── Confidence carries an optional deriver (2026-07-23 §6 — auto-scoped to inferred data) ──
+def test_confidence_deriver_is_optional_and_additive():
+    """A plain Confidence (no deriver) is unchanged — the extension is additive/behavior-preserving."""
+    assert Confidence(value=0.6, basis="reasoned").deriver is None
+
+
+def test_inferred_confidence_carries_deriver_auto_scoped():
+    """Only inferred-channel data carries a Confidence, so a deriver nested here is AUTO-SCOPED to
+    inferred data (primitives §6). The engine stamps {id, version}; it rides on the atom."""
+    from iw_engine.domain.common import Deriver
+    a = _state(species=Species.PROPERTY, channel=Channel.INFERRED, source=Source.LLM,
+               source_reliability=None, valid_from=None,
+               confidence=Confidence(value=0.6, basis="reasoned",
+                                     deriver=Deriver(id="claude-opus-4-8", version="pb-incident@3")))
+    assert a.confidence.deriver.id == "claude-opus-4-8"
+    assert a.confidence.deriver.version == "pb-incident@3"
+
+
+def test_deriver_requires_nonempty_id_and_version():
+    from iw_engine.domain.common import Deriver
+    with pytest.raises(ValidationError):
+        Deriver(id="", version="v1")
+    with pytest.raises(ValidationError):
+        Deriver(id="x", version="")
+
+
 # ── M16: ONE authoritative belief-channel enforcer (the Assertion atom + its Fact view share it) ─
 def test_belief_exclusivity_is_the_one_shared_enforcer():
     """M16: R-C4 (exactly one belief field) has a SINGLE enforcer — `common.enforce_belief_exclusivity`
