@@ -502,7 +502,9 @@
         "origin": false,
         "props": {
           "env": "prod",
-          "service_name": "product-api"
+          "owner": "catalog-platform@corp.example",
+          "service_name": "product-api",
+          "version": "v3.4.0"
         },
         "source": "prometheus",
         "type": "service"
@@ -514,7 +516,11 @@
         "last_seen": "2026-07-19T14:56:00+00:00",
         "origin": false,
         "props": {
-          "cache_id": "product-redis"
+          "cache_id": "product-redis",
+          "cluster_mode": "enabled",
+          "engine": "redis",
+          "owner": "catalog-platform@corp.example",
+          "version": "7.2"
         },
         "source": "prometheus",
         "type": "cache"
@@ -538,7 +544,9 @@
         "last_seen": "2026-07-19T14:10:00+00:00",
         "origin": false,
         "props": {
-          "change_id": "CHG-22"
+          "change_id": "CHG-22",
+          "description": "Deploy of product-api v3.4.0; refactors pkg/cache/client.go and removes the singleflight de-duplication around cache reads, believed redundant. Without it, concurrent misses on a hot key each issue their own read \u2014 a cache stampede under load.",
+          "short_description": "Deploy product-api v3.4.0 (cache client refactor)"
         },
         "source": "servicenow",
         "type": "change_event"
@@ -551,6 +559,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "HighLatencyP99 fired for product-api (prod, tier-1) at 14:16 UTC, ~6m after cache-client deploy CHG-22 (commit 9f8e7d6). product-redis hit-rate collapsed from ~96% to 41%, eviction rate surged to 420/min and cache memory is at 94% \u2014 a cache-stampede shape. The service's own p50 stays flat (67ms), so the app compute path is fine; the latency is all cache-miss backend load.",
           "incident_id": "INC-5500",
           "short_description": "product-api p99 up after cache deploy; hit-rate collapsed",
           "title": "product-api latency after cache deploy",
@@ -583,7 +592,9 @@
         "props": {
           "commander": null,
           "incident_id": "INC-4210",
-          "severity": "3 - Moderate"
+          "severity": "3 - Moderate",
+          "short_description": "search-api hit the same stampede when it disabled coalescing",
+          "title": "search-api cache stampede (prior quarter)"
         },
         "source": "servicenow",
         "type": "incident"
@@ -595,7 +606,10 @@
         "last_seen": null,
         "origin": false,
         "props": {
+          "author": "platform-team",
           "diff_summary": "singleflight disabled in pkg/cache/client.go:88",
+          "message": "refactor(cache): drop singleflight around cache reads (PR #921)",
+          "repo": "product-api",
           "sha": "9f8e7d6"
         },
         "source": null,

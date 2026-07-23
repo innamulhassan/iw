@@ -65,10 +65,17 @@ def build():
             fact(SVC, "red_latency_p50", 64, T_ONSET, unit="ms", source=S.APPD, reliability=0.95),
             fact(SVC, "red_rate", 1400, T_ONSET, unit="rpm", source=S.PROMETHEUS, reliability=0.97),
             fact(SVC, "red_errors", 0.002, T_ONSET, source=S.PROMETHEUS, reliability=0.97),
-            node(NT.SERVICE, service_name="product-api", env="prod"),
-            node(NT.CACHE, cache_id="product-redis"),
+            node(NT.SERVICE, service_name="product-api", env="prod",
+                 owner="catalog-platform@corp.example", version="v3.4.0"),
+            node(NT.CACHE, cache_id="product-redis", engine="redis", version="7.2",
+                 cluster_mode="enabled", owner="catalog-platform@corp.example"),
             node(NT.ALERT, alert_id="ALT-1"),
-            node(NT.CHANGE_EVENT, change_id="CHG-22"),
+            node(NT.CHANGE_EVENT, change_id="CHG-22",
+                 short_description="Deploy product-api v3.4.0 (cache client refactor)",
+                 description="Deploy of product-api v3.4.0; refactors pkg/cache/client.go and "
+                             "removes the singleflight de-duplication around cache reads, believed "
+                             "redundant. Without it, concurrent misses on a hot key each issue "
+                             "their own read — a cache stampede under load."),
             event(SVC, "degraded_started", T_ONSET, source=S.PROMETHEUS),
             event(ALERT, "fired", T_ONSET, source=S.PROMETHEUS),
             event(CHG, "implemented", T_CHANGE, source=S.SERVICENOW,
@@ -87,6 +94,12 @@ def build():
         node(NT.INCIDENT, incident_id="INC-5500",
              title="product-api latency after cache deploy",
              short_description="product-api p99 up after cache deploy; hit-rate collapsed",
+             description="HighLatencyP99 fired for product-api (prod, tier-1) at 14:16 UTC, ~6m "
+                         "after cache-client deploy CHG-22 (commit 9f8e7d6). product-redis hit-rate "
+                         "collapsed from ~96% to 41%, eviction rate surged to 420/min and cache "
+                         "memory is at 94% — a cache-stampede shape. The service's own p50 stays "
+                         "flat (67ms), so the app compute path is fine; the latency is all "
+                         "cache-miss backend load.",
              work_notes="HighLatencyP99; redis hit-rate 41%, evictions surging.",
              caller_id="monitoring.alerting"),
         node(NT.API_ENDPOINT, service_name="product-api", env="prod", method="GET",
@@ -107,7 +120,8 @@ def build():
                call("list_related_incidents", cmdb_ci="product-api")],
         status="repeat",
         ops=[
-            node(NT.CODE_COMMIT, sha="9f8e7d6"),
+            node(NT.CODE_COMMIT, sha="9f8e7d6", repo="product-api", author="platform-team",
+                 message="refactor(cache): drop singleflight around cache reads (PR #921)"),
             edge(ET.INTRODUCED_BY, CHG, COMMIT),
             # related prior: search-api hit the same stampede shape last quarter when IT
             # disabled coalescing — a hypothesis prior that sharpens H1.
@@ -230,7 +244,9 @@ def build():
             "primary_incident": "INC-5500",
             "related_incidents": [
                 {"number": "INC-4210", "priority": "3 - Moderate", "opened_at": _t(-60),
-                 "cmdb_ci": "search-api", "confidence": "high"},
+                 "cmdb_ci": "search-api", "confidence": "high",
+                 "title": "search-api cache stampede (prior quarter)",
+                 "short_description": "search-api hit the same stampede when it disabled coalescing"},
             ],
         },
     }
