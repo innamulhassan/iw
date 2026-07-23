@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { LiveState, Turn, TurnPlan, UserMsg } from "../lib/store";
+import type { LiveState, ToolCall, Turn, TurnPlan, TurnTodo, UserMsg } from "../lib/store";
 import { phaseCounts } from "../lib/store";
 import type { GateDecision } from "../lib/api";
 import ToolCallCard from "./ToolCallCard";
@@ -145,9 +145,10 @@ interface TurnCardProps {
 }
 
 // One agent turn = one phase, rendered as the COMPLETE journal entry: (a) phase header, (b) the
-// objective, (c) the plan (collapsed), (d) the reasoning, (e) the tool-call cards, (f) the
-// observations (collapsed), (g) any rejections inline, (h) the write-gate. Default view is
-// compact — objective + reasoning with plan/tools/observations collapsed; the owner expands.
+// objective, (c) the plan access-surface fold (fallback), (d) the reasoning, (e) the plan as a
+// TO-DO CHECKLIST — each objective with its tool-call cards grouped under it and a status tick
+// (F1), or the flat cards when a turn carries no checklist — (f) the observations (collapsed),
+// (g) any rejections inline, (h) the write-gate. Compact by default; the owner expands.
 function TurnCard({ turn, live, busy, iteration, looped, onDecide, onReview }: TurnCardProps) {
   const gate = turn.gateId ? live.gates[turn.gateId] : undefined;
   const decision = turn.gateId ? live.decisions[turn.gateId] : undefined;
@@ -175,8 +176,9 @@ function TurnCard({ turn, live, busy, iteration, looped, onDecide, onReview }: T
       {/* (b) objective — the phase goal, one concise line */}
       {turn.objective && <p className="turn__objective">{turn.objective}</p>}
 
-      {/* (c) plan — collapsed: how it intends to use the tools + graph/hypothesis ops */}
-      {turn.plan && <PlanDetails plan={turn.plan} />}
+      {/* (c) plan access-surface fold — kept as a fallback ONLY when there is no to-do checklist
+             (the checklist below carries the planned calls/ops per to-do) */}
+      {!turn.todos?.length && turn.plan && <PlanDetails plan={turn.plan} />}
 
       {/* (d) reasoning — the narrative */}
       {turn.reasoning ? (
@@ -185,13 +187,19 @@ function TurnCard({ turn, live, busy, iteration, looped, onDecide, onReview }: T
         <p className="turn__reasoning turn__reasoning--muted">Proposing an action…</p>
       ) : null}
 
-      {/* (e) tool calls — the existing collapsible cards, unchanged */}
-      {turn.calls.length > 0 && (
-        <div className="turn__calls">
-          {turn.calls.map((c) => (
-            <ToolCallCard key={c.seq} call={c} />
-          ))}
-        </div>
+      {/* (e) the plan as a TO-DO CHECKLIST (F1): each objective + its tool-call cards + a status
+             tick — "here's my plan as to-dos, and here's each one executing". Falls back to the
+             flat cards when a turn carries no checklist (a bare live step before reconcile). */}
+      {turn.todos && turn.todos.length > 0 ? (
+        <TodoChecklist todos={turn.todos} calls={turn.calls} />
+      ) : (
+        turn.calls.length > 0 && (
+          <div className="turn__calls">
+            {turn.calls.map((c) => (
+              <ToolCallCard key={c.seq} call={c} />
+            ))}
+          </div>
+        )
       )}
 
       {/* (f) observations — collapsed: what the phase discovered + the beliefs it moved */}
@@ -272,6 +280,70 @@ function PlanRow({ label, items, className }: { label: string; items: string[]; 
         ))}
       </span>
     </div>
+  );
+}
+
+// (e) the TO-DO CHECKLIST (F1) — the plan rendered as to-dos, each grouping its tool-call cards
+// (the existing collapsible ToolCallCard, reused unchanged) under one objective with a status tick.
+type TodoState = "done" | "active" | "pending";
+const TODO_TICK: Record<TodoState, string> = { done: "☑", active: "◑", pending: "☐" };
+
+// A to-do TICKS as its work lands: done once every planned call has executed a card (vacuously
+// true for an ops-only to-do — there is nothing to wait on); active while some but not all have;
+// pending until the first one runs. Honest + local — no phase-state guess, derived from the cards.
+function todoState(todo: TurnTodo, cards: ToolCall[]): TodoState {
+  const planned = todo.plannedCalls.length;
+  if (planned === 0) return "done";
+  if (cards.length >= planned) return "done";
+  return cards.length > 0 ? "active" : "pending";
+}
+
+function TodoChecklist({ todos, calls }: { todos: TurnTodo[]; calls: ToolCall[] }) {
+  const cardsFor = (i: number) => calls.filter((c) => (c.todo ?? -1) === i);
+  // any card whose to-do index doesn't resolve (null / out of range) is never dropped — it renders
+  // in a trailing ungrouped block so the audit stays complete.
+  const orphans = calls.filter((c) => c.todo == null || c.todo < 0 || c.todo >= todos.length);
+  return (
+    <ol className="turn__todos">
+      {todos.map((td, i) => {
+        const cards = cardsFor(i);
+        const state = todoState(td, cards);
+        return (
+          <li key={i} className={`turn__todo turn__todo--${state}`}>
+            <div className="turn__todo-head">
+              <span className="turn__todo-tick" aria-hidden="true">{TODO_TICK[state]}</span>
+              <span className="turn__todo-objective">{td.objective || `step ${i + 1}`}</span>
+              {td.plannedOps.length > 0 && (
+                <span className="turn__todo-ops" title="direct graph/hypothesis ops this to-do authors">
+                  {td.plannedOps.length} op{td.plannedOps.length === 1 ? "" : "s"}
+                </span>
+              )}
+              {td.delegate && (
+                <span className="turn__todo-delegate" title="a delegatable to-do — MCP/A2A fan-out (F2 seam)">
+                  ⇄ delegatable
+                </span>
+              )}
+            </div>
+            {cards.length > 0 && (
+              <div className="turn__calls turn__todo-calls">
+                {cards.map((c) => (
+                  <ToolCallCard key={c.seq} call={c} />
+                ))}
+              </div>
+            )}
+          </li>
+        );
+      })}
+      {orphans.length > 0 && (
+        <li className="turn__todo turn__todo--pending">
+          <div className="turn__calls turn__todo-calls">
+            {orphans.map((c) => (
+              <ToolCallCard key={c.seq} call={c} />
+            ))}
+          </div>
+        </li>
+      )}
+    </ol>
   );
 }
 

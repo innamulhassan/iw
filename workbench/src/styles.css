@@ -1077,6 +1077,23 @@ code {
 .turn__reasoning--muted { color: var(--text-faint); font-style: italic; }
 .turn__calls { display: flex; flex-direction: column; gap: 6px; }
 
+/* F1 — the to-do CHECKLIST: the plan reads as to-dos, each grouping its tool-call cards under one
+   objective with a status tick (done/active/pending). */
+.turn__todos { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.turn__todo { border-left: 2px solid var(--border); padding-left: 10px; }
+.turn__todo--done { border-left-color: var(--green); }
+.turn__todo--active { border-left-color: var(--accent); }
+.turn__todo-head { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; line-height: 1.45; flex-wrap: wrap; }
+.turn__todo-tick { font-size: 12px; flex: none; }
+.turn__todo--done .turn__todo-tick { color: var(--green); }
+.turn__todo--active .turn__todo-tick { color: var(--accent); }
+.turn__todo--pending .turn__todo-tick { color: var(--text-faint); }
+.turn__todo-objective { color: var(--text); font-weight: 500; min-width: 0; }
+.turn__todo--done .turn__todo-objective { color: var(--text-muted); font-weight: 400; }
+.turn__todo-ops { font-size: 10px; color: #047857; background: #ecfdf5; padding: 1px 6px; border-radius: 4px; flex: none; }
+.turn__todo-delegate { font-size: 10px; color: var(--violet); background: #f3ecfd; padding: 1px 6px; border-radius: 999px; flex: none; }
+.turn__todo-calls { margin-top: 6px; }
+
 /* iteration badge — a looped phase (investigate is ONE loop) numbers each turn */
 .turn__iter {
   font-size: 10px; font-weight: 700; line-height: 1.4;
