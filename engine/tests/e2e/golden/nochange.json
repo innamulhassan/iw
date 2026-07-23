@@ -452,7 +452,10 @@
         "origin": false,
         "props": {
           "db_id": "checkout-db",
-          "engine": "postgres"
+          "engine": "postgres",
+          "instance_class": "db.r6g.2xlarge",
+          "owner": "checkout-platform@corp.example",
+          "version": "15.4"
         },
         "source": "prometheus",
         "type": "database"
@@ -477,6 +480,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "HighConnPoolUtilization fired for checkout-db at 09:00 UTC. checkout-api p99 climbed to 6.8s as request volume surged to 3.4x baseline (a marketing push); the whole latency distribution shifted up (p50 780ms) rather than a concentrated error spike. checkout-db's connection pool is pinned at 194/200. The change log for the window is EMPTY \u2014 no deploy or config event to blame; this reads as organic saturation.",
           "incident_id": "INC-9001",
           "short_description": "checkout-api p99 hit 6.8s under a 3.4x surge; no change logged",
           "title": "checkout-api latency under traffic surge",
@@ -570,6 +574,7 @@
         "AddAssertion",
         "AddEdge",
         "AddNode",
+        "AddNode",
         "AddEdge",
         "AddAssertion",
         "AddAssertion",
@@ -595,6 +600,7 @@
             "AddAssertion",
             "AddAssertion",
             "AddEdge",
+            "AddNode",
             "AddNode",
             "AddEdge",
             "AddAssertion",
@@ -703,7 +709,8 @@
           "service:checkout-api|prod",
           "database:checkout-db",
           "anomaly:anom-1",
-          "incident:inc-9001"
+          "incident:inc-9001",
+          "database:checkout-db"
         ]
       },
       "seq": 1,

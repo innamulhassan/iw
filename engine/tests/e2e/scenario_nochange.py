@@ -94,8 +94,16 @@ def build():
         node(NT.INCIDENT, incident_id="INC-9001",
              title="checkout-api latency under traffic surge",
              short_description="checkout-api p99 hit 6.8s under a 3.4x surge; no change logged",
+             description="HighConnPoolUtilization fired for checkout-db at 09:00 UTC. checkout-api "
+                         "p99 climbed to 6.8s as request volume surged to 3.4x baseline (a "
+                         "marketing push); the whole latency distribution shifted up (p50 780ms) "
+                         "rather than a concentrated error spike. checkout-db's connection pool is "
+                         "pinned at 194/200. The change log for the window is EMPTY — no deploy or "
+                         "config event to blame; this reads as organic saturation.",
              work_notes="HighConnPoolUtilization; empty change log. Organic surge.",
              caller_id="monitoring.alerting"),
+        node(NT.DATABASE, db_id="checkout-db", owner="checkout-platform@corp.example",
+             version="15.4", instance_class="db.r6g.2xlarge"),
         edge(ET.AFFECTS, INC, SVC),
         event(INC, "declared", T_TRIAGE, source=S.SERVICENOW),
         fact(DB, "conn_pool_util", 0.86, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),
