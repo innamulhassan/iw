@@ -489,7 +489,9 @@
         "origin": false,
         "props": {
           "env": "prod",
-          "service_name": "auth-svc"
+          "owner": "identity-platform@corp.example",
+          "service_name": "auth-svc",
+          "version": "v5.0.2"
         },
         "source": "prometheus",
         "type": "service"
@@ -503,6 +505,11 @@
         "props": {
           "cert_id": "auth-tls-intermediate",
           "issuer": "Corp Intermediate CA",
+          "key_algorithm": "RSA-2048",
+          "not_after": "2026-07-19T14:00:00+00:00",
+          "san": "auth-svc.internal,auth.corp.example",
+          "serial": "4A:9F:2C:11:88:0E:73:BD",
+          "sig_algorithm": "SHA256withRSA",
           "subject": "auth-svc.internal"
         },
         "source": "artifactory",
@@ -528,6 +535,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "High5xxRate fired for auth-svc (prod, tier-1) at 14:30 UTC. ~40% of requests return 503 with PKIX path-building failures on the TLS handshake \u2014 a partial failure that points at an expiring cert rather than a total outage. The auth-tls-intermediate certificate (Corp Intermediate CA) reached not_after at 14:00; handshake errors began exactly then. No code or config change in the window.",
           "incident_id": "INC-5700",
           "short_description": "auth-svc 503s from TLS handshake fails; cert expiring",
           "title": "auth-svc intermittent 503s",
@@ -560,7 +568,9 @@
         "props": {
           "commander": null,
           "incident_id": "INC-3344",
-          "severity": "3 - Moderate"
+          "severity": "3 - Moderate",
+          "short_description": "Same Corp Intermediate CA chain expiry; caught early",
+          "title": "billing-svc TLS handshake errors (last year)"
         },
         "source": "servicenow",
         "type": "incident"

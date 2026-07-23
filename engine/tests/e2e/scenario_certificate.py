@@ -57,9 +57,13 @@ def build():
                call("active_alerts", service="auth-svc", env="prod")],
         ops=[
             node(NT.ANOMALY, anomaly_id="ANOM-1"),
-            node(NT.SERVICE, service_name="auth-svc", env="prod"),
+            node(NT.SERVICE, service_name="auth-svc", env="prod",
+                 owner="identity-platform@corp.example", version="v5.0.2"),
             node(NT.CERTIFICATE, cert_id="auth-tls-intermediate",
-                 subject="auth-svc.internal", issuer="Corp Intermediate CA"),
+                 subject="auth-svc.internal", issuer="Corp Intermediate CA",
+                 serial="4A:9F:2C:11:88:0E:73:BD", key_algorithm="RSA-2048",
+                 sig_algorithm="SHA256withRSA", not_after="2026-07-19T14:00:00+00:00",
+                 san="auth-svc.internal,auth.corp.example"),
             node(NT.ALERT, alert_id="ALT-1"),
             # onset RED snapshot: errors present but PARTIAL (~40% — only chain-validating
             # clients fail); p99 elevated only for failing clients; throughput roughly normal.
@@ -90,6 +94,12 @@ def build():
         node(NT.INCIDENT, incident_id="INC-5700",
              title="auth-svc intermittent 503s",
              short_description="auth-svc 503s from TLS handshake fails; cert expiring",
+             description="High5xxRate fired for auth-svc (prod, tier-1) at 14:30 UTC. ~40% of "
+                         "requests return 503 with PKIX path-building failures on the TLS "
+                         "handshake — a partial failure that points at an expiring cert rather "
+                         "than a total outage. The auth-tls-intermediate certificate (Corp "
+                         "Intermediate CA) reached not_after at 14:00; handshake errors began "
+                         "exactly then. No code or config change in the window.",
              work_notes="High5xxRate; PKIX path-building failures. Cert expiry suspected.",
              caller_id="monitoring.alerting"),
         node(NT.API_ENDPOINT, service_name="auth-svc", env="prod", method="POST",
@@ -229,7 +239,9 @@ def build():
             "primary_incident": "INC-5700",
             "related_incidents": [
                 {"number": "INC-3344", "priority": "3 - Moderate", "opened_at": _t(-525600),
-                 "cmdb_ci": "billing-svc", "confidence": "high"},
+                 "cmdb_ci": "billing-svc", "confidence": "high",
+                 "title": "billing-svc TLS handshake errors (last year)",
+                 "short_description": "Same Corp Intermediate CA chain expiry; caught early"},
             ],
         },
     }
