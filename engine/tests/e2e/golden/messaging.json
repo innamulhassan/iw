@@ -455,6 +455,8 @@
           "actor": "dev-mq",
           "change_id": "CHG-55",
           "change_type": "deployment",
+          "description": "Deploy of order-processor v3.2.0. Replaces the batched pricing lookup in the message handler with a per-item synchronous enrichment call \u2014 a blocking RPC per message that ~2x'd handler latency, so the consumer group can no longer keep up.",
+          "short_description": "Deploy order-processor v3.2.0 (per-item price enrichment)",
           "target_ref": "order-processor",
           "ticket_id": "CHG-55"
         },
@@ -507,6 +509,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "HighConsumerLag fired for the order-processor consumer group on the orders.events Kafka topic at 09:42 UTC. Lag is climbing (42k -> 61k msgs) while producer ingress holds flat at ~1,470 msg/min and the DLQ stays empty \u2014 the backlog is purely consumer-side throughput, not a producer surge or a poison message. Consumer deploy CHG-55 shipped at 09:30.",
           "incident_id": "INC-8801",
           "short_description": "order-processor lag on orders.events up after CHG-55",
           "title": "order-processor consumer lag climbing",
@@ -522,6 +525,9 @@
         "last_seen": "2026-07-19T10:20:00+00:00",
         "origin": false,
         "props": {
+          "broker": "kafka-prod-1",
+          "owner": "fulfillment-platform@corp.example",
+          "partitions": 12,
           "topic_id": "orders.events"
         },
         "source": "prometheus",
@@ -536,6 +542,7 @@
         "props": {
           "author": "dev-mq",
           "authored_at": "2026-07-19 09:30:00+00:00",
+          "message": "perf(pricing): per-item enrichment for fresher prices (PR #310)",
           "parent_sha": "d4c3b2a",
           "repo": "order-processor",
           "sha": "e5f6a7b"
@@ -552,7 +559,9 @@
         "props": {
           "commander": null,
           "incident_id": "INC-8802",
-          "severity": "3 - Moderate"
+          "severity": "3 - Moderate",
+          "short_description": "fulfilment-api SLA breach downstream of the orders.events lag",
+          "title": "fulfilment-api orders delayed"
         },
         "source": "servicenow",
         "type": "incident"

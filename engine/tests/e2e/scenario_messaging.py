@@ -68,9 +68,15 @@ def build():
         node(NT.INCIDENT, incident_id="INC-8801",
              title="order-processor consumer lag climbing",
              short_description="order-processor lag on orders.events up after CHG-55",
+             description="HighConsumerLag fired for the order-processor consumer group on the "
+                         "orders.events Kafka topic at 09:42 UTC. Lag is climbing (42k -> 61k msgs) "
+                         "while producer ingress holds flat at ~1,470 msg/min and the DLQ stays "
+                         "empty — the backlog is purely consumer-side throughput, not a producer "
+                         "surge or a poison message. Consumer deploy CHG-55 shipped at 09:30.",
              work_notes="HighConsumerLag; DLQ empty, producer steady. Suspect CHG-55.",
              caller_id="monitoring.alerting"),
-        node(NT.MESSAGE_QUEUE, topic_id="orders.events"),
+        node(NT.MESSAGE_QUEUE, topic_id="orders.events", broker="kafka-prod-1", partitions=12,
+             owner="fulfillment-platform@corp.example"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.CONSUMES_FROM, SVC, MQ, origin="declared"),
         fact(MQ, "consumer_lag", 42000, T_ONSET, unit="msgs", source=S.PROMETHEUS, reliability=0.97),
@@ -153,7 +159,13 @@ def build():
         "find_recent_changes": {
             "changes": [
                 {"number": "CHG-55", "type": "deployment",
-                 "cmdb_ci": {"display_value": "order-processor"},
+                 "short_description": "Deploy order-processor v3.2.0 (per-item price enrichment)",
+                 "description": "Deploy of order-processor v3.2.0. Replaces the batched pricing "
+                                "lookup in the message handler with a per-item synchronous "
+                                "enrichment call — a blocking RPC per message that ~2x'd handler "
+                                "latency, so the consumer group can no longer keep up.",
+                 "cmdb_ci": {"display_value": "order-processor",
+                             "owner": "fulfillment-platform@corp.example", "version": "v3.2.0"},
                  "requested_by": "dev-mq", "start_date": T_CHANGE},
             ],
         },
@@ -165,7 +177,8 @@ def build():
         },
         "diff_range": {
             "commit": {"sha": "e5f6a7b", "repo": "order-processor", "author": "dev-mq",
-                       "parent_sha": "d4c3b2a", "authored_at": T_CHANGE},
+                       "parent_sha": "d4c3b2a", "authored_at": T_CHANGE,
+                       "message": "perf(pricing): per-item enrichment for fresher prices (PR #310)"},
             "diff": {"at": T_CHANGE, "files_changed": 1, "lines_added": 22, "lines_deleted": 4,
                      "reliability": 0.99},
             "change": {"change_id": "CHG-55", "change_type": "deployment"},
@@ -187,7 +200,9 @@ def build():
             "primary_incident": "INC-8801",
             "related_incidents": [
                 {"number": "INC-8802", "priority": "3 - Moderate", "opened_at": _t(14),
-                 "cmdb_ci": "fulfilment-api", "confidence": "high"},
+                 "cmdb_ci": "fulfilment-api", "confidence": "high",
+                 "title": "fulfilment-api orders delayed",
+                 "short_description": "fulfilment-api SLA breach downstream of the orders.events lag"},
             ],
         },
     }
