@@ -78,7 +78,7 @@ SPECS: tuple[NodeSpec, ...] = (
         identity_keys=("service_name", "bt_name"),
         static_props=("bt_name", "service_name"),
         fact_predicates=("art_p95", "epm", "delta_vs_baseline"),
-        event_types=(),
+        event_types=("trace_captured",),   # an AppD distributed trace captured on this BT
         discriminator=(
             "An AppDynamics business transaction — a named user-facing operation with "
             "its own RT/EPM baseline, finer-grained than Service RED. Use when the "

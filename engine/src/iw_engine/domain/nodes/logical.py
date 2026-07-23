@@ -44,7 +44,8 @@ SPECS: tuple[NodeSpec, ...] = (
             "red_latency_p99",
             "degraded",
         ),
-        event_types=("alert_fired", "deployed", "scaled", "degraded_started", "degraded_cleared"),
+        event_types=("alert_fired", "deployed", "scaled", "degraded_started", "degraded_cleared",
+                     "trace_captured"),   # a distributed trace captured on the service (AppD)
         discriminator=(
             "An independently deployable unit with its own Deployment, ApiEndpoints, "
             "and RED metrics. If it cannot be deployed independently (no Deployment of "

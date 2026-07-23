@@ -154,11 +154,10 @@ _FACT_ENTRIES: tuple[DictEntry, ...] = (
 # ── event canonicals — a DERIVED VIEW of the registry's per-type event_types ──
 # Build-spec step 3: "the per-type spec lists become a derived view". Event E applies to type T
 # iff `E in node_spec(T).event_types`, so this reproduces `registry.event_allowed` exactly (no
-# golden event is dropped). Live-path extras on unconstrained types are added explicitly.
-_EVENT_EXTRA_APPLIES: dict[str, tuple[NodeType, ...]] = {
-    # BUSINESS_TRANSACTION has empty event_types (unconstrained today); keep trace_captured legal
-    "trace_captured": (_NT.BUSINESS_TRANSACTION, _NT.SERVICE),
-}
+# golden event is dropped). SINGLE SOURCE: every event's applies-to is DATA on the NodeSpec —
+# `trace_captured` lives in the BUSINESS_TRANSACTION + SERVICE `event_types` (M24 retired the
+# `_EVENT_EXTRA_APPLIES` engine-code special-case that patched it there, exactly the per-scenario
+# drift a derived view exists to eliminate).
 
 
 def _event_entries() -> dict[str, DictEntry]:
@@ -166,8 +165,6 @@ def _event_entries() -> dict[str, DictEntry]:
     for ntype, spec in NODE_SPECS.items():
         for et in spec.event_types:
             apply.setdefault(et, set()).add(ntype)
-    for et, types in _EVENT_EXTRA_APPLIES.items():
-        apply.setdefault(et, set()).update(types)
     return {name: DictEntry(name=name, species=Species.EVENT,
                             applies_to=tuple(sorted(types, key=lambda t: t.value)),
                             value_type="dict")
