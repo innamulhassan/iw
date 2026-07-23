@@ -35,6 +35,33 @@ export default function Workbench({
   // one selection shared by the graph + the hypotheses (obs 8): clicking a fact/hypothesis
   // cross-highlights the node + fact in the graph, and clicking a node selects it here.
   const [selection, setSelection] = useState<Selection | null>(null);
+
+  // The blank-page fix: a NEW investigation spins up through `open()` (reset → createSession →
+  // seed) / `openExisting()` (reset → getSnapshot → seed). Between the reset and the seed the store
+  // is empty AND has no session id, so the panes below have nothing to render — a blank workbench
+  // for however long the engine takes to run the incident to its first pause. Show an explicit
+  // "processing…" state for that window instead. `!live.sessionId` fires ONLY during that gap: the
+  // seed sets the id, so once any turn/node exists (or a later gate makes `busy` true again) the
+  // full workbench renders normally.
+  const starting = busy && !live.sessionId;
+  if (starting) {
+    return (
+      <div className="workbench workbench--starting">
+        <div className="starting" role="status" aria-live="polite">
+          <div className="starting__spinner" aria-hidden="true" />
+          <div className="starting__title">Processing…</div>
+          <p className="starting__sub">
+            Starting the investigation — the engine is framing the incident and running the
+            root-cause loop. The graph, chat and hypotheses appear as soon as the first phase lands.
+          </p>
+          <button className="starting__back" onClick={onBack}>
+            ← Incidents
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="workbench">
       <PhaseStepper
