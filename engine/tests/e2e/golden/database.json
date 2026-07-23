@@ -705,6 +705,8 @@
           "actor": "dba-jsmith",
           "change_id": "CHG-9",
           "change_type": "database",
+          "description": "DBA-approved schema change on orders-pg. Flyway migration V812 drops idx_order_items_order_id, flagged 'unused' by pg_stat_user_indexes, to reclaim write throughput on the hot order_items table. No application read-path analysis attached.",
+          "short_description": "Drop unused index idx_order_items_order_id (reclaim write IOPS)",
           "target_ref": "orders-api",
           "ticket_id": "CHG-9"
         },
@@ -772,6 +774,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "HighLatencyP99 fired for orders-api (prod, tier-1) at 14:05 UTC. p99 jumped from ~90ms to 5.2s while p50 stayed flat at ~42ms \u2014 a tail-only regression, classic of a query that lost its index. Order submission is slow but not erroring. Change CHG-9 (a DBA index drop on orders.order_items) landed at 13:57, ~8m before onset.",
           "incident_id": "INC-7734",
           "short_description": "orders-api p99 hit 5.2s ~8m after CHG-9 dropped an index",
           "title": "orders-api p99 latency spike",
@@ -788,7 +791,9 @@
         "origin": false,
         "props": {
           "db_id": "orders-pg",
-          "engine": "postgres"
+          "engine": "postgres",
+          "owner": "orders-platform@corp.example",
+          "version": "15.4"
         },
         "source": "prometheus",
         "type": "database"
@@ -802,6 +807,7 @@
         "props": {
           "author": "dba-jsmith",
           "authored_at": "2026-07-19 13:57:00+00:00",
+          "message": "V812: drop unused index idx_order_items_order_id on order_items",
           "parent_sha": "9f8e7d6",
           "repo": "db-migrations",
           "sha": "a1b2c3d"
@@ -818,7 +824,9 @@
         "props": {
           "commander": null,
           "incident_id": "INC-7735",
-          "severity": "3 - Moderate"
+          "severity": "3 - Moderate",
+          "short_description": "billing-api slow on order_items reads \u2014 same orders-pg",
+          "title": "billing-api p99 latency spike"
         },
         "source": "servicenow",
         "type": "incident"
@@ -832,7 +840,9 @@
         "props": {
           "commander": null,
           "incident_id": "INC-7736",
-          "severity": "3 - Moderate"
+          "severity": "3 - Moderate",
+          "short_description": "fulfillment-api slow queries on orders-pg order_items",
+          "title": "fulfillment-api p99 latency spike"
         },
         "source": "servicenow",
         "type": "incident"
@@ -846,7 +856,9 @@
         "props": {
           "commander": null,
           "incident_id": "INC-7737",
-          "severity": "4 - Low"
+          "severity": "4 - Low",
+          "short_description": "returns-api tail latency on the same shared orders-pg",
+          "title": "returns-api elevated latency"
         },
         "source": "servicenow",
         "type": "incident"

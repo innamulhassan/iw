@@ -88,9 +88,14 @@ def build():
         node(NT.INCIDENT, incident_id="INC-7734",
              title="orders-api p99 latency spike",
              short_description="orders-api p99 hit 5.2s ~8m after CHG-9 dropped an index",
+             description="HighLatencyP99 fired for orders-api (prod, tier-1) at 14:05 UTC. p99 "
+                         "jumped from ~90ms to 5.2s while p50 stayed flat at ~42ms — a tail-only "
+                         "regression, classic of a query that lost its index. Order submission is "
+                         "slow but not erroring. Change CHG-9 (a DBA index drop on "
+                         "orders.order_items) landed at 13:57, ~8m before onset.",
              work_notes="HighLatencyP99 fired; p50 flat, tail blown. Suspect CHG-9.",
              caller_id="monitoring.alerting"),
-        node(NT.DATABASE, db_id="orders-pg"),
+        node(NT.DATABASE, db_id="orders-pg", owner="orders-platform@corp.example", version="15.4"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.DEPENDS_ON, SVC, DB, origin="declared"),
         fact(SVC, "red_latency_p99", 4800, T_ONSET, unit="ms", source=S.APPD, reliability=0.9),
@@ -186,6 +191,11 @@ def build():
                 {
                     "number": "CHG-9",
                     "type": "database",
+                    "short_description": "Drop unused index idx_order_items_order_id (reclaim write IOPS)",
+                    "description": "DBA-approved schema change on orders-pg. Flyway migration V812 "
+                                   "drops idx_order_items_order_id, flagged 'unused' by "
+                                   "pg_stat_user_indexes, to reclaim write throughput on the hot "
+                                   "order_items table. No application read-path analysis attached.",
                     "cmdb_ci": {"display_value": "orders-api"},
                     "requested_by": "dba-jsmith",
                     "start_date": T_CHANGE,
@@ -200,7 +210,8 @@ def build():
         },
         "diff_range": {
             "commit": {"sha": "a1b2c3d", "repo": "db-migrations", "author": "dba-jsmith",
-                      "parent_sha": "9f8e7d6", "authored_at": T_CHANGE},
+                      "parent_sha": "9f8e7d6", "authored_at": T_CHANGE,
+                      "message": "V812: drop unused index idx_order_items_order_id on order_items"},
             "diff": {"at": T_CHANGE, "files_changed": 1, "lines_added": 1, "lines_deleted": 0,
                     "reliability": 0.99},
             "change": {"change_id": "CHG-9", "change_type": "database"},
@@ -240,11 +251,17 @@ def build():
             "primary_incident": "INC-7734",
             "related_incidents": [
                 {"number": "INC-7735", "priority": "3 - Moderate", "opened_at": _t(9),
-                 "cmdb_ci": "billing-api", "confidence": "high"},
+                 "cmdb_ci": "billing-api", "confidence": "high",
+                 "title": "billing-api p99 latency spike",
+                 "short_description": "billing-api slow on order_items reads — same orders-pg"},
                 {"number": "INC-7736", "priority": "3 - Moderate", "opened_at": _t(10),
-                 "cmdb_ci": "fulfillment-api", "confidence": "high"},
+                 "cmdb_ci": "fulfillment-api", "confidence": "high",
+                 "title": "fulfillment-api p99 latency spike",
+                 "short_description": "fulfillment-api slow queries on orders-pg order_items"},
                 {"number": "INC-7737", "priority": "4 - Low", "opened_at": _t(11),
-                 "cmdb_ci": "returns-api", "confidence": "med"},
+                 "cmdb_ci": "returns-api", "confidence": "med",
+                 "title": "returns-api elevated latency",
+                 "short_description": "returns-api tail latency on the same shared orders-pg"},
             ],
         },
     }
