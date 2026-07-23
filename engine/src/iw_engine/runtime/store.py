@@ -59,8 +59,29 @@ def safe_key(key: str) -> str:
 
 
 def _default_root() -> Path:
-    # iw_engine/__init__.py -> parents[2] is the `engine/` dir (sibling of `src/`).
+    """The investigations directory. An explicit `IW_DATA_ROOT` wins (M19c): the package-relative
+    fallback resolves via `iw_engine.__file__ -> parents[2]` = the in-repo `engine/` dir (sibling of
+    `src/`), which on a pip-install points INTO site-packages, where no writable `data/` exists — a
+    deployment sets the env var. The dev/test tree needs no env and keeps the in-repo default."""
+    base = os.environ.get("IW_DATA_ROOT")
+    if base:
+        return Path(base) / "investigations"
     return Path(iw_engine.__file__).resolve().parents[2] / "data" / "investigations"
+
+
+def _read_meta(mp: Path) -> dict:
+    """Read + VALIDATE meta.json (F8 / M19a). Mirrors `Journal.from_ndjson` and `Graph.from_dict`:
+    an unknown FUTURE `schema_version` is REFUSED LOUDLY — misreading a newer meta (whose
+    `state`/`outcome`/`tunables` semantics may have moved) would silently serve a WRONG reopen.
+    Before M19 the meta reader alone did a bare `.get`, so the three on-disk artifacts disagreed on
+    version policy; now they tell one coherent story. A meta with no `schema_version` is a
+    pre-versioning file — treated as current, so old runs still reopen."""
+    meta = json.loads(mp.read_text())
+    version = meta.get("schema_version", META_SCHEMA_VERSION)
+    if not isinstance(version, int) or version > META_SCHEMA_VERSION:
+        raise ValueError(f"meta.json schema_version {version!r} is newer than this engine "
+                         f"understands (max {META_SCHEMA_VERSION})")
+    return meta
 
 
 class InvestigationStore:
@@ -180,20 +201,22 @@ class InvestigationStore:
         except (ValidationError, KeyError, TypeError):
             return None                        # a cache from a different schema era
 
-    def load_result(self, key: str) -> RunResult | None:
-        """Reopen from disk, JOURNAL-AUTHORITATIVE: the journal is always read and is the
+    def _reopen(self, key: str) -> tuple[RunResult, dict] | None:
+        """The shared reopen path, JOURNAL-AUTHORITATIVE: the journal is always read and is the
         truth; the graph cache is consulted only through the watermark check (`_cached_graph`).
         On a stale/corrupt cache the graph is rebuilt from the journal and the cache REWRITTEN
         (self-heal), so a bad cache can never poison a reopen — R-J4's two crash models unify
         (journal = append-crash-tolerant; cache = atomic-rewrite, disagreement-checked).
         The hypothesis store is always replayed from the journal's phase deltas (it is small;
-        `HypothesisStore.apply` is graph-independent — scoring binds the graph at query time)."""
+        `HypothesisStore.apply` is graph-independent — scoring binds the graph at query time).
+        Returns (RunResult, meta) so meta.json is parsed exactly ONCE per reopen (M19b): both
+        `load_result` and `load_bundle` share it, ending load_bundle's second re-parse."""
         d = self.dir_for(key)
         jp, mp = d / "journal.ndjsonl", d / "meta.json"
         if not jp.exists() or not mp.exists():
             return None
         journal = Journal.from_ndjson(jp.read_text())
-        meta = json.loads(mp.read_text())
+        meta = _read_meta(mp)                # read + validated once (F8 loud-refuse on a future version)
         subject = SubjectRef.model_validate(meta["subject"])
         # P4: rebind belief scoring with the tunables the run was persisted under (older
         # metas without the key fall back to the model defaults).
@@ -209,23 +232,29 @@ class InvestigationStore:
         else:
             graph, store = rebuild(journal, tunables=tun)
             save_graph(graph, d / "graph.json", journal_seq=head)   # self-heal the cache
-        co = meta.get("close_outcome")
-        close_outcome = co or None
+        close_outcome = meta.get("close_outcome") or None
         phases_run = [e.phase_id for e in journal.phase_entries() if e.phase_id]
-        return RunResult(
+        res = RunResult(
             subject=subject, phases_run=phases_run, graph=graph, hypothesis_store=store,
             journal=journal, confirmed=store.confirmed(), close_outcome=close_outcome,
             origin_node=meta.get("origin_node"))
+        return res, meta
+
+    def load_result(self, key: str) -> RunResult | None:
+        """Reopen from disk to a `RunResult` (journal-authoritative — see `_reopen`). None when
+        the investigation is not on disk."""
+        r = self._reopen(key)
+        return r[0] if r is not None else None
 
     def load_bundle(self, key: str) -> dict | None:
         """A read-only reopen payload, snapshot-shaped: `export_bundle` of the disk-rebuilt run
         plus a minimal session envelope (state from meta, `read_only=True`). Returns None when the
-        id is not on disk."""
-        res = self.load_result(key)
-        if res is None:
+        id is not on disk. Shares `_reopen`, so meta.json is read exactly once (M19b)."""
+        r = self._reopen(key)
+        if r is None:
             return None
+        res, meta = r
         from ..api.bundle import export_bundle  # lazy: avoids an import cycle at module load
-        meta = json.loads((self.dir_for(key) / "meta.json").read_text())
         bundle = export_bundle(res)
         return {
             **bundle,
@@ -248,8 +277,10 @@ class InvestigationStore:
             if not mp.exists():
                 continue
             try:
-                meta = json.loads(mp.read_text())
-            except (json.JSONDecodeError, OSError):
+                meta = _read_meta(mp)
+            except (json.JSONDecodeError, OSError, ValueError):
+                # unreadable, malformed, OR a future-version meta (F8): skip the row rather than
+                # crash the whole listing — reopen refuses loudly, the list stays resilient.
                 continue
             subject = meta.get("subject", {})
             key = meta.get("key") or f"{subject.get('domain')}:{subject.get('id')}"

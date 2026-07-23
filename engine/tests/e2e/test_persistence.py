@@ -11,12 +11,14 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 
+import pytest
+
 from iw_engine.domain.subject import SubjectRef
 from iw_engine.graph import rebuild
 from iw_engine.journal.journal import Journal
 from iw_engine.runtime.scenarios import build_manager
 from iw_engine.runtime.session import GateDecision, SessionState
-from iw_engine.runtime.store import InvestigationStore, safe_key
+from iw_engine.runtime.store import META_SCHEMA_VERSION, InvestigationStore, _default_root, safe_key
 
 INCIDENT = "INC-4821"
 KEY = f"app-incident:{INCIDENT}"
@@ -224,3 +226,48 @@ def test_errored_run_persists_outcome_error_not_open(tmp_path):
     assert meta["outcome"] == "error"                          # NOT the default "open"
     row = {r["id"]: r for r in InvestigationStore(root).list_disk()}[KEY]
     assert row["outcome"] == "error"                           # GET /sessions never shows a phantom 'open'
+
+
+# ── M19: DB-seam hygiene ───────────────────────────────────────────────────────
+def test_future_meta_version_is_refused_loudly(tmp_path):
+    """M19a / F8: a meta.json from a NEWER schema is REFUSED on reopen, never misread — the same
+    loud-refuse the journal (`from_ndjson`) and graph (`from_dict`) already do, so all three
+    on-disk artifacts tell ONE version story. The list path stays resilient (skips the untrusted
+    row rather than crashing the whole GET /sessions)."""
+    root, _ = _driven_store(tmp_path)
+    mp = root / safe_key(KEY) / "meta.json"
+    meta = json.loads(mp.read_text())
+    meta["schema_version"] = META_SCHEMA_VERSION + 1
+    mp.write_text(json.dumps(meta))
+    store = InvestigationStore(root)
+    with pytest.raises(ValueError, match="newer than this engine"):
+        store.load_result(KEY)
+    with pytest.raises(ValueError, match="newer than this engine"):
+        store.load_bundle(KEY)
+    assert store.list_disk() == []                             # untrusted row skipped, list not fatal
+
+
+def test_reopen_reads_meta_once(tmp_path, monkeypatch):
+    """M19b: `load_bundle` shares `_reopen` with `load_result`, so meta.json is read + validated
+    exactly ONCE per reopen — it used to re-parse meta.json a second time after load_result."""
+    root, _ = _driven_store(tmp_path)
+    from iw_engine.runtime import store as store_mod
+    calls = {"n": 0}
+    real = store_mod._read_meta
+
+    def _spy(mp):
+        calls["n"] += 1
+        return real(mp)
+
+    monkeypatch.setattr(store_mod, "_read_meta", _spy)
+    assert InvestigationStore(root).load_bundle(KEY) is not None
+    assert calls["n"] == 1, "meta.json must be read via _reopen exactly once (was parsed twice)"
+
+
+def test_data_root_env_override(monkeypatch, tmp_path):
+    """M19c: `IW_DATA_ROOT` relocates the store root off the package-relative default (which points
+    into site-packages on a pip-install, where no writable `data/` exists)."""
+    monkeypatch.setenv("IW_DATA_ROOT", str(tmp_path / "custom"))
+    assert _default_root() == tmp_path / "custom" / "investigations"
+    monkeypatch.delenv("IW_DATA_ROOT")
+    assert _default_root().parts[-2:] == ("data", "investigations")   # in-repo fallback
