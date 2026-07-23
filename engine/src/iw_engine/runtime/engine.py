@@ -191,6 +191,14 @@ class Engine:
             calls=[c.intent for c in plan.calls],
             ops=[type(o).__name__ for o in plan.ops], narrative=plan.narrative)
 
+        # M6: JOURNAL the planner's OWN reject+repair drops (off-catalog tool, unparseable/illegal
+        # op, coerced verdict) — `repair` annotations sharing the phase seq (replay-inert). They
+        # are ALSO fed to the next plan below, unifying the planner's enforcement channel with the
+        # reducer's: a planner-dropped op is now as durable + fed-back as a reducer-dropped one
+        # (was verbose-log / dev-summary only). Empty on the scripted path — goldens untouched.
+        for _repair in plan.repairs:
+            self.journal.append_repair(seq, phase, detail=_repair)
+
         # capability calls -> data ops (the tool outputs fold into the graph); writes
         # (remediation actions) execute only in a human-gated `writes_allowed` phase. serve()
         # is gate-first: a disallowed write is blocked BEFORE any fetch/side-effect (§C.3/§D).
@@ -232,7 +240,22 @@ class Engine:
         # flowmap's discovery node was the op the ceiling dropped). Vendor-volume bounding
         # belongs in the adapters, not a fold-time cut that breaks batch integrity.
         ceiling = self.playbook.tunables.op_ceiling.get(phase)
-        plan_ops = list(plan.ops)[:ceiling] if ceiling else list(plan.ops)
+        authored = list(plan.ops)
+        plan_ops = authored[:ceiling] if ceiling else authored
+        # M5: the op_ceiling used to SILENTLY head-slice the planner's over-cap ops — no journal,
+        # no feedback — while every OTHER drop in the system is first-class. When it cuts, record a
+        # `rejection` entry (shares the phase seq, replay-inert) naming WHAT was dropped + WHY, and
+        # hand the drop to the NEXT plan (below) so the planner learns its output was capped. The
+        # dependency-aware reserve-quota (dropping whole to-do items, not a tail-slice) is F1.
+        ceiling_rejection: Rejection | None = None
+        if ceiling and len(authored) > ceiling:
+            cut = authored[ceiling:]
+            dropped = [type(o).__name__ for o in cut]
+            reason = (f"op_ceiling[{phase}]={ceiling}: planner authored {len(authored)} ops, "
+                      f"dropped {len(cut)} over the cap ({', '.join(dropped)})")
+            self.journal.append_rejection(seq, phase, op_kind="op_ceiling", reason=reason,
+                                          dropped=dropped)
+            ceiling_rejection = Rejection(op_index=ceiling, op_kind="op_ceiling", reason=reason)
         ops = data_ops + plan_ops
 
         # intents whose LAST call errored/was blocked observed NOTHING — a NoEvidence op naming
@@ -243,6 +266,15 @@ class Engine:
                           anomaly_ref=self._anomaly_ref, no_weight_intents=no_weight)
         self.rejections.extend(mat.rejections)
         self._last_rejections = list(mat.rejections)   # the NEXT plan is told what was dropped
+        # M5/M6: unify the drop channels into that feedback — the reducer's in-delta rejections
+        # PLUS the planner's own repairs (op_index=-1: pre-reducer, no op index) and the op_ceiling
+        # cut. The planner now sees EVERY drop, not just the reducer's. (These extras live only in
+        # the journal + this feedback — never in PhaseResult.rejections / bundle["rejections"],
+        # which stay the reducer-in-delta projection.)
+        self._last_rejections += [Rejection(op_index=-1, op_kind="repair", reason=r)
+                                  for r in plan.repairs]
+        if ceiling_rejection is not None:
+            self._last_rejections.append(ceiling_rejection)
 
         # capture the symptom node the first time it is created (domain role-binding)
         if self._anomaly_ref is None:

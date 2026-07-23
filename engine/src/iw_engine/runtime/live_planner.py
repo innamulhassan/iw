@@ -468,6 +468,10 @@ Plan this phase. Return ONLY the JSON object."""
     # ── map LLM JSON -> PlanOutput (reject + repair off-catalog) ───────────────
     def _to_plan_output(self, ctx: PlanContext, raw: dict) -> PlanOutput:
         phase = ctx.phase
+        # M6: mark the repair log so this plan carries EXACTLY the drops it made (off-catalog
+        # tool, unparseable/illegal op, coerced verdict) — the engine journals them + feeds them
+        # to the next plan. self.repairs stays the cumulative run log; the slice is this turn's.
+        repairs_mark = len(self.repairs)
         # the LLM output is untrusted: a non-dict top level (JSON array, bare string) is
         # repaired to an EMPTY plan — reject+repair, never a hard crash that would kill
         # the whole live session (INV-7; 2026-07-22 review, finding 5)
@@ -529,7 +533,8 @@ Plan this phase. Return ONLY the JSON object."""
         if self.verbose:
             self._log(trace)
         return PlanOutput(phase=ctx.phase, calls=calls, ops=ops, narrative=narrative,
-                          verdict=verdict, next_actions=[str(x) for x in (raw.get("next_actions") or [])])
+                          verdict=verdict, next_actions=[str(x) for x in (raw.get("next_actions") or [])],
+                          repairs=list(self.repairs[repairs_mark:]))
 
     def _parse_op(self, o):
         if not isinstance(o, dict):   # untrusted payload: repair, never raise (INV-7)

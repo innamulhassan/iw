@@ -59,6 +59,12 @@ class PlanOutput(BaseModel):
     narrative: str
     verdict: PhaseVerdict
     next_actions: list[str] = Field(default_factory=list)
+    # the reject+repair drops the planner made mapping raw LLM output -> this plan (off-catalog
+    # tool, unparseable/illegal op, coerced verdict). The engine journals them as `repair` entries
+    # and feeds them into the next PlanContext.rejections (M6) — unifying the planner's own
+    # enforcement channel with the reducer's. Empty for the deterministic ScriptedPlanner, so the
+    # scripted/golden path is untouched.
+    repairs: list[str] = Field(default_factory=list)
 
 
 @runtime_checkable

@@ -59,9 +59,12 @@ class JournalEntry(BaseModel):
     #   invocation    — a capability call's boundary outcome (data | empty | error | blocked):
     #                   every call leaves a durable trace now, incl. an approved write's
     #                   execution — shares its phase's seq (annotation, not a numbered step)
-    #   rejection     — a reducer/planner rejection OUTSIDE a phase delta (in-delta rejections
-    #                   ride PhaseResult.rejections — derived, not duplicated)
-    #   repair        — a planner repair record (dropped ops, coercions; live path)
+    #   rejection     — a drop OUTSIDE a phase delta: the engine's op_ceiling truncation (M5),
+    #                   which cut the planner's over-cap ops with no trace before. In-delta
+    #                   reducer rejections still ride PhaseResult.rejections — not duplicated here.
+    #   repair        — a planner repair record: an off-catalog tool / unparseable-or-illegal op /
+    #                   coerced verdict the LIVE planner dropped BEFORE the reducer (M6). Used to
+    #                   reach only the verbose log + dev summary; now durable and fed back.
     #   lifecycle     — run started/resumed/max-steps-exhausted/terminal outcome
     #   phase_review  — the between-phases DIRECTION review shown to the human (summary + the
     #                   proposed advance), durable like gate_opened (owner 2026-07-23)
@@ -203,6 +206,30 @@ class Journal:
             ts=self._clock(), kind="lifecycle", phase_id=phase_id, actor="engine",
             reasoning=event, decision=outcome,
             action={"event": event, **(detail or {})}))
+
+    def append_rejection(self, seq: int, phase_id: str, *, op_kind: str, reason: str,
+                         dropped: list[str] | None = None) -> JournalEntry:
+        """A rejection OUTSIDE a phase delta (part2 §1): an op the ENGINE dropped — today the
+        per-phase `op_ceiling` truncation (M5), which used to silently head-slice the planner's
+        over-cap ops with no journal entry and no feedback while every OTHER drop in the system is
+        first-class. SHARES its phase's seq (an annotation, not a numbered step) and carries NO
+        delta, so phase/step numbering is untouched and replay ignores it. In-delta reducer
+        rejections still ride PhaseResult.rejections — this kind is only for drops outside it."""
+        return self.append(JournalEntry(
+            seq=seq, ts=self._clock(), kind="rejection", phase_id=phase_id, actor="engine",
+            intent=op_kind, reasoning=reason,
+            action={"op_kind": op_kind, "dropped": list(dropped or [])}))
+
+    def append_repair(self, seq: int, phase_id: str, *, detail: str) -> JournalEntry:
+        """A planner REPAIR record (part2 §1): the LIVE planner dropped an off-catalog tool
+        intent, an unparseable/illegal op, or coerced a malformed verdict — BEFORE the reducer
+        (which never saw it), so the drop used to reach only the verbose log + dev summary. Now it
+        is durable AND fed back like a reducer rejection (M6 — the two enforcement channels unify).
+        SHARES its phase's seq (an annotation, not a numbered step); carries NO delta (replay
+        ignores it). Empty on the scripted path — a ScriptedPlanner emits no repairs."""
+        return self.append(JournalEntry(
+            seq=seq, ts=self._clock(), kind="repair", phase_id=phase_id, actor="engine",
+            reasoning=detail, action={"repair": detail}))
 
     def step_entries(self) -> list[JournalEntry]:
         """The human-in-the-loop entries (v2 gate_decision/message + the v1 "step" union)."""
