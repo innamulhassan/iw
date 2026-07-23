@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 from ..capability.layer import CapabilityLayer, Invocation
 from ..domain import registry
-from ..domain.enums import VerdictStatus
+from ..domain.enums import Species, VerdictStatus
 from ..domain.hypothesis import Hypothesis
 from ..domain.phase_result import PhaseResult
 from ..domain.playbook import Playbook
@@ -26,6 +26,46 @@ from ..hypothesis.store import HypothesisStore
 from ..journal.journal import Journal, JournalEntry
 from .controller import check_gate, next_phase
 from .planner import PlanContext, Planner
+
+
+def _produced_summary(ops: list) -> list[str]:
+    """A per-op one-line summary of what a REASONED STEP produced (JOURNAL story fidelity) — the
+    'produced facts' side of a tool call ("→ produced red_errors=0.40, red_rate=820 rpm, node
+    error_signature npe-taxcalc"). ONE string per op (so the UI can disclose each produced datum);
+    the fact/event species split mirrors the layer's `_summarize_ops`. Best-effort labelling +
+    defensive: an op shape it does not model degrades to its class name, never raises."""
+    out: list[str] = []
+    for o in ops:
+        name = type(o).__name__
+        if name == "AddAssertion":
+            kind = "event" if getattr(o, "species", None) == Species.EVENT else "fact"
+            unit = f" {o.unit}" if getattr(o, "unit", None) else ""
+            out.append(f"{kind} {o.name}={o.value}{unit}" if o.value is not None
+                       else f"{kind} {o.name}")
+        elif name == "AddNode":
+            out.append(f"node {o.type.value} {_node_ident(o)}".rstrip())
+        elif name == "AddEdge":
+            out.append(f"link {o.type.value} {o.src}→{o.dst}")
+        elif name == "ProposeHypothesis":
+            out.append(f"hypothesis {o.hid}: {o.statement}")
+        elif name == "UpdateHypothesis":
+            out.append(f"hypothesis {o.hid} {o.new_status}".rstrip() if o.new_status
+                       else f"hypothesis {o.hid}")
+        elif name == "NoEvidence":
+            out.append(f"no_evidence {o.intent} @ {o.scope}")
+        else:
+            out.append(name)
+    return out
+
+
+def _node_ident(o) -> str:
+    """The identity value(s) that make an AddNode's entity THIS entity (NODE_SPECS.identity_keys),
+    joined — falls back to all prop values. Best-effort labelling for the produced summary only,
+    never load-bearing (the node id is the authority)."""
+    from ..domain.nodes import NODE_SPECS
+    spec = NODE_SPECS.get(o.type)
+    keys = list(spec.identity_keys) if spec else list(o.props)
+    return " ".join(str(o.props[k]) for k in keys if k in o.props)
 
 
 @dataclass
@@ -213,6 +253,7 @@ class Engine:
             # F1: the to-do index each flat call serves (parallel to plan.calls) — stamped on the
             # invocation record + the live stream so each tool call shows which to-do it executed for.
             call_todos = plan.call_todo_indices()
+            effective = plan.effective_todos   # the plan AS a checklist (authored or synthesized)
             for i, call in enumerate(plan.calls):
                 todo_idx = call_todos[i] if i < len(call_todos) else None
                 started = self._clock().isoformat()
@@ -233,11 +274,27 @@ class Engine:
                 # journal proves consent, never execution"). Outcomes stay DISTINCT downstream
                 # (error ≠ clean-empty is the honesty line).
                 self._intent_outcomes[inv.intent] = inv.outcome
-                # the WHY each tool was called (owner goal): thread the plan's stated intent (its
-                # narrative) as the invocation's rationale, so an invocation entry stops carrying
-                # reasoning=None — an audit reads WHY, not just the capability name. `todo` is the
-                # F1 attribution — which plan to-do this call served.
-                self._journal_invocation(seq, phase, inv, why=plan.narrative, todo=todo_idx)
+                # the WHY each tool was called must be PER-CALL (JOURNAL story fidelity): the call's
+                # own `rationale`, else the serving to-do's objective, else the phase narrative —
+                # never one generic why for every call. The serving to-do also attributes the human
+                # RESULT line + a produced-ops summary + the op-count to the invocation, so the
+                # journal reads as a reasoned step ("called X → THIS came back → produced these
+                # facts"). `todo` is the F1 attribution — which plan to-do this call served.
+                serving = (effective[todo_idx]
+                           if todo_idx is not None and todo_idx < len(effective) else None)
+                why = call.rationale or (serving.objective if serving else "") or plan.narrative
+                # the RESULT/PRODUCED/op-count attribution rides ONLY when the plan AUTHORED to-dos:
+                # a synthesized default to-do wraps ALL of the phase's ops, so attributing them to
+                # one call would be wrong — leaving these None keeps the no-authored-to-dos path
+                # (every existing scenario) byte-for-byte unchanged (goldens are byte-identical).
+                observation_text = produced = op_count = None
+                if plan.todos and serving is not None:
+                    observation_text = serving.observation or None
+                    produced = _produced_summary(serving.ops)
+                    op_count = len(serving.ops) if len(serving.ops) > inv.op_count else None
+                self._journal_invocation(seq, phase, inv, why=why, todo=todo_idx,
+                                         observation_text=observation_text, produced=produced,
+                                         op_count=op_count)
         # The per-phase op ceiling guards against RUNAWAY PLANNER OUTPUT only — it never
         # touches the adapters' data ops. Those are deterministic tool folds and internally
         # referential (a call's AddAssertion lands on a node a sibling call's AddNode creates);
@@ -348,6 +405,10 @@ class Engine:
                        "calls": [c.intent for c in td.calls],
                        "ops": [type(o).__name__ for o in td.ops],
                        "status": td.status.value}
+            # the human RESULT line for the step (JOURNAL story fidelity) — omitted when unset, so a
+            # golden's synthesized default to-do (observation="") keeps its lean pre-story shape.
+            if td.observation:
+                d["observation"] = td.observation
             if td.op_budget is not None:
                 d["op_budget"] = td.op_budget
             if td.delegate:
@@ -356,29 +417,46 @@ class Engine:
         return out
 
     def _journal_invocation(self, seq: int, phase: str, inv, why: str | None = None,
-                            todo: int | None = None) -> None:
+                            todo: int | None = None, *, observation_text: str | None = None,
+                            produced: list[str] | None = None,
+                            op_count: int | None = None) -> None:
         """Journal ONE capability call's boundary outcome (P3 airlock step 1, extended by
         JOURNAL v2 to EVERY call — part2 §1's invocation row: an approved write used to leave
         zero durable trace; now intent, provider, params, effect, blocked-ness, op-count AND the
         WHY are on the record). The entry keys the outcome on `decision`/`observation.outcome`,
         keeping error ≠ clean-empty DISTINGUISHABLE downstream (part4-capability §4). `why` is the
-        plan's stated intent (its narrative) — the rationale the owner wants for every tool call,
-        replacing the old reasoning=None. These are `kind="invocation"` entries: they SHARE the
-        phase's seq (an annotation of that phase, not a numbered step of their own), so phase/step
-        numbering — and every golden seq — is untouched; replay ignores them (no delta). Wall-clock
-        timing stays ephemeral on the in-memory Invocation (trace concern); params ride in full —
-        hashing them is a live-privacy knob for a later phase."""
+        PER-CALL rationale (call.rationale → serving to-do objective → phase narrative), replacing
+        the old single generic phase-level why. These are `kind="invocation"` entries: they SHARE
+        the phase's seq (an annotation of that phase, not a numbered step of their own), so
+        phase/step numbering — and every golden seq — is untouched; replay ignores them (no delta).
+        Wall-clock timing stays ephemeral on the in-memory Invocation (trace concern); params ride
+        in full — hashing them is a live-privacy knob for a later phase.
+
+        The REASONED-STEP attributes (JOURNAL story fidelity) ride ADDITIVELY when the serving plan
+        authored a to-do: `observation_text` (the human 'what came back' line) lands on
+        `action.result`, `produced` (a per-op summary of what the step produced) on
+        `action.produced`, and `op_count` OVERRIDES the fold's count with the serving to-do's op
+        count (the mock fold is empty when a reasoned step's ops are planner-direct). All three are
+        omitted-when-None, so an invocation from a plan that authored no to-do keeps its exact
+        pre-story shape and every existing golden stays byte-identical."""
+        action = {"capability": inv.intent, "provider": inv.provider,
+                  "params": dict(inv.params), "effect": inv.effect.value,
+                  # transport provenance (M1): HOW the raw was fetched — the served-by transport
+                  # + the adapter's declared Binding, so the audit shows mock-vs-live on the record.
+                  "served_by": inv.served_by,
+                  "binding": inv.binding.value if inv.binding else None}
+        # the reasoned-step RESULT + PRODUCED facts, attributed from the serving to-do (omitted
+        # when absent → today's invocation shape, so the existing scenarios' goldens are unchanged).
+        if observation_text is not None:
+            action["result"] = observation_text
+        if produced is not None:
+            action["produced"] = list(produced)
         self.journal.append(JournalEntry(
             seq=seq, ts=self._clock(), kind="invocation",
             phase_id=phase, actor="engine", intent=inv.intent, reasoning=why, todo=todo,
-            action={"capability": inv.intent, "provider": inv.provider,
-                    "params": dict(inv.params), "effect": inv.effect.value,
-                    # transport provenance (M1): HOW the raw was fetched — the served-by transport
-                    # + the adapter's declared Binding, so the audit shows mock-vs-live on the record.
-                    "served_by": inv.served_by,
-                    "binding": inv.binding.value if inv.binding else None},
-            observation={"outcome": inv.outcome, "reason": inv.reason,
-                         "blocked": inv.blocked, "op_count": inv.op_count},
+            action=action,
+            observation={"outcome": inv.outcome, "reason": inv.reason, "blocked": inv.blocked,
+                         "op_count": op_count if op_count is not None else inv.op_count},
             decision=inv.outcome))
 
     def _close_outcome(self, phases_run: list[str], confirmed) -> str | None:

@@ -75,6 +75,10 @@ class Todo(BaseModel):
     objective: str                                              # the short aim this to-do serves
     calls: list[CapabilityCall] = Field(default_factory=list)   # capability invocations -> data ops
     ops: list[Operation] = Field(default_factory=list)          # planner-direct ops
+    # the human "what we found" line for this step (JOURNAL story fidelity): the RESULT the engine
+    # attributes to the to-do's serving call on its invocation record ("called X → THIS came back").
+    # ADDITIVE: unset ("") ⇒ no result line on the invocation, today's behaviour exactly.
+    observation: str = ""
     status: TodoStatus = TodoStatus.PENDING
     # ── SEAMS (declared, deliberately UNWIRED — the to-do layer is their documented home) ──
     op_budget: int | None = None   # per-to-do op ceiling (op-ceiling-per-todo) — the F1 reserve-quota seam

@@ -25,7 +25,7 @@ from iw_engine.domain.operations import (
 )
 from iw_engine.domain.phase_result import PhaseVerdict
 from iw_engine.domain.projection import species_for_predicate
-from iw_engine.runtime.planner import PlanOutput
+from iw_engine.runtime.planner import PlanOutput, Todo
 
 BAND = {"low": 0.3, "med": 0.6, "high": 0.9}
 
@@ -112,15 +112,31 @@ def verdict(status: str, level: str = "high", basis: str = "phase complete") -> 
     return PhaseVerdict(status=VerdictStatus(status), confidence=Confidence(value=BAND[level], basis=basis))
 
 
-def call(intent: str, **params) -> CapabilityCall:
-    return CapabilityCall(intent=intent, params=params)
+def call(intent: str, rationale: str = "", **params) -> CapabilityCall:
+    # `rationale` is the per-call WHY (JOURNAL story fidelity): the reason this call is made now.
+    # Authored positionally/by keyword; unset ⇒ the engine falls back to the serving to-do's
+    # objective, then the phase narrative (today's behaviour), so existing `call("x")` is unchanged.
+    return CapabilityCall(intent=intent, params=params, rationale=rationale)
+
+
+def todo(objective: str, calls: list | None = None, ops: list | None = None,
+         observation: str = "") -> Todo:
+    # One REASONED STEP (JOURNAL story fidelity): an objective + the call(s) that serve it + the ops
+    # they produced + the human `observation` (what came back). PlanOutput._reconcile_todos flattens
+    # a plan's to-dos back to calls+ops, so the engine's 1:1 execution loop is unchanged.
+    return Todo(objective=objective, calls=calls or [], ops=ops or [], observation=observation)
 
 
 def phase(p: str, ops: list | None = None, narrative: str = "", *, calls: list | None = None,
-          status: str = "advance", level: str = "high",
+          todos: list | None = None, status: str = "advance", level: str = "high",
           next_actions: list[str] | None = None) -> PlanOutput:
     # P7 phase-as-data: a phase id is a playbook string; a scripted typo fails loudly at
     # run time via the ScriptedPlanner's phase-match assertion, not an enum constructor.
+    # AUTHORED to-dos are authoritative: _reconcile_todos derives calls+ops from them, so pass
+    # ONLY todos (never also calls/ops). Absent ⇒ the flat calls/ops path (today's behaviour).
+    if todos is not None:
+        return PlanOutput(phase=p, todos=todos, narrative=narrative,
+                          verdict=verdict(status, level), next_actions=next_actions or [])
     return PlanOutput(phase=p, calls=calls or [], ops=ops or [], narrative=narrative,
                       verdict=verdict(status, level), next_actions=next_actions or [])
 

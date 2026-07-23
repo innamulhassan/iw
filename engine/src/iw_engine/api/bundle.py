@@ -94,13 +94,18 @@ def _journal_entry(e: JournalEntry) -> dict:
     if e.kind == "invocation":
         # every tool call in full: intent/provider/why/outcome/op_count (+ effect/params/blocked),
         # plus the transport provenance (M1: served_by + binding — mock-vs-live on the record). `todo`
-        # is the F1 attribution — which plan to-do this call served (None on a legacy journal).
+        # is the F1 attribution — which plan to-do this call served (None on a legacy journal). The
+        # reasoned-step RESULT (`result` — the human 'what came back' line) and PRODUCED facts
+        # (`produced` — a per-op summary) ride ONLY when the serving plan authored them (JOURNAL
+        # story fidelity), so a call from a no-to-do plan keeps its pre-story shape (goldens stable).
         return {**base, "intent": e.intent, "narrative": e.reasoning,
                 "provider": a.get("provider"), "params": a.get("params", {}),
                 "effect": a.get("effect"), "outcome": o.get("outcome"),
                 "reason": o.get("reason"), "blocked": o.get("blocked"),
                 "op_count": o.get("op_count"), "todo": e.todo,
-                "served_by": a.get("served_by"), "binding": a.get("binding")}
+                "served_by": a.get("served_by"), "binding": a.get("binding"),
+                **({"result": a["result"]} if "result" in a else {}),
+                **({"produced": a["produced"]} if "produced" in a else {})}
     if e.kind == "gate_opened":
         # the write-GATE question: proposed action + serving hypothesis + evidence.
         return {**base, "intent": e.intent, "narrative": e.reasoning,

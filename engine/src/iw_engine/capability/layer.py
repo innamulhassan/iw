@@ -101,6 +101,12 @@ class CapabilityCall(BaseModel):
 
     intent: str
     params: dict = Field(default_factory=dict)
+    # the per-call WHY (JOURNAL story fidelity): the reason THIS call is being made now, so the
+    # journal shows a reasoned step ("called query_metric because …"), not one generic phase-level
+    # why for every tool call. The LIVE LLM populates it; a mock scenario authors it. ADDITIVE:
+    # unset ("") ⇒ the engine falls back to the serving to-do's objective, then the phase narrative
+    # (today's behaviour exactly), so a call that authors no rationale is unchanged.
+    rationale: str = ""
 
 
 @dataclass(frozen=True)
