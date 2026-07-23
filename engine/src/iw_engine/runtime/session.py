@@ -631,7 +631,7 @@ class InvestigationSession:
                            **({"provisional": True} if e.provisional else {})}
                           for e in result.edges_added],
                    facts=[{"id": f.id, "subject": f.subject_ref, "predicate": f.predicate,
-                           "value": f.value, "unit": f.unit, "where": f.where,
+                           "value": f.value, "unit": f.unit,
                            "source": f.source.value,
                            "observed_at": f.observed_at.isoformat(),
                            "at": f.valid_from.isoformat(),

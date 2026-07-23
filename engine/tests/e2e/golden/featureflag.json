@@ -257,8 +257,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 0.34,
-        "where": null
+        "value": 0.34
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -271,8 +270,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 2,
-        "where": null
+        "value": 2
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -285,8 +283,7 @@
         "subject": "service:cart-api|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:43:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -299,8 +296,7 @@
         "subject": "service:cart-api|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:43:00+00:00",
-        "value": 0.34,
-        "where": null
+        "value": 0.34
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -313,8 +309,7 @@
         "subject": "service:cart-api|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 940,
-        "where": null
+        "value": 940
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -327,8 +322,7 @@
         "subject": "service:cart-api|prod",
         "unit": "ms",
         "valid_to": "2026-07-19T14:21:00+00:00",
-        "value": 71,
-        "where": null
+        "value": 71
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -341,8 +335,7 @@
         "subject": "service:cart-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 2100,
-        "where": null
+        "value": 2100
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -355,8 +348,7 @@
         "subject": "service:cart-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -369,8 +361,7 @@
         "subject": "service:cart-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.999,
-        "where": null
+        "value": 0.999
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -383,8 +374,7 @@
         "subject": "feature_flag:new-tax-engine|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:21:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -397,8 +387,7 @@
         "subject": "feature_flag:new-tax-engine|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:21:00+00:00",
-        "value": 100,
-        "where": null
+        "value": 100
       },
       {
         "at": "2026-07-19T14:05:30+00:00",
@@ -415,8 +404,7 @@
           "200": 0.64,
           "4xx": 0.02,
           "500": 0.34
-        },
-        "where": null
+        }
       },
       {
         "at": "2026-07-19T14:21:00+00:00",
@@ -429,8 +417,7 @@
         "subject": "error_signature:taxengine-bulk-cart",
         "unit": null,
         "valid_to": null,
-        "value": 312,
-        "where": null
+        "value": 312
       },
       {
         "at": "2026-07-19T14:21:00+00:00",
@@ -443,8 +430,7 @@
         "subject": "error_signature:taxengine-bulk-cart",
         "unit": null,
         "valid_to": null,
-        "value": "2026-07-19T14:21:00+00:00",
-        "where": null
+        "value": "2026-07-19T14:21:00+00:00"
       },
       {
         "at": "2026-07-19T14:21:00+00:00",
@@ -457,8 +443,7 @@
         "subject": "feature_flag:new-tax-engine|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:43:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T14:21:00+00:00",
@@ -471,8 +456,7 @@
         "subject": "feature_flag:new-tax-engine|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:43:00+00:00",
-        "value": 100,
-        "where": null
+        "value": 100
       },
       {
         "at": "2026-07-19T14:21:00+00:00",
@@ -485,8 +469,7 @@
         "subject": "service:cart-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 73,
-        "where": null
+        "value": 73
       },
       {
         "at": "2026-07-19T14:43:00+00:00",
@@ -499,8 +482,7 @@
         "subject": "feature_flag:new-tax-engine|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       },
       {
         "at": "2026-07-19T14:43:00+00:00",
@@ -513,8 +495,7 @@
         "subject": "feature_flag:new-tax-engine|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0,
-        "where": null
+        "value": 0
       },
       {
         "at": "2026-07-19T14:43:00+00:00",
@@ -527,8 +508,7 @@
         "subject": "service:cart-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.003,
-        "where": null
+        "value": 0.003
       },
       {
         "at": "2026-07-19T14:43:00+00:00",
@@ -541,8 +521,7 @@
         "subject": "service:cart-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       }
     ],
     "nodes": [

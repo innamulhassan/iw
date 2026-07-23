@@ -205,7 +205,7 @@ def export_bundle(res: RunResult) -> dict:
             # is marked (the UI renders it dimly), while every closed-vocabulary fact/event
             # keeps its exact pre-P3 shape — the 11 goldens stay byte-identical by construction.
             "facts": [{"id": f.id, "subject": f.subject_ref, "predicate": f.predicate,
-                       "value": f.value, "unit": f.unit, "where": f.where,
+                       "value": f.value, "unit": f.unit,
                        "at": f.valid_from.isoformat(),
                        "observed_at": f.observed_at.isoformat(),
                        "valid_to": f.valid_to.isoformat() if f.valid_to else None,

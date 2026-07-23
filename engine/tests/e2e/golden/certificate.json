@@ -240,8 +240,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 0.4,
-        "where": null
+        "value": 0.4
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -254,8 +253,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 2,
-        "where": null
+        "value": 2
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -268,8 +266,7 @@
         "subject": "service:auth-svc|prod",
         "unit": null,
         "valid_to": "2026-07-19T15:10:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -282,8 +279,7 @@
         "subject": "service:auth-svc|prod",
         "unit": null,
         "valid_to": "2026-07-19T15:10:00+00:00",
-        "value": 0.4,
-        "where": null
+        "value": 0.4
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -296,8 +292,7 @@
         "subject": "service:auth-svc|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 1100,
-        "where": null
+        "value": 1100
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -310,8 +305,7 @@
         "subject": "service:auth-svc|prod",
         "unit": "ms",
         "valid_to": "2026-07-19T14:45:00+00:00",
-        "value": 48,
-        "where": null
+        "value": 48
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -324,8 +318,7 @@
         "subject": "service:auth-svc|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 1900,
-        "where": null
+        "value": 1900
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -338,8 +331,7 @@
         "subject": "service:auth-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -352,8 +344,7 @@
         "subject": "service:auth-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.999,
-        "where": null
+        "value": 0.999
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -366,8 +357,7 @@
         "subject": "certificate:auth-tls-intermediate",
         "unit": null,
         "valid_to": "2026-07-19T14:45:00+00:00",
-        "value": 0,
-        "where": null
+        "value": 0
       },
       {
         "at": "2026-07-19T14:30:00+00:00",
@@ -384,8 +374,7 @@
           "200": 0.58,
           "4xx": 0.02,
           "500": 0.4
-        },
-        "where": null
+        }
       },
       {
         "at": "2026-07-19T14:45:00+00:00",
@@ -398,8 +387,7 @@
         "subject": "certificate:auth-tls-intermediate",
         "unit": null,
         "valid_to": "2026-07-19T15:10:00+00:00",
-        "value": -1,
-        "where": null
+        "value": -1
       },
       {
         "at": "2026-07-19T14:45:00+00:00",
@@ -412,8 +400,7 @@
         "subject": "error_signature:pkix-path-building-failed",
         "unit": null,
         "valid_to": null,
-        "value": 8840,
-        "where": null
+        "value": 8840
       },
       {
         "at": "2026-07-19T14:45:00+00:00",
@@ -426,8 +413,7 @@
         "subject": "error_signature:pkix-path-building-failed",
         "unit": null,
         "valid_to": null,
-        "value": "2026-07-19T14:45:00+00:00",
-        "where": null
+        "value": "2026-07-19T14:45:00+00:00"
       },
       {
         "at": "2026-07-19T14:45:00+00:00",
@@ -440,8 +426,7 @@
         "subject": "service:auth-svc|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 51,
-        "where": null
+        "value": 51
       },
       {
         "at": "2026-07-19T15:10:00+00:00",
@@ -454,8 +439,7 @@
         "subject": "certificate:auth-tls-intermediate",
         "unit": null,
         "valid_to": null,
-        "value": 90,
-        "where": null
+        "value": 90
       },
       {
         "at": "2026-07-19T15:10:00+00:00",
@@ -468,8 +452,7 @@
         "subject": "service:auth-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.002,
-        "where": null
+        "value": 0.002
       },
       {
         "at": "2026-07-19T15:10:00+00:00",
@@ -482,8 +465,7 @@
         "subject": "service:auth-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       }
     ],
     "nodes": [

@@ -60,7 +60,7 @@ def assertion_of_fact(f: Fact) -> Assertion:
     """Fact record → Assertion record (the store's write seam for facts)."""
     return Assertion(
         id=f.id, subject_ref=f.subject_ref, name=f.predicate, value=f.value, unit=f.unit,
-        where=f.where, species=species_for_predicate(f.predicate),
+        species=species_for_predicate(f.predicate),
         channel=channel_for_source(f.source),
         valid_from=f.valid_from, valid_to=f.valid_to, observed_at=f.observed_at,
         source=f.source, source_native_name=f.source_native_name,
@@ -74,7 +74,7 @@ def fact_of_assertion(a: Assertion) -> Fact:
     `assertion_of_fact`; `name` returns to `predicate`)."""
     return Fact(
         id=a.id, subject_ref=a.subject_ref, predicate=a.name, value=a.value, unit=a.unit,
-        where=a.where, valid_from=a.valid_from, valid_to=a.valid_to, observed_at=a.observed_at,
+        valid_from=a.valid_from, valid_to=a.valid_to, observed_at=a.observed_at,
         source=a.source, source_native_name=a.source_native_name,
         confidence=a.confidence, source_reliability=a.source_reliability,
         evidence=a.evidence, supersedes=a.supersedes, state=a.state,

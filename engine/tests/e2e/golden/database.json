@@ -350,8 +350,7 @@
         "subject": "anomaly:anom-1",
         "unit": "ms",
         "valid_to": null,
-        "value": 5200,
-        "where": null
+        "value": 5200
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -364,8 +363,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 2,
-        "where": null
+        "value": 2
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -378,8 +376,7 @@
         "subject": "service:orders-api|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:50:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -392,8 +389,7 @@
         "subject": "service:orders-api|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 1180,
-        "where": null
+        "value": 1180
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -406,8 +402,7 @@
         "subject": "service:orders-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.015,
-        "where": null
+        "value": 0.015
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -420,8 +415,7 @@
         "subject": "service:orders-api|prod",
         "unit": "ms",
         "valid_to": "2026-07-19T14:20:00+00:00",
-        "value": 46,
-        "where": null
+        "value": 46
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -434,8 +428,7 @@
         "subject": "service:orders-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -448,8 +441,7 @@
         "subject": "service:orders-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 300,
-        "where": null
+        "value": 300
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -462,8 +454,7 @@
         "subject": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
         "unit": "rpm",
         "valid_to": null,
-        "value": 410,
-        "where": null
+        "value": 410
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -476,8 +467,7 @@
         "subject": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
         "unit": null,
         "valid_to": null,
-        "value": 0.06,
-        "where": null
+        "value": 0.06
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -490,8 +480,7 @@
         "subject": "api_endpoint:orders-api|prod|get|-orders-{id}-items",
         "unit": "ms",
         "valid_to": null,
-        "value": 8100,
-        "where": null
+        "value": 8100
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -507,8 +496,7 @@
         "value": {
           "200": 0.94,
           "504": 0.06
-        },
-        "where": null
+        }
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -521,8 +509,7 @@
         "subject": "service:orders-api|prod",
         "unit": "ms",
         "valid_to": "2026-07-19T14:20:00+00:00",
-        "value": 4800,
-        "where": null
+        "value": 4800
       },
       {
         "at": "2026-07-19T13:57:00+00:00",
@@ -535,8 +522,7 @@
         "subject": "code_commit:a1b2c3d",
         "unit": null,
         "valid_to": null,
-        "value": 1,
-        "where": null
+        "value": 1
       },
       {
         "at": "2026-07-19T13:57:00+00:00",
@@ -549,8 +535,7 @@
         "subject": "code_commit:a1b2c3d",
         "unit": null,
         "valid_to": null,
-        "value": 1,
-        "where": null
+        "value": 1
       },
       {
         "at": "2026-07-19T13:57:00+00:00",
@@ -563,8 +548,7 @@
         "subject": "code_commit:a1b2c3d",
         "unit": null,
         "valid_to": null,
-        "value": 0,
-        "where": null
+        "value": 0
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -577,8 +561,7 @@
         "subject": "schema:orders-pg|orders",
         "unit": null,
         "valid_to": null,
-        "value": 0.4,
-        "where": null
+        "value": 0.4
       },
       {
         "at": "2026-07-19T14:05:00+00:00",
@@ -591,8 +574,7 @@
         "subject": "schema:orders-pg|orders",
         "unit": null,
         "valid_to": null,
-        "value": 37,
-        "where": null
+        "value": 37
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -605,8 +587,7 @@
         "subject": "service:orders-api|prod",
         "unit": "ms",
         "valid_to": "2026-07-19T14:50:00+00:00",
-        "value": 7900,
-        "where": null
+        "value": 7900
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -619,8 +600,7 @@
         "subject": "service:orders-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 42,
-        "where": null
+        "value": 42
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -633,8 +613,7 @@
         "subject": "database:orders-pg",
         "unit": "conn",
         "valid_to": null,
-        "value": 200,
-        "where": null
+        "value": 200
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -647,8 +626,7 @@
         "subject": "database:orders-pg",
         "unit": "conn",
         "valid_to": null,
-        "value": 200,
-        "where": null
+        "value": 200
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -661,8 +639,7 @@
         "subject": "database:orders-pg",
         "unit": "ratio",
         "valid_to": null,
-        "value": 1.0,
-        "where": null
+        "value": 1.0
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -675,8 +652,7 @@
         "subject": "database:orders-pg",
         "unit": "per_min",
         "valid_to": null,
-        "value": 342,
-        "where": null
+        "value": 342
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -689,8 +665,7 @@
         "subject": "database:orders-pg",
         "unit": "s",
         "valid_to": null,
-        "value": 0.3,
-        "where": null
+        "value": 0.3
       },
       {
         "at": "2026-07-19T14:50:00+00:00",
@@ -703,8 +678,7 @@
         "subject": "service:orders-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 95,
-        "where": null
+        "value": 95
       },
       {
         "at": "2026-07-19T14:50:00+00:00",
@@ -717,8 +691,7 @@
         "subject": "service:orders-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       }
     ],
     "nodes": [

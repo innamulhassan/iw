@@ -10,9 +10,9 @@ AddAssertion` (F4 retired the AddFact/AddEvent compat shims that used to map ont
 
 P6 (the store-flip, part2 §3 + the P1a design decisions): the graph now stores ONE assertion
 collection; Fact/Event become read views over it (graph.facts/graph.events, converted via
-domain.projection). The atom therefore carries every Fact/Event lifecycle field — `where` (Fact's
-spatial W), `provisional` (the P3 airlock flag), and `invalidated_by` (decision 1: the
-retraction lifecycle covers events too, so the tombstone's cause lives on the atom).
+domain.projection). The atom therefore carries every Fact/Event lifecycle field — `provisional`
+(the P3 airlock flag) and `invalidated_by` (decision 1: the retraction lifecycle covers events
+too, so the tombstone's cause lives on the atom).
 """
 from __future__ import annotations
 
@@ -83,7 +83,6 @@ class Assertion(BaseModel):
     name: str                                # dictionary-canonical (P2 validates; P1a accepts any)
     value: AssertionValue = None
     unit: str | None = None
-    where: str | None = None                 # optional spatial/context W (Fact-era field, P6 flip)
     species: Species
     channel: Channel                         # belief keyed on channel, NOT Source identity
 

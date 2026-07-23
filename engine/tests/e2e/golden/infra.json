@@ -236,8 +236,7 @@
         "subject": "anomaly:anom-9",
         "unit": "evictions",
         "valid_to": null,
-        "value": 1,
-        "where": null
+        "value": 1
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -250,8 +249,7 @@
         "subject": "anomaly:anom-9",
         "unit": null,
         "valid_to": null,
-        "value": 2,
-        "where": null
+        "value": 2
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -264,8 +262,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": "2026-07-19T02:55:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -278,8 +275,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": "2026-07-19T02:30:00+00:00",
-        "value": 0.09,
-        "where": null
+        "value": 0.09
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -292,8 +288,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -306,8 +301,7 @@
         "subject": "pod:checkout-7c9f-abc12",
         "unit": null,
         "valid_to": null,
-        "value": "Failed",
-        "where": null
+        "value": "Failed"
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -320,8 +314,7 @@
         "subject": "pod:checkout-7c9f-abc12",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -334,8 +327,7 @@
         "subject": "pod:checkout-7c9f-abc12",
         "unit": null,
         "valid_to": null,
-        "value": "node-prod-17",
-        "where": null
+        "value": "node-prod-17"
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -348,8 +340,7 @@
         "subject": "host:node-prod-17",
         "unit": null,
         "valid_to": "2026-07-19T02:30:00+00:00",
-        "value": 0.97,
-        "where": null
+        "value": 0.97
       },
       {
         "at": "2026-07-19T02:18:00+00:00",
@@ -362,8 +353,7 @@
         "subject": "batch_job:etl-nightly|sched-3",
         "unit": "rows",
         "valid_to": null,
-        "value": 8400000,
-        "where": null
+        "value": 8400000
       },
       {
         "at": "2026-07-19T02:30:00+00:00",
@@ -376,8 +366,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.09,
-        "where": null
+        "value": 0.09
       },
       {
         "at": "2026-07-19T02:30:00+00:00",
@@ -390,8 +379,7 @@
         "subject": "host:node-prod-17",
         "unit": null,
         "valid_to": "2026-07-19T02:55:00+00:00",
-        "value": 0.98,
-        "where": null
+        "value": 0.98
       },
       {
         "at": "2026-07-19T02:30:00+00:00",
@@ -404,8 +392,7 @@
         "subject": "pod:checkout-7c9f-abc12",
         "unit": null,
         "valid_to": null,
-        "value": 0.55,
-        "where": null
+        "value": 0.55
       },
       {
         "at": "2026-07-19T02:30:00+00:00",
@@ -418,8 +405,7 @@
         "subject": "batch_job:etl-nightly|sched-3",
         "unit": "s",
         "valid_to": null,
-        "value": 4200,
-        "where": null
+        "value": 4200
       },
       {
         "at": "2026-07-19T02:55:00+00:00",
@@ -432,8 +418,7 @@
         "subject": "host:node-prod-17",
         "unit": null,
         "valid_to": null,
-        "value": 0.61,
-        "where": null
+        "value": 0.61
       },
       {
         "at": "2026-07-19T02:55:00+00:00",
@@ -446,8 +431,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       }
     ],
     "nodes": [

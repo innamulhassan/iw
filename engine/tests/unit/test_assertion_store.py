@@ -63,7 +63,7 @@ def test_facts_and_events_land_in_the_one_assertion_collection():
 def test_views_return_the_same_records_as_the_pre_flip_store():
     g = Graph()
     g.upsert_node(_node())
-    f = _fact(where="eu-west-1a", provisional=True,
+    f = _fact(provisional=True,
               source_native_name="red_errors", unit="ratio")
     ev = _event(source_native_name="ConfigChange")
     g.add_fact(f)
@@ -93,7 +93,7 @@ def test_declared_channel_is_excluded_from_the_facts_view():
 def test_fact_assertion_roundtrip_is_exact():
     for f in (
         _fact(),
-        _fact(fid="f2", where="eu-west-1a", unit="ratio", provisional=True,
+        _fact(fid="f2", unit="ratio", provisional=True,
               source_native_name="red_errors", valid_to=T0 + timedelta(minutes=5),
               supersedes="f1"),
         _fact(fid="f3", predicate="diff_summary", value={"lines": 4},

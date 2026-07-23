@@ -29,9 +29,6 @@ class Fact(BaseModel):
     predicate: str                         # registry-controlled per node type (reducer-validated)
     value: FactValue = None
     unit: str | None = None
-    where: str | None = None               # optional spatial/context W: segment / AZ / region / node
-                                           # (the other W's already live here: source=WHO, subject=WHAT,
-                                           # valid_from/observed_at=WHEN, evidence=WHY/proof)
 
     # bi-temporal
     valid_from: datetime

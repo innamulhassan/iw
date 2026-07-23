@@ -269,8 +269,7 @@
         "subject": "anomaly:anom-6",
         "unit": "ms",
         "valid_to": null,
-        "value": 4200,
-        "where": null
+        "value": 4200
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -283,8 +282,7 @@
         "subject": "anomaly:anom-6",
         "unit": null,
         "valid_to": null,
-        "value": 1,
-        "where": null
+        "value": 1
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -297,8 +295,7 @@
         "subject": "service:payments-svc|prod",
         "unit": null,
         "valid_to": "2026-07-19T09:45:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -311,8 +308,7 @@
         "subject": "service:payments-svc|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 900,
-        "where": null
+        "value": 900
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -325,8 +321,7 @@
         "subject": "service:payments-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.02,
-        "where": null
+        "value": 0.02
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -339,8 +334,7 @@
         "subject": "service:payments-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -353,8 +347,7 @@
         "subject": "service:payments-svc|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 9999,
-        "where": null
+        "value": 9999
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -368,8 +361,7 @@
         "subject": "database:payments-ora",
         "unit": null,
         "valid_to": null,
-        "value": 180,
-        "where": null
+        "value": 180
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -382,8 +374,7 @@
         "subject": "service:payments-svc|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 44,
-        "where": null
+        "value": 44
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -396,8 +387,7 @@
         "subject": "service:payments-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.02,
-        "where": null
+        "value": 0.02
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -410,8 +400,7 @@
         "subject": "database:payments-ora",
         "unit": "s",
         "valid_to": "2026-07-19T09:45:00+00:00",
-        "value": 8.5,
-        "where": null
+        "value": 8.5
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -424,8 +413,7 @@
         "subject": "database:payments-ora",
         "unit": "ratio",
         "valid_to": "2026-07-19T09:45:00+00:00",
-        "value": 0.98,
-        "where": null
+        "value": 0.98
       },
       {
         "at": "2026-07-19T09:45:00+00:00",
@@ -438,8 +426,7 @@
         "subject": "service:payments-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       },
       {
         "at": "2026-07-19T09:45:00+00:00",
@@ -452,8 +439,7 @@
         "subject": "database:payments-ora",
         "unit": "s",
         "valid_to": null,
-        "value": 0.2,
-        "where": null
+        "value": 0.2
       },
       {
         "at": "2026-07-19T09:45:00+00:00",
@@ -466,8 +452,7 @@
         "subject": "database:payments-ora",
         "unit": "ratio",
         "valid_to": null,
-        "value": 0.31,
-        "where": null
+        "value": 0.31
       }
     ],
     "nodes": [

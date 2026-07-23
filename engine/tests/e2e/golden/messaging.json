@@ -233,8 +233,7 @@
         "subject": "anomaly:anom-7",
         "unit": "msgs",
         "valid_to": null,
-        "value": 42000,
-        "where": null
+        "value": 42000
       },
       {
         "at": "2026-07-19T09:42:00+00:00",
@@ -247,8 +246,7 @@
         "subject": "anomaly:anom-7",
         "unit": null,
         "valid_to": null,
-        "value": 2,
-        "where": null
+        "value": 2
       },
       {
         "at": "2026-07-19T09:42:00+00:00",
@@ -261,8 +259,7 @@
         "subject": "service:order-processor|prod",
         "unit": null,
         "valid_to": "2026-07-19T10:20:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T09:42:00+00:00",
@@ -275,8 +272,7 @@
         "subject": "service:order-processor|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 320,
-        "where": null
+        "value": 320
       },
       {
         "at": "2026-07-19T09:42:00+00:00",
@@ -289,8 +285,7 @@
         "subject": "service:order-processor|prod",
         "unit": "ms",
         "valid_to": "2026-07-19T09:56:00+00:00",
-        "value": 180,
-        "where": null
+        "value": 180
       },
       {
         "at": "2026-07-19T09:42:00+00:00",
@@ -303,8 +298,7 @@
         "subject": "service:order-processor|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T09:42:00+00:00",
@@ -317,8 +311,7 @@
         "subject": "service:order-processor|prod",
         "unit": "s",
         "valid_to": null,
-        "value": 60,
-        "where": null
+        "value": 60
       },
       {
         "at": "2026-07-19T09:42:00+00:00",
@@ -331,8 +324,7 @@
         "subject": "message_queue:orders.events",
         "unit": "msgs",
         "valid_to": "2026-07-19T09:56:00+00:00",
-        "value": 42000,
-        "where": null
+        "value": 42000
       },
       {
         "at": "2026-07-19T09:30:00+00:00",
@@ -345,8 +337,7 @@
         "subject": "code_commit:e5f6a7b",
         "unit": null,
         "valid_to": null,
-        "value": 1,
-        "where": null
+        "value": 1
       },
       {
         "at": "2026-07-19T09:30:00+00:00",
@@ -359,8 +350,7 @@
         "subject": "code_commit:e5f6a7b",
         "unit": null,
         "valid_to": null,
-        "value": 22,
-        "where": null
+        "value": 22
       },
       {
         "at": "2026-07-19T09:30:00+00:00",
@@ -373,8 +363,7 @@
         "subject": "code_commit:e5f6a7b",
         "unit": null,
         "valid_to": null,
-        "value": 4,
-        "where": null
+        "value": 4
       },
       {
         "at": "2026-07-19T09:56:00+00:00",
@@ -387,8 +376,7 @@
         "subject": "service:order-processor|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 210,
-        "where": null
+        "value": 210
       },
       {
         "at": "2026-07-19T09:56:00+00:00",
@@ -401,8 +389,7 @@
         "subject": "message_queue:orders.events",
         "unit": "msgs",
         "valid_to": "2026-07-19T10:20:00+00:00",
-        "value": 61000,
-        "where": null
+        "value": 61000
       },
       {
         "at": "2026-07-19T09:56:00+00:00",
@@ -415,8 +402,7 @@
         "subject": "message_queue:orders.events",
         "unit": "msgs",
         "valid_to": null,
-        "value": 0,
-        "where": null
+        "value": 0
       },
       {
         "at": "2026-07-19T09:56:00+00:00",
@@ -429,8 +415,7 @@
         "subject": "message_queue:orders.events",
         "unit": "msgs_per_min",
         "valid_to": null,
-        "value": 1450,
-        "where": null
+        "value": 1450
       },
       {
         "at": "2026-07-19T10:20:00+00:00",
@@ -443,8 +428,7 @@
         "subject": "message_queue:orders.events",
         "unit": "msgs",
         "valid_to": null,
-        "value": 300,
-        "where": null
+        "value": 300
       },
       {
         "at": "2026-07-19T10:20:00+00:00",
@@ -457,8 +441,7 @@
         "subject": "service:order-processor|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       }
     ],
     "nodes": [

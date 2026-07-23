@@ -283,8 +283,7 @@
         "subject": "service:payments-api|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:27:00+00:00",
-        "value": 0.4,
-        "where": null
+        "value": 0.4
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -297,8 +296,7 @@
         "subject": "service:payments-api|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:27:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -311,8 +309,7 @@
         "subject": "service:payments-api|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 820,
-        "where": null
+        "value": 820
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -325,8 +322,7 @@
         "subject": "service:payments-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 58,
-        "where": null
+        "value": 58
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -339,8 +335,7 @@
         "subject": "service:payments-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -353,8 +348,7 @@
         "subject": "service:payments-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.999,
-        "where": null
+        "value": 0.999
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -367,8 +361,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 0.4,
-        "where": null
+        "value": 0.4
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -381,8 +374,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 2,
-        "where": null
+        "value": 2
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -395,8 +387,7 @@
         "subject": "service:payments-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 4200,
-        "where": null
+        "value": 4200
       },
       {
         "at": "2026-07-19T14:12:00+00:00",
@@ -409,8 +400,7 @@
         "subject": "database:payments-ora",
         "unit": null,
         "valid_to": null,
-        "value": 0.28,
-        "where": null
+        "value": 0.28
       },
       {
         "at": "2026-07-19T14:12:00+00:00",
@@ -423,8 +413,7 @@
         "subject": "database:payments-ora",
         "unit": "conn",
         "valid_to": null,
-        "value": 56,
-        "where": null
+        "value": 56
       },
       {
         "at": "2026-07-19T14:12:00+00:00",
@@ -437,8 +426,7 @@
         "subject": "database:payments-ora",
         "unit": "conn",
         "valid_to": null,
-        "value": 200,
-        "where": null
+        "value": 200
       },
       {
         "at": "2026-07-19T14:12:00+00:00",
@@ -451,8 +439,7 @@
         "subject": "database:payments-ora",
         "unit": "s",
         "valid_to": null,
-        "value": 0.2,
-        "where": null
+        "value": 0.2
       },
       {
         "at": "2026-07-19T14:12:00+00:00",
@@ -465,8 +452,7 @@
         "subject": "database:payments-ora",
         "unit": "per_min",
         "valid_to": null,
-        "value": 3,
-        "where": null
+        "value": 3
       },
       {
         "at": "2026-07-19T14:12:00+00:00",
@@ -479,8 +465,7 @@
         "subject": "error_signature:npe-taxcalc",
         "unit": null,
         "valid_to": null,
-        "value": 152,
-        "where": null
+        "value": 152
       },
       {
         "at": "2026-07-19T14:12:00+00:00",
@@ -493,8 +478,7 @@
         "subject": "error_signature:npe-taxcalc",
         "unit": null,
         "valid_to": null,
-        "value": "2026-07-19T14:12:00+00:00",
-        "where": null
+        "value": "2026-07-19T14:12:00+00:00"
       },
       {
         "at": "2026-07-19T14:27:00+00:00",
@@ -507,8 +491,7 @@
         "subject": "service:payments-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.01,
-        "where": null
+        "value": 0.01
       },
       {
         "at": "2026-07-19T14:27:00+00:00",
@@ -521,8 +504,7 @@
         "subject": "service:payments-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       }
     ],
     "nodes": [

@@ -235,8 +235,7 @@
         "subject": "business_transaction:checkout-svc|checkoutflow",
         "unit": "ms",
         "valid_to": null,
-        "value": 4800,
-        "where": null
+        "value": 4800
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -249,8 +248,7 @@
         "subject": "business_transaction:checkout-svc|checkoutflow",
         "unit": "calls_per_min",
         "valid_to": null,
-        "value": 57000,
-        "where": null
+        "value": 57000
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -263,8 +261,7 @@
         "subject": "business_transaction:checkout-svc|checkoutflow",
         "unit": null,
         "valid_to": null,
-        "value": 3.2,
-        "where": null
+        "value": 3.2
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -277,8 +274,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 0.58,
-        "where": null
+        "value": 0.58
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -291,8 +287,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 2,
-        "where": null
+        "value": 2
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -305,8 +300,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 960,
-        "where": null
+        "value": 960
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -319,8 +313,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.12,
-        "where": null
+        "value": 0.12
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -333,8 +326,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 210,
-        "where": null
+        "value": 210
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -347,8 +339,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 4800,
-        "where": null
+        "value": 4800
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -361,8 +352,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -375,8 +365,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 500,
-        "where": null
+        "value": 500
       },
       {
         "at": "2026-07-19T13:40:00+00:00",
@@ -389,8 +378,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": "2026-07-19T14:20:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -403,8 +391,7 @@
         "subject": "network_segment:seg-edge-12",
         "unit": "count",
         "valid_to": "2026-07-19T14:20:00+00:00",
-        "value": 245,
-        "where": null
+        "value": 245
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -417,8 +404,7 @@
         "subject": "network_segment:seg-edge-12",
         "unit": "ratio",
         "valid_to": "2026-07-19T14:20:00+00:00",
-        "value": 0.42,
-        "where": null
+        "value": 0.42
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -431,8 +417,7 @@
         "subject": "database:pricing-db",
         "unit": null,
         "valid_to": null,
-        "value": 0.24,
-        "where": null
+        "value": 0.24
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -445,8 +430,7 @@
         "subject": "database:pricing-db",
         "unit": "conn",
         "valid_to": null,
-        "value": 61,
-        "where": null
+        "value": 61
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -459,8 +443,7 @@
         "subject": "database:pricing-db",
         "unit": "conn",
         "valid_to": null,
-        "value": 300,
-        "where": null
+        "value": 300
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -473,8 +456,7 @@
         "subject": "database:pricing-db",
         "unit": "per_min",
         "valid_to": null,
-        "value": 4,
-        "where": null
+        "value": 4
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -487,8 +469,7 @@
         "subject": "database:pricing-db",
         "unit": "s",
         "valid_to": null,
-        "value": 0.2,
-        "where": null
+        "value": 0.2
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -501,8 +482,7 @@
         "subject": "service:pricing-svc|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 940,
-        "where": null
+        "value": 940
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -515,8 +495,7 @@
         "subject": "service:pricing-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.004,
-        "where": null
+        "value": 0.004
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -529,8 +508,7 @@
         "subject": "service:pricing-svc|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 120,
-        "where": null
+        "value": 120
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -543,8 +521,7 @@
         "subject": "service:pricing-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -557,8 +534,7 @@
         "subject": "network_segment:seg-edge-12",
         "unit": "ratio",
         "valid_to": null,
-        "value": 0.09,
-        "where": null
+        "value": 0.09
       },
       {
         "at": "2026-07-19T13:55:00+00:00",
@@ -574,8 +550,7 @@
         "value": {
           "basis": "AppD health-rule violations for pricing-svc came back clean (0 violations) \u2014 its own BT (PriceLookup) is healthy",
           "scope": "service:pricing-svc|prod"
-        },
-        "where": null
+        }
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -588,8 +563,7 @@
         "subject": "network_segment:seg-edge-12",
         "unit": "count",
         "valid_to": null,
-        "value": 8,
-        "where": null
+        "value": 8
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -602,8 +576,7 @@
         "subject": "network_segment:seg-edge-12",
         "unit": "ratio",
         "valid_to": null,
-        "value": 0.99,
-        "where": null
+        "value": 0.99
       },
       {
         "at": "2026-07-19T14:20:00+00:00",
@@ -616,8 +589,7 @@
         "subject": "service:checkout-svc|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       }
     ],
     "nodes": [

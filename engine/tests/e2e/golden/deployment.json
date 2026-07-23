@@ -313,8 +313,7 @@
         "subject": "deployment:dep-checkout-api-7f9d8",
         "unit": null,
         "valid_to": null,
-        "value": "registry/checkout-api:rev43",
-        "where": null
+        "value": "registry/checkout-api:rev43"
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -327,8 +326,7 @@
         "subject": "deployment:dep-checkout-api-7f9d8",
         "unit": null,
         "valid_to": "2026-07-19T09:40:00+00:00",
-        "value": 0,
-        "where": null
+        "value": 0
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -341,8 +339,7 @@
         "subject": "deployment:dep-checkout-api-7f9d8",
         "unit": null,
         "valid_to": null,
-        "value": 3,
-        "where": null
+        "value": 3
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -355,8 +352,7 @@
         "subject": "deployment:dep-checkout-api-7f9d8",
         "unit": null,
         "valid_to": null,
-        "value": 0,
-        "where": null
+        "value": 0
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -369,8 +365,7 @@
         "subject": "pod:pod-checkout-api-7f9d8-x1",
         "unit": null,
         "valid_to": "2026-07-19T09:40:00+00:00",
-        "value": "CrashLoopBackOff",
-        "where": null
+        "value": "CrashLoopBackOff"
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -383,8 +378,7 @@
         "subject": "pod:pod-checkout-api-7f9d8-x1",
         "unit": null,
         "valid_to": "2026-07-19T09:40:00+00:00",
-        "value": false,
-        "where": null
+        "value": false
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -397,8 +391,7 @@
         "subject": "pod:pod-checkout-api-7f9d8-x1",
         "unit": null,
         "valid_to": null,
-        "value": "k8s-node-17.prod.internal",
-        "where": null
+        "value": "k8s-node-17.prod.internal"
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -411,8 +404,7 @@
         "subject": "pod:pod-checkout-api-7f9d8-x1",
         "unit": null,
         "valid_to": null,
-        "value": 14,
-        "where": null
+        "value": 14
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -425,8 +417,7 @@
         "subject": "pod:pod-checkout-api-7f9d8-x1",
         "unit": null,
         "valid_to": null,
-        "value": 0.02,
-        "where": null
+        "value": 0.02
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -439,8 +430,7 @@
         "subject": "pod:pod-checkout-api-7f9d8-x1",
         "unit": null,
         "valid_to": null,
-        "value": 0.05,
-        "where": null
+        "value": 0.05
       },
       {
         "at": "2026-07-19T09:04:00+00:00",
@@ -453,8 +443,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 0.0,
-        "where": null
+        "value": 0.0
       },
       {
         "at": "2026-07-19T09:04:00+00:00",
@@ -467,8 +456,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 3,
-        "where": null
+        "value": 3
       },
       {
         "at": "2026-07-19T09:04:00+00:00",
@@ -481,8 +469,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": "2026-07-19T09:40:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T09:04:00+00:00",
@@ -495,8 +482,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": 1.0,
-        "where": null
+        "value": 1.0
       },
       {
         "at": "2026-07-19T09:04:00+00:00",
@@ -509,8 +495,7 @@
         "subject": "service:checkout-api|prod",
         "unit": "rpm",
         "valid_to": null,
-        "value": 38,
-        "where": null
+        "value": 38
       },
       {
         "at": "2026-07-19T09:04:00+00:00",
@@ -523,8 +508,7 @@
         "subject": "service:checkout-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 250,
-        "where": null
+        "value": 250
       },
       {
         "at": "2026-07-19T09:04:00+00:00",
@@ -537,8 +521,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T09:04:00+00:00",
@@ -551,8 +534,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.999,
-        "where": null
+        "value": 0.999
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -565,8 +547,7 @@
         "subject": "host:k8s-node-17.prod.internal",
         "unit": null,
         "valid_to": null,
-        "value": 0.31,
-        "where": null
+        "value": 0.31
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -579,8 +560,7 @@
         "subject": "host:k8s-node-17.prod.internal",
         "unit": null,
         "valid_to": null,
-        "value": 0.52,
-        "where": null
+        "value": 0.52
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -593,8 +573,7 @@
         "subject": "host:k8s-node-17.prod.internal",
         "unit": null,
         "valid_to": null,
-        "value": 0.44,
-        "where": null
+        "value": 0.44
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -607,8 +586,7 @@
         "subject": "host:k8s-node-17.prod.internal",
         "unit": null,
         "valid_to": null,
-        "value": 0.18,
-        "where": null
+        "value": 0.18
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -621,8 +599,7 @@
         "subject": "host:k8s-node-17.prod.internal",
         "unit": null,
         "valid_to": null,
-        "value": 0.0,
-        "where": null
+        "value": 0.0
       },
       {
         "at": "2026-07-19T09:06:00+00:00",
@@ -635,8 +612,7 @@
         "subject": "host:k8s-node-17.prod.internal",
         "unit": null,
         "valid_to": null,
-        "value": 0.0,
-        "where": null
+        "value": 0.0
       },
       {
         "at": "2026-07-19T09:18:00+00:00",
@@ -649,8 +625,7 @@
         "subject": "code_commit:9f2a1e0",
         "unit": null,
         "valid_to": null,
-        "value": 1,
-        "where": null
+        "value": 1
       },
       {
         "at": "2026-07-19T09:18:00+00:00",
@@ -663,8 +638,7 @@
         "subject": "code_commit:9f2a1e0",
         "unit": null,
         "valid_to": null,
-        "value": 0,
-        "where": null
+        "value": 0
       },
       {
         "at": "2026-07-19T09:18:00+00:00",
@@ -677,8 +651,7 @@
         "subject": "code_commit:9f2a1e0",
         "unit": null,
         "valid_to": null,
-        "value": 3,
-        "where": null
+        "value": 3
       },
       {
         "at": "2026-07-19T09:18:00+00:00",
@@ -691,8 +664,7 @@
         "subject": "database:checkout-db",
         "unit": null,
         "valid_to": null,
-        "value": 0.24,
-        "where": null
+        "value": 0.24
       },
       {
         "at": "2026-07-19T09:18:00+00:00",
@@ -705,8 +677,7 @@
         "subject": "database:checkout-db",
         "unit": "conn",
         "valid_to": null,
-        "value": 41,
-        "where": null
+        "value": 41
       },
       {
         "at": "2026-07-19T09:18:00+00:00",
@@ -719,8 +690,7 @@
         "subject": "database:checkout-db",
         "unit": "conn",
         "valid_to": null,
-        "value": 200,
-        "where": null
+        "value": 200
       },
       {
         "at": "2026-07-19T09:18:00+00:00",
@@ -733,8 +703,7 @@
         "subject": "database:checkout-db",
         "unit": "per_min",
         "valid_to": null,
-        "value": 1,
-        "where": null
+        "value": 1
       },
       {
         "at": "2026-07-19T09:18:00+00:00",
@@ -747,8 +716,7 @@
         "subject": "database:checkout-db",
         "unit": "s",
         "valid_to": null,
-        "value": 0.1,
-        "where": null
+        "value": 0.1
       },
       {
         "at": "2026-07-19T09:40:00+00:00",
@@ -761,8 +729,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       },
       {
         "at": "2026-07-19T09:40:00+00:00",
@@ -775,8 +742,7 @@
         "subject": "deployment:dep-checkout-api-7f9d8",
         "unit": null,
         "valid_to": null,
-        "value": 3,
-        "where": null
+        "value": 3
       },
       {
         "at": "2026-07-19T09:40:00+00:00",
@@ -789,8 +755,7 @@
         "subject": "pod:pod-checkout-api-7f9d8-x1",
         "unit": null,
         "valid_to": null,
-        "value": "Running",
-        "where": null
+        "value": "Running"
       },
       {
         "at": "2026-07-19T09:40:00+00:00",
@@ -803,8 +768,7 @@
         "subject": "pod:pod-checkout-api-7f9d8-x1",
         "unit": null,
         "valid_to": null,
-        "value": true,
-        "where": null
+        "value": true
       }
     ],
     "nodes": [

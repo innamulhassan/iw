@@ -80,7 +80,6 @@ export interface GraphFact {
   predicate: string;
   value: unknown;
   unit: string | null;
-  where?: string | null; // spatial/context W (obs 7)
   at: string;
   observed_at?: string | null; // WHEN we learned it (transaction time)
   valid_to: string | null;
@@ -377,7 +376,6 @@ export interface GraphDeltaFact {
   predicate: string;
   value: unknown;
   unit?: string | null;
-  where?: string | null;
   source?: string; // WHO (obs 7) — no longer blanked on the live stream
   observed_at?: string | null;
   at?: string;

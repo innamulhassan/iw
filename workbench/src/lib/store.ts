@@ -688,7 +688,6 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
             predicate: f.predicate,
             value: f.value,
             unit: f.unit ?? null,
-            where: f.where ?? null,
             at: f.at ?? ev.ts,
             observed_at: f.observed_at ?? null,
             valid_to: null,

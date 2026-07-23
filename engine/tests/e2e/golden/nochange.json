@@ -190,8 +190,7 @@
         "subject": "service:checkout-api|prod",
         "unit": "x_baseline",
         "valid_to": "2026-07-19T09:20:00+00:00",
-        "value": 3.4,
-        "where": null
+        "value": 3.4
       },
       {
         "at": "2026-07-19T09:00:00+00:00",
@@ -204,8 +203,7 @@
         "subject": "service:checkout-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 6800,
-        "where": null
+        "value": 6800
       },
       {
         "at": "2026-07-19T09:00:00+00:00",
@@ -218,8 +216,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 6800,
-        "where": null
+        "value": 6800
       },
       {
         "at": "2026-07-19T09:00:00+00:00",
@@ -232,8 +229,7 @@
         "subject": "anomaly:anom-1",
         "unit": null,
         "valid_to": null,
-        "value": 2,
-        "where": null
+        "value": 2
       },
       {
         "at": "2026-07-19T09:00:00+00:00",
@@ -246,8 +242,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": "2026-07-19T09:45:00+00:00",
-        "value": true,
-        "where": null
+        "value": true
       },
       {
         "at": "2026-07-19T09:00:00+00:00",
@@ -260,8 +255,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": 0.08,
-        "where": null
+        "value": 0.08
       },
       {
         "at": "2026-07-19T09:00:00+00:00",
@@ -274,8 +268,7 @@
         "subject": "service:checkout-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 780,
-        "where": null
+        "value": 780
       },
       {
         "at": "2026-07-19T09:00:00+00:00",
@@ -288,8 +281,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": "tier-1",
-        "where": null
+        "value": "tier-1"
       },
       {
         "at": "2026-07-19T09:00:00+00:00",
@@ -302,8 +294,7 @@
         "subject": "service:checkout-api|prod",
         "unit": "ms",
         "valid_to": null,
-        "value": 500,
-        "where": null
+        "value": 500
       },
       {
         "at": "2026-07-19T09:08:00+00:00",
@@ -316,8 +307,7 @@
         "subject": "database:checkout-db",
         "unit": null,
         "valid_to": "2026-07-19T09:20:00+00:00",
-        "value": 0.86,
-        "where": null
+        "value": 0.86
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -330,8 +320,7 @@
         "subject": "database:checkout-db",
         "unit": null,
         "valid_to": "2026-07-19T09:45:00+00:00",
-        "value": 0.97,
-        "where": null
+        "value": 0.97
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -344,8 +333,7 @@
         "subject": "database:checkout-db",
         "unit": "conn",
         "valid_to": null,
-        "value": 194,
-        "where": null
+        "value": 194
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -358,8 +346,7 @@
         "subject": "database:checkout-db",
         "unit": "conn",
         "valid_to": null,
-        "value": 200,
-        "where": null
+        "value": 200
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -372,8 +359,7 @@
         "subject": "database:checkout-db",
         "unit": "per_min",
         "valid_to": null,
-        "value": 88,
-        "where": null
+        "value": 88
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -386,8 +372,7 @@
         "subject": "service:checkout-api|prod",
         "unit": "x_baseline",
         "valid_to": null,
-        "value": 4.1,
-        "where": null
+        "value": 4.1
       },
       {
         "at": "2026-07-19T09:20:00+00:00",
@@ -403,8 +388,7 @@
         "value": {
           "basis": "ServiceNow change log re-checked at the DB boundary \u2014 still clean, no deploy/config change in the incident window",
           "scope": "service:checkout-api|prod"
-        },
-        "where": null
+        }
       },
       {
         "at": "2026-07-19T09:45:00+00:00",
@@ -417,8 +401,7 @@
         "subject": "database:checkout-db",
         "unit": null,
         "valid_to": null,
-        "value": 0.52,
-        "where": null
+        "value": 0.52
       },
       {
         "at": "2026-07-19T09:45:00+00:00",
@@ -431,8 +414,7 @@
         "subject": "service:checkout-api|prod",
         "unit": null,
         "valid_to": null,
-        "value": false,
-        "where": null
+        "value": false
       }
     ],
     "nodes": [
