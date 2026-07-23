@@ -6,6 +6,10 @@ import ToolCallCard from "./ToolCallCard";
 import ApprovalCard from "./ApprovalCard";
 import ReviewCard from "./ReviewCard";
 
+// A DECORATIVE per-phase glyph overlay (not the phase rail — that's data-driven from the served
+// phase_rail, M22). Keyed on the incident phase ids for a nice touch; any unrecognised phase (a
+// different playbook's vocab) degrades to the neutral "•" below, so this needs no edit for a new
+// domain — it's an optional adornment, never the source of the phase list.
 const PHASE_ICON: Record<string, string> = {
   frame: "🔭",
   investigate: "🔎",

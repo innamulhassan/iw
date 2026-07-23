@@ -230,6 +230,26 @@ describe("store reducer — the live event fold", () => {
     expect(decided.decisions["g1"].source).toBe("human");
   });
 
+  it("seeds the served phase rail as data (M22) — the stepper renders THIS, not a hardcoded list", () => {
+    const base = {
+      session_id: "s", subject: { domain: "app-incident", id: "INC-1", kind: "incident" },
+      state: "running", outcome: "open", phases: ["frame"],
+      graph: { nodes: [], edges: [], facts: [], events: [] }, hypotheses: [], journal: [],
+      postmortem: { root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] }, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: null, messages: [], events: [],
+    };
+    const withRail = { ...base, phase_rail: [
+      { id: "frame", focus: true }, { id: "investigate", focus: true },
+      { id: "act", focus: false }, { id: "verify", focus: false }, { id: "close", focus: false },
+    ] } as unknown as Snapshot;
+    const s = reduce(emptyState(), { kind: "seed", snapshot: withRail });
+    expect(s.phaseRail.map((p) => p.id)).toEqual(["frame", "investigate", "act", "verify", "close"]);
+    // focus is DERIVED from the playbook (writes_allowed boundary): frame+investigate in-focus
+    expect(s.phaseRail.filter((p) => p.focus).map((p) => p.id)).toEqual(["frame", "investigate"]);
+    // a snapshot WITHOUT a rail degrades to [] (the stepper then falls back to the reached phases)
+    expect(reduce(emptyState(), { kind: "seed", snapshot: base as unknown as Snapshot }).phaseRail).toEqual([]);
+  });
+
   it("carries the invocation OUTCOME on the tool call — error is a failed call, never 'no data'", () => {
     const evs: SessionEvent[] = [
       { seq: 1, ts: "t", type: "phase_started", phase: "investigate" },

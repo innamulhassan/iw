@@ -11,6 +11,7 @@ import type {
   GraphFact,
   HypothesisItem,
   JournalEntry,
+  PhaseRailItem,
   PhaseReviewOpenedEvent,
   RejectionItem,
   SessionEvent,
@@ -159,6 +160,7 @@ export interface LiveState {
   reviews: Record<string, PhaseReviewOpenedEvent>; // every phase-review ever opened, by review_id
   reviewDecisions: Record<string, Decision>; // review_id → the operator's direction decision
   phasesRun: string[]; // phases reached, in order (unique)
+  phaseRail: PhaseRailItem[]; // the full declared phase rail (M22) — the stepper renders from this
   error: string | null; // a live drive failure, surfaced in the chat
   lastSeq: number;
 }
@@ -186,6 +188,7 @@ export function emptyState(): LiveState {
     reviews: {},
     reviewDecisions: {},
     phasesRun: [],
+    phaseRail: [],
     error: null,
     lastSeq: 0,
   };
@@ -479,6 +482,7 @@ function seed(snap: Snapshot): LiveState {
   s.subject = snap.subject;
   s.state = snap.state;
   s.outcome = snap.outcome;
+  s.phaseRail = snap.phase_rail ?? []; // the served declared rail (M22); [] until a snapshot lands
   for (const n of snap.graph.nodes)
     s.nodes[n.id] = {
       id: n.id,
@@ -558,6 +562,7 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
     // re-thread the journaled objective/plan/rejections onto the live turns (the SSE stream never
     // carried them; reconcile's fresh bundle does) — keeps live parity with the reopen fold.
     turns: enrichTurnsFromJournal(state.turns, snap.journal, rejections),
+    phaseRail: snap.phase_rail ?? state.phaseRail, // static rail; prefer fresh, keep what we had
     outcome: snap.outcome,
   };
 }

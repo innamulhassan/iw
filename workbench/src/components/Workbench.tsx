@@ -38,6 +38,7 @@ export default function Workbench({
     <div className="workbench">
       <PhaseStepper
         subject={live.subject}
+        rail={live.phaseRail}
         reached={live.phasesRun}
         current={activePhase(live)}
         counts={phaseCounts(live)}

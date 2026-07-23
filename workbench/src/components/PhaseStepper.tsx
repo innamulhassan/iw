@@ -1,11 +1,9 @@
-import type { Subject } from "../types";
+import type { PhaseRailItem, Subject } from "../types";
 
-// UI-SPEC §5 / P7 5-phase algebra (incident.yaml is the source of truth): FRAME · INVESTIGATE
-// are the in-focus phases (triage folded into the act-entry decision, hypothesize into the ONE
-// investigate loop); ACT · VERIFY · CLOSE are greyed until the run reaches them (the write-gate
-// lives in ACT — every production-changing action, mitigation or remediation alike).
-const ALL_PHASES = ["frame", "investigate", "act", "verify", "close"] as const;
-const ACTIVE = new Set(["frame", "investigate"]);
+// M22: the phase rail is DATA, not a hardcoded list. The engine serves `phase_rail` (every declared
+// phase + a `focus` flag derived from the playbook's writes_allowed role binding: the pre-action
+// diagnostic phases are in-focus, later ones greyed until reached). A new playbook's phases render
+// with no UI edit. Fallback: before the first snapshot lands, show the reached phases (all focus).
 
 const OUTCOME_LABEL: Record<string, string> = {
   resolved: "Resolved",
@@ -15,6 +13,8 @@ const OUTCOME_LABEL: Record<string, string> = {
 
 interface Props {
   subject: Subject | null;
+  /** The served declared phase rail (M22) — the stepper renders THIS, never a hardcoded list. */
+  rail: PhaseRailItem[];
   reached: string[];
   current: string | null;
   state: string | null;
@@ -27,8 +27,10 @@ interface Props {
   onBack: () => void;
 }
 
-export default function PhaseStepper({ subject, reached, current, state, outcome, counts, layer, title, onBack }: Props) {
+export default function PhaseStepper({ subject, rail, reached, current, state, outcome, counts, layer, title, onBack }: Props) {
   const reachedSet = new Set(reached);
+  // the served rail drives the stepper; before the first snapshot, fall back to the reached phases
+  const steps: PhaseRailItem[] = rail.length ? rail : reached.map((id) => ({ id, focus: true }));
 
   return (
     <header className="phase-bar">
@@ -61,13 +63,12 @@ export default function PhaseStepper({ subject, reached, current, state, outcome
       </div>
 
       <ol className="phase-stepper">
-        {ALL_PHASES.map((phase, i) => {
-          const isFocus = ACTIVE.has(phase);
+        {steps.map(({ id: phase, focus }, i) => {
           const isReached = reachedSet.has(phase);
           const isCurrent = phase === current;
-          // owner focus is FRAME→INVESTIGATE: later phases stay greyed UNTIL the run reaches
-          // them, then they light up (reached).
-          const greyed = !isFocus && !isReached;
+          // focus phases stay lit; later phases stay greyed UNTIL the run reaches them (data-driven
+          // — `focus` comes from the served rail, not a UI-hardcoded ACTIVE set).
+          const greyed = !focus && !isReached;
           return (
             <li
               key={phase}

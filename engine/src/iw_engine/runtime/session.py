@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from ..api.bundle import export_bundle
+from ..api.bundle import export_bundle, phase_rail
 from ..capability.layer import CapabilityCall, CapabilityLayer
 from ..domain.enums import Effect, Source, VerdictStatus
 from ..domain.operations import UpdateHypothesis
@@ -402,6 +402,9 @@ class InvestigationSession:
             **bundle,
             "session_id": self.id,
             "state": self.state.value,
+            # the full declared phase rail as data (M22) — the UI stepper reads THIS instead of a
+            # hardcoded ALL_PHASES; playbook context, so it rides the snapshot envelope not the bundle.
+            "phase_rail": phase_rail(self._engine.playbook),
             "pending_gate": self.pending_gate,
             "pending_review": self.pending_review,
             "messages": list(self._messages),
@@ -781,7 +784,8 @@ class SessionManager:
         if live is not None:
             return live.snapshot()
         if self._store is not None:
-            return self._store.load_bundle(session_id)
+            # pass the manager's playbook so a disk-reopened run gets the full declared phase rail (M22)
+            return self._store.load_bundle(session_id, playbook=self.playbook)
         return None
 
     def list(self) -> list[dict]:

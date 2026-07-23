@@ -246,21 +246,27 @@ class InvestigationStore:
         r = self._reopen(key)
         return r[0] if r is not None else None
 
-    def load_bundle(self, key: str) -> dict | None:
+    def load_bundle(self, key: str, playbook=None) -> dict | None:
         """A read-only reopen payload, snapshot-shaped: `export_bundle` of the disk-rebuilt run
         plus a minimal session envelope (state from meta, `read_only=True`). Returns None when the
-        id is not on disk. Shares `_reopen`, so meta.json is read exactly once (M19b)."""
+        id is not on disk. Shares `_reopen`, so meta.json is read exactly once (M19b). `playbook`
+        (passed by SessionManager.reopen, which holds it) supplies the full declared phase rail
+        (M22); absent, the rail falls back to the reached phases (a closed run shows all it ran)."""
         r = self._reopen(key)
         if r is None:
             return None
         res, meta = r
-        from ..api.bundle import export_bundle  # lazy: avoids an import cycle at module load
+        # lazy import: avoids an import cycle at module load
+        from ..api.bundle import export_bundle, phase_rail
         bundle = export_bundle(res)
+        rail = (phase_rail(playbook) if playbook is not None
+                else [{"id": p, "focus": True} for p in res.phases_run])
         return {
             **bundle,
             "session_id": key,
             "state": meta.get("state", "closed"),
             "read_only": True,
+            "phase_rail": rail,
             "pending_gate": None,
             "pending_review": None,
             "messages": [],

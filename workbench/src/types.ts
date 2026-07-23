@@ -3,15 +3,25 @@
 // `| string` fallback) since a real engine run may emit node/edge/status
 // values beyond the ones observed in the demo fixture.
 
-// P7 — the 5-phase algebra (playbooks/incident.yaml is the source of truth):
-// frame → investigate (ONE loop: hypothesize ⇄ evidence ⇄ refute, so it may repeat)
-// → act (the one write-gated phase) → verify → close.
+// P7 — the 5-phase algebra (playbooks/incident.yaml is the source of truth). The phase VOCAB is
+// data-driven (M22): the UI stepper reads the served `phase_rail`, never a hardcoded list, so a
+// playbook with different phases needs no UI edit — the union below documents the incident phases
+// but keeps the `| string` fallback (a run may emit any playbook-declared phase id).
 export type Phase =
   | "frame"
   | "investigate"
   | "act"
   | "verify"
-  | "close";
+  | "close"
+  | string;
+
+/** One rung of the served phase rail (M22): the playbook-declared phase id + whether it is a
+ *  `focus` phase (always shown) vs greyed-until-reached. Derived by the engine from the playbook's
+ *  writes_allowed role binding, so the stepper needs no hardcoded ALL_PHASES/ACTIVE. */
+export interface PhaseRailItem {
+  id: string;
+  focus: boolean;
+}
 
 export type Outcome = "resolved" | "mitigated" | "open" | string;
 
@@ -481,6 +491,9 @@ export type SessionEvent =
 export interface Snapshot extends InvestigationBundle {
   session_id: string;
   state: SessionState;
+  /** The full declared phase rail (M22) — playbook context the stepper renders from, not a
+   *  hardcoded list. Optional: an older snapshot without it falls back to the reached phases. */
+  phase_rail?: PhaseRailItem[];
   pending_gate: GateOpenedEvent | null;
   pending_review: PhaseReviewOpenedEvent | null;
   messages: { seq: number; text: string; at: string; kind: string }[];

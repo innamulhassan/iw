@@ -127,6 +127,21 @@ def _journal_entry(e: JournalEntry) -> dict:
     return {**base, "narrative": e.reasoning, "detail": e.action or e.observation}
 
 
+def phase_rail(playbook) -> list[dict]:
+    """The full declared phase rail as DATA for the workbench stepper (M22): every phase id in
+    declared order, each flagged `focus` (always shown) vs greyed-until-reached. `focus` is DERIVED
+    from the playbook's `writes_allowed` role binding — the pre-action diagnostic phases (those
+    before the first write-gated phase) are the in-focus ones, reproducing the UI's former hardcoded
+    {frame, investigate} ACTIVE set from playbook data, so a NEW playbook's rail needs no UI edit.
+
+    Session/playbook CONTEXT (like state/pending_gate), served on the snapshot envelope — NOT in the
+    batch `export_bundle`, so the 11 goldens stay byte-identical (the stepper renders only in the
+    interactive workbench, which reads the snapshot, never the raw bundle)."""
+    phases = list(playbook.phases)
+    gate_idx = next((i for i, p in enumerate(phases) if p.writes_allowed), len(phases))
+    return [{"id": p.id, "focus": i < gate_idx} for i, p in enumerate(phases)]
+
+
 def export_bundle(res: RunResult) -> dict:
     g: Graph = res.graph
     store: HypothesisStore = res.hypothesis_store
