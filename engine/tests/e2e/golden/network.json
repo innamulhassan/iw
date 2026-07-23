@@ -629,6 +629,8 @@
           "actor": "netops-oncall",
           "change_id": "CHG-77",
           "change_type": "network_change",
+          "description": "NetOps change lowering the MTU on the SEG-EDGE-12 uplink from 1500 to 1400 for a new overlay tunnel, without clamping MSS \u2014 oversized frames to pricing-svc are dropped, driving retransmits and probe failures.",
+          "short_description": "MTU/uplink change on SEG-EDGE-12 (edge-agg-2.dc1)",
           "target_ref": null,
           "ticket_id": "CHG-77"
         },
@@ -681,6 +683,11 @@
         "origin": false,
         "props": {
           "cidr": "10.20.4.0/24",
+          "device": "edge-agg-2.dc1",
+          "interface": "Ethernet1/14",
+          "managed_by": "netops-team",
+          "mtu": 1400,
+          "owner": "netops@corp.example",
           "segment_id": "seg-edge-12",
           "vlan": 204
         },
@@ -695,6 +702,7 @@
         "origin": true,
         "props": {
           "caller_id": "monitoring.alerting",
+          "description": "HighRetransSegs fired for the SEG-EDGE-12 uplink at 13:40 UTC. checkout-svc calls to pricing-svc are timing out (~4.8s p95 on CheckoutFlow); synthetic probes across SEG-EDGE-12 fail ~58% with heavy TCP retransmits. No app deploy in the window \u2014 an L2/L3 path change (MTU/uplink) on the edge segment is suspected.",
           "incident_id": "INC-9001",
           "short_description": "checkout-svc -> pricing-svc timeouts after an MTU change",
           "title": "checkout-svc -> pricing-svc timeouts",

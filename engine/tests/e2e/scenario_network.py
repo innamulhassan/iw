@@ -78,7 +78,9 @@ def build():
             fact(SVC, "red_latency_p99", 4800, T_ONSET, unit="ms", source=S.APPD, reliability=0.94),
             fact(SVC, "tier", "tier-1", T_ONSET, source=S.SERVICENOW),
             fact(SVC, "slo_target", 500, T_ONSET, unit="ms", source=S.SERVICENOW),
-            node(NT.NETWORK_SEGMENT, segment_id="SEG-EDGE-12", cidr="10.20.4.0/24", vlan=204),
+            node(NT.NETWORK_SEGMENT, segment_id="SEG-EDGE-12", cidr="10.20.4.0/24", vlan=204,
+                 mtu=1400, device="edge-agg-2.dc1", interface="Ethernet1/14",
+                 managed_by="netops-team", owner="netops@corp.example"),
             edge(ET.AFFECTS, ANOM, SVC),
             edge(ET.CONNECTS_TO, SVC, NETSEG),
             edge(ET.CHANGED_BY, NETSEG, CHG),
@@ -91,6 +93,11 @@ def build():
         node(NT.INCIDENT, incident_id="INC-9001",
              title="checkout-svc -> pricing-svc timeouts",
              short_description="checkout-svc -> pricing-svc timeouts after an MTU change",
+             description="HighRetransSegs fired for the SEG-EDGE-12 uplink at 13:40 UTC. "
+                         "checkout-svc calls to pricing-svc are timing out (~4.8s p95 on "
+                         "CheckoutFlow); synthetic probes across SEG-EDGE-12 fail ~58% with heavy "
+                         "TCP retransmits. No app deploy in the window — an L2/L3 path change "
+                         "(MTU/uplink) on the edge segment is suspected.",
              work_notes="HighRetransSegs on SEG-EDGE-12; probes failing. Network change?",
              caller_id="monitoring.alerting"),
         edge(ET.AFFECTS, INC, SVC),
@@ -179,6 +186,11 @@ def build():
         },
         "find_recent_changes": {
             "changes": [{"number": "CHG-77", "type": "network_change",
+                        "short_description": "MTU/uplink change on SEG-EDGE-12 (edge-agg-2.dc1)",
+                        "description": "NetOps change lowering the MTU on the SEG-EDGE-12 uplink "
+                                       "from 1500 to 1400 for a new overlay tunnel, without "
+                                       "clamping MSS — oversized frames to pricing-svc are dropped, "
+                                       "driving retransmits and probe failures.",
                         "start_date": T_CHANGE, "requested_by": "netops-oncall"}],
         },
         "bt_health": {
