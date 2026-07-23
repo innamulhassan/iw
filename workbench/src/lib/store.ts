@@ -88,15 +88,38 @@ function emptyObs(): TurnObs {
   return { factIds: [], nodeIds: [], edgeIds: [], eventIds: [], hypotheses: [] };
 }
 
-/** One chat turn = the agent's work in one phase: its reasoning + the tool calls it made +
- *  what it observed (+ the write-gate, when this phase opened one). */
+/** The planner's authored PLAN for a phase — journaled, never streamed (the live SSE stream
+ *  carries reasoning + graph/hypothesis deltas only). The tools it had AVAILABLE (its access
+ *  surface), the capability intents it DECIDED to call, and the direct graph/hypothesis ops it
+ *  authored — so the chat can show HOW the agent intended to use the graph + hypothesis tools,
+ *  not just what it reasoned. */
+export interface TurnPlan {
+  available: string[]; // tools available that phase (PhaseSpec.allowed_intents)
+  plannedCalls: string[]; // capability intents it decided to call
+  plannedOps: string[]; // direct graph/hypothesis ops it authored (AddNode, ProposeHypothesis, …)
+}
+
+/** One chat turn = the agent's work in one phase: its OBJECTIVE (the journaled phase goal), the
+ *  PLAN it authored, its reasoning, the tool calls it made, what it OBSERVED (facts/nodes/edges/
+ *  events + hypothesis moves), any reducer REJECTIONS this phase incurred, and the write-gate
+ *  (when this phase opened one). objective/plan/rejections are threaded from the JOURNAL — the
+ *  live event stream doesn't carry them — so both folds enrich to the identical shape. */
 export interface Turn {
-  key: number; // the phase_started seq — stable react key
+  key: number; // the phase_started seq (live) / phase-entry seq (reopen) — stable react key
   phase: string;
+  objective: string; // the phase GOAL — one concise line; "" until the journal lands it
   reasoning: string;
+  plan?: TurnPlan; // the access surface + authored plan (absent on a bare live step)
   calls: ToolCall[];
   obs: TurnObs;
+  rejections: RejectionItem[]; // reducer rejections attributed to THIS phase (evidence withheld)
   gateId?: string;
+}
+
+/** Build a bare turn with the uniform enriched shape — used by BOTH folds so objective/plan/
+ *  rejections always exist (empty until enrichTurnsFromJournal threads the journal onto them). */
+function newTurn(key: number, phase: string, reasoning = ""): Turn {
+  return { key, phase, objective: "", reasoning, calls: [], obs: emptyObs(), rejections: [] };
 }
 
 export interface Decision {
@@ -188,11 +211,15 @@ export function reduce(state: LiveState, action: StoreAction): LiveState {
 // identical to live (reasoning + tool calls + gate), never just bare reasoning.
 function obsFromRefs(refs?: JournalEntry["refs"]): TurnObs {
   if (!refs) return emptyObs();
+  // DEDUPE (parity with the live fold's mergeIds): a phase's refs list every id it TOUCHED, so a
+  // node/fact revisited in the phase appears more than once. Distinct ids keep the counts honest
+  // ("discovered X nodes") and the render keys unique.
+  const uniq = (xs?: string[]) => [...new Set(xs ?? [])];
   return {
-    factIds: refs.facts ?? [],
-    nodeIds: refs.nodes ?? [],
-    edgeIds: refs.edges ?? [],
-    eventIds: refs.events ?? [],
+    factIds: uniq(refs.facts),
+    nodeIds: uniq(refs.nodes),
+    edgeIds: uniq(refs.edges),
+    eventIds: uniq(refs.events),
     hypotheses: [], // belief-move detail isn't in refs; the live path builds it from deltas
   };
 }
@@ -225,13 +252,8 @@ function turnsFromJournal(journal: JournalEntry[]): Turn[] {
   const bySeq = new Map<number, Turn>(); // phase seq → its turn (annotations share that seq)
   for (const e of journal) {
     if (!isPhaseEntry(e)) continue;
-    const turn: Turn = {
-      key: e.seq,
-      phase: String(e.phase),
-      reasoning: e.narrative ?? "",
-      calls: [],
-      obs: obsFromRefs(e.refs),
-    };
+    const turn = newTurn(e.seq, String(e.phase), e.narrative ?? "");
+    turn.obs = obsFromRefs(e.refs);
     turns.push(turn);
     bySeq.set(e.seq, turn);
   }
@@ -250,13 +272,71 @@ function turnsFromJournal(journal: JournalEntry[]): Turn[] {
     const phase = String(e.phase);
     let turn = [...turns].reverse().find((t) => t.phase === phase && !t.gateId);
     if (!turn) {
-      turn = { key: e.seq, phase, reasoning: e.narrative ?? "", calls: [], obs: emptyObs() };
+      turn = newTurn(e.seq, phase, e.narrative ?? "");
       turns.push(turn);
     }
     turn.gateId = e.gate_id;
   }
   turns.sort((a, b) => a.key - b.key);
   return turns;
+}
+
+// ── enrich: thread the JOURNALED per-phase objective + plan + rejections onto the turns ─────
+// The live SSE stream carries only phase_started / reasoning / graph_delta / hypotheses_delta —
+// the phase GOAL, the planner's PLAN (available/plan_calls/plan_ops), and the reducer rejections
+// live ONLY in the journal (served in the bundle). BOTH folds share this ONE enrichment so a live
+// cold-load and a disk reopen render the identical turn. It matches each journal phase entry to a
+// turn by phase-name occurrence order — robust to turn.key being an EVENT seq live but a JOURNAL
+// seq on reopen (the two counters differ) — and pulls the plan (shares the phase's seq) and the
+// rejections (rejection.seq === the phase entry's seq). Pure re-derivation: returns NEW turn
+// objects for those it enriches, never mutating the prior state's turns.
+function enrichTurnsFromJournal(
+  turns: Turn[],
+  journal: JournalEntry[],
+  rejections: RejectionItem[]
+): Turn[] {
+  // the planner's plan + its reasoning (the objective fallback), keyed by the shared phase seq
+  const planBySeq = new Map<number, TurnPlan>();
+  const planNarrativeBySeq = new Map<number, string>();
+  for (const e of journal) {
+    if ((e as { kind?: string }).kind !== "plan") continue;
+    planBySeq.set(e.seq, {
+      available: e.available ?? [],
+      plannedCalls: e.plan_calls ?? [],
+      plannedOps: e.plan_ops ?? [],
+    });
+    if (e.narrative) planNarrativeBySeq.set(e.seq, e.narrative);
+  }
+  // reducer rejections attributed to a phase entry (rejection.seq === that entry's seq)
+  const rejBySeq = new Map<number, RejectionItem[]>();
+  for (const r of rejections) {
+    const list = rejBySeq.get(r.seq);
+    if (list) list.push(r);
+    else rejBySeq.set(r.seq, [r]);
+  }
+  // phase entries queued per phase name, in journal (execution) order — the k-th phase-P entry
+  // enriches the k-th phase-P turn (so an investigate LOOP lines up entry ↔ turn without relying
+  // on seq equality across the event/journal counters).
+  const queues = new Map<string, JournalEntry[]>();
+  for (const e of journal) {
+    if (!isPhaseEntry(e)) continue;
+    const phase = String(e.phase);
+    const q = queues.get(phase);
+    if (q) q.push(e);
+    else queues.set(phase, [e]);
+  }
+  return turns.map((t) => {
+    const entry = queues.get(t.phase)?.shift();
+    if (!entry) return t; // no journal phase entry yet (a still-running live phase / synthesized gate turn)
+    const plan = planBySeq.get(entry.seq);
+    const rej = rejBySeq.get(entry.seq);
+    return {
+      ...t,
+      objective: entry.goal || planNarrativeBySeq.get(entry.seq) || "",
+      ...(plan ? { plan } : {}),
+      ...(rej && rej.length ? { rejections: rej } : {}),
+    };
+  });
 }
 
 // Reconstruct a live-shaped GateOpenedEvent from a gate_opened journal entry, hydrating the
@@ -365,6 +445,9 @@ function seed(snap: Snapshot): LiveState {
       if (!grown.phasesRun.includes(t.phase)) grown.phasesRun.push(t.phase);
     hydrateFromJournal(grown, snap); // gates + decisions + operator messages from the journal
   }
+  // thread the journaled per-phase objective + plan + rejections onto the turns (BOTH folds) — a
+  // live cold-load and a disk reopen end at the identical enriched shape.
+  grown.turns = enrichTurnsFromJournal(grown.turns, snap.journal, grown.rejections);
   return grown;
 }
 
@@ -396,6 +479,7 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
   // refresh the ENGINE ranked() order; keep any delta-born ids the snapshot hasn't caught up on
   const ranked = snap.hypotheses.map((h) => h.id);
   const hypothesisOrder = mergeIds(ranked, state.hypothesisOrder);
+  const rejections = snap.rejections ?? state.rejections;
   return {
     ...state,
     nodes,
@@ -405,7 +489,10 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
     hypotheses,
     hypothesisOrder,
     discovery: snap.discovery ?? state.discovery,
-    rejections: snap.rejections ?? state.rejections,
+    rejections,
+    // re-thread the journaled objective/plan/rejections onto the live turns (the SSE stream never
+    // carried them; reconcile's fresh bundle does) — keeps live parity with the reopen fold.
+    turns: enrichTurnsFromJournal(state.turns, snap.journal, rejections),
     outcome: snap.outcome,
   };
 }
@@ -459,7 +546,7 @@ function mutateTurn(s: LiveState, fn: (t: Turn) => Turn): void {
 function applyOne(s: LiveState, ev: SessionEvent): void {
   switch (ev.type) {
     case "phase_started": {
-      s.turns.push({ key: ev.seq, phase: ev.phase, reasoning: "", calls: [], obs: emptyObs() });
+      s.turns.push(newTurn(ev.seq, ev.phase));
       if (!s.phasesRun.includes(ev.phase)) s.phasesRun.push(ev.phase);
       break;
     }

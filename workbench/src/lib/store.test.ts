@@ -40,6 +40,34 @@ const events: SessionEvent[] = [
   { seq: 5, ts: "t", type: "session_state", state: "running", phase: "investigate" },
 ];
 
+const POSTMORTEM = {
+  root_cause: { statement: "", root_candidate: null, confidence: 0, chain: [] },
+  ruled_out: [],
+  contributing: [],
+  timeline: [],
+  narrative: [],
+};
+
+// A minimal-but-complete Snapshot with the boilerplate filled in — the new enrichment tests only
+// vary journal / rejections / events / graph, so this keeps them readable.
+function mkSnap(over: Record<string, unknown>): Snapshot {
+  return {
+    session_id: "app-incident:INC-1",
+    subject: { domain: "app-incident", id: "INC-1", kind: "incident" },
+    state: "closed",
+    outcome: "resolved",
+    phases: [],
+    graph: { nodes: [], edges: [], facts: [], events: [] },
+    hypotheses: [],
+    journal: [],
+    postmortem: POSTMORTEM,
+    pending_gate: null,
+    messages: [],
+    events: [],
+    ...over,
+  } as unknown as Snapshot;
+}
+
 describe("store reducer — the live event fold", () => {
   it("builds a chat turn per phase with reasoning + tool-call cards", () => {
     const s = reduce(emptyState(), { kind: "events", events });
@@ -471,10 +499,20 @@ describe("store reducer — the live event fold", () => {
     // obs hydrated from the phase entry's refs
     expect(frame.obs.factIds).toContain("f1");
     expect(frame.obs.nodeIds).toHaveLength(2);
-    // the ACT turn carries the write it applied + the gate
+    // the OBJECTIVE (phase goal) + the PLAN (from the plan entry sharing the phase seq) threaded on
+    expect(frame.objective).toBe("frame the symptom");
+    expect(frame.plan?.available).toEqual(["get_dependencies", "active_alerts"]);
+    expect(frame.plan?.plannedCalls).toEqual(["get_dependencies", "active_alerts"]);
+    expect(frame.plan?.plannedOps).toEqual(["AddNode"]);
+    // investigate + close carry their goal too; investigate had no plan entry → plan absent
+    expect(s.turns[1].objective).toBe("find the cause");
+    expect(s.turns[1].plan).toBeUndefined();
+    expect(s.turns.find((t) => t.phase === "close")!.objective).toBe("close");
+    // the ACT turn carries the write it applied + the gate + its goal
     const act = s.turns.find((t) => t.phase === "act")!;
     expect(act.calls.map((c) => c.intent)).toEqual(["rollback_release"]);
     expect(act.gateId).toBe("g1");
+    expect(act.objective).toBe("remediate");
     // tool-call keys are UNIQUE across the reopened turns (invocations share their phase seq)
     const keys = s.turns.flatMap((t) => t.calls.map((c) => c.seq));
     expect(new Set(keys).size).toBe(keys.length);
@@ -530,5 +568,104 @@ describe("store reducer — the live event fold", () => {
     expect(s.gate?.gate_id).toBe("g1");
     expect(s.gates["g1"].hypothesis?.statement).toBe("the deploy broke it");
     expect(s.turns.map((t) => t.phase)).toEqual(["frame", "investigate", "act"]);
+  });
+
+  it("threads objective + plan onto LIVE turns via mergeDetail — BOTH folds stay in lockstep", () => {
+    // The live SSE stream carries reasoning + deltas only; the phase GOAL and the planner's PLAN
+    // live in the journal. reconcile fetches a fresh bundle and mergeDetail threads them onto the
+    // turns the live fold already built — matching the reopen fold, even though the turns are keyed
+    // by EVENT seq (1, 3) while the journal phase entries are keyed by JOURNAL seq (7, 8).
+    const liveEvents: SessionEvent[] = [
+      { seq: 1, ts: "t", type: "phase_started", phase: "frame" },
+      { seq: 2, ts: "t", type: "reasoning", phase: "frame", narrative: "5xx spiked" },
+      { seq: 3, ts: "t", type: "phase_started", phase: "investigate" },
+      { seq: 4, ts: "t", type: "reasoning", phase: "investigate", narrative: "deploy is the suspect" },
+    ];
+    let s = reduce(emptyState(), { kind: "events", events: liveEvents });
+    // before reconcile the stream gave no goal/plan — the fields exist but are empty
+    expect(s.turns[0].objective).toBe("");
+    expect(s.turns[0].plan).toBeUndefined();
+    expect(s.turns[0].rejections).toEqual([]);
+
+    const snapshot = mkSnap({
+      state: "running",
+      journal: [
+        { seq: 7, kind: "plan", phase: "frame", actor: "engine", narrative: "frame plan", available: ["get_dependencies"], plan_calls: ["get_dependencies", "active_alerts"], plan_ops: ["AddNode", "AddFact"] },
+        { seq: 7, kind: "phase", phase: "frame", actor: "engine", narrative: "5xx spiked", goal: "frame the symptom", refs: {} },
+        { seq: 8, kind: "phase", phase: "investigate", actor: "engine", narrative: "deploy is the suspect", goal: "find the cause", refs: {} },
+      ],
+    });
+    s = reduce(s, { kind: "mergeDetail", snapshot });
+
+    // matched by phase-name occurrence order, so the event/journal seq mismatch is irrelevant
+    expect(s.turns[0].phase).toBe("frame");
+    expect(s.turns[0].objective).toBe("frame the symptom");
+    expect(s.turns[0].plan?.available).toEqual(["get_dependencies"]);
+    expect(s.turns[0].plan?.plannedCalls).toEqual(["get_dependencies", "active_alerts"]);
+    expect(s.turns[0].plan?.plannedOps).toEqual(["AddNode", "AddFact"]);
+    expect(s.turns[1].phase).toBe("investigate");
+    expect(s.turns[1].objective).toBe("find the cause");
+    expect(s.turns[1].plan).toBeUndefined(); // no plan entry for investigate → plan absent
+    // reasoning from the live stream is untouched by the merge
+    expect(s.turns[0].reasoning).toBe("5xx spiked");
+  });
+
+  it("attaches reducer rejections to the phase turn that incurred them — across an investigate loop", () => {
+    // rejection.seq === the phase entry's seq; each investigate LOOP turn gets exactly its own
+    // rejections (and its own goal), never a global sidebar bucket.
+    const snapshot = mkSnap({
+      state: "suspended",
+      outcome: "open",
+      phases: ["frame", "investigate", "investigate"],
+      journal: [
+        { seq: 2, kind: "phase", phase: "frame", actor: "engine", narrative: "framed", goal: "frame it", refs: {} },
+        { seq: 3, kind: "phase", phase: "investigate", actor: "engine", narrative: "loop 1", goal: "gather evidence", refs: {} },
+        { seq: 5, kind: "phase", phase: "investigate", actor: "engine", narrative: "loop 2", goal: "refute rivals", refs: {} },
+      ],
+      rejections: [
+        { seq: 3, phase: "investigate", op_index: 1, op_kind: "AddFact", reason: "unknown predicate 'foo_bar'" },
+        { seq: 5, phase: "investigate", op_index: 0, op_kind: "AddEdge", reason: "unknown node ref" },
+      ],
+    });
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    const [frame, inv1, inv2] = s.turns;
+    expect(frame.rejections).toEqual([]); // frame incurred none
+    expect(inv1.rejections.map((r) => r.reason)).toEqual(["unknown predicate 'foo_bar'"]); // seq 3 → 1st investigate turn
+    expect(inv2.rejections.map((r) => r.reason)).toEqual(["unknown node ref"]); // seq 5 → 2nd investigate turn
+    // the per-loop objective threaded too — each investigate turn its OWN goal
+    expect(inv1.objective).toBe("gather evidence");
+    expect(inv2.objective).toBe("refute rivals");
+    // the global rejections array is still seeded (the enrichment source) — just no sidebar panel now
+    expect(s.rejections).toHaveLength(2);
+  });
+
+  it("dedupes a reopened turn's observed refs — a revisited node/fact is counted once", () => {
+    // a phase's journal refs list every id it TOUCHED, so a revisited node/fact repeats; the chat
+    // renders those ids (counts + keys), so the reopen fold must dedupe like the live fold does.
+    const snapshot = mkSnap({
+      state: "closed",
+      phases: ["frame"],
+      journal: [
+        {
+          seq: 2,
+          kind: "phase",
+          phase: "frame",
+          actor: "engine",
+          narrative: "framed",
+          goal: "frame it",
+          refs: {
+            nodes: ["service:pay", "service:pay", "anomaly:a1"],
+            edges: [],
+            facts: ["f1", "f1", "f2"],
+            events: [],
+            hypotheses: [],
+          },
+        },
+      ],
+    });
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    const frame = s.turns[0];
+    expect(frame.obs.nodeIds).toEqual(["service:pay", "anomaly:a1"]); // deduped, order preserved
+    expect(frame.obs.factIds).toEqual(["f1", "f2"]);
   });
 });

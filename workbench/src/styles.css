@@ -131,8 +131,7 @@ code {
   min-height: 0;
 }
 
-.pane--hypotheses,
-.pane--journal {
+.pane--hypotheses {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -781,8 +780,7 @@ code {
     flex-direction: row;
   }
 
-  .pane--hypotheses,
-  .pane--journal {
+  .pane--hypotheses {
     max-height: 420px;
   }
 }
@@ -852,8 +850,6 @@ code {
 .workbench__sidebar .pane { min-height: 0; overflow-y: auto; padding: 16px 18px; }
 .pane--hypotheses { flex: 1.2 1 0; }
 .pane--discovery { flex: 0 0 auto; max-height: 180px; }
-.pane--rejections { flex: 0 0 auto; max-height: 180px; }
-.pane--journal { flex: 1 1 0; }
 .pane--incidents { flex: 0.9 1 0; }
 
 /* ---------- discovery (the airlock's promotion signal, P3 step 5) ---------- */
@@ -973,6 +969,75 @@ code {
 .turn__reasoning { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--text); }
 .turn__reasoning--muted { color: var(--text-faint); font-style: italic; }
 .turn__calls { display: flex; flex-direction: column; gap: 6px; }
+
+/* iteration badge — a looped phase (investigate is ONE loop) numbers each turn */
+.turn__iter {
+  font-size: 10px; font-weight: 700; line-height: 1.4;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 1px 7px; border-radius: 999px; letter-spacing: 0.02em;
+}
+
+/* (b) objective — the phase goal, one concise framing line above the plan + reasoning */
+.turn__objective {
+  margin: 0 0 8px; padding-left: 9px; border-left: 2px solid var(--accent-soft);
+  font-size: 12.5px; line-height: 1.45; color: var(--text-muted);
+}
+
+/* (c)/(f) the plan + observations collapsibles — lightweight <details>, lighter than the
+   tool-call cards so the visual hierarchy reads prose > cards > folds */
+.turn__fold { margin: 8px 0 0; }
+.turn__fold-summary {
+  display: flex; align-items: center; gap: 7px; padding: 4px 0;
+  cursor: pointer; list-style: none; font-size: 11.5px;
+}
+.turn__fold-summary::-webkit-details-marker { display: none; }
+.turn__fold-chevron { font-size: 8px; color: var(--text-faint); transition: transform 0.15s ease; }
+.turn__fold[open] > .turn__fold-summary .turn__fold-chevron { transform: rotate(90deg); }
+.turn__fold-kind {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 1px 7px; border-radius: 999px;
+}
+.turn__fold-kind--plan { background: #eef2ff; color: #4f46e5; }
+.turn__fold-kind--obs { background: #ecfdf5; color: #047857; }
+.turn__fold-label { color: var(--text-faint); }
+.turn__fold-body { padding: 6px 0 4px 15px; }
+
+/* plan rows — tools available / planned calls / planned graph+hypothesis ops, as chips */
+.turn__plan-row { display: flex; gap: 8px; margin: 4px 0; align-items: baseline; }
+.turn__plan-rowlabel {
+  flex: 0 0 96px; font-size: 10.5px; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.5;
+}
+.turn__chips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.turn__chip { font-size: 10.5px; padding: 1px 6px; border-radius: 4px; font-family: var(--mono); }
+.turn__chip--available { background: #f1f4f9; color: var(--text-muted); }
+.turn__chip--call { background: var(--accent-soft); color: var(--accent); }
+.turn__chip--op { background: #ecfdf5; color: #047857; }
+
+/* observations body — facts gathered, node ids grown, beliefs moved, events recorded */
+.turn__facts { margin: 2px 0 0; padding-left: 15px; font-size: 11.5px; }
+.turn__facts li { margin: 2px 0; line-height: 1.4; }
+.turn__facts li.is-superseded { opacity: 0.5; text-decoration: line-through; }
+.turn__facts code { font-size: 10.5px; color: var(--text-faint); }
+.turn__facts-src { color: var(--text-faint); }
+.turn__obs-ids { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; font-size: 11px; }
+.turn__obs-idlabel {
+  font-size: 10.5px; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: 0.03em; margin-right: 2px;
+}
+.turn__obs-id { font-family: var(--mono); font-size: 10.5px; background: #f1f4f9; color: var(--text-muted); padding: 1px 6px; border-radius: 4px; }
+.turn__beliefs { margin: 6px 0 0; padding-left: 15px; font-size: 11.5px; }
+.turn__beliefs li { margin: 3px 0; line-height: 1.4; }
+.turn__beliefs-basis { color: var(--text-faint); }
+.turn__obs-events { margin: 6px 0 0; font-size: 11px; color: var(--text-faint); font-style: italic; }
+
+/* (g) rejections — a small inline note (evidence withheld), never a separate panel */
+.turn__rejections { margin: 8px 0 0; font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+.turn__rejections-count {
+  font-weight: 700; color: var(--amber); background: var(--amber-soft);
+  padding: 1px 7px; border-radius: 999px; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
 
 /* ---------- tool-call cards ---------- */
 .toolcall { border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fafbfd; overflow: hidden; }

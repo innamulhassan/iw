@@ -5,11 +5,9 @@ import type { GateDecision } from "../lib/api";
 import PhaseStepper from "./PhaseStepper";
 import ChatPane from "./ChatPane";
 import LiveGraph from "./LiveGraph";
-import JournalPane from "./JournalPane";
 import IncidentList from "./IncidentList";
 import HypothesisPanel from "./HypothesisPanel";
 import DiscoveryPanel from "./DiscoveryPanel";
-import RejectionsPanel from "./RejectionsPanel";
 
 interface Props {
   live: LiveState;
@@ -57,6 +55,9 @@ export default function Workbench({
         <section className="pane pane--graph">
           <LiveGraph live={live} selection={selection} onSelect={setSelection} />
         </section>
+        {/* The right side is now just the LIVE belief state + navigation — the chat IS the
+            complete journal, so the redundant Journal + Rejections panels are gone (rejections
+            render inline in their turn). Discovery appears only when it has something to show. */}
         <aside className="workbench__sidebar">
           <section className="pane pane--hypotheses">
             <HypothesisPanel
@@ -73,14 +74,6 @@ export default function Workbench({
               <DiscoveryPanel discovery={live.discovery} />
             </section>
           )}
-          {live.rejections.length > 0 && (
-            <section className="pane pane--rejections">
-              <RejectionsPanel rejections={live.rejections} />
-            </section>
-          )}
-          <section className="pane pane--journal">
-            <JournalPane live={live} />
-          </section>
           <section className="pane pane--incidents">
             <IncidentList
               activeId={live.sessionId}
