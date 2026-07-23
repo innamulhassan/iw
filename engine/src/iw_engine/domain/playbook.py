@@ -46,6 +46,15 @@ class Tunables(BaseModel):
     # generic_ci substituted into a structural pair, or a CAUSED_BY blaming a generic_ci) —
     # provisional knowledge is admitted, never at full weight (DOMAIN-v3 §2.4 row 2).
     discovery_penalty: float = 0.75
+    # NODE-EDGE-PRIMITIVES 2026-07-23 §5.2/§5.4 — the OBSERVED-edge belief the reducer earns (belief
+    # is engine-filled, never op-authored: the LLM never authors edges). A DECLARED spine edge is
+    # trusted ~1.0; a DISCOVERED (telemetry-inferred) topology edge is graded < 1, and a discovered
+    # STRUCTURAL edge whose reliability falls below the floor lands `provisional` (dim, penalised,
+    # a human RETYPE/confirm promotes it). Defaults keep every shipped discovered edge above the
+    # floor (0.9 > 0.5), so behaviour — and every golden — is unchanged; the floor is the guard that
+    # trips only for a genuinely low-reliability discovery.
+    discovered_edge_reliability: float = 0.9
+    provisional_edge_floor: float = 0.5
     # P6 step 5 (part2 §3): derive `<state>_started`/`<state>_cleared` transition EVENTS from
     # boolean STATE flips in the reducer, so adapters/scenarios stop dual-authoring occurrence
     # twins. DEFAULT OFF: the shipped scenarios still author their transitions — and several

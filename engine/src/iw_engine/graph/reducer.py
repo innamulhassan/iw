@@ -15,6 +15,7 @@ from ..domain.common import Confidence
 from ..domain.edge import Edge
 from ..domain.enums import (
     ConfidenceLevel,
+    EdgeClass,
     EdgeType,
     HypothesisStatus,
     NodeType,
@@ -395,10 +396,24 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
                 # provisional knowledge is admitted, never at full weight (the airlock's penalty)
                 conf = Confidence(value=round(conf.value * tunables.discovery_penalty, 4),
                                   basis=f"{conf.basis} [provisional: generic_ci endpoint]")
+            # OBSERVED-edge belief, engine-earned + symmetric with the atom (2026-07-23 §5.2/§5.4):
+            # an edge carries confidence XOR source_reliability. When it did NOT resolve a confidence
+            # (a declared/discovered spine edge, not an inferred/causal claim), the engine fills its
+            # reliability — DECLARED trusted ~1.0, DISCOVERED graded < 1 — never both (the never-both
+            # rule the Edge model also validates). A DISCOVERED STRUCTURAL edge below the floor lands
+            # provisional (§5.2 class 1: discovered topology is an observation, time-boxed + gradable).
+            reliability = None
+            provisional = airlocked
+            if conf is None:
+                reliability = (1.0 if origin is Origin.DECLARED
+                               else tunables.discovered_edge_reliability)
+                if (origin is Origin.DISCOVERED and spec.edge_class is EdgeClass.STRUCTURAL
+                        and reliability < tunables.provisional_edge_floor):
+                    provisional = True
             eid = registry.edge_id(op.type, src, dst, origin)
             out.edges.append(Edge(id=eid, type=op.type, src=src, dst=dst, origin=origin,
-                                  props=op.props, confidence=conf, evidence=op.evidence,
-                                  provisional=airlocked, created_by=seq))
+                                  props=op.props, confidence=conf, source_reliability=reliability,
+                                  evidence=op.evidence, provisional=provisional, created_by=seq))
             batch_edges.add(eid)   # so a later same-batch edge-borne assertion resolves (F11)
 
         elif isinstance(op, ProposeHypothesis):
@@ -440,6 +455,17 @@ def materialize(ops: list[Operation], seq: int, graph: graph_mod.Graph, tunables
             if not known_target:
                 out.rejections.append(Rejection(op_index=i, op_kind=op.op.value,
                                                 reason=f"unknown retract target {op.target}"))
+                continue
+            # PROVENANCE/lineage is IMMUTABLE (2026-07-23 §5.2 class 2): a release *was* built from a
+            # commit — that never un-happens. A lineage edge is superseded-on-rebuild, NEVER
+            # retracted-as-wrong, so a retract naming one is refused (the CAUSAL/EVIDENTIAL/STRUCTURAL
+            # layers stay freely refutable — only the five lineage predicates are frozen).
+            tgt_edge = (graph.edges.get(op.target)
+                        or next((e for e in out.edges if e.id == op.target), None))
+            if tgt_edge is not None and registry.is_immutable_edge(tgt_edge.type):
+                out.rejections.append(Rejection(op_index=i, op_kind=op.op.value, reason=(
+                    f"{tgt_edge.type.value} is an immutable provenance/lineage edge — "
+                    "superseded-on-rebuild, never retracted-as-wrong")))
                 continue
             out.retractions.append(Retraction(target=op.target, invalidated_by=op.invalidated_by,
                                               reason=op.reason))
