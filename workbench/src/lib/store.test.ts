@@ -681,6 +681,66 @@ describe("store reducer — the live event fold", () => {
     expect(s.rejections).toHaveLength(2);
   });
 
+  it("threads the F1 to-do CHECKLIST + per-call to-do attribution onto reopened turns", () => {
+    // the plan entry's `todos` become turn.todos; each invocation's `todo` groups its card under
+    // the right to-do (the reopen fold: journal is the record, no live stream).
+    const snapshot = mkSnap({
+      state: "closed",
+      journal: [
+        {
+          seq: 2, kind: "plan", ts: "t2", phase: "frame", actor: "engine", narrative: "frame plan",
+          available: ["get_dependencies"], plan_calls: ["get_dependencies", "active_alerts"], plan_ops: ["AddNode"],
+          todos: [
+            { objective: "map the topology", calls: ["get_dependencies"], ops: ["AddNode"], status: "pending" },
+            { objective: "read the alerts", calls: ["active_alerts"], ops: [], status: "pending", op_budget: 8, delegate: true },
+          ],
+        },
+        { seq: 2, kind: "invocation", ts: "t2", phase: "frame", actor: "engine", intent: "get_dependencies", provider: "cmdb", effect: "read", outcome: "data", op_count: 3, blocked: false, reason: null, narrative: "map", params: {}, todo: 0 },
+        { seq: 2, kind: "invocation", ts: "t2", phase: "frame", actor: "engine", intent: "active_alerts", provider: "prometheus", effect: "read", outcome: "empty", op_count: 0, blocked: false, reason: null, narrative: "alerts", params: {}, todo: 1 },
+        { seq: 2, kind: "phase", ts: "t2", phase: "frame", actor: "engine", narrative: "5xx spiked", goal: "frame the symptom", verdict: "advance", next_actions: [], refs: { nodes: [], edges: [], facts: [], events: [], hypotheses: [] } },
+      ],
+    });
+    const s = reduce(emptyState(), { kind: "seed", snapshot });
+    const frame = s.turns.find((t) => t.phase === "frame")!;
+    // the checklist threaded from the plan entry (objective + planned calls/ops)
+    expect(frame.todos?.map((td) => td.objective)).toEqual(["map the topology", "read the alerts"]);
+    expect(frame.todos?.[0].plannedCalls).toEqual(["get_dependencies"]);
+    expect(frame.todos?.[0].plannedOps).toEqual(["AddNode"]);
+    expect(frame.todos?.[1].plannedCalls).toEqual(["active_alerts"]);
+    // the F1/F2 seams carry through only when set (op_budget → opBudget; delegate)
+    expect(frame.todos?.[1].opBudget).toBe(8);
+    expect(frame.todos?.[1].delegate).toBe(true);
+    expect(frame.todos?.[0].opBudget).toBeUndefined();
+    // each tool card carries the to-do it served (the grouping key)
+    const byIntent = Object.fromEntries(frame.calls.map((c) => [c.intent, c.todo]));
+    expect(byIntent["get_dependencies"]).toBe(0);
+    expect(byIntent["active_alerts"]).toBe(1);
+  });
+
+  it("carries the F1 to-do index on a live capability_call, and threads the checklist via mergeDetail", () => {
+    // live fold: the SSE capability_call carries `todo`; the checklist (journal-only) arrives on the
+    // reconcile bundle and mergeDetail threads it onto the live turn — parity with the reopen fold.
+    const liveEvents: SessionEvent[] = [
+      { seq: 1, ts: "t", type: "phase_started", phase: "frame" },
+      { seq: 2, ts: "t", type: "reasoning", phase: "frame", narrative: "5xx spiked" },
+      { seq: 3, ts: "t", type: "capability_call", intent: "get_dependencies", provider: "cmdb", effect: "read", op_count: 3, blocked: false, reason: null, todo: 0 },
+    ];
+    let s = reduce(emptyState(), { kind: "events", events: liveEvents });
+    expect(s.turns[0].calls[0].todo).toBe(0); // the live stream carried the to-do index
+    expect(s.turns[0].todos).toBeUndefined(); // the checklist is journal-only until reconcile
+
+    const snapshot = mkSnap({
+      state: "running",
+      journal: [
+        { seq: 7, kind: "plan", phase: "frame", actor: "engine", narrative: "frame plan", available: ["get_dependencies"], plan_calls: ["get_dependencies"], plan_ops: ["AddNode"], todos: [{ objective: "map + frame the symptom", calls: ["get_dependencies"], ops: ["AddNode"], status: "pending" }] },
+        { seq: 7, kind: "phase", phase: "frame", actor: "engine", narrative: "5xx spiked", goal: "frame the symptom", refs: {} },
+      ],
+    });
+    s = reduce(s, { kind: "mergeDetail", snapshot });
+    expect(s.turns[0].todos?.map((td) => td.objective)).toEqual(["map + frame the symptom"]);
+    expect(s.turns[0].calls[0].todo).toBe(0); // the live to-do attribution survives the merge
+  });
+
   it("dedupes a reopened turn's observed refs — a revisited node/fact is counted once", () => {
     // a phase's journal refs list every id it TOUCHED, so a revisited node/fact repeats; the chat
     // renders those ids (counts + keys), so the reopen fold must dedupe like the live fold does.

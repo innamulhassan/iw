@@ -164,6 +164,19 @@ export interface JournalRefs {
   hypotheses: string[];
 }
 
+/** One to-do of a plan's CHECKLIST (F1 — the to-do layer). Served on a `plan` journal entry: a
+ *  short objective + the call intents + op kinds that serve it + status. The UI renders the plan as
+ *  this checklist and groups the tool-call cards under their to-do. op_budget/delegate are the
+ *  declared seams (a per-to-do op ceiling; a delegatable to-do — F2), present only when set. */
+export interface JournalTodo {
+  objective: string;
+  calls: string[]; // capability intents this to-do calls
+  ops: string[]; // direct op kinds this to-do authors
+  status: string; // pending | done (authored; the UI derives completion as calls land)
+  op_budget?: number | null;
+  delegate?: boolean;
+}
+
 // The bundle now serves EVERY journal kind with its kind + ts + full per-kind fields (the
 // COMPOSABLE record: UI, audit and the fold read the ONE shape). Fields beyond the original
 // {seq, phase, actor, narrative, refs} are optional and per-kind — a phase entry has goal/
@@ -181,10 +194,11 @@ export interface JournalEntry {
   goal?: string;
   next_actions?: string[];
   verdict?: string;
-  // plan — the planner's PLAN + the TOOLS AVAILABLE (its access surface)
+  // plan — the planner's PLAN + the TOOLS AVAILABLE (its access surface) + the to-do CHECKLIST (F1)
   available?: string[];
   plan_calls?: string[];
   plan_ops?: string[];
+  todos?: JournalTodo[]; // F1 — the plan as a checklist of to-dos (plan entries)
   // invocation — one tool call in full
   intent?: string;
   provider?: string;
@@ -192,6 +206,7 @@ export interface JournalEntry {
   effect?: string;
   outcome?: string;
   op_count?: number;
+  todo?: number | null; // F1 — the plan to-do index this call served (invocation entries)
   blocked?: boolean;
   reason?: string | null;
   served_by?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
@@ -353,6 +368,7 @@ export interface CapabilityCallEvent extends EventBase {
   summary?: string; // one-line result that came OUT
   served_by?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
   binding?: string | null; // the adapter's declared Binding (mcp|rest|a2a) — M1
+  todo?: number | null; // F1 — the plan to-do index this call served (for grouping tool cards)
 }
 export interface GraphDeltaNode {
   id: string;

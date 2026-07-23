@@ -11,6 +11,7 @@ import type {
   GraphFact,
   HypothesisItem,
   JournalEntry,
+  JournalTodo,
   PhaseRailItem,
   PhaseReviewOpenedEvent,
   Postmortem,
@@ -52,6 +53,7 @@ export interface ToolCall {
   summary?: string; // the result OUT
   servedBy?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
   binding?: string | null; // the adapter's declared Binding (mcp|rest|a2a) — M1
+  todo?: number | null; // F1 — the plan to-do index this call served (groups cards under a to-do)
 }
 
 /** An operator turn in the two-way chat (obs 2). */
@@ -104,6 +106,20 @@ export interface TurnPlan {
   plannedOps: string[]; // direct graph/hypothesis ops it authored (AddNode, ProposeHypothesis, …)
 }
 
+/** One to-do of a phase's plan CHECKLIST (F1 — the to-do layer): a short objective grouping the
+ *  calls + ops that serve it. The chat renders the plan as this checklist and slots the tool-call
+ *  cards under their to-do (matched by ToolCall.todo). `status` is the authored value; the UI
+ *  derives completion (a to-do reads done once its phase folds / its calls all land). op_budget /
+ *  delegate are the declared F1/F2 seams, carried through only when set. */
+export interface TurnTodo {
+  objective: string;
+  plannedCalls: string[]; // capability intents this to-do calls
+  plannedOps: string[]; // direct op kinds this to-do authors
+  status: string; // pending | done
+  opBudget?: number | null;
+  delegate?: boolean;
+}
+
 /** One chat turn = the agent's work in one phase: its OBJECTIVE (the journaled phase goal), the
  *  PLAN it authored, its reasoning, the tool calls it made, what it OBSERVED (facts/nodes/edges/
  *  events + hypothesis moves), any reducer REJECTIONS this phase incurred, and the write-gate
@@ -115,6 +131,7 @@ export interface Turn {
   objective: string; // the phase GOAL — one concise line; "" until the journal lands it
   reasoning: string;
   plan?: TurnPlan; // the access surface + authored plan (absent on a bare live step)
+  todos?: TurnTodo[]; // F1 — the plan as a checklist of to-dos (absent until the journal lands it)
   calls: ToolCall[];
   obs: TurnObs;
   rejections: RejectionItem[]; // reducer rejections attributed to THIS phase (evidence withheld)
@@ -265,6 +282,7 @@ function toolCallFromInvocation(e: JournalEntry, key: number): ToolCall {
     startedAt: e.ts ?? null, // the journal ts is the call's WHEN on a reopen (trace span is ephemeral)
     servedBy: e.served_by ?? null, // transport provenance (M1) — journaled, so it survives a reopen
     binding: e.binding ?? null,
+    todo: e.todo ?? null, // F1 — the to-do this call served (journaled, so it survives a reopen)
     // kind (tool/workflow) is derived by ToolCallCard from effect when absent; summary was ephemeral
   };
 }
@@ -332,9 +350,11 @@ function enrichTurnsFromJournal(
   journal: JournalEntry[],
   rejections: RejectionItem[]
 ): Turn[] {
-  // the planner's plan + its reasoning (the objective fallback), keyed by the shared phase seq
+  // the planner's plan + its reasoning (the objective fallback) + the to-do checklist (F1), keyed
+  // by the shared phase seq
   const planBySeq = new Map<number, TurnPlan>();
   const planNarrativeBySeq = new Map<number, string>();
+  const todosBySeq = new Map<number, TurnTodo[]>();
   for (const e of journal) {
     if ((e as { kind?: string }).kind !== "plan") continue;
     planBySeq.set(e.seq, {
@@ -343,6 +363,7 @@ function enrichTurnsFromJournal(
       plannedOps: e.plan_ops ?? [],
     });
     if (e.narrative) planNarrativeBySeq.set(e.seq, e.narrative);
+    if (e.todos && e.todos.length) todosBySeq.set(e.seq, e.todos.map(toTurnTodo));
   }
   // reducer rejections attributed to a phase entry (rejection.seq === that entry's seq)
   const rejBySeq = new Map<number, RejectionItem[]>();
@@ -366,14 +387,29 @@ function enrichTurnsFromJournal(
     const entry = queues.get(t.phase)?.shift();
     if (!entry) return t; // no journal phase entry yet (a still-running live phase / synthesized gate turn)
     const plan = planBySeq.get(entry.seq);
+    const todos = todosBySeq.get(entry.seq);
     const rej = rejBySeq.get(entry.seq);
     return {
       ...t,
       objective: entry.goal || planNarrativeBySeq.get(entry.seq) || "",
       ...(plan ? { plan } : {}),
+      ...(todos ? { todos } : {}),
       ...(rej && rej.length ? { rejections: rej } : {}),
     };
   });
+}
+
+/** A served JournalTodo → the store's TurnTodo (F1): rename to the UI's camelCase shape, carrying
+ *  the seams (op_budget/delegate) only when set. */
+function toTurnTodo(jt: JournalTodo): TurnTodo {
+  return {
+    objective: jt.objective,
+    plannedCalls: jt.calls ?? [],
+    plannedOps: jt.ops ?? [],
+    status: jt.status ?? "pending",
+    ...(jt.op_budget != null ? { opBudget: jt.op_budget } : {}),
+    ...(jt.delegate ? { delegate: true } : {}),
+  };
 }
 
 // Reconstruct a live-shaped GateOpenedEvent from a gate_opened journal entry, hydrating the
@@ -651,6 +687,7 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
         summary: ev.summary,
         servedBy: ev.served_by ?? null, // transport provenance (M1)
         binding: ev.binding ?? null,
+        todo: ev.todo ?? null, // F1 — the to-do this call served (from the live stream)
       };
       mutateTurn(s, (t) => ({ ...t, calls: [...t.calls, call] }));
       break;
