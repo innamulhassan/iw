@@ -20,7 +20,9 @@
         "type": "service",
         "props": {
           "service_name": "payments-api",
-          "env": "prod"
+          "env": "prod",
+          "owner": "payments-platform@corp.example",
+          "version": "v4.12.0"
         },
         "origin": false,
         "source": "prometheus",
@@ -56,7 +58,9 @@
         "id": "change_event:chg-1",
         "type": "change_event",
         "props": {
-          "change_id": "CHG-1"
+          "change_id": "CHG-1",
+          "short_description": "Deploy payments-api v4.12.0 to prod (intl tax-calc)",
+          "description": "Standard release of payments-api v4.12.0 via Argo Rollouts; bumps the shared taxcalc library to add intl VAT regions. Blue/green with a 10% canary, auto-promoted after the analysis gate."
         },
         "origin": false,
         "source": "servicenow",
@@ -71,6 +75,7 @@
           "incident_id": "INC-4821",
           "title": "payments-api elevated 5xx errors",
           "short_description": "payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
+          "description": "PagerDuty routed High5xxRate to SRE at 14:00 UTC. payments-api (prod, tier-1) is 5xx-ing on ~40% of requests; throughput holds but the error tail drags p99 to 4.2s while p50 stays flat \u2014 a code-fault shape. Onset is 13 minutes after release v4.12.0 (13:47). Card auth + capture impacted.",
           "work_notes": "High5xxRate paged SRE; v4.12.0 shipped just before onset.",
           "caller_id": "monitoring.alerting"
         },
@@ -84,7 +89,10 @@
         "id": "database:payments-ora",
         "type": "database",
         "props": {
-          "db_id": "payments-ora"
+          "db_id": "payments-ora",
+          "engine": "oracle",
+          "version": "19c",
+          "owner": "payments-platform@corp.example"
         },
         "origin": false,
         "source": "prometheus",
@@ -96,7 +104,10 @@
         "id": "code_commit:abc123",
         "type": "code_commit",
         "props": {
-          "sha": "abc123"
+          "sha": "abc123",
+          "repo": "payments-api",
+          "author": "dev-kco",
+          "message": "feat(tax): add intl VAT regions via shared taxcalc v4.12.0 (PR #1487)"
         },
         "origin": false,
         "source": null,
@@ -109,7 +120,9 @@
         "type": "incident",
         "props": {
           "incident_id": "INC-4788",
-          "severity": "3 - Moderate"
+          "severity": "3 - Moderate",
+          "title": "billing-api 5xx after v4.12.0",
+          "short_description": "billing-api NPE in TaxCalculator after adopting shared taxcalc"
         },
         "origin": false,
         "source": "servicenow",
@@ -122,7 +135,9 @@
         "type": "incident",
         "props": {
           "incident_id": "INC-4790",
-          "severity": "4 - Low"
+          "severity": "4 - Low",
+          "title": "invoicing-api intermittent 5xx",
+          "short_description": "invoicing-api same TaxCalculator NPE, lower volume"
         },
         "origin": false,
         "source": "servicenow",
@@ -161,7 +176,8 @@
           "signature_hash": "npe-taxcalc",
           "exception_class": "NullPointerException",
           "first_seen": "2026-07-19 14:00:00+00:00",
-          "file_line": "TaxCalculator.java:88"
+          "file_line": "TaxCalculator.java:88",
+          "message": "Cannot invoke \"com.corp.geo.Region.getCode()\" because the return value of \"com.corp.order.Order.getRegion()\" is null"
         },
         "origin": false,
         "source": "splunk",
@@ -745,6 +761,40 @@
         "AddEdge",
         "AddAssertion",
         "AddAssertion"
+      ],
+      "todos": [
+        {
+          "objective": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
+          "calls": [],
+          "ops": [
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
       ]
     },
     {
@@ -824,6 +874,25 @@
         "AddEdge",
         "ProposeHypothesis",
         "ProposeHypothesis"
+      ],
+      "todos": [
+        {
+          "objective": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1.",
+          "calls": [],
+          "ops": [
+            "AddNode",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
       ]
     },
     {
@@ -892,6 +961,27 @@
         "AddEdge",
         "UpdateHypothesis",
         "UpdateHypothesis"
+      ],
+      "todos": [
+        {
+          "objective": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123.",
+          "calls": [],
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
       ]
     },
     {
@@ -943,6 +1033,16 @@
       "plan_calls": [],
       "plan_ops": [
         "UpdateHypothesis"
+      ],
+      "todos": [
+        {
+          "objective": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).",
+          "calls": [],
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
       ]
     },
     {
@@ -983,6 +1083,20 @@
         "AddAssertion",
         "AddAssertion",
         "UpdateHypothesis"
+      ],
+      "todos": [
+        {
+          "objective": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed.",
+          "calls": [],
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
       ]
     },
     {
@@ -1022,7 +1136,8 @@
         "render_postmortem"
       ],
       "plan_calls": [],
-      "plan_ops": []
+      "plan_ops": [],
+      "todos": []
     },
     {
       "kind": "phase",
