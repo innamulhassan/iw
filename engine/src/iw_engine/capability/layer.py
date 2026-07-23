@@ -18,7 +18,7 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..domain.enums import Binding, Effect
+from ..domain.enums import Binding, Effect, Species
 from ..domain.operations import Operation
 from .registry import CapabilityRegistry, Policy
 from .sources import (
@@ -46,18 +46,30 @@ __all__ = [
 
 def _summarize_ops(ops: list[Operation]) -> str:
     """A one-line, human-readable summary of what a tool call folded into the graph - the 'out'
-    side of the trace (e.g. '2 entities · 12 facts · 1 change'). Reads off the op class names so it
-    needs no coupling to the concrete op types."""
+    side of the trace (e.g. '2 entities · 12 facts · 1 change'). Adapters emit the AddAssertion
+    ATOM natively (P1b), so the fact/event counts are read off AddAssertion BY SPECIES (EVENT →
+    events; STATE/DESCRIPTOR/READING/IDENTITY → facts) - the pre-P1b version counted the retired
+    AddFact/AddEvent class names, so the dominant assertion-bearing read summarised as 'no new
+    data'. Legacy AddFact/AddEvent (the live planner's shim parse target) are still counted for
+    back-compat."""
     from collections import Counter
     c = Counter(type(o).__name__ for o in ops)
+    n_facts = c.get("AddFact", 0)
+    n_events = c.get("AddEvent", 0)
+    for o in ops:
+        if type(o).__name__ == "AddAssertion":
+            if getattr(o, "species", None) == Species.EVENT:
+                n_events += 1
+            else:
+                n_facts += 1
     parts: list[str] = []
     n = c.get("AddNode", 0)
     if n:
         parts.append(f"{n} entit{'y' if n == 1 else 'ies'}")
-    if c.get("AddFact"):
-        parts.append(f"{c['AddFact']} fact{'s' if c['AddFact'] != 1 else ''}")
-    if c.get("AddEvent"):
-        parts.append(f"{c['AddEvent']} event{'s' if c['AddEvent'] != 1 else ''}")
+    if n_facts:
+        parts.append(f"{n_facts} fact{'s' if n_facts != 1 else ''}")
+    if n_events:
+        parts.append(f"{n_events} event{'s' if n_events != 1 else ''}")
     if c.get("AddEdge"):
         parts.append(f"{c['AddEdge']} link{'s' if c['AddEdge'] != 1 else ''}")
     if c.get("ProposeHypothesis"):
@@ -65,6 +77,16 @@ def _summarize_ops(ops: list[Operation]) -> str:
     if c.get("UpdateHypothesis"):
         parts.append(f"{c['UpdateHypothesis']} hypothesis update{'s' if c['UpdateHypothesis'] != 1 else ''}")
     return " · ".join(parts) or "no new data"
+
+
+def _served_by(source: Source | None) -> str | None:
+    """The concrete transport that SERVED a call (M1): `MockSource`→'mock', `ScenarioSource`→
+    'scenario', `McpSource`→'mcp', `RestSource`→'rest', the composing routers→'routed'/
+    'providerrouted'. None when no transport is wired (the pre-fetched `invoke()` path). This is
+    the one fact that distinguishes a mock read from a live one on the audit record."""
+    if source is None:
+        return None
+    return type(source).__name__.removesuffix("Source").lower() or None
 
 
 class CapabilityCall(BaseModel):
@@ -134,6 +156,15 @@ class Invocation(BaseModel):
     kind: str = "tool"
     started_at: str | None = None          # ISO wall-clock when the call began
     duration_ms: float | None = None       # how long the fetch+normalize took
+    # transport provenance (M1) - the one fact that tells a MOCK read from a LIVE one on the
+    # record. `binding` is the adapter's declared Binding (mcp|rest|a2a — DATA, not a code fork);
+    # `served_by` is the concrete transport that actually served it (mock|scenario|mcp|rest).
+    # Stamped by serve() (which already reads a.binding); the pre-fetched invoke() seam and a
+    # blocked-at-the-gate call leave them None (no transport was reached). Journaled + served +
+    # streamed → a UI transport chip. Unlike the ephemeral trace span, these are deterministic,
+    # so journaling them keeps goldens stable.
+    served_by: str | None = None
+    binding: Binding | None = None
 
 
 class CapabilityLayer:
@@ -245,9 +276,15 @@ class CapabilityLayer:
         blocked = self._gate(a, call.intent, allow_write=allow_write)
         if blocked is not None:
             return [], blocked
+        # transport provenance (M1): the adapter's declared Binding + the concrete transport that
+        # serves this call, stamped on WHICHEVER Invocation comes back (data | empty | error) so
+        # the record always shows how the raw was fetched.
+        stamp = {"served_by": _served_by(self.source), "binding": a.binding}
         try:
             raw = self.source.fetch(a.binding, call.intent, call.params) if self.source else {}
         except Exception as exc:  # a live transport failure degrades the read, never crashes
             effect = self.effect_for(a, call.intent)
-            return [], self._error_invocation(a, call.intent, effect, exc, call.params)
-        return self._fold(a, call.intent, raw, params=call.params)
+            err = self._error_invocation(a, call.intent, effect, exc, call.params)
+            return [], err.model_copy(update=stamp)
+        ops, inv = self._fold(a, call.intent, raw, params=call.params)
+        return ops, inv.model_copy(update=stamp)

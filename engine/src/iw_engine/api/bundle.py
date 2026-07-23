@@ -89,12 +89,14 @@ def _journal_entry(e: JournalEntry) -> dict:
         return {**base, "narrative": e.reasoning, "available": e.available or [],
                 "plan_calls": e.plan_calls or [], "plan_ops": e.plan_ops or []}
     if e.kind == "invocation":
-        # every tool call in full: intent/provider/why/outcome/op_count (+ effect/params/blocked).
+        # every tool call in full: intent/provider/why/outcome/op_count (+ effect/params/blocked),
+        # plus the transport provenance (M1: served_by + binding — mock-vs-live on the record).
         return {**base, "intent": e.intent, "narrative": e.reasoning,
                 "provider": a.get("provider"), "params": a.get("params", {}),
                 "effect": a.get("effect"), "outcome": o.get("outcome"),
                 "reason": o.get("reason"), "blocked": o.get("blocked"),
-                "op_count": o.get("op_count")}
+                "op_count": o.get("op_count"),
+                "served_by": a.get("served_by"), "binding": a.get("binding")}
     if e.kind == "gate_opened":
         # the write-GATE question: proposed action + serving hypothesis + evidence.
         return {**base, "intent": e.intent, "narrative": e.reasoning,

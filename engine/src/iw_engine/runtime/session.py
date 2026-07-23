@@ -605,7 +605,10 @@ class InvestigationSession:
                        outcome=inv.outcome,
                        blocked=inv.blocked, reason=inv.reason,
                        kind=inv.kind, started_at=inv.started_at, duration_ms=inv.duration_ms,
-                       params=inv.params, summary=inv.summary)
+                       params=inv.params, summary=inv.summary,
+                       # transport provenance (M1): mock-vs-live + the declared Binding, on the stream
+                       served_by=inv.served_by,
+                       binding=inv.binding.value if inv.binding else None)
         self._inv_cursor = len(self._engine.invocations)
         self._emit("graph_delta",
                    nodes=[{"id": n.id, "type": n.type.value, "created_by": n.created_by,

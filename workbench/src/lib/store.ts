@@ -48,6 +48,8 @@ export interface ToolCall {
   durationMs?: number | null; // HOW LONG it took
   params?: Record<string, unknown>; // the query IN
   summary?: string; // the result OUT
+  servedBy?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
+  binding?: string | null; // the adapter's declared Binding (mcp|rest|a2a) — M1
 }
 
 /** An operator turn in the two-way chat (obs 2). */
@@ -252,6 +254,8 @@ function toolCallFromInvocation(e: JournalEntry, key: number): ToolCall {
     reason: e.reason ?? null,
     params: e.params,
     startedAt: e.ts ?? null, // the journal ts is the call's WHEN on a reopen (trace span is ephemeral)
+    servedBy: e.served_by ?? null, // transport provenance (M1) — journaled, so it survives a reopen
+    binding: e.binding ?? null,
     // kind (tool/workflow) is derived by ToolCallCard from effect when absent; summary was ephemeral
   };
 }
@@ -632,6 +636,8 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
         durationMs: ev.duration_ms,
         params: ev.params,
         summary: ev.summary,
+        servedBy: ev.served_by ?? null, // transport provenance (M1)
+        binding: ev.binding ?? null,
       };
       mutateTurn(s, (t) => ({ ...t, calls: [...t.calls, call] }));
       break;

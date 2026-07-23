@@ -991,6 +991,7 @@
     },
     {
       "actor": "engine",
+      "binding": "mcp",
       "blocked": false,
       "effect": "read",
       "intent": "find_recent_changes",
@@ -1006,10 +1007,12 @@
       "provider": "servicenow",
       "reason": null,
       "seq": 1,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
       "actor": "engine",
+      "binding": "rest",
       "blocked": false,
       "effect": "read",
       "intent": "active_alerts",
@@ -1025,6 +1028,7 @@
       "provider": "prometheus",
       "reason": null,
       "seq": 1,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1113,6 +1117,7 @@
     },
     {
       "actor": "engine",
+      "binding": "rest",
       "blocked": false,
       "effect": "read",
       "intent": "diff_range",
@@ -1128,10 +1133,12 @@
       "provider": "git",
       "reason": null,
       "seq": 2,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
       "actor": "engine",
+      "binding": "mcp",
       "blocked": false,
       "effect": "read",
       "intent": "list_related_incidents",
@@ -1147,6 +1154,7 @@
       "provider": "servicenow",
       "reason": null,
       "seq": 2,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1225,6 +1233,7 @@
     },
     {
       "actor": "engine",
+      "binding": "mcp",
       "blocked": false,
       "effect": "read",
       "intent": "get_snapshots",
@@ -1240,10 +1249,12 @@
       "provider": "appd",
       "reason": null,
       "seq": 3,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
       "actor": "engine",
+      "binding": "rest",
       "blocked": false,
       "effect": "read",
       "intent": "instant_query",
@@ -1258,6 +1269,7 @@
       "provider": "prometheus",
       "reason": null,
       "seq": 3,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

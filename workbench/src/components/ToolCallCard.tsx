@@ -113,6 +113,15 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
         </span>
         <code className="toolcall__intent">{call.intent}</code>
         <span className="toolcall__provider">{call.provider}</span>
+        {call.servedBy && (
+          <span
+            className={`toolcall__transport toolcall__transport--${call.servedBy}`}
+            title={`served via ${call.servedBy}${call.binding ? ` · ${call.binding} binding` : ""} — the transport that fetched this (mock vs live)`}
+          >
+            📡 {call.servedBy}
+            {call.binding ? ` · ${call.binding}` : ""}
+          </span>
+        )}
         <span className={`toolcall__kind toolcall__kind--${kind}`}>{kind}</span>
         {outcome !== "data" && (
           <span className={`toolcall__outcome toolcall__outcome--${outcome}`}>{outcome}</span>
@@ -158,6 +167,16 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
               {!["data", "empty", "error", "blocked"].includes(outcome) && outcome}
             </span>
           </div>
+          {call.servedBy && (
+            <div className="tr-row">
+              <span className="tr-k">via</span>
+              <span className="tr-v tr-muted">
+                {call.servedBy}
+                {call.binding ? ` · ${call.binding} binding` : ""}
+                <span className="tr-muted"> — the transport that served this call (mock vs live)</span>
+              </span>
+            </div>
+          )}
           <div className="tr-row">
             <span className="tr-k">trace</span>
             <span className="tr-v tr-muted">

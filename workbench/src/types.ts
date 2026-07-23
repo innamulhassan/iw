@@ -174,6 +174,8 @@ export interface JournalEntry {
   op_count?: number;
   blocked?: boolean;
   reason?: string | null;
+  served_by?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
+  binding?: string | null; // the adapter's declared Binding (mcp|rest|a2a) — M1
   // gate_opened — the write-gate question
   gate_id?: string;
   actions?: GateAction[];
@@ -321,6 +323,8 @@ export interface CapabilityCallEvent extends EventBase {
   duration_ms?: number | null; // HOW LONG it took
   params?: Record<string, unknown>; // the query that went IN
   summary?: string; // one-line result that came OUT
+  served_by?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
+  binding?: string | null; // the adapter's declared Binding (mcp|rest|a2a) — M1
 }
 export interface GraphDeltaNode {
   id: string;

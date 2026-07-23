@@ -1363,6 +1363,16 @@ code {
 .toolcall__kind--workflow { background: var(--amber-soft); color: var(--amber); }
 .toolcall__kind--llm { background: #f3e8ff; color: var(--violet); }
 .toolcall__dur { color: var(--text-faint); }
+/* M1 — transport provenance chip: WHICH transport served this call (the one fact that tells a
+   mock read from a live one). `mock` reads muted; the live transports read in the accent. */
+.toolcall__transport {
+  font-size: 9.5px; letter-spacing: 0.02em; font-weight: 600;
+  padding: 1px 6px; border-radius: 10px; background: #eef1f6; color: var(--text-muted);
+  white-space: nowrap;
+}
+.toolcall__transport--mcp,
+.toolcall__transport--rest,
+.toolcall__transport--scenario { background: var(--accent-soft); color: var(--accent); }
 
 /* obs 2 — two-way chat: operator messages + composer */
 .usermsg {

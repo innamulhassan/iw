@@ -305,7 +305,11 @@ class Engine:
             seq=seq, ts=self._clock(), kind="invocation",
             phase_id=phase, actor="engine", intent=inv.intent, reasoning=why,
             action={"capability": inv.intent, "provider": inv.provider,
-                    "params": dict(inv.params), "effect": inv.effect.value},
+                    "params": dict(inv.params), "effect": inv.effect.value,
+                    # transport provenance (M1): HOW the raw was fetched — the served-by transport
+                    # + the adapter's declared Binding, so the audit shows mock-vs-live on the record.
+                    "served_by": inv.served_by,
+                    "binding": inv.binding.value if inv.binding else None},
             observation={"outcome": inv.outcome, "reason": inv.reason,
                          "blocked": inv.blocked, "op_count": inv.op_count},
             decision=inv.outcome))

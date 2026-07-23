@@ -789,6 +789,7 @@
     },
     {
       "actor": "engine",
+      "binding": "mcp",
       "blocked": false,
       "effect": "read",
       "intent": "find_recent_changes",
@@ -804,10 +805,12 @@
       "provider": "servicenow",
       "reason": null,
       "seq": 1,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
       "actor": "engine",
+      "binding": "rest",
       "blocked": false,
       "effect": "read",
       "intent": "active_alerts",
@@ -823,10 +826,12 @@
       "provider": "prometheus",
       "reason": null,
       "seq": 1,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
       "actor": "engine",
+      "binding": null,
       "blocked": true,
       "effect": "read",
       "intent": "appd_bt_metrics",
@@ -839,6 +844,7 @@
       "provider": "?",
       "reason": "no capability for intent 'appd_bt_metrics'",
       "seq": 1,
+      "served_by": null,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -925,6 +931,7 @@
     },
     {
       "actor": "engine",
+      "binding": null,
       "blocked": true,
       "effect": "read",
       "intent": "git_log",
@@ -937,10 +944,12 @@
       "provider": "?",
       "reason": "no capability for intent 'git_log'",
       "seq": 2,
+      "served_by": null,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
       "actor": "engine",
+      "binding": "mcp",
       "blocked": false,
       "effect": "read",
       "intent": "list_related_incidents",
@@ -955,6 +964,7 @@
       "provider": "servicenow",
       "reason": null,
       "seq": 2,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1027,6 +1037,7 @@
     },
     {
       "actor": "engine",
+      "binding": null,
       "blocked": true,
       "effect": "read",
       "intent": "appd_bt_metrics",
@@ -1039,10 +1050,12 @@
       "provider": "?",
       "reason": "no capability for intent 'appd_bt_metrics'",
       "seq": 3,
+      "served_by": null,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
       "actor": "engine",
+      "binding": null,
       "blocked": true,
       "effect": "read",
       "intent": "git_blame",
@@ -1055,10 +1068,12 @@
       "provider": "?",
       "reason": "no capability for intent 'git_blame'",
       "seq": 3,
+      "served_by": null,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
       "actor": "engine",
+      "binding": "mcp",
       "blocked": false,
       "effect": "read",
       "intent": "list_related_incidents",
@@ -1073,6 +1088,7 @@
       "provider": "servicenow",
       "reason": null,
       "seq": 3,
+      "served_by": "mock",
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
