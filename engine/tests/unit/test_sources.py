@@ -214,6 +214,38 @@ def test_provider_routed_source_unwired_provider_is_clean_empty():
     assert routed.fetch(Binding.MCP, "unknown_intent", {}) == {}
 
 
+# ── build_live_layer: the one-line LIVE composition seam (M20) ──────────────────────
+def test_build_live_layer_composes_and_runs_clean_empty_with_no_env():
+    """The live factory COMPOSES + RUNS end-to-end with NO vendor configured: every provider is
+    unwired, so every read routes clean-empty exactly like the mock layer with an unfixtured intent
+    (the mock-equivalent prod seam the 'two swaps are one-seam' bar wants exercised)."""
+    from iw_engine.runtime.scenarios import build_live_layer
+    layer = build_live_layer(env={})
+    ops, inv = layer.serve(CapabilityCall(intent="fetch_metrics"), allow_write=False)
+    assert ops == [] and not inv.blocked and inv.outcome == "empty"   # clean-empty, NOT error
+    assert inv.served_by == "mapping"   # the composing transport that served it (M1 provenance)
+
+
+def test_build_live_layer_routes_a_configured_provider_through_its_transport():
+    """A provider with an `IW_CAP_<P>_URL` set wires its transport; the factory routes that
+    provider's intent to it, maps the vendor envelope, and folds real ops — all with injected HTTP,
+    no live server (proves the composition is a real live seam, not just clean-empty degradation)."""
+    from iw_engine.runtime.scenarios import build_live_layer
+
+    def fake_rest(url, params, headers):   # a Prometheus /api/v1/query envelope
+        return {"status": "success", "data": {"result": [
+            {"metric": {"__name__": "red_errors"}, "value": [1689770000, "0.4"]}]}}
+
+    layer = build_live_layer(
+        env={"IW_CAP_PROMETHEUS_URL": "https://prom.example"},
+        rest_routes={"prometheus": {"fetch_metrics": "/api/v1/query"}}, http_rest=fake_rest)
+    ops, inv = layer.serve(
+        CapabilityCall(intent="fetch_metrics", params={"service": "payments-api", "env": "prod"}),
+        allow_write=False)
+    assert inv.provider == "prometheus" and inv.served_by == "mapping"
+    assert ops and inv.outcome == "data"   # the vendor envelope mapped + folded to real ops
+
+
 # ── layer.serve: resolve -> gate -> fetch -> normalize (gate-FIRST) ───────────────
 _PROM_RAW = {
     "service": {"name": "payments-api", "env": "prod"},

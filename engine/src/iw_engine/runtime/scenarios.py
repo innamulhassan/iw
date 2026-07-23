@@ -23,7 +23,15 @@ import sys
 from collections.abc import Callable
 from datetime import datetime
 
-from ..capability import CapabilityCall, CapabilityLayer, MockSource, ScenarioSource
+from ..capability import (
+    CapabilityCall,
+    CapabilityLayer,
+    MappingSource,
+    MockSource,
+    ProviderRoutedSource,
+    ScenarioSource,
+    build_provider_transports,
+)
 from ..capability.adapters import default_adapters
 from ..capability.adapters.remediation import RemediationAdapter
 from ..domain import registry
@@ -132,6 +140,36 @@ def _layer(fixtures: dict | None) -> CapabilityLayer:
     # every read from the scenario's fixtures (an unfixtured intent folds to zero ops).
     return CapabilityLayer([*default_adapters(), RemediationAdapter()],
                            source=MockSource(fixtures or {}))
+
+
+def build_live_layer(env: dict[str, str] | None = None, *,
+                     rest_routes: dict[str, dict[str, str]] | None = None,
+                     http_mcp=None, http_rest=None) -> CapabilityLayer:
+    """The LIVE composition factory — the one-line prod seam symmetric to the mock `_layer(fixtures)`.
+    Where `_layer` answers every read from a `MockSource(fixtures)`, this composes the REAL transports
+    from the pieces that already exist + are unit-tested, so the "two prod swaps are one-seam" bar is
+    met by written glue, not a promise (M20):
+
+      build_provider_transports(bindings, env)   → a `McpSource`/`RestSource` per provider whose
+                                                    `IW_CAP_<PROVIDER>_URL`/`_TOKEN` is set in `env`
+      → ProviderRoutedSource(intent_provider)    → routes each intent to ITS provider's transport
+                                                    (arity-9 by provider, not arity-3 by binding)
+      → MappingSource(inner, intent_provider)    → translates each vendor JSON into the adapter shape
+
+    The seam behaves EXACTLY like the mock: an intent whose provider has no `IW_CAP_*` URL routes to
+    `{}` (clean-empty — the adapter folds it to zero ops), so this factory COMPOSES AND RUNS
+    end-to-end with NO real vendor configured (the mock-equivalent). A real connection is a couple
+    of env vars, never new factory code. NOT wired to any real vendor here — this is the composable
+    prod seam, exercised on mocks. A2A-bound providers (remediation) have no live transport yet, so
+    they route clean-empty — the reserved seam (F2). HTTP clients are injectable for hermetic tests;
+    a real run uses the stdlib urllib defaults."""
+    adapters = [*default_adapters(), RemediationAdapter()]
+    bindings = {a.provider: a.binding for a in adapters}
+    intent_provider = {i: a.provider for a in adapters for i in a.intents}
+    transports = build_provider_transports(bindings, rest_routes=rest_routes, env=env,
+                                           http_mcp=http_mcp, http_rest=http_rest)
+    source = MappingSource(ProviderRoutedSource(intent_provider, transports), intent_provider)
+    return CapabilityLayer(adapters, source=source)
 
 
 # ── the SessionManager the server drives ───────────────────────────────────────────
