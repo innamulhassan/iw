@@ -6,11 +6,21 @@ edge)). Follows the prometheus.py template: provider/intents/effect/normalize(ra
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from ...domain import registry
 from ...domain.assertion import Window
+from ...domain.common import EvidenceRef
 from ...domain.enums import Binding, EdgeType, Effect, NodeType, Origin, Source, Species, Stat
 from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
+
+
+def _as_dt(v: datetime | str) -> datetime:
+    """A span's ended_at is started_at + duration, so a raw ISO-string `at` must become a datetime
+    BEFORE the interval math (readings pass the string straight to pydantic and never do arithmetic
+    on it). Accepts an already-parsed datetime unchanged; tolerates a trailing `Z` (UTC)."""
+    return v if isinstance(v, datetime) else datetime.fromisoformat(str(v).replace("Z", "+00:00"))
 
 
 class AppDAdapter:
@@ -45,14 +55,19 @@ class AppDAdapter:
             subject = bt_id or svc_id
             if not subject:
                 continue
-            # BT telemetry (art_p95 / epm / delta_vs_baseline) → a READING. Fixtures state no
-            # stat/window, so stat=gauge + point window at the observation time (the P1a shim
-            # default) keeps the reducer's Fact byte-identical; the vendor's name survives.
+            # BT telemetry (art_p95 / epm / delta_vs_baseline) → a summary READING + a `metric_query`
+            # HANDLE (the stream-ladder, §3/§8.1 — the same rule metrics/logs/spans share: never
+            # inline a raw stream, author the unit + a handle to re-fetch the curve). Fixtures state
+            # no stat/window, so stat=gauge + point window keeps the reducer's Fact byte-identical;
+            # the handle rides evidence[] (graph-internal, not bundle-serialized) so goldens hold.
             ops.append(AddAssertion(subject=subject, name=m["predicate"], value=m["value"],
                                     unit=m.get("unit"), species=Species.READING,
                                     stat=Stat.GAUGE, window=Window(at=m["at"]),
                                     valid_from=m["at"], observed_at=m["at"], source=Source.APPD,
                                     source_reliability=m.get("reliability"),
+                                    evidence=[EvidenceRef(kind="metric_query",
+                                                          ref=f'{m["predicate"]}{{bt="{subject}"}}',
+                                                          label=m["predicate"])],
                                     source_native_name=m["predicate"]))
 
         # healthrule_violations — Alert FIRED_ON the underlying Service
@@ -84,18 +99,27 @@ class AppDAdapter:
             hop_id = registry.node_id(NodeType.SERVICE, hop_props)
             self._fold_exit_calls(ops, hop_id, hop.get("exit_calls", []))
 
-        # fetch_traces — a trace is captured on the BT/Service; may itself carry
-        # exit-calls (a distributed trace's backend hops), folded the same way
+        # fetch_traces — a distributed trace is a bounded HAPPENING with start + duration + outcome:
+        # it folds to a SPAN, NOT an event (2026-07-23 primitives §2.6/§3 ladder: spans/traces are a
+        # HANDLE (trace_id) + a SPAN datum). `[started_at, ended_at)` = at .. at+duration_ms (a trace
+        # with no duration is in-flight -> the engine derives OPEN); correlation_id = trace_id (§4.4,
+        # joining sibling hops + a future Rung-2 reified occurrence); the error flag is the outcome on
+        # `value`; the vendor's own name survives on source_native_name. The subject is the BT/Service
+        # node (a Rung-1 node-borne happening that promotes to a reified BUSINESS_TRANSACTION on
+        # referability, §4.2). It may itself carry exit-calls (the trace's backend hops), folded the
+        # same way.
         for tr in raw.get("traces", []):
             subject = bt_id or svc_id
             if subject:
-                ops.append(AddAssertion(subject=subject, name="trace_captured",
-                                        species=Species.EVENT, occurred_at=tr["at"],
-                                        observed_at=tr["at"],
-                                        value={"trace_id": tr["trace_id"],
-                                               "duration_ms": tr.get("duration_ms"),
-                                               "error": tr.get("error", False)},
-                                        source=Source.APPD, source_native_name="trace_captured"))
+                started = _as_dt(tr["at"])              # parse once: ended_at needs interval math
+                dur = tr.get("duration_ms")
+                ended = started + timedelta(milliseconds=dur) if dur is not None else None
+                ops.append(AddAssertion(subject=subject, name="trace", species=Species.SPAN,
+                                        valid_from=started, valid_to=ended, observed_at=started,
+                                        value={"error": tr.get("error", False)},
+                                        correlation_id=tr["trace_id"], source=Source.APPD,
+                                        source_reliability=tr.get("reliability"),
+                                        source_native_name="trace_captured"))
             if svc_id:
                 self._fold_exit_calls(ops, svc_id, tr.get("exit_calls", []))
 

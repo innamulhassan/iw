@@ -99,8 +99,14 @@ def test_appd_normalize_folds_cleanly():
     # flowmap hop: payments-api -> inventory-api
     assert any(e.src == payments and e.dst == inventory for e in depends_on)
 
-    # fetch_traces -> trace_captured event on the BT
-    assert any(e.type == "trace_captured" and e.entity_ref == bt for e in mat.events)
+    # fetch_traces -> a `trace` SPAN on the BT, NOT an event (2026-07-23 primitives §2.6/§3 — a
+    # trace is a bounded happening: the SpanFold recategorization). correlation_id = trace_id joins
+    # sibling hops (§4.4); the vendor's own name survives on source_native_name; duration_ms=1800
+    # gives a CLOSED [14:00:08, 14:00:09.8) extent (the engine derives the phase from the end).
+    assert not any(e.type == "trace_captured" for e in mat.events)   # no longer an event
+    assert any(s.subject_ref == bt and s.name == "trace" and s.correlation_id == "tr-123"
+               and s.source_native_name == "trace_captured" and s.value == {"error": False}
+               for s in mat.spans), mat.spans
 
 
 def test_appd_intents_registered():

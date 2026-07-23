@@ -69,7 +69,15 @@ class SplunkAdapter:
 
             at = err["_time"]
             reliability = err.get("reliability")   # None -> reducer fills tunables default
-            evidence = [EvidenceRef(kind="trace_id", ref=err["trace_id"])] if err.get("trace_id") else []
+            # the log stream is a HANDLE, never inlined (2026-07-23 primitives §3 ladder: logs =
+            # a `log_link` handle range-queried by cursor + the extracted UNIT; the deduped cluster
+            # IS the unit -> an ErrorSignature node). The handle re-queries this signature's raw
+            # lines; a trace_id, when present, is the second handle joining the log to its trace.
+            # Both ride evidence[] (graph-internal, not bundle-serialized) so goldens stay identical.
+            evidence = [EvidenceRef(kind="log_link", ref=f'signature_hash={err["signature_hash"]}',
+                                    label=err.get("exception_class"))]
+            if err.get("trace_id"):
+                evidence.append(EvidenceRef(kind="trace_id", ref=err["trace_id"]))
             # the deduped occurrence count is a measured READING (stat=count, point window at the
             # observation time); last_seen is a timestamp PROPERTY (the §9.1 content/identity-
             # adjacent set — the P1a shim classified it so). Both fold to a byte-identical Fact.

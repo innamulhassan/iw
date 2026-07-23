@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from ...domain import registry
 from ...domain.assertion import Window
+from ...domain.common import EvidenceRef
 from ...domain.enums import Binding, EdgeType, Effect, NodeType, Source, Species, Stat
 from ...domain.operations import AddAssertion, AddEdge, AddNode, Operation
 from ..layer import CapabilityMeta
@@ -55,15 +56,21 @@ class PrometheusAdapter:
                 # planner to look at the cert. node_id is idempotent, so re-minting an
                 # already-discovered entity is a no-op upsert.
                 self._discover(ops, subject)
-            # telemetry gauge/rate/ratio → a READING (measured with a window). The fixtures state
-            # neither stat nor window, so stat=gauge + a point window at the observation time —
-            # matches the P1a shim's default so the reducer's Fact (which carries neither) is
-            # byte-identical. The vendor's own metric name survives on source_native_name.
+            # telemetry gauge/rate/ratio → a summary READING (measured with a window) PLUS a
+            # `metric_query` HANDLE (the unifying stream-ladder, 2026-07-23 primitives §3/§8.1: NEVER
+            # inline a raw stream — author the judgment-granularity UNIT + a handle to re-fetch the
+            # curve live). The fixtures state neither stat nor window, so stat=gauge + a point window
+            # at the observation time keeps the reducer's Fact byte-identical; the vendor's own metric
+            # name survives on source_native_name; the handle is graph-internal (evidence[], not
+            # bundle-serialized) so the goldens stay byte-identical.
             ops.append(AddAssertion(subject=subject, name=m["predicate"], value=m["value"],
                                     unit=m.get("unit"), species=Species.READING,
                                     stat=Stat.GAUGE, window=Window(at=m["at"]),
                                     valid_from=m["at"], observed_at=m["at"],
                                     source=Source.PROMETHEUS, source_reliability=m.get("reliability"),
+                                    evidence=[EvidenceRef(kind="metric_query",
+                                                          ref=f'{m["predicate"]}{{target="{subject}"}}',
+                                                          label=m["predicate"])],
                                     source_native_name=m["predicate"]))
         return ops
 
