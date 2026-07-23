@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { LiveState, LiveNode, Selection } from "../lib/store";
 import { nodesWithOrder, relatedIncidents } from "../lib/store";
+import type { GraphFact, GraphSpan } from "../types";
 import { humanizePredicate } from "../lib/format";
-import { servedRelationLabel } from "../lib/labels";
+import { servedIdentityKeys, servedRelationLabel, servedSpeciesForPredicate } from "../lib/labels";
 import { TIER_LABELS, TIER_ORDER, layerLabelForType, tierForType } from "../lib/tiers";
 
 const NODE_W = 168;
@@ -50,6 +51,77 @@ function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
+}
+
+// ── the six datum-shape categories (2026-07-23 primitives §2) ────────────────────────────────
+// A node carries datums of up to six shapes; the node-detail groups them so a human reads identity
+// vs a state-trail vs a reading vs a bounded span at a glance. A FACT is bucketed by the engine's
+// served species for its CANONICAL predicate (reading|property|state); events + spans are their own
+// bundle collections. Unknown/uncataloged predicates fall to STATE (the §9.1 "when in doubt" default).
+type FactCategory = "reading" | "property" | "state";
+function factCategory(predicate: string): FactCategory {
+  const s = servedSpeciesForPredicate(predicate);
+  if (s === "reading") return "reading";
+  if (s === "property") return "property";
+  return "state"; // state, or an uncataloged predicate → the cheap-direction default
+}
+
+/** A SPAN's duration, humanized (ms → s → min). `null` ended_at = still open / lost close. */
+function spanDuration(s: GraphSpan): string | null {
+  if (!s.ended_at) return null;
+  const ms = new Date(s.ended_at).getTime() - new Date(s.started_at).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
+  return `${Math.round(ms / 60000)} min`;
+}
+
+function clockTime(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Group a subject's STATE facts into per-predicate TRAILS (2026-07-23 §2.3): one row per attribute
+ *  name, its held values ordered by valid_from, the current (open) value last. A single-value trail
+ *  is just a state; a multi-value trail is the supersede chain (status up→down, version a→b). */
+interface StateTrail {
+  predicate: string;
+  steps: GraphFact[]; // ordered oldest → newest; the last open one is "current"
+}
+function stateTrails(stateFacts: GraphFact[]): StateTrail[] {
+  const byPred = new Map<string, GraphFact[]>();
+  for (const f of stateFacts) {
+    const list = byPred.get(f.predicate);
+    if (list) list.push(f);
+    else byPred.set(f.predicate, [f]);
+  }
+  return [...byPred.entries()]
+    .map(([predicate, steps]) => ({
+      predicate,
+      steps: steps.slice().sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()),
+    }))
+    .sort((a, b) => a.predicate.localeCompare(b.predicate));
+}
+
+/** Parse the incident `work_notes` prop into an ordered JOURNAL (2026-07-23 §3 ANNOTATION / the
+ *  LOG→promoted trail): each independently-timestamped human note is one entry. Splits on newlines
+ *  and lifts a leading `[HH:MM] actor:` stamp when present, so the terse single-line twins and the
+ *  multi-line timestamped live records both read as a journal. */
+interface WorkNote {
+  stamp: string | null;
+  text: string;
+}
+function parseWorkNotes(raw: unknown): WorkNote[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  return raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+      return m ? { stamp: m[1], text: m[2] } : { stamp: null, text: line };
+    });
 }
 
 function relTime(iso?: string | null): string | null {
@@ -280,6 +352,23 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
     ? Object.values(live.facts).filter((f) => f.subject === selectedId && f.state !== "retracted")
     : [];
   const selectedEvents = selectedId ? Object.values(live.events).filter((ev) => ev.entity === selectedId) : [];
+  // the sixth species: SPAN datums whose subject is this node (§2.6) — a captured trace/BT happening.
+  const selectedSpans = selectedId
+    ? Object.values(live.spans).filter((s) => s.subject === selectedId)
+    : [];
+
+  // ── bucket the node's datums into the six categories for node-detail ────────────────────────
+  // facts split by the engine's served species; node props split into IDENTITY vs PROPERTY by the
+  // served identity_keys; work_notes lifts out into its own journal (the §3 ANNOTATION trail).
+  const readingFacts = selectedFacts.filter((f) => factCategory(f.predicate) === "reading");
+  const contentFacts = selectedFacts.filter((f) => factCategory(f.predicate) === "property");
+  const stateFactList = selectedFacts.filter((f) => factCategory(f.predicate) === "state");
+  const trails = stateTrails(stateFactList);
+  const idKeys = selected ? new Set(servedIdentityKeys(selected.type)) : new Set<string>();
+  const propEntries = selected ? Object.entries(selected.props ?? {}) : [];
+  const identityEntries = propEntries.filter(([k]) => idKeys.has(k));
+  const propertyEntries = propEntries.filter(([k]) => !idKeys.has(k) && k !== "work_notes");
+  const workNotes = selected ? parseWorkNotes(selected.props?.work_notes) : [];
 
   return (
     <div className="graph-pane">
@@ -571,56 +660,122 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
               </p>
             )}
 
-            <h4 className="node-detail__sub">Properties</h4>
-            {Object.keys(selected.props ?? {}).length ? (
-              <dl className="node-detail__props">
-                {Object.entries(selected.props).map(([k, v]) => (
-                  <div key={k}>
-                    <dt>{k}</dt>
-                    <dd>{formatValue(v)}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="node-detail__empty">No static properties recorded yet.</p>
+            {/* The node's datums, grouped by the SIX datum-shape categories (2026-07-23 primitives
+                §2): identity · property · state (with change-trail) · reading · event · span. The
+                engine's served species classifies each fact; identity_keys splits the props; work
+                notes lift into their own journal. A section renders only when it has content. */}
+
+            {/* IDENTITY — the write-once keys that MAKE this entity THIS entity (§2.1) */}
+            {identityEntries.length > 0 && (
+              <section className="cat">
+                <h4 className="node-detail__sub cat__head cat__head--identity">Identity</h4>
+                <dl className="node-detail__props">
+                  {identityEntries.map(([k, v]) => (
+                    <div key={k}>
+                      <dt>{humanizePredicate(k)}</dt>
+                      <dd>{formatValue(v)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
             )}
 
-            <h4 className="node-detail__sub">Facts ({selectedFacts.length})</h4>
-            {selectedFacts.length ? (
-              <ul className="node-detail__facts">
-                {selectedFacts.map((f) => (
-                  <li
-                    key={f.id}
-                    className={[
-                      f.state === "superseded" ? "is-superseded" : "",
-                      f.id === selectedFactId ? "is-highlight" : "",
-                      f.provisional ? "is-provisional" : "",
-                    ]
-                      .join(" ")
-                      .trim()}
-                  >
-                    <strong>{humanizePredicate(f.predicate)}</strong> = {formatValue(f.value)}
-                    {f.unit ? ` ${f.unit}` : ""}
-                    {f.source && <span className="node-detail__meta"> · {f.source}</span>}
-                    {/* M4 — the vendor's OWN field spelling (P3 airlock provenance): served but
-                        previously read by no component. Shown when it differs from the friendly
-                        label, so the operator sees the raw name the source actually returned. */}
-                    {f.source_native_name && f.source_native_name !== humanizePredicate(f.predicate) && (
-                      <span className="node-detail__native" title="the source's own field name (provenance)">
-                        {f.source_native_name}
-                      </span>
-                    )}
-                    {f.provisional && <span className="prov-chip">provisional</span>}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="node-detail__empty">No facts for this node.</p>
+            {/* PROPERTY — timeless facts ABOUT it + renderable content (diff/blame) (§2.2) */}
+            {(propertyEntries.length > 0 || contentFacts.length > 0) && (
+              <section className="cat">
+                <h4 className="node-detail__sub cat__head cat__head--property">Property</h4>
+                <dl className="node-detail__props">
+                  {propertyEntries.map(([k, v]) => (
+                    <div key={k}>
+                      <dt>{humanizePredicate(k)}</dt>
+                      <dd>{formatValue(v)}</dd>
+                    </div>
+                  ))}
+                  {contentFacts.map((f) => (
+                    <div key={f.id} className={f.provisional ? "is-provisional" : ""}>
+                      <dt>{humanizePredicate(f.predicate)}</dt>
+                      <dd>
+                        {formatValue(f.value)}
+                        {f.unit ? ` ${f.unit}` : ""}
+                        {f.provisional && <span className="prov-chip">provisional</span>}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
             )}
 
+            {/* STATE — a value TRUE over a window, shown as its supersede CHANGE-TRAIL (§2.3) */}
+            {trails.length > 0 && (
+              <section className="cat">
+                <h4 className="node-detail__sub cat__head cat__head--state">
+                  State <span className="cat__hint">change-trail</span>
+                </h4>
+                <ul className="node-detail__trails">
+                  {trails.map((t) => {
+                    const current = t.steps[t.steps.length - 1];
+                    return (
+                      <li
+                        key={t.predicate}
+                        className={t.steps.some((s) => s.id === selectedFactId) ? "is-highlight" : ""}
+                      >
+                        <div className="trail__now">
+                          <strong>{humanizePredicate(t.predicate)}</strong> = {formatValue(current.value)}
+                          {current.unit ? ` ${current.unit}` : ""}
+                          {current.valid_to === null && <span className="trail__badge">now</span>}
+                        </div>
+                        {t.steps.length > 1 && (
+                          <ol className="trail__steps">
+                            {t.steps.map((s) => (
+                              <li key={s.id} className={s.state === "superseded" ? "is-superseded" : ""}>
+                                <span className="trail__val">
+                                  {formatValue(s.value)}
+                                  {s.unit ? ` ${s.unit}` : ""}
+                                </span>
+                                <span className="trail__win">
+                                  {clockTime(s.at)}
+                                  {s.valid_to ? ` → ${clockTime(s.valid_to)}` : " → now"}
+                                </span>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+
+            {/* READING — measured numbers qualified by a stat+window; append-only (§2.4) */}
+            {readingFacts.length > 0 && (
+              <section className="cat">
+                <h4 className="node-detail__sub cat__head cat__head--reading">
+                  Readings ({readingFacts.length})
+                </h4>
+                <ul className="node-detail__facts">
+                  {readingFacts.map((f) => (
+                    <li
+                      key={f.id}
+                      className={[f.id === selectedFactId ? "is-highlight" : "", f.provisional ? "is-provisional" : ""]
+                        .join(" ")
+                        .trim()}
+                    >
+                      <strong>{humanizePredicate(f.predicate)}</strong> = {formatValue(f.value)}
+                      {f.unit ? ` ${f.unit}` : ""}
+                      {clockTime(f.at) && <span className="node-detail__meta"> · {clockTime(f.at)}</span>}
+                      {f.source && <span className="node-detail__meta"> · {f.source}</span>}
+                      {f.provisional && <span className="prov-chip">provisional</span>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* EVENT — discrete instant things that HAPPENED, immutable (§2.5) */}
             {selectedEvents.length > 0 && (
-              <>
-                <h4 className="node-detail__sub">Events ({selectedEvents.length})</h4>
+              <section className="cat">
+                <h4 className="node-detail__sub cat__head cat__head--event">Events ({selectedEvents.length})</h4>
                 <ul className="node-detail__events">
                   {selectedEvents.map((ev) => (
                     <li key={ev.id} className={ev.provisional ? "is-provisional" : ""}>
@@ -636,8 +791,66 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                     </li>
                   ))}
                 </ul>
-              </>
+              </section>
             )}
+
+            {/* SPAN — bounded happenings with start→end · duration · phase (§2.6, the 6th species) */}
+            {selectedSpans.length > 0 && (
+              <section className="cat">
+                <h4 className="node-detail__sub cat__head cat__head--span">Spans ({selectedSpans.length})</h4>
+                <ul className="node-detail__spans">
+                  {selectedSpans.map((s) => {
+                    const dur = spanDuration(s);
+                    const phase = s.span_phase ?? "—";
+                    return (
+                      <li key={s.id} className={s.provisional ? "is-provisional" : ""}>
+                        <div className="span__head">
+                          <strong>{humanizePredicate(s.name)}</strong>
+                          <span className={`span__phase span__phase--${phase}`}>{phase}</span>
+                        </div>
+                        <div className="span__win">
+                          {clockTime(s.started_at)} → {s.ended_at ? clockTime(s.ended_at) : "in-flight"}
+                          {dur && <span className="span__dur"> · {dur}</span>}
+                        </div>
+                        {s.correlation_id && (
+                          <div className="span__corr">
+                            <span className="span__k">trace</span> {s.correlation_id}
+                          </div>
+                        )}
+                        {s.provisional && <span className="prov-chip">provisional</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+
+            {/* WORK NOTES — the human audit JOURNAL (§3 ANNOTATION / the LOG→promoted trail): each
+                independently-timestamped note is one entry, ordered. */}
+            {workNotes.length > 0 && (
+              <section className="cat">
+                <h4 className="node-detail__sub cat__head cat__head--notes">Work notes ({workNotes.length})</h4>
+                <ol className="node-detail__journal">
+                  {workNotes.map((n, i) => (
+                    <li key={i}>
+                      {n.stamp && <span className="journal__stamp">{n.stamp}</span>}
+                      <span className="journal__text">{n.text}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {identityEntries.length === 0 &&
+              propertyEntries.length === 0 &&
+              contentFacts.length === 0 &&
+              trails.length === 0 &&
+              readingFacts.length === 0 &&
+              selectedEvents.length === 0 &&
+              selectedSpans.length === 0 &&
+              workNotes.length === 0 && (
+                <p className="node-detail__empty">No datums recorded on this node yet.</p>
+              )}
           </div>
         )}
       </div>

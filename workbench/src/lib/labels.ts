@@ -31,3 +31,17 @@ export function servedRelationLabel(edgeType: string): string | undefined {
 export function servedIntentPurpose(intent: string): string | undefined {
   return served?.intents?.[intent];
 }
+
+/** The engine's datum-shape species for a canonical predicate (property|state|reading|span) — the
+ *  §2 classification the node-detail view groups facts by. `undefined` until a snapshot lands or for
+ *  a predicate the dictionary doesn't catalog (a provisional name); the caller falls back to STATE. */
+export function servedSpeciesForPredicate(predicate: string): string | undefined {
+  return served?.species?.[predicate];
+}
+
+/** The identity keys for a node type (NodeSpec.identity_keys) — the props that MAKE the entity this
+ *  entity (§2.1), so the node card renders IDENTITY as its own category. `[]` until a snapshot lands
+ *  or for a type the engine didn't serve. */
+export function servedIdentityKeys(nodeType: string): string[] {
+  return served?.identity_keys?.[nodeType] ?? [];
+}

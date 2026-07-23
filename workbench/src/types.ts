@@ -32,6 +32,14 @@ export interface InvestigationDictionary {
   predicates: Record<string, string>;
   relations: Record<string, string>;
   intents: Record<string, string>;
+  /** Canonical predicate → datum-shape species (property|state|reading|span) — the engine's own
+   *  §2 classification (2026-07-23 primitives), so the node-detail view groups a fact by its
+   *  category without re-authoring a client-side guess. Optional: an older snapshot omits it and
+   *  the UI falls back to STATE (the §9.1 "when in doubt → state" default). */
+  species?: Record<string, string>;
+  /** Node type → the identity keys (NodeSpec.identity_keys) — the props that MAKE the entity this
+   *  entity (§2.1), so the UI splits IDENTITY out of the flat node props as its own category. */
+  identity_keys?: Record<string, string[]>;
 }
 
 export type Outcome = "resolved" | "mitigated" | "open" | string;
@@ -102,11 +110,36 @@ export interface GraphEvent {
   provisional?: boolean; // P3 airlock — tentative until promoted
 }
 
+/** A SPAN datum (2026-07-23 primitives §2.6): a bounded happening `[started_at, ended_at)` a
+ *  subject PARTICIPATES in, two-phase-then-frozen. `span_phase` (OPEN|CLOSED|ABANDONED) is ALWAYS
+ *  exposed (§4.6, so an ABANDONED span never reads as "ongoing"); `subject` may be a NODE or an
+ *  EDGE id (a Rung-1 hop addresses the discovered CALLS edge); `correlation_id` (trace_id/BT-id)
+ *  joins sibling hops + a future reified occurrence. Present only when the run recorded spans. */
+export interface GraphSpan {
+  id: string;
+  subject: string;
+  name: string;
+  value: unknown;
+  unit: string | null;
+  started_at: string;
+  ended_at: string | null; // null = in-flight (OPEN) / lost close (ABANDONED)
+  span_phase: string | null; // open | closed | abandoned
+  correlation_id: string | null;
+  observed_at?: string | null;
+  source: string;
+  source_native_name?: string | null;
+  state?: string;
+  provisional?: boolean;
+}
+
 export interface Graph {
   nodes: GraphNode[];
   edges: GraphEdge[];
   facts: GraphFact[];
   events: GraphEvent[];
+  /** SPAN datums (§2.6) — injected only when the run recorded any (mirrors the engine's
+   *  spans-when-present discipline). */
+  spans?: GraphSpan[];
 }
 
 export type HypothesisStatus =

@@ -1313,6 +1313,59 @@ code {
 .node-detail__meta { color: var(--text-faint); }
 .node-detail__empty { color: var(--text-faint); font-style: italic; }
 
+/* ---------- node-detail: the six datum-shape categories (2026-07-23 primitives §2) ---------- */
+.cat { margin-top: 4px; }
+.cat__head { display: flex; align-items: baseline; gap: 6px; padding-left: 7px; border-left: 3px solid var(--border); }
+.cat__head--identity { border-left-color: var(--violet); color: var(--violet); }
+.cat__head--property { border-left-color: var(--text-muted); color: var(--text-muted); }
+.cat__head--state    { border-left-color: var(--amber); color: var(--amber); }
+.cat__head--reading  { border-left-color: var(--tier-data); color: var(--tier-data); }
+.cat__head--event    { border-left-color: var(--accent); color: var(--accent); }
+.cat__head--span     { border-left-color: var(--tier-network); color: var(--tier-network); }
+.cat__head--notes    { border-left-color: var(--tier-signal); color: var(--tier-signal); }
+.cat__hint { font-size: 9px; letter-spacing: 0.02em; color: var(--text-faint); text-transform: none; }
+
+/* STATE change-trail: the current value, then its ordered supersede chain */
+.node-detail__trails { margin: 0; padding: 0; list-style: none; }
+.node-detail__trails > li { padding: 4px 0; border-bottom: 1px dashed var(--border); }
+.node-detail__trails > li.is-highlight { background: var(--gold-root-soft); border-radius: 4px; padding-left: 4px; }
+.trail__now { color: var(--text); }
+.trail__badge {
+  margin-left: 6px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--green); background: var(--green-soft); border-radius: 4px; padding: 0 5px;
+}
+.trail__steps { margin: 3px 0 0; padding-left: 14px; list-style: none; border-left: 2px solid var(--amber-soft); }
+.trail__steps li { display: flex; gap: 8px; font-size: 11px; padding: 1px 0; }
+.trail__steps li.is-superseded .trail__val { color: var(--text-faint); text-decoration: line-through; }
+.trail__val { font-weight: 600; color: var(--text); min-width: 96px; }
+.trail__win { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+/* SPAN: start→end · duration · phase (§2.6) */
+.node-detail__spans { margin: 0; padding: 0; list-style: none; }
+.node-detail__spans > li { padding: 5px 0; border-bottom: 1px dashed var(--border); }
+.span__head { display: flex; align-items: center; gap: 8px; }
+.span__phase {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  border-radius: 4px; padding: 1px 6px; border: 1px solid transparent;
+}
+.span__phase--closed { color: var(--green); background: var(--green-soft); }
+.span__phase--open { color: var(--accent); background: var(--accent-soft); }
+.span__phase--abandoned { color: var(--red); background: var(--red-soft); }
+.span__win { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.span__dur { color: var(--tier-network); font-weight: 600; }
+.span__corr { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+.span__corr .span__k { color: var(--text-faint); text-transform: uppercase; font-size: 9px; letter-spacing: 0.03em; margin-right: 4px; }
+
+/* WORK NOTES journal: the human audit trail (§3 ANNOTATION) */
+.node-detail__journal { margin: 0; padding: 0; list-style: none; border-left: 2px solid var(--red-soft); }
+.node-detail__journal li { padding: 3px 0 3px 10px; font-size: 12px; }
+.node-detail__journal li + li { border-top: 1px dashed var(--border); }
+.journal__stamp {
+  display: inline-block; margin-right: 6px; font-size: 10px; font-weight: 700; color: var(--tier-signal);
+  font-variant-numeric: tabular-nums;
+}
+.journal__text { color: var(--text); }
+
 /* ---------- journal (live) ---------- */
 .journal-phase { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; background: #fff; }
 .journal-phase__summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; cursor: pointer; list-style: none; }

@@ -9,6 +9,7 @@ import type {
   GraphEdge,
   GraphEvent,
   GraphFact,
+  GraphSpan,
   HypothesisItem,
   JournalEntry,
   JournalTodo,
@@ -161,6 +162,10 @@ export interface LiveState {
   edges: Record<string, GraphEdge>;
   facts: Record<string, GraphFact>;
   events: Record<string, GraphEvent>;
+  // SPAN datums (§2.6) — the sixth species. Spans arrive on the snapshot bundle only (the SSE
+  // graph_delta stream carries nodes/edges/facts/events, never spans), so they are seeded/merged
+  // from the bundle, never folded from a live delta.
+  spans: Record<string, GraphSpan>;
   hypotheses: Record<string, HypothesisItem>;
   /** Hypothesis ids in the ENGINE's ranked() order (from the bundle) — the UI renders THIS
    *  order, never a client-side re-sort. Delta-born ids append until the next snapshot merge. */
@@ -197,6 +202,7 @@ export function emptyState(): LiveState {
     edges: {},
     facts: {},
     events: {},
+    spans: {},
     hypotheses: {},
     hypothesisOrder: [],
     discovery: { class_hints: {}, quarantined_names: {} },
@@ -541,6 +547,7 @@ function seed(snap: Snapshot): LiveState {
   for (const e of snap.graph.edges) s.edges[e.id] = e;
   for (const f of snap.graph.facts) s.facts[f.id] = f;
   for (const ev of snap.graph.events) s.events[ev.id] = ev;
+  for (const sp of snap.graph.spans ?? []) s.spans[sp.id] = sp; // §2.6 — spans ride the bundle
   for (const h of snap.hypotheses) s.hypotheses[h.id] = h;
   s.hypothesisOrder = snap.hypotheses.map((h) => h.id); // the ENGINE's ranked() order
   s.discovery = snap.discovery ?? s.discovery;
@@ -586,6 +593,8 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
   for (const f of snap.graph.facts) facts[f.id] = f;
   const events = { ...state.events };
   for (const ev of snap.graph.events) events[ev.id] = ev;
+  const spans = { ...state.spans };
+  for (const sp of snap.graph.spans ?? []) spans[sp.id] = sp; // §2.6 — spans ride the bundle
   const hypotheses = { ...state.hypotheses };
   for (const h of snap.hypotheses) hypotheses[h.id] = h;
   // refresh the ENGINE ranked() order; keep any delta-born ids the snapshot hasn't caught up on
@@ -598,6 +607,7 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
     edges,
     facts,
     events,
+    spans,
     hypotheses,
     hypothesisOrder,
     discovery: snap.discovery ?? state.discovery,
