@@ -89,7 +89,7 @@ class PhaseResult(BaseModel):
     retractions: list[Retraction] = Field(default_factory=list)    # -> GRAPH (tombstones, R-J3)
     remaps: list[Remap] = Field(default_factory=list)              # -> GRAPH (identity, P5 §9.2)
     narrative: str                                                 # -> JOURNAL (the ONLY prose field)
-    next_actions: list[str] = Field(default_factory=list)          # -> CONTROLLER (advisory)
+    next_actions: list[str] = Field(default_factory=list)          # -> BUNDLE (advisory display only)
     verdict: PhaseVerdict                                          # -> CONTROLLER (authoritative)
     # -> JOURNAL + BUNDLE + next PlanContext (P3 step 2): what the reducer DROPPED this phase
     # and why. Pure record — applies to no projection (replay-inert), never counted by

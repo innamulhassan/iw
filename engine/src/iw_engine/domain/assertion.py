@@ -34,8 +34,8 @@ AssertionValue = bool | int | float | str | dict | list | datetime | None
 # Belief moves off the Source.LLM identity special-case onto an explicit channel. The map is
 # chosen so the Fact-era belief discipline round-trips EXACTLY: channel==INFERRED iff the
 # source is the reasoning model (LLM), so an inferred fact keeps its confidence and a measured
-# fact keeps its reliability. (Registry placement of this map is deferred to P2; a module dict
-# now, per build-spec step 2.)
+# fact keeps its reliability. It stays a module-level dict beside the atom: the Source→Channel
+# map is small and closed, and the "registry placement" once slated for P2 proved unneeded.
 _SOURCE_CHANNEL: dict[Source, Channel] = {
     Source.LLM: Channel.INFERRED,
     Source.ENGINE: Channel.ENGINE,
@@ -44,7 +44,9 @@ _SOURCE_CHANNEL: dict[Source, Channel] = {
 
 def channel_for_source(source: Source) -> Channel:
     """The default belief channel for a source. LLM → inferred (confidence); engine → engine;
-    every directly-observing tool/human → measured (reliability)."""
+    every directly-observing tool/human → measured (reliability). No source maps to DECLARED:
+    that channel is set ONLY by a node-prop declaration (graph.upsert, P6 step 2), so a CMDB/IaC
+    *fact* fetched through a tool is MEASURED, never DECLARED."""
     return _SOURCE_CHANNEL.get(source, Channel.MEASURED)
 
 

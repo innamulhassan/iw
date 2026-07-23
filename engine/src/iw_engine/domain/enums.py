@@ -80,7 +80,9 @@ class Channel(StrEnum):
 
     MEASURED = "measured"    # a tool/human directly observed it
     INFERRED = "inferred"    # the model reasoned it into being (confidence)
-    DECLARED = "declared"    # CMDB / IaC asserted it as truth
+    DECLARED = "declared"    # a node-prop DECLARATION (P6 step 2, minted by graph.upsert) — asserted
+    #                          config truth. NOT source-routed: `channel_for_source` maps no Source
+    #                          here, so a CMDB/IaC *fact* is MEASURED; only a stored node prop is DECLARED.
     ENGINE = "engine"        # the engine authored it (no_evidence, hypothesis statements)
 
 

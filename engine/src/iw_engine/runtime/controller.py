@@ -2,8 +2,10 @@
 gate-predicate set to the planner's PROPOSED terminal-intent verdicts — an 'advance' AND a
 'done' are only honoured when every declared predicate passes (P7 step 4: DONE is gated,
 never a free bypass) — and picks the next phase from the verdict + the playbook's
-transitions. The LLM's `next_actions` is advisory (it seeds the next plan), never the
-phase router. The engine owns predicate SEMANTICS; playbooks compose which apply.
+transitions. The LLM's `next_actions` is advisory DISPLAY ONLY — surfaced in the served
+bundle for the operator (api/bundle.py), never read by this controller and never fed into
+the next `PlanContext` (which has no such field). The engine owns predicate SEMANTICS;
+playbooks compose which apply.
 """
 from __future__ import annotations
 

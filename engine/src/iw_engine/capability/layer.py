@@ -107,7 +107,11 @@ class CapabilityMeta:
     load-bearing field: it names the target identifier the tool needs (AppD by `app_id`, git by
     `repo`, the platform by `k8s_workload`, most telemetry by `service_name`), which is how the
     reasoner knows to resolve that id off the incident's CI and pass it - the identity backbone of a
-    real cross-tool investigation, expressed as data, not code."""
+    real cross-tool investigation. The tool CATALOGUE the reasoner sees is data (this metadata), so
+    adding a capability needs no engine/prompt edit; onboarding a NEW vendor is still a small,
+    CONTAINED code change, not pure config - one adapter with a tool-specific `normalize()` (+ an
+    optional `mapping.py` translator) plus entries in the closed `Source` enum and the
+    `source_reliability` / `clock_skew_bound_s` maps. A small adapter, not zero code."""
 
     summary: str          # one line: what this capability is FOR
     queries_by: str       # the target identifier it needs: app_id | repo | service_name | topic_id | fqdn | change_id

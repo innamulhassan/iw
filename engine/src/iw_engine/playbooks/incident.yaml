@@ -76,7 +76,9 @@ tunables:
   focus_facts_per_node: 6
   focus_frontier_hops: 1
   # P4 belief arithmetic (DOMAIN-v3 §2.5): evidence weight = reliability x proximity x
-  # specificity — every weight/decay is a knob HERE, the engine owns arithmetic only (INV-9).
+  # specificity. This block OVERRIDES a subset of the knobs; the full registry + defaults live
+  # in Tunables (domain/playbook.py) — knobs omitted here (e.g. source_reliability,
+  # discovery_penalty) take those defaults. The engine owns arithmetic only (INV-9).
   # Per-source clock-skew bounds (seconds, R-J2): proximity/correlation never asserts ordering
   # tighter than the COMBINED bound of the two sources involved.
   clock_skew_bound_s: {prometheus: 30, ocp: 30, appd: 60, splunk: 60, bigpanda: 60,

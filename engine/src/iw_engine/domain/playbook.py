@@ -17,7 +17,11 @@ from .enums import NodeType, VerdictStatus
 
 
 class Tunables(BaseModel):
-    """Every tuning knob in ONE place (Failure-1 fix). Engine owns arithmetic only."""
+    """The ONE schema/registry of every tuning knob, each with its default (Failure-1 fix); the
+    engine owns arithmetic only. NOTE: this is one place knobs are DEFINED, not one place their
+    VALUES live — a playbook's yaml `tunables:` block OVERRIDES a subset (restating those values),
+    and any knob it omits takes the default here (today `source_reliability`, `discovery_penalty`
+    and `derive_transitions` are default-only — set nowhere in the shipped yaml)."""
 
     model_config = ConfigDict(extra="forbid")
 
