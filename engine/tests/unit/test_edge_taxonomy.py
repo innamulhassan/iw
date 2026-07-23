@@ -31,6 +31,7 @@ EXPECTED: dict[EdgeClass, set[EdgeType]] = {
     EdgeClass.PARTICIPATION: {
         EdgeType.FIRED_ON, EdgeType.EMITTED, EdgeType.AFFECTS, EdgeType.TRIGGERED_BY,
         EdgeType.CHANGED_BY,
+        EdgeType.PARTICIPATED_IN,   # §7 manifest — the reified-span glue (participant -> occurrence)
     },
     EdgeClass.CAUSAL: {EdgeType.IMPACTS, EdgeType.CORRELATED_WITH, EdgeType.CAUSED_BY},
     EdgeClass.EVIDENTIAL: {EdgeType.SUPPORTS, EdgeType.REFUTES},

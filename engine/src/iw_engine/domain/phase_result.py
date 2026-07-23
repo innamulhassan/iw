@@ -67,11 +67,14 @@ class Remap(BaseModel):
 
     kinds: `merge` (provisional entity folded into its canonical — R-J5 late alias binding),
     `retype` (generic_ci graduated to a real type — §2.4 row 2), `resolve` (a would-be twin id
-    redirected onto the entity an alias credential proved it to be — audit 4 S1.4)."""
+    redirected onto the entity an alias credential proved it to be — audit 4 S1.4), `reify`
+    (a datum's subject re-homed onto the node the engine's REIFY minted from it — 2026-07-23
+    primitives §4.7: citations re-home through the SAME old->new subsystem merge/retype use, so a
+    hypothesis that cited the pre-reification datum resolves to the reified node, never dangles)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["merge", "retype", "resolve"]
+    kind: Literal["merge", "retype", "resolve", "reify"]
     old_id: str
     new_id: str
     reason: str = ""

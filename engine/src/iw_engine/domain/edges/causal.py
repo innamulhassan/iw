@@ -126,6 +126,30 @@ SPECS: tuple[EdgeSpec, ...] = (
         requires_confidence=False,
     ),
     EdgeSpec(
+        type=EdgeType.PARTICIPATED_IN,
+        edge_class=EdgeClass.PARTICIPATION,
+        # participant -> reified OCCURRENCE node (2026-07-23 primitives §4.7 / §5.2 class 3). The
+        # engine's REIFY mints these when a span promotes to a node; the edge's [valid_from,valid_to)
+        # IS the participant's INVOLVEMENT sub-interval (§5.2 F) — the occurrence's OWN total-extent/
+        # outcome lives on the reified node's SPAN self-assertion, never on an edge. A distributed
+        # trace's services/endpoints attach to the reified BUSINESS_TRANSACTION; broader occurrences
+        # (an incident, a change episode) take service/db/host participants.
+        allowed=(
+            (NodeType.SERVICE, NodeType.BUSINESS_TRANSACTION),
+            (NodeType.API_ENDPOINT, NodeType.BUSINESS_TRANSACTION),
+            (NodeType.EXTERNAL_SERVICE, NodeType.BUSINESS_TRANSACTION),
+            (NodeType.COMPONENT, NodeType.BUSINESS_TRANSACTION),
+            (NodeType.SERVICE, NodeType.INCIDENT),
+            (NodeType.API_ENDPOINT, NodeType.INCIDENT),
+            (NodeType.DATABASE, NodeType.INCIDENT),
+            (NodeType.HOST, NodeType.INCIDENT),
+            (NodeType.SERVICE, NodeType.CHANGE_EVENT),
+            (NodeType.DATABASE, NodeType.CHANGE_EVENT),
+        ),
+        default_origin=Origin.DISCOVERED,
+        requires_confidence=False,
+    ),
+    EdgeSpec(
         type=EdgeType.CORRELATED_WITH,
         edge_class=EdgeClass.CAUSAL,
         allowed=(

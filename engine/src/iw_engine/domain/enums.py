@@ -281,6 +281,10 @@ class EdgeType(StrEnum):
     TRIGGERED_BY = "triggered_by"
     IMPACTS = "impacts"
     CHANGED_BY = "changed_by"
+    # PARTICIPATION glue for a reified span (2026-07-23 primitives §5.2 class 3 / §4.7): a
+    # participant -> the reified OCCURRENCE node, the edge's [valid_from,valid_to) carrying the
+    # participant's INVOLVEMENT sub-interval (§5.2 F). Minted by the engine's REIFY, never authored.
+    PARTICIPATED_IN = "participated_in"
     CORRELATED_WITH = "correlated_with"
     # related-incident layer (Incident -> Incident): co-firing/similar priors that seed a
     # hypothesis ("3 other apps reported the same at the same time"), and true recurrences.
@@ -341,3 +345,8 @@ class OpKind(StrEnum):
     RETRACT = "retract"           # tombstone a wrong fact/event/edge (R-J3 — P3 airlock step 6)
     MERGE = "merge"               # fold a provisional entity into its canonical (R-J5 — P5 §9.2)
     RETYPE = "retype"             # graduate generic_ci to a real type (P5 — DOMAIN-v3 §2.4/§9.2)
+    REIFY = "reify"               # ENGINE-invoked span promotion (STATE/SPAN datum -> reified node
+    #                               + PARTICIPATED_IN edges, 2026-07-23 primitives §4.7). The fold
+    #                               applies the reification tests; the LLM NEVER authors it (the
+    #                               parser rejects a planner-authored reify), so it is an engine
+    #                               capability the enum documents, not a planner op.

@@ -681,6 +681,13 @@ Plan this phase. Return ONLY the JSON object."""
                 return Retype(target=str(o["target"]), new_type=NodeType(o["new_type"]),
                               props=o.get("props") or {},
                               reason=str(o.get("reason", ""))), None
+            if kind == "reify":
+                # ENGINE-invoked ONLY (2026-07-23 primitives §4.7): the fold applies the reification
+                # tests and mints the node + PARTICIPATED_IN edges; the LLM only ever authors
+                # `subject = node-or-edge` and never decides residence. A planner-authored reify is
+                # rejected+repaired, mirroring the SUPPORTS/REFUTES edge-ban (derived-only edges).
+                return None, ("reify is engine-invoked (the fold applies the reification tests); "
+                              "the planner never authors it — author the span datum instead")
             return None, f"unknown op kind {kind!r}"
         except Exception as e:  # any bad field => repair (drop) this op
             return None, f"{type(e).__name__}: {e}"
