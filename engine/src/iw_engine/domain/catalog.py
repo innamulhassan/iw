@@ -23,18 +23,26 @@ from .playbook import Playbook
 
 
 def render_nodes() -> str:
+    """Each node type as its typed-schema DECLARATION (2026-07-23 primitives §2, the schema step):
+    identity keys + the datum-shape CATEGORIES that apply — which predicates are its properties /
+    states / readings / spans / events, as DATA (`dictionary.categories_for`, a derived view of the
+    single name authority). The per-category split teaches the LLM which SPECIES to author for each
+    predicate on this type (the §8.1 router: property=timeless-about, state=true-over-a-window,
+    reading=measured-number, span=bounded-happening, event=instant), not just a flat fact list."""
     lines: list[str] = []
     for ntype, spec in sorted(NODE_SPECS.items(), key=lambda kv: (kv[1].tier, kv[0].value)):
         idk = ",".join(spec.identity_keys)
-        # P2 §2.3: the legal fact names are the dictionary's CANONICAL spellings for this type
-        # (a derived view of `applies_to`), not the per-type `fact_predicates` native list — the
-        # model emits canonical names; the engine sets `source_native_name` for tool data.
-        names = dictionary.fact_names_for(ntype)
-        preds = ",".join(names) if names else "(none)"
+        # P2 §2.3 + the §2 category split: legal predicate names are the dictionary's CANONICAL
+        # spellings (a derived view of species+applies_to), grouped by datum-shape category so the
+        # LLM sees which SPECIES each predicate is. The model emits canonical names; the engine sets
+        # `source_native_name` for tool data.
+        cats = dictionary.categories_for(ntype)
+        parts = [f"{cat}=[{','.join(cats[cat])}]" for cat in dictionary.CATEGORY_ORDER if cats[cat]]
+        catline = "  ".join(parts) if parts else "(peripheral — no cataloged predicates)"
         disc = (spec.discriminator or "").replace("\n", " ").split(". ")[0].strip()
         if len(disc) > 90:
             disc = disc[:87] + "..."
-        lines.append(f"  {ntype.value} [{spec.tier}]  id_keys=({idk})  facts=[{preds}]"
+        lines.append(f"  {ntype.value} [{spec.tier}]  id_keys=({idk})\n     {catline}"
                      + (f"\n     - {disc}" if disc else ""))
     return "\n".join(lines)
 
@@ -81,6 +89,10 @@ def render_catalog(registry, playbook: Playbook) -> str:
 # INVESTIGATION GRAMMAR (closed vocabulary — you may ONLY use members below)
 
 ## NODE TYPES  (pick a member; never invent a label; `generic_ci` is the sole escape hatch)
+##   Each type declares its predicates BY CATEGORY — property / state / reading / span / event.
+##   The category tells you which `species` to author (§8.1 router): property=timeless fact ABOUT
+##   it (never sliced as-of-T), state=a value TRUE over a window you WILL slice as-of-T, reading=a
+##   measured number (stat+window), span=a bounded happening it PARTICIPATES in, event=an instant.
 {render_nodes()}
 
 ## EDGE TYPES  (legal (src_type -> dst_type) pairs; an illegal triple is REJECTED)

@@ -271,3 +271,34 @@ def fact_names_for(ntype: NodeType) -> tuple[str, ...]:
     `applies_to` (replaces `NodeSpec.fact_predicates` for the LLM catalog, build-spec step 5)."""
     return tuple(sorted(e.name for e in DICTIONARY.values()
                         if e.species is not Species.EVENT and ntype in e.applies_to))
+
+
+# ── the per-type CATEGORY view (2026-07-23 primitives §2 — the typed-schema step) ─────
+# "Each NodeSpec declares its categories/predicates as DATA": which predicates on a node TYPE are
+# its PROPERTIES / STATES / READINGS / SPANS (from this dictionary's species + applies_to) plus its
+# EVENTS (from the NodeSpec's `event_types`). A DERIVED view of the single name authority, so the
+# per-type category schema the LLM classifies into can never drift from what the reducer accepts.
+# IDENTITY is the node's OWN key (NodeSpec.identity_keys), surfaced by the catalog separately — not
+# a predicate here. The order is the datum-shape order the §8.1 router walks (extent-ascending):
+# timeless PROPERTY, interval-tiled STATE, sampled READING, bounded-happening SPAN, instant EVENT.
+_CATEGORY_SPECIES: tuple[Species, ...] = (
+    Species.PROPERTY, Species.STATE, Species.READING, Species.SPAN)
+CATEGORY_ORDER: tuple[str, ...] = ("property", "state", "reading", "span", "event")
+
+
+def categories_for(ntype: NodeType) -> dict[str, tuple[str, ...]]:
+    """The datum-shape categories legal on `ntype`, as DATA: `{property, state, reading, span}`
+    from the dictionary (species + applies_to) plus `event` from the NodeSpec's `event_types` —
+    each a sorted tuple of canonical names, every category always present (empty → `()`), keyed in
+    `CATEGORY_ORDER`. This is the LLM-facing typed-schema declaration: it tells the reasoner which
+    SPECIES to author for each predicate on this type, not just a flat fact list (2026-07-23
+    primitives §2/§8). Union of the four non-event groups == `fact_names_for(ntype)` by construction
+    (the dictionary carries no IDENTITY-species predicate)."""
+    groups: dict[str, list[str]] = {s.value: [] for s in _CATEGORY_SPECIES}
+    for e in DICTIONARY.values():
+        if e.species in _CATEGORY_SPECIES and ntype in e.applies_to:
+            groups[e.species.value].append(e.name)
+    out: dict[str, tuple[str, ...]] = {k: tuple(sorted(v)) for k, v in groups.items()}
+    spec = NODE_SPECS.get(ntype)
+    out["event"] = tuple(sorted(spec.event_types)) if spec else ()
+    return {k: out[k] for k in CATEGORY_ORDER}

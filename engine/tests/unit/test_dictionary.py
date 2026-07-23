@@ -10,9 +10,11 @@ import pytest
 from iw_engine.domain.dictionary import (
     _MERGE_ALIASES,
     _SPLIT_BY_UNIT,
+    CATEGORY_ORDER,
     DICTIONARY,
     DictEntry,
     applies_to_ok,
+    categories_for,
     fact_names_for,
     resolve,
 )
@@ -121,6 +123,67 @@ def test_error_rate_is_the_7to1_merge_target():
         assert resolve(Source.PROMETHEUS, spelling, None) == "error_rate"
     for ntype in (NodeType.SERVICE, NodeType.API_ENDPOINT, NodeType.EXTERNAL_SERVICE):
         assert applies_to_ok("error_rate", ntype)
+
+
+# ── the per-type CATEGORY view (2026-07-23 primitives §2 — typed schema as DATA) ──────
+def test_categories_for_groups_predicates_by_species_and_type():
+    # SERVICE: degraded is a STATE, error_rate/latency_p99 are READINGs, `trace` is a SPAN
+    svc = categories_for(NodeType.SERVICE)
+    assert "degraded" in svc["state"]
+    assert "error_rate" in svc["reading"] and "latency_p99" in svc["reading"]
+    assert "trace" in svc["span"]
+    # DEPLOYMENT: `image` is a STATE (queryable as-of-T), never a PROPERTY
+    assert "image" in categories_for(NodeType.DEPLOYMENT)["state"]
+    # CODE_COMMIT: diff/blame are renderable PROPERTY content (never sliced as-of-T)
+    commit = categories_for(NodeType.CODE_COMMIT)
+    assert "diff_summary" in commit["property"] and "blame_line" in commit["property"]
+    # SCHEMA: index_health/table_count are PROPERTY (timeless facts about it)
+    assert "index_health" in categories_for(NodeType.SCHEMA)["property"]
+
+
+def test_categories_for_events_come_from_the_nodespec():
+    # events are the NodeSpec's `event_types`, not the fact dictionary — BUSINESS_TRANSACTION
+    # carries the `trace_captured` occurrence in its span/event surface (M24 single source).
+    bt = categories_for(NodeType.BUSINESS_TRANSACTION)
+    assert "trace_captured" in bt["event"]
+    assert "trace" in bt["span"]                       # the reifiable distributed trace
+
+
+def test_categories_for_shape_is_uniform_and_ordered():
+    for ntype in NodeType:
+        cats = categories_for(ntype)
+        assert tuple(cats.keys()) == CATEGORY_ORDER    # every category present, in router order
+        for v in cats.values():
+            assert isinstance(v, tuple) and list(v) == sorted(v)   # sorted → replay-stable
+
+
+def test_categories_for_non_event_union_equals_fact_names_for():
+    # the four datum-shape categories partition exactly the fact/reading/state/property canonicals
+    # the reducer accepts on a type — the category view can never drift from `applies_to`.
+    for ntype in NodeType:
+        cats = categories_for(ntype)
+        union = set(cats["property"]) | set(cats["state"]) | set(cats["reading"]) | set(cats["span"])
+        assert union == set(fact_names_for(ntype)), ntype.value
+
+
+def test_registry_node_categories_delegates_to_the_dictionary():
+    from iw_engine.domain import registry
+
+    for ntype in (NodeType.SERVICE, NodeType.DATABASE, NodeType.CODE_COMMIT):
+        assert registry.node_categories(ntype) == categories_for(ntype)
+
+
+def test_catalog_renders_the_category_split_per_type():
+    from iw_engine.domain.catalog import render_nodes
+
+    txt = render_nodes()
+    # the service line carries its reading + span categories as DATA (not a flat fact list)
+    assert "reading=[" in txt and "span=[" in txt
+    assert "state=[" in txt and "property=[" in txt
+    # every rendered category label is a real member of the router order
+    import re
+    for label in re.findall(r"(\w+)=\[", txt):
+        assert label in CATEGORY_ORDER
 
 
 def test_entries_are_frozen_dataclasses():

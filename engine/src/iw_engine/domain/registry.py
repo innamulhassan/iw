@@ -156,5 +156,15 @@ def event_allowed(ntype: NodeType, etype: str) -> bool:
     return True if not evs else etype in evs
 
 
+def node_categories(ntype: NodeType) -> dict[str, tuple[str, ...]]:
+    """The node type's datum-shape categories as DATA (2026-07-23 primitives §2, the typed-schema
+    step): `{property, state, reading, span, event}` → the canonical predicates legal in each on
+    this type. Delegates to the dictionary (the single name authority) so the per-type category
+    schema the LLM classifies into is a derived view that can never drift from what the reducer
+    accepts — the registry's first-class "which categories/predicates apply to this NodeSpec" query."""
+    from .dictionary import categories_for
+    return categories_for(ntype)
+
+
 def all_node_types() -> set[NodeType]:
     return set(NODE_SPECS.keys())
