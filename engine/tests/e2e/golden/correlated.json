@@ -1,0 +1,1222 @@
+{
+  "discovery": {
+    "class_hints": {},
+    "quarantined_names": {
+      "x.servicenow.ora_apply_lag": 1
+    }
+  },
+  "graph": {
+    "edges": [
+      {
+        "confidence": null,
+        "dst": "service:payments-svc|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:bp-1->service:payments-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:bp-1",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:orders-svc|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:bp-2->service:orders-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:bp-2",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:ledger-svc|prod",
+        "established": null,
+        "id": "edge:fired_on:alert:bp-3->service:ledger-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "alert:bp-3",
+        "state": "active",
+        "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "incident:inc-5990",
+        "established": null,
+        "id": "edge:similar_to:incident:inc-6001->incident:inc-5990:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "incident:inc-6001",
+        "state": "active",
+        "type": "similar_to",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:payments-svc|prod",
+        "established": null,
+        "id": "edge:affects:incident:inc-6001->service:payments-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "incident:inc-6001",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "change_event:chg-db-500",
+        "established": null,
+        "id": "edge:changed_by:service:payments-svc|prod->change_event:chg-db-500:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "service:payments-svc|prod",
+        "state": "active",
+        "type": "changed_by",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:payments-svc|prod",
+        "established": null,
+        "id": "edge:affects:anomaly:anom-6->service:payments-svc|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "anomaly:anom-6",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "change_event:chg-db-500",
+        "established": null,
+        "id": "edge:caused_by:hyp:h1->change_event:chg-db-500:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "hyp:h1",
+        "state": "active",
+        "type": "caused_by",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "database:payments-ora",
+        "established": null,
+        "id": "edge:depends_on:service:payments-svc|prod->database:payments-ora:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "provisional": true,
+        "source": null,
+        "src": "service:payments-svc|prod",
+        "state": "active",
+        "type": "depends_on",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.3,
+        "dst": "hyp:h2",
+        "established": null,
+        "id": "edge:refutes:service:payments-svc|prod->hyp:h2:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "service:payments-svc|prod",
+        "state": "active",
+        "type": "refutes",
+        "valid_to": null
+      },
+      {
+        "confidence": 0.9,
+        "dst": "hyp:h1",
+        "established": null,
+        "id": "edge:supports:database:payments-ora->hyp:h1:inferred",
+        "invalidated_by": null,
+        "origin": "inferred",
+        "source": null,
+        "src": "database:payments-ora",
+        "state": "active",
+        "type": "supports",
+        "valid_to": null
+      }
+    ],
+    "events": [
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "entity": "alert:bp-1",
+        "id": "evt:56b1cb6f6eb76646",
+        "invalidated_by": null,
+        "payload": {
+          "correlated": true,
+          "state": "firing"
+        },
+        "source": "bigpanda",
+        "source_native_name": "fired",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "entity": "alert:bp-2",
+        "id": "evt:c605fd45abe90982",
+        "invalidated_by": null,
+        "payload": {
+          "correlated": true,
+          "state": "firing"
+        },
+        "source": "bigpanda",
+        "source_native_name": "fired",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "entity": "alert:bp-3",
+        "id": "evt:ae6114a1b8ad8e79",
+        "invalidated_by": null,
+        "payload": {
+          "correlated": true,
+          "state": "firing"
+        },
+        "source": "bigpanda",
+        "source_native_name": "fired",
+        "state": "active",
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-05T10:00:00+00:00",
+        "entity": "incident:inc-5990",
+        "id": "evt:2c71463f2de29cfb",
+        "invalidated_by": null,
+        "payload": {
+          "affected_ci": "payments-ora"
+        },
+        "source": "bigpanda",
+        "source_native_name": "declared",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "entity": "incident:inc-6001",
+        "id": "evt:c8485191a9f6d304",
+        "invalidated_by": null,
+        "payload": {
+          "state": "in_progress"
+        },
+        "source": "servicenow",
+        "source_native_name": "declared",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "entity": "change_event:chg-db-500",
+        "id": "evt:ee2dfffb8107d104",
+        "invalidated_by": null,
+        "payload": {
+          "actor": "dba-team"
+        },
+        "source": "servicenow",
+        "source_native_name": "implemented",
+        "state": "active",
+        "type": "implemented"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "service:payments-svc|prod",
+        "id": "evt:985453869004bc27",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "source_native_name": "degraded_cleared",
+        "state": "active",
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "anomaly:anom-6",
+        "id": "evt:371664243157460a",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "prometheus",
+        "source_native_name": "cleared",
+        "state": "active",
+        "type": "cleared"
+      }
+    ],
+    "facts": [
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "id": "fact:b4410a2fcde08033",
+        "observed_at": "2026-07-19T09:06:00+00:00",
+        "predicate": "onset_value",
+        "source": "prometheus",
+        "source_native_name": "onset_value",
+        "state": "active",
+        "subject": "anomaly:anom-6",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 4200,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "id": "fact:8bc3ae0b0a350825",
+        "observed_at": "2026-07-19T09:06:00+00:00",
+        "predicate": "severity_score",
+        "source": "servicenow",
+        "source_native_name": "severity_score",
+        "state": "active",
+        "subject": "anomaly:anom-6",
+        "unit": null,
+        "valid_to": null,
+        "value": 1,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "id": "fact:fc7101ff0f8f6f17",
+        "observed_at": "2026-07-19T09:06:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "source_native_name": "degraded",
+        "state": "superseded",
+        "subject": "service:payments-svc|prod",
+        "unit": null,
+        "valid_to": "2026-07-19T09:45:00+00:00",
+        "value": true,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "id": "fact:931b0747812976fd",
+        "observed_at": "2026-07-19T09:06:00+00:00",
+        "predicate": "request_rate",
+        "source": "prometheus",
+        "source_native_name": "red_rate",
+        "state": "active",
+        "subject": "service:payments-svc|prod",
+        "unit": "rpm",
+        "valid_to": null,
+        "value": 900,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "id": "fact:fe1f321eba9ef270",
+        "observed_at": "2026-07-19T09:06:00+00:00",
+        "predicate": "error_rate",
+        "source": "prometheus",
+        "source_native_name": "red_errors",
+        "state": "active",
+        "subject": "service:payments-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.02,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "id": "fact:538f0ff0d86123b3",
+        "observed_at": "2026-07-19T09:06:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "source_native_name": "tier",
+        "state": "active",
+        "subject": "service:payments-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1",
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "id": "fact:47ba9ab49fb74121",
+        "observed_at": "2026-07-19T09:06:00+00:00",
+        "predicate": "latency_p99",
+        "source": "appd",
+        "source_native_name": "red_latency_p99",
+        "state": "retracted",
+        "subject": "service:payments-svc|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 9999,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "id": "fact:e0a5017aed8b0f4b",
+        "observed_at": "2026-07-19T09:06:00+00:00",
+        "predicate": "x.servicenow.ora_apply_lag",
+        "provisional": true,
+        "source": "servicenow",
+        "source_native_name": "ora_apply_lag",
+        "state": "active",
+        "subject": "database:payments-ora",
+        "unit": null,
+        "valid_to": null,
+        "value": 180,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:3072d3986d292b2d",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "latency_p50",
+        "source": "appd",
+        "source_native_name": "red_latency_p50",
+        "state": "active",
+        "subject": "service:payments-svc|prod",
+        "unit": "ms",
+        "valid_to": null,
+        "value": 44,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:0ac89f507dac74de",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "error_rate",
+        "source": "appd",
+        "source_native_name": "red_errors",
+        "state": "active",
+        "subject": "service:payments-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.02,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:4142f5c31d771395",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "replication_lag",
+        "source": "prometheus",
+        "source_native_name": "replication_lag",
+        "state": "superseded",
+        "subject": "database:payments-ora",
+        "unit": "s",
+        "valid_to": "2026-07-19T09:45:00+00:00",
+        "value": 8.5,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:20:00+00:00",
+        "id": "fact:cefbcbc2aee49420",
+        "observed_at": "2026-07-19T09:20:00+00:00",
+        "predicate": "conn_pool_util",
+        "source": "prometheus",
+        "source_native_name": "conn_pool_util",
+        "state": "superseded",
+        "subject": "database:payments-ora",
+        "unit": "ratio",
+        "valid_to": "2026-07-19T09:45:00+00:00",
+        "value": 0.98,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "id": "fact:65804395a03091ed",
+        "observed_at": "2026-07-19T09:45:00+00:00",
+        "predicate": "degraded",
+        "source": "prometheus",
+        "source_native_name": "degraded",
+        "state": "active",
+        "subject": "service:payments-svc|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": false,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "id": "fact:6a6274ce5805bbf1",
+        "observed_at": "2026-07-19T09:45:00+00:00",
+        "predicate": "replication_lag",
+        "source": "prometheus",
+        "source_native_name": "replication_lag",
+        "state": "active",
+        "subject": "database:payments-ora",
+        "unit": "s",
+        "valid_to": null,
+        "value": 0.2,
+        "where": null
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "id": "fact:f5156bdf96c5c937",
+        "observed_at": "2026-07-19T09:45:00+00:00",
+        "predicate": "conn_pool_util",
+        "source": "prometheus",
+        "source_native_name": "conn_pool_util",
+        "state": "active",
+        "subject": "database:payments-ora",
+        "unit": "ratio",
+        "valid_to": null,
+        "value": 0.31,
+        "where": null
+      }
+    ],
+    "nodes": [
+      {
+        "first_seen": "2026-07-19T09:06:00+00:00",
+        "first_source": "servicenow",
+        "id": "incident:inc-6001",
+        "last_seen": "2026-07-19T09:06:00+00:00",
+        "origin": true,
+        "props": {
+          "caller_id": "bigpanda-correlation",
+          "commander": "sre-oncall",
+          "incident_id": "INC-6001",
+          "severity": "P1",
+          "short_description": "payments/orders/ledger latency SEV1; AIOps rolled 3 alerts into one incident",
+          "title": "payments platform P1 \u2014 correlated latency storm",
+          "work_notes": "BigPanda correlated 3 alerts across 3 services. Suspect the 09:00 DB migration CHG-DB-500."
+        },
+        "source": "servicenow",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T09:06:00+00:00",
+        "first_source": "appd",
+        "id": "service:payments-svc|prod",
+        "last_seen": "2026-07-19T09:45:00+00:00",
+        "origin": false,
+        "props": {
+          "app_id": "APM-PAY",
+          "env": "prod",
+          "service_name": "payments-svc",
+          "sys_id": "SYS-PAY-1"
+        },
+        "source": "prometheus",
+        "type": "service"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "service:orders-svc|prod",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "service_name": "orders-svc"
+        },
+        "source": null,
+        "type": "service"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "service:ledger-svc|prod",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "env": "prod",
+          "service_name": "ledger-svc"
+        },
+        "source": null,
+        "type": "service"
+      },
+      {
+        "first_seen": "2026-07-19T09:06:00+00:00",
+        "first_source": "bigpanda",
+        "id": "alert:bp-1",
+        "last_seen": "2026-07-19T09:06:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "BP-1",
+          "rule": "HighLatencyP99"
+        },
+        "source": "bigpanda",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-19T09:06:00+00:00",
+        "first_source": "bigpanda",
+        "id": "alert:bp-2",
+        "last_seen": "2026-07-19T09:06:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "BP-2",
+          "rule": "HighLatencyP99"
+        },
+        "source": "bigpanda",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-19T09:06:00+00:00",
+        "first_source": "bigpanda",
+        "id": "alert:bp-3",
+        "last_seen": "2026-07-19T09:06:00+00:00",
+        "origin": false,
+        "props": {
+          "alert_id": "BP-3",
+          "rule": "ErrorRateHigh"
+        },
+        "source": "bigpanda",
+        "type": "alert"
+      },
+      {
+        "first_seen": "2026-07-05T10:00:00+00:00",
+        "first_source": "bigpanda",
+        "id": "incident:inc-5990",
+        "last_seen": "2026-07-05T10:00:00+00:00",
+        "origin": false,
+        "props": {
+          "incident_id": "INC-5990",
+          "severity": "P2"
+        },
+        "source": "bigpanda",
+        "type": "incident"
+      },
+      {
+        "first_seen": "2026-07-19T09:00:00+00:00",
+        "first_source": "servicenow",
+        "id": "change_event:chg-db-500",
+        "last_seen": "2026-07-19T09:00:00+00:00",
+        "origin": false,
+        "props": {
+          "actor": "dba-team",
+          "change_id": "CHG-DB-500",
+          "change_type": "db-migration",
+          "target_ref": "payments-svc",
+          "ticket_id": "CHG-DB-500"
+        },
+        "source": "servicenow",
+        "type": "change_event"
+      },
+      {
+        "first_seen": "2026-07-19T09:06:00+00:00",
+        "first_source": "servicenow",
+        "id": "anomaly:anom-6",
+        "last_seen": "2026-07-19T09:45:00+00:00",
+        "origin": false,
+        "props": {
+          "anomaly_id": "ANOM-6"
+        },
+        "source": "prometheus",
+        "type": "anomaly"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h1",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "CHG-DB-500 (DB migration) dropped an index on the payments datastore, forcing full-table scans that saturate the pool and cascade latency across the correlated services"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": null,
+        "first_source": null,
+        "id": "hyp:h2",
+        "last_seen": null,
+        "origin": false,
+        "props": {
+          "statement": "a recent payments-svc application code deploy introduced an inefficient/blocking hot path"
+        },
+        "source": null,
+        "type": "hypothesis"
+      },
+      {
+        "first_seen": "2026-07-19T09:06:00+00:00",
+        "first_source": "servicenow",
+        "id": "database:payments-ora",
+        "last_seen": "2026-07-19T09:45:00+00:00",
+        "origin": false,
+        "props": {
+          "ci_id": "SYS-DB77",
+          "class_hint": "cmdb_ci_db_ora",
+          "db_id": "payments-ora",
+          "name": "payments-ora"
+        },
+        "source": "prometheus",
+        "type": "database"
+      }
+    ]
+  },
+  "hypotheses": [
+    {
+      "basis": "post-fix: replication lag and pool pressure gone, degraded cleared, anomaly cleared across the correlated services \u2014 confirms the migration/index chain",
+      "chain": [],
+      "confidence": 0.9478,
+      "id": "hyp:h1",
+      "refuting": [],
+      "root_candidate": "change_event:chg-db-500",
+      "statement": "CHG-DB-500 (DB migration) dropped an index on the payments datastore, forcing full-table scans that saturate the pool and cascade latency across the correlated services",
+      "status": "confirmed",
+      "supporting": [
+        "fact:4142f5c31d771395",
+        "fact:cefbcbc2aee49420"
+      ]
+    },
+    {
+      "basis": "a recent payments-svc application code deploy introduced an inefficient/blocking",
+      "chain": [],
+      "confidence": 0.1912,
+      "id": "hyp:h2",
+      "refuting": [
+        "fact:3072d3986d292b2d"
+      ],
+      "root_candidate": "service:payments-svc|prod",
+      "statement": "a recent payments-svc application code deploy introduced an inefficient/blocking hot path",
+      "status": "refuted",
+      "supporting": []
+    }
+  ],
+  "journal": [
+    {
+      "actor": "engine",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "kind": "plan",
+      "narrative": "BigPanda correlated a latency alert storm across payments-svc, orders-svc and ledger-svc into ONE incident (INC-6001) at 09:06 \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. ServiceNow's CMDB returns the backing datastore as an UNCLASSIFIED CI (class_hint cmdb_ci_db_ora), so it enters the topology as a generic_ci. p50 stays flat \u2014 the tail alone is blown.",
+      "phase": "frame",
+      "plan_calls": [
+        "get_correlated_incident",
+        "get_incident",
+        "get_ci",
+        "find_recent_changes"
+      ],
+      "plan_ops": [
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddAssertion",
+        "AddEdge",
+        "AddEdge"
+      ],
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_correlated_incident",
+      "kind": "invocation",
+      "narrative": "BigPanda correlated a latency alert storm across payments-svc, orders-svc and ledger-svc into ONE incident (INC-6001) at 09:06 \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. ServiceNow's CMDB returns the backing datastore as an UNCLASSIFIED CI (class_hint cmdb_ci_db_ora), so it enters the topology as a generic_ci. p50 stays flat \u2014 the tail alone is blown.",
+      "op_count": 16,
+      "outcome": "data",
+      "params": {
+        "incident_id": "INC-6001"
+      },
+      "phase": "frame",
+      "provider": "bigpanda",
+      "reason": null,
+      "seq": 1,
+      "served_by": "mock",
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_incident",
+      "kind": "invocation",
+      "narrative": "BigPanda correlated a latency alert storm across payments-svc, orders-svc and ledger-svc into ONE incident (INC-6001) at 09:06 \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. ServiceNow's CMDB returns the backing datastore as an UNCLASSIFIED CI (class_hint cmdb_ci_db_ora), so it enters the topology as a generic_ci. p50 stays flat \u2014 the tail alone is blown.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {
+        "incident_id": "INC-6001"
+      },
+      "phase": "frame",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 1,
+      "served_by": "mock",
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_ci",
+      "kind": "invocation",
+      "narrative": "BigPanda correlated a latency alert storm across payments-svc, orders-svc and ledger-svc into ONE incident (INC-6001) at 09:06 \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. ServiceNow's CMDB returns the backing datastore as an UNCLASSIFIED CI (class_hint cmdb_ci_db_ora), so it enters the topology as a generic_ci. p50 stays flat \u2014 the tail alone is blown.",
+      "op_count": 1,
+      "outcome": "data",
+      "params": {
+        "sys_id": "SYS-DB77"
+      },
+      "phase": "frame",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 1,
+      "served_by": "mock",
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "BigPanda correlated a latency alert storm across payments-svc, orders-svc and ledger-svc into ONE incident (INC-6001) at 09:06 \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. ServiceNow's CMDB returns the backing datastore as an UNCLASSIFIED CI (class_hint cmdb_ci_db_ora), so it enters the topology as a generic_ci. p50 stays flat \u2014 the tail alone is blown.",
+      "op_count": 4,
+      "outcome": "data",
+      "params": {
+        "ci": "payments-svc",
+        "window": "30m"
+      },
+      "phase": "frame",
+      "provider": "servicenow",
+      "reason": null,
+      "seq": 1,
+      "served_by": "mock",
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "kind": "phase",
+      "narrative": "BigPanda correlated a latency alert storm across payments-svc, orders-svc and ledger-svc into ONE incident (INC-6001) at 09:06 \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. ServiceNow's CMDB returns the backing datastore as an UNCLASSIFIED CI (class_hint cmdb_ci_db_ora), so it enters the topology as a generic_ci. p50 stays flat \u2014 the tail alone is blown.",
+      "next_actions": [],
+      "phase": "frame",
+      "refs": {
+        "edges": [
+          "edge:fired_on:alert:bp-1->service:payments-svc|prod:discovered",
+          "edge:fired_on:alert:bp-2->service:orders-svc|prod:discovered",
+          "edge:fired_on:alert:bp-3->service:ledger-svc|prod:discovered",
+          "edge:similar_to:incident:inc-6001->incident:inc-5990:inferred",
+          "edge:affects:incident:inc-6001->service:payments-svc|prod:discovered",
+          "edge:changed_by:service:payments-svc|prod->change_event:chg-db-500:discovered",
+          "edge:depends_on:service:payments-svc|prod->generic_ci:sys-db77:discovered",
+          "edge:affects:anomaly:anom-6->service:payments-svc|prod:discovered",
+          "edge:affects:incident:inc-6001->service:payments-svc|prod:discovered"
+        ],
+        "events": [
+          "evt:56b1cb6f6eb76646",
+          "evt:c605fd45abe90982",
+          "evt:ae6114a1b8ad8e79",
+          "evt:2c71463f2de29cfb",
+          "evt:c8485191a9f6d304",
+          "evt:ee2dfffb8107d104"
+        ],
+        "facts": [
+          "fact:b4410a2fcde08033",
+          "fact:8bc3ae0b0a350825",
+          "fact:fc7101ff0f8f6f17",
+          "fact:931b0747812976fd",
+          "fact:fe1f321eba9ef270",
+          "fact:538f0ff0d86123b3",
+          "fact:47ba9ab49fb74121",
+          "fact:e0a5017aed8b0f4b"
+        ],
+        "hypotheses": [],
+        "nodes": [
+          "incident:inc-6001",
+          "service:payments-svc|prod",
+          "service:orders-svc|prod",
+          "service:ledger-svc|prod",
+          "alert:bp-1",
+          "alert:bp-2",
+          "alert:bp-3",
+          "incident:inc-5990",
+          "incident:inc-6001",
+          "service:payments-svc|prod",
+          "generic_ci:sys-db77",
+          "change_event:chg-db-500",
+          "service:payments-svc|prod",
+          "anomaly:anom-6"
+        ]
+      },
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
+    },
+    {
+      "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
+      "narrative": "Change-first: CHG-DB-500 (DB migration) landed 6m before onset \u2014 prime suspect (H1). The BigPanda-correlated cluster (3 services, one storm) all read through the same datastore, a prior pointing at the shared migration, not any one app's code. A code regression is a weaker alternative (H2) pending investigation.",
+      "phase": "investigate",
+      "plan_calls": [],
+      "plan_ops": [
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ],
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "Change-first: CHG-DB-500 (DB migration) landed 6m before onset \u2014 prime suspect (H1). The BigPanda-correlated cluster (3 services, one storm) all read through the same datastore, a prior pointing at the shared migration, not any one app's code. A code regression is a weaker alternative (H2) pending investigation.",
+      "next_actions": [],
+      "phase": "investigate",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1",
+          "hyp:h2"
+        ],
+        "nodes": [
+          "hyp:h1",
+          "hyp:h2"
+        ]
+      },
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "repeat"
+    },
+    {
+      "actor": "engine",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "kind": "plan",
+      "narrative": "The unclassified CI GRADUATES to a DATABASE (Retype) once the class_hint is corroborated \u2014 its quarantined onset fact + airlocked dependency re-home to the real entity. An AppD-only observation is MERGED into payments-svc. The flaky 9999ms p99 is RETRACTED. On the real datastore: replication lag 8.5s, pool 98% \u2014 the migration's dropped index. p50 flat (44ms) refutes H2; H1 confirmed high.",
+      "phase": "investigate",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "Retract",
+        "AddNode",
+        "AddAssertion",
+        "Merge",
+        "Retype",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ],
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "kind": "phase",
+      "narrative": "The unclassified CI GRADUATES to a DATABASE (Retype) once the class_hint is corroborated \u2014 its quarantined onset fact + airlocked dependency re-home to the real entity. An AppD-only observation is MERGED into payments-svc. The flaky 9999ms p99 is RETRACTED. On the real datastore: replication lag 8.5s, pool 98% \u2014 the migration's dropped index. p50 flat (44ms) refutes H2; H1 confirmed high.",
+      "next_actions": [],
+      "phase": "investigate",
+      "refs": {
+        "edges": [
+          "edge:caused_by:hyp:h1->change_event:chg-db-500:inferred"
+        ],
+        "events": [],
+        "facts": [
+          "fact:3072d3986d292b2d",
+          "fact:0ac89f507dac74de",
+          "fact:4142f5c31d771395",
+          "fact:cefbcbc2aee49420"
+        ],
+        "hypotheses": [
+          "hyp:h2",
+          "hyp:h1"
+        ],
+        "nodes": [
+          "service:~appd:apm-pay",
+          "database:payments-ora"
+        ]
+      },
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
+    },
+    {
+      "actor": "engine",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "kind": "plan",
+      "narrative": "Safest reversible fix: re-add the dropped index (or roll back CHG-DB-500). Awaiting approval (gated).",
+      "phase": "act",
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ],
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "kind": "phase",
+      "narrative": "Safest reversible fix: re-add the dropped index (or roll back CHG-DB-500). Awaiting approval (gated).",
+      "next_actions": [],
+      "phase": "act",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
+    },
+    {
+      "actor": "engine",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "kind": "plan",
+      "narrative": "Post-fix: the datastore recovered (lag 0.2s, pool 31%); anomaly cleared. Root confirmed.",
+      "phase": "verify",
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "UpdateHypothesis"
+      ],
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "kind": "phase",
+      "narrative": "Post-fix: the datastore recovered (lag 0.2s, pool 31%); anomaly cleared. Root confirmed.",
+      "next_actions": [],
+      "phase": "verify",
+      "refs": {
+        "edges": [],
+        "events": [
+          "evt:985453869004bc27",
+          "evt:371664243157460a"
+        ],
+        "facts": [
+          "fact:65804395a03091ed",
+          "fact:6a6274ce5805bbf1",
+          "fact:f5156bdf96c5c937"
+        ],
+        "hypotheses": [
+          "hyp:h1"
+        ],
+        "nodes": []
+      },
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "advance"
+    },
+    {
+      "actor": "engine",
+      "available": [
+        "render_postmortem"
+      ],
+      "kind": "plan",
+      "narrative": "Postmortem: CHG-DB-500 (DB migration) dropped an index on the payments datastore -> full-table scans -> pool exhaustion -> a latency storm BigPanda correlated across payments/orders/ledger. Re-adding the index resolved it. The datastore was discovered as an unclassified CI and graduated to a DATABASE; a code regression was investigated and ruled out.",
+      "phase": "close",
+      "plan_calls": [],
+      "plan_ops": [],
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "kind": "phase",
+      "narrative": "Postmortem: CHG-DB-500 (DB migration) dropped an index on the payments datastore -> full-table scans -> pool exhaustion -> a latency storm BigPanda correlated across payments/orders/ledger. Re-adding the index resolved it. The datastore was discovered as an unclassified CI and graduated to a DATABASE; a code regression was investigated and ruled out.",
+      "next_actions": [],
+      "phase": "close",
+      "refs": {
+        "edges": [],
+        "events": [],
+        "facts": [],
+        "hypotheses": [],
+        "nodes": []
+      },
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "verdict": "done"
+    }
+  ],
+  "outcome": "resolved",
+  "phases": [
+    "frame",
+    "investigate",
+    "investigate",
+    "act",
+    "verify",
+    "close"
+  ],
+  "postmortem": {
+    "contributing": [],
+    "narrative": [
+      {
+        "phase": "frame",
+        "seq": 1,
+        "text": "BigPanda correlated a latency alert storm across payments-svc, orders-svc and ledger-svc into ONE incident (INC-6001) at 09:06 \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. ServiceNow's CMDB returns the backing datastore as an UNCLASSIFIED CI (class_hint cmdb_ci_db_ora), so it enters the topology as a generic_ci. p50 stays flat \u2014 the tail alone is blown."
+      },
+      {
+        "phase": "investigate",
+        "seq": 2,
+        "text": "Change-first: CHG-DB-500 (DB migration) landed 6m before onset \u2014 prime suspect (H1). The BigPanda-correlated cluster (3 services, one storm) all read through the same datastore, a prior pointing at the shared migration, not any one app's code. A code regression is a weaker alternative (H2) pending investigation."
+      },
+      {
+        "phase": "investigate",
+        "seq": 3,
+        "text": "The unclassified CI GRADUATES to a DATABASE (Retype) once the class_hint is corroborated \u2014 its quarantined onset fact + airlocked dependency re-home to the real entity. An AppD-only observation is MERGED into payments-svc. The flaky 9999ms p99 is RETRACTED. On the real datastore: replication lag 8.5s, pool 98% \u2014 the migration's dropped index. p50 flat (44ms) refutes H2; H1 confirmed high."
+      },
+      {
+        "phase": "act",
+        "seq": 4,
+        "text": "Safest reversible fix: re-add the dropped index (or roll back CHG-DB-500). Awaiting approval (gated)."
+      },
+      {
+        "phase": "verify",
+        "seq": 5,
+        "text": "Post-fix: the datastore recovered (lag 0.2s, pool 31%); anomaly cleared. Root confirmed."
+      },
+      {
+        "phase": "close",
+        "seq": 6,
+        "text": "Postmortem: CHG-DB-500 (DB migration) dropped an index on the payments datastore -> full-table scans -> pool exhaustion -> a latency storm BigPanda correlated across payments/orders/ledger. Re-adding the index resolved it. The datastore was discovered as an unclassified CI and graduated to a DATABASE; a code regression was investigated and ruled out."
+      }
+    ],
+    "outcome": "resolved",
+    "root_cause": {
+      "chain": [],
+      "confidence": 0.9478,
+      "root_candidate": "change_event:chg-db-500",
+      "statement": "CHG-DB-500 (DB migration) dropped an index on the payments datastore, forcing full-table scans that saturate the pool and cascade latency across the correlated services"
+    },
+    "ruled_out": [
+      {
+        "basis": "a recent payments-svc application code deploy introduced an inefficient/blocking",
+        "statement": "a recent payments-svc application code deploy introduced an inefficient/blocking hot path"
+      }
+    ],
+    "subject": {
+      "domain": "app-incident",
+      "id": "INC-6001",
+      "kind": "incident"
+    },
+    "timeline": [
+      {
+        "at": "2026-07-05T10:00:00+00:00",
+        "entity": "incident:inc-5990",
+        "payload": {
+          "affected_ci": "payments-ora"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T09:00:00+00:00",
+        "entity": "change_event:chg-db-500",
+        "payload": {
+          "actor": "dba-team"
+        },
+        "type": "implemented"
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "entity": "alert:bp-1",
+        "payload": {
+          "correlated": true,
+          "state": "firing"
+        },
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "entity": "alert:bp-2",
+        "payload": {
+          "correlated": true,
+          "state": "firing"
+        },
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "entity": "alert:bp-3",
+        "payload": {
+          "correlated": true,
+          "state": "firing"
+        },
+        "type": "fired"
+      },
+      {
+        "at": "2026-07-19T09:06:00+00:00",
+        "entity": "incident:inc-6001",
+        "payload": {
+          "state": "in_progress"
+        },
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "service:payments-svc|prod",
+        "payload": {},
+        "type": "degraded_cleared"
+      },
+      {
+        "at": "2026-07-19T09:45:00+00:00",
+        "entity": "anomaly:anom-6",
+        "payload": {},
+        "type": "cleared"
+      }
+    ]
+  },
+  "rejections": [],
+  "subject": {
+    "domain": "app-incident",
+    "id": "INC-6001",
+    "kind": "incident"
+  }
+}

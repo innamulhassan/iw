@@ -85,6 +85,9 @@ _CATALOG: list[dict] = [
     {"key": "certificate", "id": "INC-5700", "domain": "app-incident",
      "title": "auth-svc intermittent 503 — expiring intermediate cert", "layer": "TLS / Certificate",
      "remediation": "Renew the Corp Intermediate CA cert + re-push the auth-svc TLS secret"},
+    {"key": "correlated", "id": "INC-6001", "domain": "app-incident",
+     "title": "payments platform latency storm — AIOps-correlated DB migration", "layer": "AIOps / Correlation",
+     "remediation": "Re-create the dropped index on the payments datastore (roll back CHG-DB-500)"},
 ]
 
 _BY_ID = {e["id"]: e for e in _CATALOG}

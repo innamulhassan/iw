@@ -18,7 +18,7 @@ from e2e._helpers import run  # noqa: E402
 from iw_engine.api.bundle import export_bundle  # noqa: E402
 
 SCENARIOS = ["code_regression", "deployment", "network", "database", "firewall", "nochange",
-             "messaging", "infra", "cache", "featureflag", "certificate"]
+             "messaging", "infra", "cache", "featureflag", "certificate", "correlated"]
 GOLDEN_DIR = ROOT / "tests" / "e2e" / "golden"
 
 

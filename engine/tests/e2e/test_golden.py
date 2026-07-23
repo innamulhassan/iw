@@ -17,7 +17,7 @@ from ._helpers import run
 
 GOLDEN = pathlib.Path(__file__).parent / "golden"
 SCENARIOS = ["code_regression", "deployment", "network", "database", "firewall", "nochange",
-             "messaging", "infra"]
+             "messaging", "infra", "correlated"]
 
 
 @pytest.mark.parametrize("name", SCENARIOS)
