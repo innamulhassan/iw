@@ -7,9 +7,10 @@ is typed ops — never free prose (principle 7).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..capability.layer import CapabilityCall
 from ..domain.operations import Operation
@@ -50,6 +51,36 @@ class PlanContext:
     #                                    the combined clock-skew bound (R-J2 — ordering not asserted)
 
 
+class TodoStatus(StrEnum):
+    """A to-do's lifecycle. The planner AUTHORS a plan of PENDING to-dos; the engine executes each
+    1:1 (call→invocation) and the checklist ticks DONE as its phase folds. Kept deliberately small —
+    the to-do layer is a CHECKLIST, not a workflow engine (owner: lightweight; the LLM authors the
+    to-dos; execution stays 1:1; NO automatic decomposition engine)."""
+
+    PENDING = "pending"
+    DONE = "done"
+
+
+class Todo(BaseModel):
+    """One checklist item of a plan (F1 — the to-do LAYER). A to-do groups the capability CALLS and
+    the planner-direct OPS that serve ONE short objective, so a plan reads as a checklist: "here is
+    my plan as to-dos, and here is each one executing." It is an ATTRIBUTION layer over the SAME
+    ops the engine already runs — `PlanOutput` flattens {calls, ops} back to the unchanged 1:1
+    execution loop, never a decomposition engine. `op_budget` and `delegate` are documented SEAMS
+    this layer OWNS (a per-to-do op ceiling — the op-ceiling-per-todo reserve-quota home; and a
+    delegatable to-do for MCP/A2A fan-out — F2): declared here, deliberately NOT wired."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    objective: str                                              # the short aim this to-do serves
+    calls: list[CapabilityCall] = Field(default_factory=list)   # capability invocations -> data ops
+    ops: list[Operation] = Field(default_factory=list)          # planner-direct ops
+    status: TodoStatus = TodoStatus.PENDING
+    # ── SEAMS (declared, deliberately UNWIRED — the to-do layer is their documented home) ──
+    op_budget: int | None = None   # per-to-do op ceiling (op-ceiling-per-todo) — the F1 reserve-quota seam
+    delegate: bool = False         # a delegatable to-do (MCP/A2A fan-out) — F2 seam; execution stays local
+
+
 class PlanOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -65,6 +96,45 @@ class PlanOutput(BaseModel):
     # enforcement channel with the reducer's. Empty for the deterministic ScriptedPlanner, so the
     # scripted/golden path is untouched.
     repairs: list[str] = Field(default_factory=list)
+    # F1 — the TO-DO LAYER: the plan grouped into a CHECKLIST of to-dos (each an objective + the
+    # calls/ops that serve it). ADDITIVE + derivable: when to-dos are authored they are AUTHORITATIVE
+    # and `calls`/`ops` are set to their EXACT flattening (so the engine's 1:1 execution loop reads
+    # the same flat lists, UNCHANGED, and each call/op attributes to its to-do by position); when
+    # absent, `effective_todos` derives ONE default to-do from calls/ops — so every existing
+    # (scripted) plan reads as a single-item checklist with zero authoring churn.
+    todos: list[Todo] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _reconcile_todos(self) -> PlanOutput:
+        # to-dos are AUTHORITATIVE when authored: pin the flat lists to their exact concatenation so
+        # call→to-do and op→to-do attribution is exact AND the engine still executes the same flat
+        # ops 1:1. When none are authored, the flat lists stand and effective_todos derives one.
+        if self.todos:
+            self.calls = [c for td in self.todos for c in td.calls]
+            self.ops = [o for td in self.todos for o in td.ops]
+        return self
+
+    @property
+    def effective_todos(self) -> list[Todo]:
+        """The plan AS a checklist: the authored to-dos, or ONE synthesized to-do wrapping the flat
+        calls/ops (objective = the narrative) for a plan that authored none — the scripted default,
+        so every existing plan reads as a single-item checklist. DERIVED (never stored), so a
+        post-construction `model_copy(update={"calls": ...})` — the session's write-gate injection
+        and refine/deny — stays consistent without re-running the validator."""
+        if self.todos:
+            return self.todos
+        if self.calls or self.ops:
+            return [Todo(objective=self.narrative, calls=list(self.calls), ops=list(self.ops))]
+        return []
+
+    def call_todo_indices(self) -> list[int]:
+        """The to-do index each flat call serves (parallel to `calls`) — the engine stamps it on
+        every invocation so the record shows which to-do each call executed for."""
+        return [i for i, td in enumerate(self.effective_todos) for _ in td.calls]
+
+    def op_todo_indices(self) -> list[int]:
+        """The to-do index each flat op serves (parallel to `ops`)."""
+        return [i for i, td in enumerate(self.effective_todos) for _ in td.ops]
 
 
 @runtime_checkable
