@@ -14,9 +14,20 @@ from datetime import UTC, datetime
 
 import pytest
 
+from iw_engine.domain.assertion import Assertion
 from iw_engine.domain.common import Confidence
 from iw_engine.domain.edge import Edge
-from iw_engine.domain.enums import EdgeType, FactState, NodeType, Origin, Source
+from iw_engine.domain.enums import (
+    Channel,
+    EdgeType,
+    FactState,
+    NodeType,
+    Origin,
+    Source,
+    SpanPhase,
+    Species,
+)
+from iw_engine.domain.event import Event
 from iw_engine.domain.fact import Fact
 from iw_engine.domain.node import Node
 from iw_engine.domain.registry import edge_id
@@ -26,8 +37,12 @@ from iw_engine.graph.tools import (
     DEPENDENCY_EDGE_TYPES,
     blast_radius,
     focus_slice,
+    metric_summary,
     neighbours,
     path,
+    spans_of,
+    state_as_of,
+    trail_of,
     walk,
 )
 
@@ -425,3 +440,151 @@ def test_tools_are_read_only():
     blast_radius(g, DB)
     path(g, SVC2, DB)
     assert g.to_dict() == before
+
+
+# ── SchemaUsability query grammar (2026-07-23 primitives §7/§8.2) ─────────────────────────
+T0 = datetime(2026, 7, 19, 13, 0, tzinfo=UTC)
+T4 = datetime(2026, 7, 19, 17, 0, tzinfo=UTC)
+DEP = "deployment:orders-api"
+BT = "business_transaction:checkout"
+
+
+def _state(g, fid, nid, predicate, value, vfrom, vto=None, *, source=Source.CMDB):
+    g.add_fact(Fact(id=fid, subject_ref=nid, predicate=predicate, value=value,
+                    valid_from=vfrom, valid_to=vto, observed_at=vfrom, source=source,
+                    source_reliability=0.95, created_by=1))
+
+
+def _span(g, sid, subject, name, started, ended, phase, *, corr=None, value=None):
+    g.add_span(Assertion(id=sid, subject_ref=subject, name=name, value=value, species=Species.SPAN,
+                         channel=Channel.MEASURED, valid_from=started, valid_to=ended,
+                         observed_at=ended or started, span_phase=phase, correlation_id=corr,
+                         source=Source.APPD, source_reliability=0.9, created_by=1))
+
+
+def _ev(g, eid, entity, etype, at):
+    g.add_event(Event(id=eid, entity_ref=entity, type=etype, occurred_at=at, observed_at=at,
+                      source=Source.OCP, created_by=1))
+
+
+def _usability_graph() -> Graph:
+    """A deployment whose `image` STATE bumps mid-incident (1.4.2→1.4.3), a service carrying a
+    latency_p99 reading series, a CLOSED rollout span + an ABANDONED outage span, a PARTICIPATED_IN
+    edge into a reified BT, a CHANGED_BY change edge, and a restart event."""
+    g = Graph()
+    _n(g, DEP, NodeType.DEPLOYMENT)
+    _n(g, SVC, NodeType.SERVICE)
+    _n(g, BT, NodeType.BUSINESS_TRANSACTION)
+    _n(g, CHG, NodeType.CHANGE_EVENT)
+    # image STATE trail: 1.4.2 over [T1,T2), 1.4.3 over [T2, still-true)
+    _state(g, "st1", DEP, "image", "1.4.2", T1, T2)
+    _state(g, "st2", DEP, "image", "1.4.3", T2, None)
+    # latency_p99 reading series on the service (values 100, 200, 300)
+    _f(g, "rd1", SVC, "latency_p99", 100, T1)
+    _f(g, "rd2", SVC, "latency_p99", 200, T2)
+    _f(g, "rd3", SVC, "latency_p99", 300, T3)
+    # a CLOSED rollout [T1,T2) and an ABANDONED outage [T3, close-lost) on the service
+    _span(g, "span:roll", SVC, "rollout", T1, T2, SpanPhase.CLOSED, value={"status": "ok"})
+    _span(g, "span:out", SVC, "outage", T3, None, SpanPhase.ABANDONED)
+    # participation into a reified BT (involvement sub-interval [T1,T3))
+    g.add_edge(Edge(id=edge_id(EdgeType.PARTICIPATED_IN, SVC, BT, Origin.DISCOVERED),
+                    type=EdgeType.PARTICIPATED_IN, src=SVC, dst=BT, origin=Origin.DISCOVERED,
+                    valid_from=T1, valid_to=T3, created_by=1))
+    _e(g, EdgeType.CHANGED_BY, DEP, CHG, Origin.DISCOVERED)
+    _ev(g, "evt:restart", DEP, "restarted", T2)
+    return g
+
+
+def test_state_as_of_returns_the_tile_true_at_that_instant():
+    g = _usability_graph()
+    # AT onset (inside [T1,T2)) the image was 1.4.2 — the bitemporal payoff
+    at_onset = state_as_of(g, DEP, "image", datetime(2026, 7, 19, 14, 30, tzinfo=UTC))
+    assert at_onset["found"] and at_onset["value"] == "1.4.2"
+    # later (inside [T2, still-true)) it is 1.4.3 — NOT misattributed to the onset window
+    assert state_as_of(g, DEP, "image", T3)["value"] == "1.4.3"
+    # before the first tile: no cover
+    assert state_as_of(g, DEP, "image", T0)["found"] is False
+    # an open tile (valid_to None) still covers a far-future instant
+    assert state_as_of(g, DEP, "image", T4)["value"] == "1.4.3"
+
+
+def test_state_as_of_unknown_node_raises():
+    g = _usability_graph()
+    with pytest.raises(KeyError):
+        state_as_of(g, "deployment:ghost", "image", T2)
+
+
+def test_metric_summary_aggregates_the_reading_series():
+    g = _usability_graph()
+    s = metric_summary(g, SVC, "latency_p99")
+    assert s["count"] == 3 and s["first"] == 100 and s["last"] == 300
+    assert s["min"] == 100 and s["max"] == 300 and s["mean"] == 200.0
+    # window bounds are half-open [start,end): [T2,T3) keeps only the T2 sample
+    w = metric_summary(g, SVC, "latency_p99", start=T2, end=T3)
+    assert w["count"] == 1 and w["first"] == 200 and w["last"] == 200
+    # a metric name with no samples → count 0, no numeric summary
+    empty = metric_summary(g, SVC, "error_rate")
+    assert empty["count"] == 0 and "mean" not in empty
+
+
+def test_metric_summary_accepts_an_edge_subject():
+    """Edge-borne RED: a reading ABOUT a CALLS edge is summarised by the same tool (§4.1 subject_ref
+    reaches a node OR an edge)."""
+    g = _usability_graph()
+    eid = edge_id(EdgeType.CALLS, SVC, SVC2, Origin.DISCOVERED)
+    g.add_edge(Edge(id=eid, type=EdgeType.CALLS, src=SVC, dst=SVC2, origin=Origin.DISCOVERED,
+                    created_by=1))
+    g.add_fact(Fact(id="ef1", subject_ref=eid, predicate="latency_p99", value=42,
+                    valid_from=T1, observed_at=T1, source=Source.APPD, source_reliability=0.9,
+                    created_by=1))
+    assert metric_summary(g, eid, "latency_p99")["last"] == 42
+    with pytest.raises(KeyError):
+        metric_summary(g, "edge:does-not-exist", "latency_p99")
+
+
+def test_spans_of_always_exposes_span_phase_and_the_overlap_join():
+    g = _usability_graph()
+    out = spans_of(g, SVC)
+    phases = {s["name"]: s["span_phase"] for s in out["spans"]}
+    assert phases == {"rollout": "closed", "outage": "abandoned"}   # §4.6: phase ALWAYS exposed
+    # the ABANDONED outage never reads as a value-less 'ongoing' — its phase is explicit
+    outage = next(s for s in out["spans"] if s["name"] == "outage")
+    assert outage["span_phase"] == "abandoned" and outage["ended_at"] is None
+    # the participation into the reified BT is surfaced with its involvement window
+    assert out["participations"] == [{"occurrence": BT, "occurrence_type": "business_transaction",
+                                      "involvement_from": T1.isoformat(),
+                                      "involvement_to": T3.isoformat()}]
+    # RCA overlap join: only the rollout [T1,T2) contains onset T1.5; a phase filter narrows it
+    onset_window = spans_of(g, SVC, start=datetime(2026, 7, 19, 14, 30, tzinfo=UTC), end=T2)
+    assert [s["name"] for s in onset_window["spans"]] == ["rollout"]
+    assert [s["name"] for s in spans_of(g, SVC, phase="closed")["spans"]] == ["rollout"]
+
+
+def test_trail_of_change_index_scans_state_boundaries():
+    g = _usability_graph()
+    t = trail_of(g, DEP)
+    # the STATE supersede-chain: both image tiles, oldest→newest
+    assert [(x["value"], x["valid_from"]) for x in t["trail"]] == [
+        ("1.4.2", T1.isoformat()), ("1.4.3", T2.isoformat())]
+    kinds = {(c["kind"], c["detail"]) for c in t["changes"]}
+    # the silent version bump surfaces as a STATE boundary (the §9 fix J core), NOT missed
+    assert ("state", "image=1.4.3") in kinds
+    assert ("event", "restarted") in kinds
+    assert ("change_event", CHG) in kinds
+    # the change-index is time-ordered
+    ats = [c["at"] for c in t["changes"]]
+    assert ats == sorted(ats)
+    # narrowing to a predicate keeps only that predicate's boundaries (no events/spans/changes)
+    only_image = trail_of(g, DEP, "image")
+    assert {c["kind"] for c in only_image["changes"]} == {"state"}
+
+
+def test_usability_queries_are_read_only_and_deterministic():
+    g = _usability_graph()
+    before = g.to_dict()
+    a = [state_as_of(g, DEP, "image", T2), metric_summary(g, SVC, "latency_p99"),
+         spans_of(g, SVC), trail_of(g, DEP)]
+    b = [state_as_of(g, DEP, "image", T2), metric_summary(g, SVC, "latency_p99"),
+         spans_of(g, SVC), trail_of(g, DEP)]
+    assert [json.dumps(v, sort_keys=True) for v in a] == [json.dumps(v, sort_keys=True) for v in b]
+    assert g.to_dict() == before          # pure reads — nothing mutated

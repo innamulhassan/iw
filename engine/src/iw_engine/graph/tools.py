@@ -13,6 +13,18 @@ B9.3 render-slice replaced by "full graph capped at 40"):
   suspects + frontier IN FULL, healthy/ruled-out collapsed to a count, ~budget nodes regardless
   of graph size, with the invariant `full + frontier + collapsed == total`.
 
+The SCHEMA-USABILITY query grammar (2026-07-23 primitives §7/§8.2 — the LLM's "reach for more"):
+
+- `state_as_of(node, name, T)`     — the STATE tile whose `[valid_from,valid_to)` contains T
+  (what was its version/image/severity AT onset — the bitemporal payoff);
+- `metric_summary(subject, name, window)` — a summary READING over a window (node OR edge subject),
+  as if resolved through the `metric_query` handle (the engine stores samples, never the raw curve);
+- `spans_of(node, [phase], [window])` — the SPAN datums a node participates in + its
+  `PARTICIPATED_IN` edges into reified occurrences; **span_phase ALWAYS exposed** (§4.6), overlap
+  filter answers the core RCA join ("does a change/outage SPAN contain onset?");
+- `trail_of(subject, [name])`      — the STATE supersede-chain + the change-index (events, spans,
+  CHANGE_EVENTs, AND STATE version-boundaries — so a silent bump is never missed, §9 fix J).
+
 Discipline (uniform):
 
 - **Pure, read-only, deterministic.** Functions only read the Graph's public surface
@@ -35,11 +47,12 @@ Discipline (uniform):
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from datetime import datetime
 from typing import Literal
 
 from ..domain.edge import Edge
 from ..domain.edges import STRUCTURAL_EDGE_TYPES
-from ..domain.enums import EdgeType, FactState, NodeType, Origin
+from ..domain.enums import EdgeType, FactState, NodeType, Origin, SpanPhase
 from ..domain.fact import Fact
 from .graph import Graph
 
@@ -73,6 +86,32 @@ def _require_node(graph: Graph, ref: str, arg: str) -> str:
     if graph.node(nid) is None:
         raise KeyError(f"{arg}: unknown node {ref!r}" + (f" (resolved to {nid!r})" if nid != ref else ""))
     return nid
+
+
+def _require_subject(graph: Graph, ref: str, arg: str = "subject") -> str:
+    """Resolve a subject that may be a NODE or an EDGE — span/reading subjects reach both (§4.1:
+    subject_ref is EntityId|EdgeId; edge-borne RED rides a discovered CALLS edge). Remap-resolve,
+    then require the id exists as a node OR an edge, so a typo reads as an error, never as an empty
+    result (the same discipline `_require_node` enforces)."""
+    if not isinstance(ref, str) or not ref:
+        raise KeyError(f"{arg}: empty id")
+    rid = _resolve(graph, ref)
+    if graph.node(rid) is None and rid not in graph.edges:
+        raise KeyError(f"{arg}: unknown node/edge {ref!r}"
+                       + (f" (resolved to {rid!r})" if rid != ref else ""))
+    return rid
+
+
+def _overlaps(s_from: datetime | None, s_to: datetime | None,
+              w_start: datetime | None, w_end: datetime | None) -> bool:
+    """Whether a span interval `[s_from, s_to)` overlaps the query window `[w_start, w_end)` — an
+    open span end (`s_to=None`, in-flight/abandoned) extends to +inf; an open window bound is
+    unbounded on that side. The interval-overlap that answers the core RCA containment join."""
+    if w_start is not None and s_to is not None and s_to <= w_start:
+        return False
+    if w_end is not None and s_from is not None and s_from >= w_end:
+        return False
+    return True
 
 
 def _check_direction(direction: str) -> None:
@@ -449,3 +488,163 @@ def focus_slice(graph: Graph, anomaly_ref: str | None, budget: int, *,
         "collapsed_types": dict(sorted(by_type.items())),
         "truncated": truncated,
     }
+
+
+# ── 6. state_as_of — the STATE tile active at an instant (per node + name) ───────────────
+def state_as_of(graph: Graph, node_id: str, name: str, at: datetime) -> dict:
+    """The value held by `node_id`'s `name` attribute AT instant `at` — the tile whose
+    `[valid_from, valid_to)` contains `at` (2026-07-23 primitives §7; `graph.facts_valid_at` is the
+    whole-graph form). This is the load-bearing bitemporal payoff: "what version/image/severity was
+    it AT onset?" returns the value that was true THEN (1.4.2-at-onset), not the current one
+    (1.4.3-now) a mutable-property model would misattribute. SUPERSEDED tiles are honoured — a
+    superseded value was still the truth of its now-closed window; only RETRACTED tiles (disavowed
+    as wrong) are excluded. On a bitemporal overlap the latest-known tile wins (`observed_at` then
+    `valid_from`). `found=False` when no tile covers `at`; an unknown node raises KeyError."""
+    nid = _require_node(graph, node_id, "node_id")
+    best: Fact | None = None
+
+    def _key(f: Fact) -> tuple:
+        return (f.observed_at is not None, f.observed_at or f.valid_from, f.valid_from, f.id)
+
+    for f in graph.facts_of(nid, active_only=False):
+        if f.predicate != name or f.state == FactState.RETRACTED:
+            continue
+        if f.valid_from <= at and (f.valid_to is None or at < f.valid_to):
+            if best is None or _key(f) > _key(best):
+                best = f
+    if best is None:
+        return {"node": nid, "name": name, "as_of": at.isoformat(), "found": False}
+    return {"node": nid, "name": name, "as_of": at.isoformat(), "found": True,
+            "value": best.value, "unit": best.unit,
+            "valid_from": best.valid_from.isoformat(),
+            "valid_to": best.valid_to.isoformat() if best.valid_to is not None else None,
+            "source": best.source.value, "state": best.state.value}
+
+
+# ── 7. metric_summary — a summary READING over a window (node OR edge subject) ───────────
+def metric_summary(graph: Graph, subject: str, name: str, *,
+                   start: datetime | None = None, end: datetime | None = None) -> dict:
+    """A materialized summary READING for `subject`'s `name` metric over `[start, end)` (2026-07-23
+    primitives §7/§8.2 — resolved as if through the `metric_query` handle: the engine stores
+    judgment-granularity samples, never the raw curve, so this summary is the addressable object).
+    `subject` may be a NodeId OR an EdgeId (edge-borne RED on a discovered CALLS/READS_FROM edge).
+    Summarises the numeric samples — count / first / last / min / max / mean — deterministically
+    (ordered by valid_from). A None bound is open on that side; a non-numeric sample is counted but
+    excluded from min/max/mean. `count=0` when the window holds no sample; an unknown subject
+    (neither a node nor an edge carrying facts) raises KeyError."""
+    ref = _require_subject(graph, subject)
+    samples: list[Fact] = []
+    for f in graph.facts_of(ref, active_only=False):
+        if f.predicate != name or f.state == FactState.RETRACTED:
+            continue
+        if start is not None and f.valid_from < start:
+            continue
+        if end is not None and f.valid_from >= end:
+            continue
+        samples.append(f)
+    samples.sort(key=lambda f: (f.valid_from, f.id))
+    nums = [f.value for f in samples
+            if isinstance(f.value, int | float) and not isinstance(f.value, bool)]
+    out: dict = {
+        "subject": ref, "name": name,
+        "window": {"start": start.isoformat() if start is not None else None,
+                   "end": end.isoformat() if end is not None else None},
+        "count": len(samples),
+        "unit": samples[-1].unit if samples else None,
+    }
+    if samples:
+        out["first"] = samples[0].value
+        out["last"] = samples[-1].value
+    if nums:
+        out["min"] = min(nums)
+        out["max"] = max(nums)
+        out["mean"] = round(sum(nums) / len(nums), 4)
+    return out
+
+
+# ── 8. spans_of — the SPANs a node participates in, span_phase ALWAYS exposed ────────────
+def spans_of(graph: Graph, node_id: str, *, phase: SpanPhase | str | None = None,
+             start: datetime | None = None, end: datetime | None = None) -> dict:
+    """The bounded happenings `node_id` participates in (2026-07-23 primitives §7 / §4.6): SPAN
+    datums whose subject IS the node, PLUS `PARTICIPATED_IN` edges into reified occurrence nodes (a
+    trace / incident / change the node participated in; the edge's `[valid_from,valid_to)` is its
+    INVOLVEMENT sub-interval). **`span_phase` is ALWAYS exposed** — the §4.6 universality invariant:
+    an ABANDONED span (close lost) must never read as 'ongoing at query time', or a dropped close
+    would over-link as a live outage covering onset and break the RCA overlap join. Optional `phase`
+    filters the span datums by span_phase; a `[start,end)` keeps only spans whose interval OVERLAPS
+    the window — the core RCA join ("does a change-window / vendor-outage / rollout SPAN's interval
+    CONTAIN the onset?"). Deterministic (spans by started_at, participations by occurrence id).
+    Unknown node raises KeyError."""
+    nid = _require_node(graph, node_id, "node_id")
+    want = SpanPhase(phase) if isinstance(phase, str) else phase
+    spans: list[dict] = []
+    for s in graph.spans_of(nid):        # raw Assertions → span_phase guaranteed present (§4.6)
+        if want is not None and s.span_phase is not want:
+            continue
+        if not _overlaps(s.valid_from, s.valid_to, start, end):
+            continue
+        spans.append({
+            "id": s.id, "name": s.name, "subject": s.subject_ref,
+            "span_phase": s.span_phase.value,
+            "started_at": s.valid_from.isoformat() if s.valid_from is not None else None,
+            "ended_at": s.valid_to.isoformat() if s.valid_to is not None else None,
+            "correlation_id": s.correlation_id, "outcome": s.value, "source": s.source.value,
+        })
+    spans.sort(key=lambda v: (v["started_at"] or "", v["id"]))
+    participations: list[dict] = []
+    for e in graph.out_edges(nid, EdgeType.PARTICIPATED_IN):
+        if e.state != FactState.ACTIVE:
+            continue
+        occ = graph.node(e.dst)
+        participations.append({
+            "occurrence": e.dst,
+            "occurrence_type": occ.type.value if occ is not None else None,
+            "involvement_from": e.valid_from.isoformat() if e.valid_from is not None else None,
+            "involvement_to": e.valid_to.isoformat() if e.valid_to is not None else None,
+        })
+    participations.sort(key=lambda v: v["occurrence"])
+    return {"node": nid, "spans": spans, "participations": participations,
+            "count": len(spans) + len(participations)}
+
+
+# ── 9. trail_of — the STATE supersede-chain + the change-index over a subject ────────────
+def trail_of(graph: Graph, subject: str, name: str | None = None) -> dict:
+    """The RCA-first change-trail of `subject` (2026-07-23 primitives §7/§8.2 — the §9 fix J
+    change-index): the STATE supersede-chain (the held values over time, per predicate) PLUS a
+    time-ordered change-index over the subject — its EVENTs, its SPANs, the CHANGE_EVENT nodes it
+    was `CHANGED_BY`, AND **each STATE version-boundary** (a `valid_from` where a held value
+    changed). Scanning STATE boundaries is the whole point: a silent version bump folded ONLY as a
+    STATE tile (image 1.4.2→1.4.3 with no change ticket) is invisible to an event-only change index —
+    here it surfaces as a `state` change entry, so change-first RCA never blind-spots it. `name`
+    narrows the trail (and its boundaries) to one predicate. Deterministic (trail by
+    (predicate, valid_from), index by (at, kind, ref)). Unknown node raises KeyError."""
+    nid = _require_node(graph, subject, "subject")
+    tiles = [f for f in graph.facts_of(nid, active_only=False)
+             if f.state != FactState.RETRACTED and (name is None or f.predicate == name)]
+    tiles.sort(key=lambda f: (f.predicate, f.valid_from, f.id))
+    trail = [{"predicate": f.predicate, "value": f.value, "unit": f.unit,
+              "valid_from": f.valid_from.isoformat(),
+              "valid_to": f.valid_to.isoformat() if f.valid_to is not None else None,
+              "state": f.state.value, "source": f.source.value} for f in tiles]
+
+    changes: list[dict] = []
+    for f in tiles:                                   # STATE version-boundaries (the §9 fix J core)
+        changes.append({"kind": "state", "ref": f.id, "at": f.valid_from.isoformat(),
+                        "detail": f"{f.predicate}={f.value}"})
+    if name is None:
+        for ev in graph.events_of(nid):
+            if ev.state == FactState.ACTIVE:
+                changes.append({"kind": "event", "ref": ev.id, "at": ev.occurred_at.isoformat(),
+                                "detail": ev.type})
+        for s in graph.spans_of(nid):
+            changes.append({"kind": "span", "ref": s.id,
+                            "at": s.valid_from.isoformat() if s.valid_from is not None else "",
+                            "detail": f"{s.name} [{s.span_phase.value}]"})
+        for e in graph.out_edges(nid, EdgeType.CHANGED_BY):
+            if e.state == FactState.ACTIVE:
+                changes.append({"kind": "change_event", "ref": e.dst,
+                                "at": e.valid_from.isoformat() if e.valid_from is not None else "",
+                                "detail": e.dst})
+    changes.sort(key=lambda c: (c["at"], c["kind"], c["ref"]))
+    return {"subject": nid, "name": name, "trail": trail, "changes": changes,
+            "count": len(changes)}
