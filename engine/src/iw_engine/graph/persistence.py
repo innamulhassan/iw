@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 
-from ..journal.journal import Journal
 from .graph import Graph
 
 GRAPH_SCHEMA_VERSION = 2   # 2: the P6 store-flip — one "assertions" list replaces facts/events
@@ -33,21 +32,3 @@ def save_graph(graph: Graph, path: str | Path, *, journal_seq: int | None = None
         data["journal_seq"] = journal_seq
     data.update(graph.to_dict())
     _atomic_write(Path(path), json.dumps(data, indent=2, default=str))
-
-
-def load_graph(path: str | Path) -> Graph | None:
-    p = Path(path)
-    if not p.exists():
-        return None
-    return Graph.from_dict(json.loads(p.read_text()))
-
-
-def save_journal(journal: Journal, path: str | Path) -> None:
-    _atomic_write(Path(path), journal.to_ndjson())
-
-
-def load_journal(path: str | Path) -> Journal | None:
-    p = Path(path)
-    if not p.exists():
-        return None
-    return Journal.from_ndjson(p.read_text())
