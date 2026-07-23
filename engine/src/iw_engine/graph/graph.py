@@ -39,6 +39,7 @@ from ..domain.projection import (
     fact_of_assertion,
 )
 from ..domain.registry import edge_id as _edge_id
+from ..domain.registry import is_symmetric_edge
 from . import resolver
 
 
@@ -331,6 +332,23 @@ class Graph:
 
     def neighbors(self, nid: str, etype: EdgeType | None = None) -> list[str]:
         return [e.dst for e in self.out_edges(nid, etype)]
+
+    def symmetric_neighbours(self, nid: str, etype: EdgeType | None = None) -> list[str]:
+        """Read a CORRESPONDENCE (symmetric) edge from EITHER endpoint (2026-07-23 §5.2 class 6:
+        'stored in a canonical direction, read as symmetric'). A `same_as`/`similar_to`/
+        `recurrence_of` edge is stored once, in one direction; this returns the OTHER node whether
+        `nid` is the stored src OR dst, so a symmetric relationship reads the same from both sides
+        without ever re-writing storage. ACTIVE edges only; NON-symmetric edge types are ignored —
+        their reading direction is predicate-fixed (§5.3 invariant 1), never symmetric. Deduped +
+        sorted, so the result is deterministic under journal replay."""
+        out: set[str] = set()
+        for e in self.out_edges(nid, etype):
+            if e.state == FactState.ACTIVE and is_symmetric_edge(e.type):
+                out.add(e.dst)
+        for e in self.in_edges(nid, etype):
+            if e.state == FactState.ACTIVE and is_symmetric_edge(e.type):
+                out.add(e.src)
+        return sorted(out)
 
     def facts_valid_at(self, ts: datetime) -> list[Fact]:
         """Point-in-time (principle 8): facts whose valid window contains ts.

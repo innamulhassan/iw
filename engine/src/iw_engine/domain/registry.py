@@ -50,6 +50,16 @@ def is_symmetric_edge(t: EdgeType) -> bool:
     return EDGE_SPECS[t].symmetric
 
 
+def canonical_symmetric_pair(src: str, dst: str) -> tuple[str, str]:
+    """The canonical STORAGE direction for a SYMMETRIC (correspondence) edge (§5.2 class 6):
+    endpoints sorted so `A~B` and `B~A` resolve to ONE stored edge — the dedup an author applies
+    on write. Reads are already direction-independent via `graph.symmetric_neighbours`, so a store
+    that predates this helper still reads correctly; this is the opt-in write-side canonicaliser
+    (never retroactively re-homes existing edges — that would churn a meaningful current->prior
+    authoring direction and break nothing gains it)."""
+    return (src, dst) if src <= dst else (dst, src)
+
+
 # ── deterministic ids (planner + reducer + scenarios share these) ─────────────
 def _slug(v: object) -> str:
     # P5 identity hardening (DOMAIN-v3 §2.1 / audit 4 probe D): `_` collapses like space/`/`,
