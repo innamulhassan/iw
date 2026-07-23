@@ -684,7 +684,11 @@
         "last_seen": "2026-07-19T09:12:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-7702"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-7702",
+          "short_description": "fraud-scoring egress failing ~7m after CHG-3311 ACL change",
+          "title": "fraud-scoring egress calls failing",
+          "work_notes": "ExternalDependencyErrorRateHigh; recurrence of INC-7699."
         },
         "source": "servicenow",
         "type": "incident"

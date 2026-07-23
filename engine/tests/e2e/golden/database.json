@@ -798,7 +798,11 @@
         "last_seen": "2026-07-19T14:05:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-7734"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-7734",
+          "short_description": "orders-api p99 hit 5.2s ~8m after CHG-9 dropped an index",
+          "title": "orders-api p99 latency spike",
+          "work_notes": "HighLatencyP99 fired; p50 flat, tail blown. Suspect CHG-9."
         },
         "source": "servicenow",
         "type": "incident"

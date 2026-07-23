@@ -87,7 +87,11 @@ def build():
 
     # ── scope/impact framing folded into FRAME (the retired TRIAGE — P7 5-phase algebra) ──
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-5700"),
+        node(NT.INCIDENT, incident_id="INC-5700",
+             title="auth-svc intermittent 503s",
+             short_description="auth-svc 503s from TLS handshake fails; cert expiring",
+             work_notes="High5xxRate; PKIX path-building failures. Cert expiry suspected.",
+             caller_id="monitoring.alerting"),
         node(NT.API_ENDPOINT, service_name="auth-svc", env="prod", method="POST",
              route_template="/oauth/token"),
         # the token endpoint's status-code distribution: 40% 5xx, the rest 200 — the

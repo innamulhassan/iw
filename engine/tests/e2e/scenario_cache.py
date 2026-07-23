@@ -84,7 +84,11 @@ def build():
 
     # ── scope/impact framing folded into FRAME (the retired TRIAGE — P7 5-phase algebra) ──
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-5500"),
+        node(NT.INCIDENT, incident_id="INC-5500",
+             title="product-api latency after cache deploy",
+             short_description="product-api p99 up after cache deploy; hit-rate collapsed",
+             work_notes="HighLatencyP99; redis hit-rate 41%, evictions surging.",
+             caller_id="monitoring.alerting"),
         node(NT.API_ENDPOINT, service_name="product-api", env="prod", method="GET",
              route_template="/products/{id}"),
         edge(ET.AFFECTS, INC, SVC),

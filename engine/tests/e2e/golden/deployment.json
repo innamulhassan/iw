@@ -950,7 +950,11 @@
         "last_seen": "2026-07-19T09:06:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-7731"
+          "caller_id": "svc-deploy-bot",
+          "incident_id": "INC-7731",
+          "short_description": "checkout-api rev43 rollout stuck 0/3 ready; pods crash-loop",
+          "title": "checkout-api pods CrashLoopBackOff",
+          "work_notes": "KubePodCrashLooping; ProgressDeadlineExceeded. Suspect rev43."
         },
         "source": "servicenow",
         "type": "incident"

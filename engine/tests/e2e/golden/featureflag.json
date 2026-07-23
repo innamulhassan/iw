@@ -618,7 +618,11 @@
         "last_seen": "2026-07-19T14:05:30+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-5600"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-5600",
+          "short_description": "cart-api 5xx began at the new-tax-engine flag flip to 100%",
+          "title": "cart-api 5xx after feature-flag flip",
+          "work_notes": "High5xxRate; new TaxEngineException at the flip. Flag suspected."
         },
         "source": "servicenow",
         "type": "incident"

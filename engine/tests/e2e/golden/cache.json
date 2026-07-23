@@ -567,7 +567,11 @@
         "last_seen": "2026-07-19T14:16:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-5500"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-5500",
+          "short_description": "product-api p99 up after cache deploy; hit-rate collapsed",
+          "title": "product-api latency after cache deploy",
+          "work_notes": "HighLatencyP99; redis hit-rate 41%, evictions surging."
         },
         "source": "servicenow",
         "type": "incident"

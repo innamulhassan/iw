@@ -51,6 +51,11 @@ class ServiceNowAdapter:
                 "incident_id": inc["number"],
                 "severity": inc.get("priority"),
                 "commander": inc.get("assigned_to"),
+                # M2: the incident's human-readable record (title/short_description/work_notes/
+                # caller_id) folded onto the ORIGIN node so it stops being a bare id — included
+                # only when ServiceNow returns them, so a thin fixture mints the exact same node.
+                **{k: inc[k] for k in ("title", "short_description", "work_notes", "caller_id")
+                   if inc.get(k) is not None},
             }
             ops.append(AddNode(type=NodeType.INCIDENT, props=inc_props))
             inc_id = registry.node_id(NodeType.INCIDENT, inc_props)
@@ -148,6 +153,10 @@ class ServiceNowAdapter:
                 "incident_id": ri["number"],
                 "severity": ri.get("priority"),
                 "commander": ri.get("assigned_to"),
+                # M2: the related prior's human record too (same conditional fold as get_incident),
+                # so a co-firing/recurrence incident carries its own title/description when served.
+                **{k: ri[k] for k in ("title", "short_description", "work_notes", "caller_id")
+                   if ri.get(k) is not None},
             }
             ops.append(AddNode(type=NodeType.INCIDENT, props=ri_props))
             ri_id = registry.node_id(NodeType.INCIDENT, ri_props)

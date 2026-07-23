@@ -29,7 +29,12 @@ def code_regression() -> tuple[SubjectRef, dict, str]:
     subject = SubjectRef(domain="app-incident", id="INC-4821", kind="incident")
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-4821", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-4821",
+                         "title": "payments-api elevated 5xx errors",
+                         "short_description": "payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
+                         "work_notes": "High5xxRate paged SRE; v4.12.0 shipped just before onset.",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "payments-api",
                                      "app_id": "APM-PAYMEN",
@@ -88,7 +93,12 @@ def database() -> tuple[SubjectRef, dict, str]:
     subject = SubjectRef(domain="app-incident", id="INC-7734", kind="incident")
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-7734", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-7734",
+                         "title": "orders-api p99 latency spike",
+                         "short_description": "orders-api p99 hit 5.2s ~8m after CHG-9 dropped an index",
+                         "work_notes": "HighLatencyP99 fired; p50 flat, tail blown. Suspect CHG-9.",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "orders-api",
                                      "app_id": "APM-ORDERS",
@@ -147,7 +157,12 @@ def network() -> tuple[SubjectRef, dict, str]:
     subject = SubjectRef(domain="app-incident", id="INC-9001", kind="incident")
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-9001", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-9001",
+                         "title": "checkout-svc -> pricing-svc timeouts",
+                         "short_description": "checkout-svc -> pricing-svc timeouts after an MTU change",
+                         "work_notes": "HighRetransSegs on SEG-EDGE-12; probes failing. Network change?",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "checkout-svc",
                                      "app_id": "APM-CHECKO",
@@ -215,7 +230,12 @@ def deployment() -> tuple[SubjectRef, dict, str]:
     subject = SubjectRef(domain="app-incident", id="INC-7731", kind="incident")
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-7731", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-7731",
+                         "title": "checkout-api pods CrashLoopBackOff",
+                         "short_description": "checkout-api rev43 rollout stuck 0/3 ready; pods crash-loop",
+                         "work_notes": "KubePodCrashLooping; ProgressDeadlineExceeded. Suspect rev43.",
+                         "caller_id": "svc-deploy-bot",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "checkout-api",
                                      "app_id": "APM-CHECKO",
@@ -362,7 +382,12 @@ def firewall() -> tuple[SubjectRef, dict, str]:
     EXT = "external_service:fraud-score-vendor"
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-7702", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-7702",
+                         "title": "fraud-scoring egress calls failing",
+                         "short_description": "fraud-scoring egress failing ~7m after CHG-3311 ACL change",
+                         "work_notes": "ExternalDependencyErrorRateHigh; recurrence of INC-7699.",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "checkout-api",
                                      "app_id": "APM-CHECKO",
@@ -503,7 +528,12 @@ def nochange() -> tuple[SubjectRef, dict, str]:
     subject = SubjectRef(domain="app-incident", id="INC-9100", kind="incident")
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-9100", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-9100",
+                         "title": "checkout-api latency under traffic surge",
+                         "short_description": "checkout-api p99 hit 6.8s under a 3.4x surge; no change logged",
+                         "work_notes": "HighConnPoolUtilization; empty change log. Organic surge.",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "checkout-api",
                                      "app_id": "APM-CHECKO",
@@ -594,7 +624,12 @@ def messaging() -> tuple[SubjectRef, dict, str]:
     subject = SubjectRef(domain="app-incident", id="INC-8801", kind="incident")
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-8801", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-8801",
+                         "title": "order-processor consumer lag climbing",
+                         "short_description": "order-processor lag on orders.events up after CHG-55",
+                         "work_notes": "HighConsumerLag; DLQ empty, producer steady. Suspect CHG-55.",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "order-processor",
                                      "app_id": "APM-ORDERP",
@@ -674,7 +709,12 @@ def infra() -> tuple[SubjectRef, dict, str]:
     subject = SubjectRef(domain="app-incident", id="INC-8900", kind="incident")
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-8900", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-8900",
+                         "title": "checkout-svc pod evicted (memory pressure)",
+                         "short_description": "checkout-svc pod evicted after node-prod-17 ran low on memory",
+                         "work_notes": "PodEvicted; host mem pegged, pod mem moderate. Noisy neighbor?",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "checkout-svc",
                                      "app_id": "APM-CHECKO",
@@ -767,7 +807,12 @@ def cache() -> tuple[SubjectRef, dict, str]:
     cache = "cache:product-redis"
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-5500", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-5500",
+                         "title": "product-api latency after cache deploy",
+                         "short_description": "product-api p99 up after cache deploy; hit-rate collapsed",
+                         "work_notes": "HighLatencyP99; redis hit-rate 41%, evictions surging.",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "product-api", "app_id": "APM-PRODUCT",
                                      "sys_id": "sn_productapi01", "repo": "product-api",
@@ -830,7 +875,12 @@ def featureflag() -> tuple[SubjectRef, dict, str]:
     flag = "feature_flag:new-tax-engine|prod"
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-5600", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-5600",
+                         "title": "cart-api 5xx after feature-flag flip",
+                         "short_description": "cart-api 5xx began at the new-tax-engine flag flip to 100%",
+                         "work_notes": "High5xxRate; new TaxEngineException at the flip. Flag suspected.",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "cart-api", "app_id": "APM-CART",
                                      "sys_id": "sn_cartapi01", "repo": "cart-api",
@@ -890,7 +940,12 @@ def certificate() -> tuple[SubjectRef, dict, str]:
     cert = "certificate:auth-tls-intermediate"
     fx = {
         "servicenow": {"*": {
-            "incident": {"number": "INC-5700", "opened_at": t_on, "priority": "2 - High",
+            "incident": {"number": "INC-5700",
+                         "title": "auth-svc intermittent 503s",
+                         "short_description": "auth-svc 503s from TLS handshake fails; cert expiring",
+                         "work_notes": "High5xxRate; PKIX path-building failures. Cert expiry suspected.",
+                         "caller_id": "monitoring.alerting",
+                         "opened_at": t_on, "priority": "2 - High",
                          "assigned_to": "sre-oncall", "state": "in_progress",
                          "cmdb_ci": {"display_value": "auth-svc", "app_id": "APM-AUTH",
                                      "sys_id": "sn_authsvc01", "repo": "auth-svc",

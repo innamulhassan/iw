@@ -722,7 +722,11 @@
         "last_seen": "2026-07-19T13:40:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-9001"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-9001",
+          "short_description": "checkout-svc -> pricing-svc timeouts after an MTU change",
+          "title": "checkout-svc -> pricing-svc timeouts",
+          "work_notes": "HighRetransSegs on SEG-EDGE-12; probes failing. Network change?"
         },
         "source": "servicenow",
         "type": "incident"

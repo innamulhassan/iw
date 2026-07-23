@@ -13,6 +13,7 @@ interface Props {
   busy: boolean;
   error: string | null;
   layer?: string;
+  title?: string; // the incident's one-line description (CatalogItem.title) — M2
   onDecide: (gateId: string, d: GateDecision, opts: { params?: Record<string, unknown>; reason?: string }) => void;
   onReview: (reviewId: string, d: GateDecision, opts: { text?: string }) => void;
   onSend: (text: string) => void;
@@ -24,6 +25,7 @@ export default function Workbench({
   busy,
   error,
   layer,
+  title,
   onDecide,
   onReview,
   onSend,
@@ -42,6 +44,7 @@ export default function Workbench({
         state={live.state}
         outcome={live.outcome}
         layer={layer}
+        title={title}
         onBack={onBack}
       />
       {error && <div className="workbench__error">{error}</div>}

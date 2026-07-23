@@ -88,7 +88,11 @@ def build():
                   "~30m after a network change (CHG-77, MTU/uplink) on segment SEG-EDGE-12 at 13:10.")
     # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-9001"),
+        node(NT.INCIDENT, incident_id="INC-9001",
+             title="checkout-svc -> pricing-svc timeouts",
+             short_description="checkout-svc -> pricing-svc timeouts after an MTU change",
+             work_notes="HighRetransSegs on SEG-EDGE-12; probes failing. Network change?",
+             caller_id="monitoring.alerting"),
         edge(ET.AFFECTS, INC, SVC),
         event(INC, "declared", T_ONSET, source=S.SERVICENOW),
         fact(SVC, "degraded", True, T_ONSET, source=S.PROMETHEUS),

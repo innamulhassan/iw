@@ -79,7 +79,11 @@ def build(premature_write: bool = False):
 
     # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
     scope_ops = [
-        node(NT.INCIDENT, incident_id="INC-7702"),
+        node(NT.INCIDENT, incident_id="INC-7702",
+             title="fraud-scoring egress calls failing",
+             short_description="fraud-scoring egress failing ~7m after CHG-3311 ACL change",
+             work_notes="ExternalDependencyErrorRateHigh; recurrence of INC-7699.",
+             caller_id="monitoring.alerting"),
         node(NT.EXTERNAL_SERVICE, service_name="fraud-score-vendor", vendor="FraudScoreCo"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.DEPENDS_ON, SVC, EXT, origin="declared"),

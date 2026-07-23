@@ -65,7 +65,11 @@ def build():
 
     # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-8801"),
+        node(NT.INCIDENT, incident_id="INC-8801",
+             title="order-processor consumer lag climbing",
+             short_description="order-processor lag on orders.events up after CHG-55",
+             work_notes="HighConsumerLag; DLQ empty, producer steady. Suspect CHG-55.",
+             caller_id="monitoring.alerting"),
         node(NT.MESSAGE_QUEUE, topic_id="orders.events"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.CONSUMES_FROM, SVC, MQ, origin="declared"),

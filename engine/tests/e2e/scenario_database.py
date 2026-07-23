@@ -85,7 +85,11 @@ def build():
     # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra): the
     # subject incident node, the declared topology, and the still-bleeding severity read.
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-7734"),
+        node(NT.INCIDENT, incident_id="INC-7734",
+             title="orders-api p99 latency spike",
+             short_description="orders-api p99 hit 5.2s ~8m after CHG-9 dropped an index",
+             work_notes="HighLatencyP99 fired; p50 flat, tail blown. Suspect CHG-9.",
+             caller_id="monitoring.alerting"),
         node(NT.DATABASE, db_id="orders-pg"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.DEPENDS_ON, SVC, DB, origin="declared"),

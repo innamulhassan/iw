@@ -23,10 +23,11 @@ interface Props {
    *  single step and surface as an ×N badge, never as extra columns). */
   counts?: Record<string, number>;
   layer?: string;
+  title?: string; // the incident's one-line description (CatalogItem.title) — M2
   onBack: () => void;
 }
 
-export default function PhaseStepper({ subject, reached, current, state, outcome, counts, layer, onBack }: Props) {
+export default function PhaseStepper({ subject, reached, current, state, outcome, counts, layer, title, onBack }: Props) {
   const reachedSet = new Set(reached);
 
   return (
@@ -38,6 +39,11 @@ export default function PhaseStepper({ subject, reached, current, state, outcome
           </button>
           <span className="phase-bar__kind">{subject?.kind ?? "incident"}</span>
           <span className="phase-bar__id">{subject?.id ?? "—"}</span>
+          {title && (
+            <span className="phase-bar__title" title={title}>
+              {title}
+            </span>
+          )}
           {layer && <span className="phase-bar__layer">{layer}</span>}
         </div>
         <div className="phase-bar__status">

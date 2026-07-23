@@ -545,7 +545,11 @@
         "last_seen": "2026-07-19T14:30:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-5700"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-5700",
+          "short_description": "auth-svc 503s from TLS handshake fails; cert expiring",
+          "title": "auth-svc intermittent 503s",
+          "work_notes": "High5xxRate; PKIX path-building failures. Cert expiry suspected."
         },
         "source": "servicenow",
         "type": "incident"

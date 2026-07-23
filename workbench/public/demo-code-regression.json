@@ -68,7 +68,11 @@
         "id": "incident:inc-4821",
         "type": "incident",
         "props": {
-          "incident_id": "INC-4821"
+          "incident_id": "INC-4821",
+          "title": "payments-api elevated 5xx errors",
+          "short_description": "payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
+          "work_notes": "High5xxRate paged SRE; v4.12.0 shipped just before onset.",
+          "caller_id": "monitoring.alerting"
         },
         "origin": true,
         "source": "servicenow",
@@ -718,10 +722,59 @@
   ],
   "journal": [
     {
+      "kind": "plan",
       "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
       "phase": "frame",
       "actor": "engine",
       "narrative": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
+      "available": [
+        "ingest_alert",
+        "query_change_log",
+        "seed_graph",
+        "get_dependencies",
+        "assess_impact",
+        "list_dependencies"
+      ],
+      "plan_calls": [],
+      "plan_ops": [
+        "AddNode",
+        "AddNode",
+        "AddNode",
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "AddEdge",
+        "AddNode",
+        "AddNode",
+        "AddEdge",
+        "AddEdge",
+        "AddAssertion",
+        "AddAssertion"
+      ]
+    },
+    {
+      "kind": "phase",
+      "seq": 1,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "phase": "frame",
+      "actor": "engine",
+      "narrative": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
+      "goal": "Normalize the signal: fix scope/severity/onset, seed the symptom (Anomaly) + subject + topology + candidate changes, and scope the impact.",
+      "next_actions": [],
+      "verdict": "advance",
       "refs": {
         "nodes": [
           "service:payments-api|prod",
@@ -760,10 +813,47 @@
       }
     },
     {
+      "kind": "plan",
       "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
       "phase": "investigate",
       "actor": "engine",
       "narrative": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1.",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "plan_calls": [],
+      "plan_ops": [
+        "AddNode",
+        "AddEdge",
+        "AddNode",
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddEdge",
+        "ProposeHypothesis",
+        "ProposeHypothesis"
+      ]
+    },
+    {
+      "kind": "phase",
+      "seq": 2,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "phase": "investigate",
+      "actor": "engine",
+      "narrative": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1.",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "next_actions": [],
+      "verdict": "repeat",
       "refs": {
         "nodes": [
           "code_commit:abc123",
@@ -789,10 +879,49 @@
       }
     },
     {
+      "kind": "plan",
       "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
       "phase": "investigate",
       "actor": "engine",
       "narrative": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123.",
+      "available": [
+        "enumerate_changes",
+        "propose_hypotheses",
+        "correlate_timeline",
+        "fetch_logs",
+        "fetch_metrics",
+        "fetch_traces",
+        "read_diff",
+        "blame",
+        "query_change_log"
+      ],
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddEdge",
+        "UpdateHypothesis",
+        "UpdateHypothesis"
+      ]
+    },
+    {
+      "kind": "phase",
+      "seq": 3,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "phase": "investigate",
+      "actor": "engine",
+      "narrative": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123.",
+      "goal": "ONE loop \u2014 hypothesize \u21c4 gather evidence \u21c4 refute: generate causal explanations change-first, gather targeted evidence to confirm or refute the leader, rule out rivals.",
+      "next_actions": [],
+      "verdict": "advance",
       "refs": {
         "nodes": [
           "error_signature:npe-taxcalc"
@@ -818,10 +947,32 @@
       }
     },
     {
+      "kind": "plan",
       "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
       "phase": "act",
       "actor": "engine",
       "narrative": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).",
+      "available": [
+        "propose_fix",
+        "apply_mitigation",
+        "apply_remediation"
+      ],
+      "plan_calls": [],
+      "plan_ops": [
+        "UpdateHypothesis"
+      ]
+    },
+    {
+      "kind": "phase",
+      "seq": 4,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "phase": "act",
+      "actor": "engine",
+      "narrative": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).",
+      "goal": "Execute the chosen production-changing action through the human approval gate \u2014 early mitigation and remediation are the same gated machinery; success is an approved, executed, journaled action.",
+      "next_actions": [],
+      "verdict": "advance",
       "refs": {
         "nodes": [],
         "edges": [],
@@ -833,10 +984,35 @@
       }
     },
     {
+      "kind": "plan",
       "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
       "phase": "verify",
       "actor": "engine",
       "narrative": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed.",
+      "available": [
+        "recheck_symptom",
+        "confirm_chain"
+      ],
+      "plan_calls": [],
+      "plan_ops": [
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "AddAssertion",
+        "UpdateHypothesis"
+      ]
+    },
+    {
+      "kind": "phase",
+      "seq": 5,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "phase": "verify",
+      "actor": "engine",
+      "narrative": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed.",
+      "goal": "Did the symptom clear and does the confirmed chain still hold?",
+      "next_actions": [],
+      "verdict": "advance",
       "refs": {
         "nodes": [],
         "edges": [],
@@ -854,10 +1030,28 @@
       }
     },
     {
+      "kind": "plan",
       "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
       "phase": "close",
       "actor": "engine",
       "narrative": "Postmortem: v4.12.0 (abc123) NPE in TaxCalculator \u2192 5xx; rollback to v4.11.3 resolved it. DB ruled out.",
+      "available": [
+        "render_postmortem"
+      ],
+      "plan_calls": [],
+      "plan_ops": []
+    },
+    {
+      "kind": "phase",
+      "seq": 6,
+      "ts": "2026-07-19T00:00:00+00:00",
+      "phase": "close",
+      "actor": "engine",
+      "narrative": "Postmortem: v4.12.0 (abc123) NPE in TaxCalculator \u2192 5xx; rollback to v4.11.3 resolved it. DB ruled out.",
+      "goal": "Postmortem: the confirmed causal chain + timeline, folded from the journal.",
+      "next_actions": [],
+      "verdict": "done",
       "refs": {
         "nodes": [],
         "edges": [],

@@ -90,7 +90,11 @@ def build():
 
     # ── scope/impact framing folded into FRAME (the retired TRIAGE — P7 5-phase algebra) ──
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-5600"),
+        node(NT.INCIDENT, incident_id="INC-5600",
+             title="cart-api 5xx after feature-flag flip",
+             short_description="cart-api 5xx began at the new-tax-engine flag flip to 100%",
+             work_notes="High5xxRate; new TaxEngineException at the flip. Flag suspected.",
+             caller_id="monitoring.alerting"),
         node(NT.API_ENDPOINT, service_name="cart-api", env="prod", method="POST",
              route_template="/cart/checkout"),
         # the checkout endpoint's status-code distribution: 34% 5xx — the scope evidence

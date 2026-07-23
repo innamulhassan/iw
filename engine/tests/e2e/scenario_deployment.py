@@ -130,7 +130,11 @@ def build(mitigated: bool = False):
     }
 
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-7731"),
+        node(NT.INCIDENT, incident_id="INC-7731",
+             title="checkout-api pods CrashLoopBackOff",
+             short_description="checkout-api rev43 rollout stuck 0/3 ready; pods crash-loop",
+             work_notes="KubePodCrashLooping; ProgressDeadlineExceeded. Suspect rev43.",
+             caller_id="svc-deploy-bot"),
         edge(ET.AFFECTS, INC, SVC),
         event(INC, "declared", T_TRIAGE, source=S.SERVICENOW),
         # the host the crashing pod is scheduled onto is itself healthy — USE metrics all

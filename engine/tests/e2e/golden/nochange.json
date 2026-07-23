@@ -494,7 +494,11 @@
         "last_seen": "2026-07-19T09:45:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-9001"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-9001",
+          "short_description": "checkout-api p99 hit 6.8s under a 3.4x surge; no change logged",
+          "title": "checkout-api latency under traffic surge",
+          "work_notes": "HighConnPoolUtilization; empty change log. Organic surge."
         },
         "source": "servicenow",
         "type": "incident"

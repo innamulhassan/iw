@@ -523,7 +523,11 @@
         "last_seen": "2026-07-19T09:42:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-8801"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-8801",
+          "short_description": "order-processor lag on orders.events up after CHG-55",
+          "title": "order-processor consumer lag climbing",
+          "work_notes": "HighConsumerLag; DLQ empty, producer steady. Suspect CHG-55."
         },
         "source": "servicenow",
         "type": "incident"

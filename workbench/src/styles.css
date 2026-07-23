@@ -176,6 +176,18 @@ code {
   font-weight: 700;
 }
 
+/* M2 — the incident's one-line description (CatalogItem.title), so the header says WHAT is being
+   investigated, not just the id. Truncates gracefully on a narrow header. */
+.phase-bar__title {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+  max-width: 42ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .outcome-badge {
   font-size: 11px;
   font-weight: 700;

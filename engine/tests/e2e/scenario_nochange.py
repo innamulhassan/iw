@@ -91,7 +91,11 @@ def build():
                   "baseline at 09:00; HighConnPoolUtilization fired on the service.")
     # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-9001"),
+        node(NT.INCIDENT, incident_id="INC-9001",
+             title="checkout-api latency under traffic surge",
+             short_description="checkout-api p99 hit 6.8s under a 3.4x surge; no change logged",
+             work_notes="HighConnPoolUtilization; empty change log. Organic surge.",
+             caller_id="monitoring.alerting"),
         edge(ET.AFFECTS, INC, SVC),
         event(INC, "declared", T_TRIAGE, source=S.SERVICENOW),
         fact(DB, "conn_pool_util", 0.86, T_TRIAGE, source=S.PROMETHEUS, reliability=0.98),

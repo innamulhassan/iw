@@ -522,7 +522,11 @@
         "last_seen": "2026-07-19T02:18:00+00:00",
         "origin": true,
         "props": {
-          "incident_id": "INC-8900"
+          "caller_id": "monitoring.alerting",
+          "incident_id": "INC-8900",
+          "short_description": "checkout-svc pod evicted after node-prod-17 ran low on memory",
+          "title": "checkout-svc pod evicted (memory pressure)",
+          "work_notes": "PodEvicted; host mem pegged, pod mem moderate. Noisy neighbor?"
         },
         "source": "servicenow",
         "type": "incident"

@@ -69,7 +69,11 @@ def build():
 
     # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-8900"),
+        node(NT.INCIDENT, incident_id="INC-8900",
+             title="checkout-svc pod evicted (memory pressure)",
+             short_description="checkout-svc pod evicted after node-prod-17 ran low on memory",
+             work_notes="PodEvicted; host mem pegged, pod mem moderate. Noisy neighbor?",
+             caller_id="monitoring.alerting"),
         node(NT.HOST, fqdn="node-prod-17"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.RUNS_ON, POD, HOST, origin="declared"),

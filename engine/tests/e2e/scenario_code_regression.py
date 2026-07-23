@@ -73,7 +73,11 @@ def build(refuted_variant: bool = False):
     ], "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47.")
     # scope/impact framing (the retired TRIAGE's real content — P7 5-phase algebra)
     frame = frame.model_copy(update={"ops": [*frame.ops,
-        node(NT.INCIDENT, incident_id="INC-4821"),
+        node(NT.INCIDENT, incident_id="INC-4821",
+             title="payments-api elevated 5xx errors",
+             short_description="payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
+             work_notes="High5xxRate paged SRE; v4.12.0 shipped just before onset.",
+             caller_id="monitoring.alerting"),
         node(NT.DATABASE, db_id="payments-ora"),
         edge(ET.AFFECTS, INC, SVC),
         edge(ET.DEPENDS_ON, SVC, DB, origin="declared"),

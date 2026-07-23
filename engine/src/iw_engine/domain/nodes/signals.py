@@ -30,7 +30,11 @@ SPECS: tuple[NodeSpec, ...] = (
         type=NodeType.INCIDENT,
         tier="L6",
         identity_keys=("incident_id",),
-        static_props=("incident_id", "severity", "commander"),
+        # M2: the incident's human record props (title/short_description/work_notes/caller_id)
+        # documented for doc-parity beside id/severity/commander — static_props is doc-only
+        # (never reducer-enforced; props are stored verbatim), so this is purely additive.
+        static_props=("incident_id", "severity", "commander",
+                      "title", "short_description", "work_notes", "caller_id"),
         fact_predicates=(),
         event_types=("declared", "mitigated", "resolved"),
         discriminator=(
