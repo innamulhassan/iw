@@ -204,8 +204,12 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
   // the edge the pointer is over → a floating detail card (relation · direction · source · when)
   const [hoverEdge, setHoverEdge] = useState<{ id: string; x: number; y: number } | null>(null);
 
-  const ordered = nodesWithOrder(live);
-  const related = relatedIncidents(live);
+  // Memoized on `live`: these run a sort/scan, and — load-bearing — `positions` is memoized on
+  // `[ordered]`, so an unstable `ordered` ref would make `positions` change every render and the
+  // center-on-selection effect (deps `[selectedId, positions]`) re-fire → setView → re-render in a
+  // loop whenever a node is selected. Keying both to `live` makes them stable between engine deltas.
+  const ordered = useMemo(() => nodesWithOrder(live), [live]);
+  const related = useMemo(() => relatedIncidents(live), [live]);
   const orderFor = useMemo(() => {
     const m = new Map<string, number>();
     ordered.forEach((n) => m.set(n.id, n.order));
