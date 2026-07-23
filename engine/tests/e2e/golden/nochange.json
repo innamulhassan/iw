@@ -576,6 +576,34 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "active_alerts",
+            "range_query",
+            "get_snapshots"
+          ],
+          "objective": "checkout-api p99 latency spiked to 6.8s and request rate jumped 3.4x baseline at 09:00; HighConnPoolUtilization fired on the service. Declared SEV2, still bleeding. AppD snapshot exit-calls show checkout-api's only backend dependency is checkout-db (JDBC) \u2014 pool util already at 86% and climbing. Investigate, don't blind-mitigate.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddNode",
+            "AddEdge",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -594,6 +622,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -612,6 +641,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -630,6 +660,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -703,6 +734,19 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [
+            "find_recent_changes"
+          ],
+          "objective": "ServiceNow's change log for the incident window is EMPTY \u2014 change-first comes up dry. Falling back to the onset-correlated saturation signal: H1 (the pool) leads on the USE trend; H2 (a change nobody logged) stays alive as the rival until we can rule it out.",
+          "ops": [
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -721,6 +765,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -776,6 +821,24 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Ruled out the phantom change (clean change log). Pool util at 97% tracks the onset exactly, and checkout-db is the only dependency in play.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "NoEvidence",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -823,6 +886,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "No change to roll back, so the safest reversible action is capacity: scale the pool and add a read replica. Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -863,6 +936,20 @@
         "AddAssertion"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-scale-up: pool util back to 52%, symptom cleared. The saturation trend still only correlates with the onset \u2014 there is no revert experiment to run for an organic surge, so the hypothesis stays 'supported', not confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -901,6 +988,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

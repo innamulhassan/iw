@@ -706,6 +706,46 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "find_recent_changes",
+            "active_alerts",
+            "appd_bt_metrics"
+          ],
+          "objective": "product-api p99 jumped to 6.8s at 14:16, 6m after the v3.4.0 deploy at 14:10. p50 is flat at 64ms, errors normal \u2014 a tail-only / downstream shape. Declared SEV2. The /products/{id} hot path is the source of the tail. It reads from product-redis \u2014 investigate the cache tier, don't blind-mitigate.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -727,6 +767,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -748,6 +789,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -766,6 +808,7 @@
       "reason": "no capability for intent 'appd_bt_metrics'",
       "seq": 1,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -846,6 +889,24 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [
+            "git_diff",
+            "list_related_incidents"
+          ],
+          "objective": "Change-first: the deploy is the prime suspect. Two competing change hypotheses \u2014 H1 a cache-config change (stampede), H2 a code regression. search-api filed the same stampede shape last quarter when coalescing was disabled \u2014 a related prior reinforcing H1.",
+          "ops": [
+            "AddNode",
+            "AddEdge",
+            "AddNode",
+            "AddEdge",
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -864,6 +925,7 @@
       "reason": "no capability for intent 'git_diff'",
       "seq": 2,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -884,6 +946,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -952,6 +1015,28 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [
+            "appd_bt_metrics",
+            "instant_query",
+            "git_blame"
+          ],
+          "objective": "Ruled out the code regression (p50 flat at 67ms). Confirmed the stampede: hit-rate collapsed to 41%, evictions 420/min, memory pinned at 94%. The diff disables singleflight at client.go:88 \u2014 without coalescing, every request issues its own cache read instead of sharing one in-flight.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -970,6 +1055,7 @@
       "reason": "no capability for intent 'appd_bt_metrics'",
       "seq": 3,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -990,6 +1076,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1008,6 +1095,7 @@
       "reason": "no capability for intent 'git_blame'",
       "seq": 3,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1062,6 +1150,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: roll back to v3.3.2 (re-enable singleflight). Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1104,6 +1202,22 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-rollback: p99 back to 140ms, hit-rate 96%, evictions down to 4/min. Root cause confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1145,6 +1259,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

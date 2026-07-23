@@ -651,6 +651,35 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "find_recent_changes",
+            "active_alerts"
+          ],
+          "objective": "order-processor's consumer group fell behind at 09:42 \u2014 lag on the orders.events topic hit 42k messages, 12 minutes after CHG-55 (a consumer deploy) shipped. ALT-7 (HighConsumerLag) fired; the fulfilment SLA is breaching downstream. Declared SEV2. order-processor consumes the orders.events topic; lag is climbing but the topic itself is up. Investigate the consumer path, don't restart the broker blind.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -669,6 +698,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -687,6 +717,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -763,6 +794,22 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [
+            "diff_range",
+            "list_related_incidents"
+          ],
+          "objective": "Change-first: CHG-55 (consumer deploy) landed 12m before onset \u2014 prime suspect (H1). A broker rebalance or a producer surge (H2) is the weaker alternative; if it were the broker, the DLQ and producer throughput would move too \u2014 pending investigation.",
+          "ops": [
+            "AddNode",
+            "AddEdge",
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -781,6 +828,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -799,6 +847,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -868,6 +917,24 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [
+            "get_snapshots",
+            "instant_query"
+          ],
+          "objective": "Lag is still climbing (61k) but ingress throughput is flat and the DLQ is empty \u2014 the deficit is purely consumer-side processing rate. get_snapshots shows the post-CHG-55 handler is ~2x slower per message. H2 (broker/producer) refuted; H1 (consumer deploy) confirmed at high confidence.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -886,6 +953,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -904,6 +972,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -953,6 +1022,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: roll the consumer deploy back to the prior build. Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -993,6 +1072,20 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-rollback: lag drained to ~300 messages; anomaly cleared. Root cause confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1032,6 +1125,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

@@ -637,6 +637,37 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "active_alerts",
+            "pod_status"
+          ],
+          "objective": "checkout-svc's tier-1 pod checkout-7c9f-abc12 was evicted at 02:18 with reason 'node low on resource: memory' on node-prod-17. 5xx climbed as the pod was rescheduled. Something on that node exhausted its memory. Declared SEV2. The evicted pod ran on node-prod-17, whose memory is pegged at 97%. Find what on the node ate the memory before mitigating.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -655,6 +686,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -673,6 +705,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -751,6 +784,23 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [
+            "find_recent_changes",
+            "list_related_incidents"
+          ],
+          "objective": "Node-first: node-prod-17's memory is exhausted and an unbounded etl-nightly batch job is co-scheduled there \u2014 prime suspect (H1, a noisy-neighbor co-tenancy fault). A checkout-svc memory leak (H2) is the weaker alternative; if it were the app, its OWN pod memory would be high \u2014 pending investigation.",
+          "ops": [
+            "AddNode",
+            "AddEdge",
+            "AddAssertion",
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -769,6 +819,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -787,6 +838,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -851,6 +903,24 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [
+            "get_snapshots",
+            "instant_query"
+          ],
+          "objective": "The node's memory is exhausted (98%) but checkout-svc's OWN pod memory was only 55% at eviction \u2014 this is not the app leaking. The etl-nightly batch job overran ~4x its window on the same node, holding the memory. H2 (app leak) refuted; H1 (noisy-neighbor batch job) confirmed at high confidence.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -869,6 +939,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -887,6 +958,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -936,6 +1008,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: reschedule etl-nightly off the tier-1 node and cap its memory. Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -976,6 +1058,20 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-reschedule: node memory back to 61%; checkout pod Ready, no evictions. Root cause confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1015,6 +1111,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

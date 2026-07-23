@@ -71,6 +71,22 @@ def test_invocation_entry_serves_full_detail_incl_why():
         assert "effect" in j and "params" in j and "blocked" in j
 
 
+# ── F1: the served plan carries the to-do CHECKLIST; invocations carry their to-do index ──
+def test_plan_entry_serves_todo_checklist_and_invocations_carry_todo():
+    view = _deployment_bundle()["journal"]
+    plans = [j for j in view if j["kind"] == "plan"]
+    frame = next(j for j in plans if j["phase"] == "frame")
+    assert frame["todos"], "the plan serves its to-do checklist (F1)"
+    td = frame["todos"][0]
+    assert {"objective", "calls", "ops", "status"} <= set(td) and td["status"] == "pending"
+    # the served checklist flattens back to the served plan_calls/plan_ops
+    assert [c for t in frame["todos"] for c in t["calls"]] == frame["plan_calls"]
+    # every served invocation carries its to-do attribution
+    invs = [j for j in view if j["kind"] == "invocation"]
+    assert invs and all("todo" in j and j["todo"] is not None for j in invs), \
+        "each served invocation carries the to-do it served (F1)"
+
+
 # ── a scripted-direct-ops run serves its plan (visible) with zero invocations (honest) ──
 def test_scripted_direct_ops_bundle_serves_plan_without_invocations():
     subject, script = cr.build()

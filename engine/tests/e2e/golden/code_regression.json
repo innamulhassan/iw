@@ -735,6 +735,40 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
+          "ops": [
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -814,6 +848,25 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1.",
+          "ops": [
+            "AddNode",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -882,6 +935,27 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -933,6 +1007,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: roll back to v4.11.3. Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -973,6 +1057,20 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1012,6 +1110,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

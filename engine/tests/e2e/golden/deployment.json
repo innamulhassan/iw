@@ -1051,6 +1051,41 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "get_dependencies",
+            "find_recent_changes",
+            "active_alerts",
+            "rollout_status",
+            "pod_status",
+            "events"
+          ],
+          "objective": "checkout-api's rev43 rollout (09:00) never reached available replicas; pods crash-looping by 09:04. checkout-db is the only declared dependency. Declared SEV2. Rollout is stuck (ProgressDeadlineExceeded->rollback) and the pod is CrashLoopBackOff \u2014 it has never reached Ready; its host k8s-node-17 is healthy (CPU 31%, no saturation). Investigate before mitigating.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddNode",
+            "AddEdge",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1069,6 +1104,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1087,6 +1123,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1105,6 +1142,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1123,6 +1161,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1141,6 +1180,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1159,6 +1199,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1260,6 +1301,17 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Change-first: the rev43 deploy is the prime suspect (H1); the declared DB dependency is a weaker alternative (H2).",
+          "ops": [
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1313,6 +1365,22 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [
+            "blame",
+            "diff_range",
+            "fetch_metrics"
+          ],
+          "objective": "Ruled out checkout-db (pool 24%, healthy). Blame + diff pin the panic to PR #482's removal of DB_HOST from the ConfigMap in commit 9f2a1e0.",
+          "ops": [
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1331,6 +1399,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1349,6 +1418,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1367,6 +1437,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1430,6 +1501,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: roll back the Deployment to the prior release rev42. Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1472,6 +1553,22 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-rollback: pod reached Ready, rollout complete, degraded cleared. Root cause confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1513,6 +1610,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

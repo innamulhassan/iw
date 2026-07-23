@@ -85,17 +85,21 @@ def _journal_entry(e: JournalEntry) -> dict:
                 "refs": e.refs}
     if e.kind == "plan":
         # the planner's PLAN + the TOOLS AVAILABLE (the access surface) — visible on the
-        # scripted-direct-ops path too, where no invocations are emitted to infer it from.
+        # scripted-direct-ops path too, where no invocations are emitted to infer it from. `todos`
+        # is the F1 CHECKLIST: each objective + its call intents + op kinds + status (the UI groups
+        # the tool-call cards under their to-do); [] on a legacy journal without the field.
         return {**base, "narrative": e.reasoning, "available": e.available or [],
-                "plan_calls": e.plan_calls or [], "plan_ops": e.plan_ops or []}
+                "plan_calls": e.plan_calls or [], "plan_ops": e.plan_ops or [],
+                "todos": e.todos or []}
     if e.kind == "invocation":
         # every tool call in full: intent/provider/why/outcome/op_count (+ effect/params/blocked),
-        # plus the transport provenance (M1: served_by + binding — mock-vs-live on the record).
+        # plus the transport provenance (M1: served_by + binding — mock-vs-live on the record). `todo`
+        # is the F1 attribution — which plan to-do this call served (None on a legacy journal).
         return {**base, "intent": e.intent, "narrative": e.reasoning,
                 "provider": a.get("provider"), "params": a.get("params", {}),
                 "effect": a.get("effect"), "outcome": o.get("outcome"),
                 "reason": o.get("reason"), "blocked": o.get("blocked"),
-                "op_count": o.get("op_count"),
+                "op_count": o.get("op_count"), "todo": e.todo,
                 "served_by": a.get("served_by"), "binding": a.get("binding")}
     if e.kind == "gate_opened":
         # the write-GATE question: proposed action + serving hypothesis + evidence.

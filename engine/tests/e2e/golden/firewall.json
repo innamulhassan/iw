@@ -848,6 +848,39 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "active_alerts",
+            "find_recent_changes"
+          ],
+          "objective": "checkout-api's calls to the fraud-scoring dependency started erroring at 09:12, 7 minutes after change CHG-3311 ('tighten egress ACL on prod-vpc') was implemented at 09:05. Declared SEV3. checkout-api depends on the fraud-scoring vendor (declared in CMDB). Still failing; investigate before touching network policy.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -866,6 +899,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -884,6 +918,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -967,6 +1002,24 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [
+            "list_related_incidents"
+          ],
+          "objective": "Change-first: CHG-3311 tightened the egress ACL 7 minutes before onset \u2014 the firewall rule is the prime suspect (H1). ServiceNow flags this as a RECURRENCE of INC-7699 (last quarter, same FW-EGR-118: an egress-ACL tightening blocked the same vendor, resolved by reverting the ACL) \u2014 a known-recurrence prior that immediately sharpens H1. A raw link-layer flap on the same segment is a weaker alternative (H2).",
+          "ops": [
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -985,6 +1038,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1051,6 +1105,25 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [
+            "fetch_metrics",
+            "search_fw_denies"
+          ],
+          "objective": "Splunk: 214 clean policy denies (action=blocked) at FW-EGR-118 since 09:12, one target only. Prometheus: probe_success=0 on egress-fraud-score alone; egress-geoip and egress-payment-gw stay healthy, and packet_loss on the affected segment is 0.0% \u2014 not a network flap. H2 ruled out; H1 confirmed as leading (supported/high).",
+          "ops": [
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1069,6 +1142,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1087,6 +1161,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1149,6 +1224,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: revert the ACL tightening on FW-EGR-118. This is a security change \u2014 proposed only; execution awaits the human-approved gate.",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1190,6 +1275,21 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-revert: denies stopped, egress-fraud-score probe_success recovered, checkout-api red_errors back to 1%. Root cause confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1230,6 +1330,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

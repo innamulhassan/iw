@@ -681,6 +681,43 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "find_recent_changes",
+            "active_alerts",
+            "appd_bt_metrics"
+          ],
+          "objective": "auth-svc returning 40% 5xx \u2014 but only for a subset of clients. No deploy or code change in the 30m window. The TLS intermediate cert shows 0 days to expiry. The partial/client-dependent failure shape points at TLS, not a total outage. Declared SEV2. /oauth/token is the failing path, but only ~40% of clients \u2014 the ones validating the full chain. The cert's 0 days-to-expiry is the prime suspect; confirm via the actual handshake errors before touching the secret.",
+          "ops": [
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -702,6 +739,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -723,6 +761,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -741,6 +780,7 @@
       "reason": "no capability for intent 'appd_bt_metrics'",
       "seq": 1,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -816,6 +856,22 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [
+            "list_related_incidents"
+          ],
+          "objective": "The cert (H1) is the prime suspect \u2014 0 days to expiry + partial failures on chain-validating clients. The outage hypothesis (H2) is weak: pods are Ready and ~58% of clients succeed. billing-svc filed the same intermediate-expiry shape last year \u2014 a related prior reinforcing H1.",
+          "ops": [
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -836,6 +892,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -904,6 +961,29 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [
+            "appd_bt_metrics",
+            "instant_query",
+            "list_related_incidents"
+          ],
+          "objective": "Ruled out the service outage (pods Ready, p50 flat, TLS-side error). Confirmed the cert: -1 day to expiry, expired at 14:00, 8,840 PKIX-path-building failures on chain-validating clients \u2014 the intermediate lapsed.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -922,6 +1002,7 @@
       "reason": "no capability for intent 'appd_bt_metrics'",
       "seq": 3,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -942,6 +1023,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -962,6 +1044,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1017,6 +1100,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: renew the intermediate cert + re-push the auth-svc TLS secret. Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1059,6 +1152,22 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-renewal: cert at 90 days, 5xx back to 0.2%. Root cause confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1100,6 +1209,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

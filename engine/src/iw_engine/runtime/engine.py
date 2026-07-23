@@ -67,6 +67,10 @@ class Engine:
         self._last_rejections: list[Rejection] = []
         self.rejections: list[Rejection] = []
         self.invocations: list[Invocation] = []
+        # F1 attribution — parallel to `invocations`: the plan to-do index each invocation served,
+        # so the interactive session's live `capability_call` stream can group tool cards under
+        # their to-do (the journal carries the same index on each invocation entry).
+        self.invocation_todos: list[int | None] = []
         # P3 airlock step 1 — the engine CONSUMES the boundary outcome (part4-capability §4):
         # the LAST outcome per intent. An intent whose last call errored/was blocked carries no
         # evidentiary weight and may not feed the NoEvidence/refutation path; a later successful
@@ -189,7 +193,8 @@ class Engine:
         self.journal.append_plan(
             seq, phase, tools_available=list(spec.allowed_intents),
             calls=[c.intent for c in plan.calls],
-            ops=[type(o).__name__ for o in plan.ops], narrative=plan.narrative)
+            ops=[type(o).__name__ for o in plan.ops], narrative=plan.narrative,
+            todos=self._todo_views(plan))   # F1: the plan as a checklist of to-dos on the record
 
         # M6: JOURNAL the planner's OWN reject+repair drops (off-catalog tool, unparseable/illegal
         # op, coerced verdict) — `repair` annotations sharing the phase seq (replay-inert). They
@@ -205,7 +210,11 @@ class Engine:
         data_ops: list = []
         if self.layer is not None:
             allow_write = spec.writes_allowed          # domain role-binding, not a hardcoded phase
-            for call in plan.calls:
+            # F1: the to-do index each flat call serves (parallel to plan.calls) — stamped on the
+            # invocation record + the live stream so each tool call shows which to-do it executed for.
+            call_todos = plan.call_todo_indices()
+            for i, call in enumerate(plan.calls):
+                todo_idx = call_todos[i] if i < len(call_todos) else None
                 started = self._clock().isoformat()
                 t0 = time.perf_counter()
                 ops_i, inv = self.layer.serve(call, allow_write=allow_write)
@@ -217,6 +226,7 @@ class Engine:
                     "kind": "workflow" if inv.effect.value == "write" else "tool"})
                 data_ops.extend(ops_i)
                 self.invocations.append(inv)
+                self.invocation_todos.append(todo_idx)   # F1 attribution, parallel to invocations
                 # P3 airlock step 1 + JOURNAL v2 unification (part2 §1): consume the boundary
                 # outcome AND journal EVERY call — data-bearing, clean-empty, error and blocked
                 # alike — so an approved write can never again leave zero durable trace ("the
@@ -225,8 +235,9 @@ class Engine:
                 self._intent_outcomes[inv.intent] = inv.outcome
                 # the WHY each tool was called (owner goal): thread the plan's stated intent (its
                 # narrative) as the invocation's rationale, so an invocation entry stops carrying
-                # reasoning=None — an audit reads WHY, not just the capability name.
-                self._journal_invocation(seq, phase, inv, why=plan.narrative)
+                # reasoning=None — an audit reads WHY, not just the capability name. `todo` is the
+                # F1 attribution — which plan to-do this call served.
+                self._journal_invocation(seq, phase, inv, why=plan.narrative, todo=todo_idx)
         # The per-phase op ceiling guards against RUNAWAY PLANNER OUTPUT only — it never
         # touches the adapters' data ops. Those are deterministic tool folds and internally
         # referential (a call's AddAssertion lands on a node a sibling call's AddNode creates);
@@ -245,8 +256,10 @@ class Engine:
         # M5: the op_ceiling used to SILENTLY head-slice the planner's over-cap ops — no journal,
         # no feedback — while every OTHER drop in the system is first-class. When it cuts, record a
         # `rejection` entry (shares the phase seq, replay-inert) naming WHAT was dropped + WHY, and
-        # hand the drop to the NEXT plan (below) so the planner learns its output was capped. The
-        # dependency-aware reserve-quota (dropping whole to-do items, not a tail-slice) is F1.
+        # hand the drop to the NEXT plan (below) so the planner learns its output was capped. F1
+        # landed the per-to-do budget SEAM (`Todo.op_budget`) as the documented home for a future
+        # dependency-aware reserve-quota (dropping whole to-do items, not a tail-slice); it is
+        # deliberately UNWIRED here, so the per-phase op_ceiling behaviour is byte-for-byte unchanged.
         ceiling_rejection: Rejection | None = None
         if ceiling and len(authored) > ceiling:
             cut = authored[ceiling:]
@@ -321,7 +334,28 @@ class Engine:
         self.journal.append_phase(seq, result)
         return result
 
-    def _journal_invocation(self, seq: int, phase: str, inv, why: str | None = None) -> None:
+    @staticmethod
+    def _todo_views(plan) -> list[dict]:
+        """The plan's to-dos as journal dicts (F1): each objective + its call intents + op kinds +
+        status, so the `plan` entry carries the CHECKLIST. The op_budget/delegate SEAMS ride only
+        when set, so a golden's to-do stays the lean {objective, calls, ops, status}. Reads the
+        DERIVED `effective_todos`, so a scripted plan that authored none still records its single
+        synthesized to-do (the checklist is never empty when the phase did anything)."""
+        out: list[dict] = []
+        for td in plan.effective_todos:
+            d: dict = {"objective": td.objective,
+                       "calls": [c.intent for c in td.calls],
+                       "ops": [type(o).__name__ for o in td.ops],
+                       "status": td.status.value}
+            if td.op_budget is not None:
+                d["op_budget"] = td.op_budget
+            if td.delegate:
+                d["delegate"] = True
+            out.append(d)
+        return out
+
+    def _journal_invocation(self, seq: int, phase: str, inv, why: str | None = None,
+                            todo: int | None = None) -> None:
         """Journal ONE capability call's boundary outcome (P3 airlock step 1, extended by
         JOURNAL v2 to EVERY call — part2 §1's invocation row: an approved write used to leave
         zero durable trace; now intent, provider, params, effect, blocked-ness, op-count AND the
@@ -335,7 +369,7 @@ class Engine:
         hashing them is a live-privacy knob for a later phase."""
         self.journal.append(JournalEntry(
             seq=seq, ts=self._clock(), kind="invocation",
-            phase_id=phase, actor="engine", intent=inv.intent, reasoning=why,
+            phase_id=phase, actor="engine", intent=inv.intent, reasoning=why, todo=todo,
             action={"capability": inv.intent, "provider": inv.provider,
                     "params": dict(inv.params), "effect": inv.effect.value,
                     # transport provenance (M1): HOW the raw was fetched — the served-by transport

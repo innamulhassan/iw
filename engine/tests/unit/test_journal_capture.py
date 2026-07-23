@@ -75,6 +75,73 @@ def test_scripted_direct_ops_plan_is_visible_not_fabricated():
     assert frame_plan.available, "and the tools it COULD have called are captured too"
 
 
+# ── F1: the plan is a CHECKLIST of to-dos; each invocation attributes to its to-do ─────
+def test_plan_entry_carries_todo_checklist_and_invocations_attribute():
+    """Every `plan` entry records its to-do CHECKLIST (F1). On the scripted path each phase reads
+    as ONE synthesized to-do (objective + its call intents + op kinds + status), and it flattens
+    back to the flat plan_calls/plan_ops — the attribution invariant. Every invocation carries the
+    to-do index it served."""
+    subject, script, fixtures = dep.build()
+    res = run(subject, script, fixtures)
+    jr = res.journal
+
+    plans = [e for e in jr.entries if e.kind == "plan"]
+    frame_plan = next(p for p in plans if p.phase_id == "frame")
+    assert frame_plan.todos, "a phase that did work records a non-empty checklist (F1)"
+    td = frame_plan.todos[0]
+    assert set(td) >= {"objective", "calls", "ops", "status"}
+    assert td["status"] == "pending" and td["objective"]
+    # EVERY plan's checklist flattens back to its flat plan_calls/plan_ops — the attribution
+    # invariant (a do-nothing phase like `close` is simply an empty checklist: []==[]).
+    for p in plans:
+        assert [c for t in p.todos for c in t["calls"]] == p.plan_calls
+        assert [o for t in p.todos for o in t["ops"]] == p.plan_ops
+    # every invocation carries a to-do index pointing at a real to-do of its phase's plan
+    todos_len = {p.phase_id: len(p.todos) for p in plans}
+    invs = [e for e in jr.entries if e.kind == "invocation"]
+    assert invs, "the deployment twin makes tool calls"
+    for e in invs:
+        assert e.todo is not None, "each invocation attributes to a to-do (F1)"
+        assert 0 <= e.todo < todos_len[e.phase_id]
+    assert all(e.todo == 0 for e in invs), "the scripted default is a single-item checklist"
+
+
+def test_engine_attributes_each_invocation_to_its_authored_todo():
+    """MULTI-to-do attribution end-to-end: a frame plan authoring TWO to-dos (each with its own
+    call) journals each invocation under the RIGHT to-do index — the 1:1 execution loop is
+    unchanged; `todo` is the added attribution (call 0 → to-do 0, call 1 → to-do 1)."""
+    from e2e._helpers import call, node, verdict
+
+    from iw_engine.capability import CapabilityLayer, MockSource
+    from iw_engine.capability.adapters import default_adapters
+    from iw_engine.domain.enums import NodeType
+    from iw_engine.domain.subject import SubjectRef
+    from iw_engine.runtime import Engine, ScriptedPlanner
+    from iw_engine.runtime.planner import PlanOutput, Todo
+
+    pb = load_playbook(PLAYBOOK)
+    frame = PlanOutput(
+        phase=pb.entry_phase, narrative="frame", verdict=verdict("advance"),
+        todos=[Todo(objective="pull the recent changes",
+                    calls=[call("find_recent_changes", ci="orders-api")]),
+               Todo(objective="read the firing alerts + seed the symptom",
+                    calls=[call("active_alerts", service="orders-api")],
+                    ops=[node(NodeType.ANOMALY, anomaly_id="ANOM-1")])])
+    subject = SubjectRef(domain="app-incident", id="INC-TODO", kind="incident")
+    engine = Engine(pb, ScriptedPlanner([frame]),
+                    clock=_clock, layer=CapabilityLayer(default_adapters(), source=MockSource({})))
+    engine.start(subject)
+    engine.step()                                   # run FRAME only
+
+    invs = [e for e in engine.journal.entries if e.kind == "invocation"]
+    assert [(e.intent, e.todo) for e in invs] == \
+           [("find_recent_changes", 0), ("active_alerts", 1)]
+    assert engine.invocation_todos == [0, 1]        # the live-stream attribution list, in lockstep
+    # the plan entry's checklist records the op attribution too: to-do 1 authored the AddNode
+    plan = next(e for e in engine.journal.entries if e.kind == "plan")
+    assert plan.todos[0]["ops"] == [] and plan.todos[1]["ops"] == ["AddNode"]
+
+
 # ── every tool call carries the WHY (owner goal) + its outcome/op_count/ts ─────────────
 def test_every_invocation_carries_its_why_and_boundary_fields():
     subject, script, fixtures = dep.build()

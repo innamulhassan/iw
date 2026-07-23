@@ -768,6 +768,49 @@
         "AddAssertion"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "find_recent_changes",
+            "active_alerts",
+            "appd_bt_metrics"
+          ],
+          "objective": "cart-api 5xx spiked to 34% at 14:05:30. The only change in the 30m window is CHG-77 \u2014 a feature-flag flip (new-tax-engine 5% \u2192 100%) at 14:05:00, 30 seconds before onset. No build/deploy event in the window. Declared SEV2. /cart/checkout is returning 34% 5xx. The flag flip is the prime suspect \u2014 but investigate the actual code path before blindly reverting a flag that other teams may depend on.",
+          "ops": [
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddEdge",
+            "AddNode",
+            "AddNode",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -789,6 +832,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -810,6 +854,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -828,6 +873,7 @@
       "reason": "no capability for intent 'appd_bt_metrics'",
       "seq": 1,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -910,6 +956,23 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [
+            "git_log",
+            "list_related_incidents"
+          ],
+          "objective": "The flag (H1) is the prime suspect \u2014 onset is 30s after the flip. The deploy hypothesis (H2) is weak: the last build c3d4e5f shipped 3 days ago with no errors. pricing-api filed the same flag-onset shape when its flag rolled out \u2014 a related prior reinforcing H1.",
+          "ops": [
+            "AddNode",
+            "AddNode",
+            "AddEdge",
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -928,6 +991,7 @@
       "reason": "no capability for intent 'git_log'",
       "seq": 2,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -948,6 +1012,7 @@
       "reason": null,
       "seq": 2,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1016,6 +1081,29 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [
+            "appd_bt_metrics",
+            "git_blame",
+            "list_related_incidents"
+          ],
+          "objective": "Ruled out the deploy (c3d4e5f is 3 days old, signature is new). Confirmed the flag: TaxEngineException at engine.py:142, first_seen at the flip, 312 occurrences on bulk carts \u2014 the signature exists only behind the flag.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1034,6 +1122,7 @@
       "reason": "no capability for intent 'appd_bt_metrics'",
       "seq": 3,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1052,6 +1141,7 @@
       "reason": "no capability for intent 'git_blame'",
       "seq": 3,
       "served_by": null,
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1072,6 +1162,7 @@
       "reason": null,
       "seq": 3,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1125,6 +1216,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: flip new-tax-engine back to 0% rollout. Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1167,6 +1268,22 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-recycle: flag at 0%, 5xx back to 0.3%. Root cause confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1208,6 +1325,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {

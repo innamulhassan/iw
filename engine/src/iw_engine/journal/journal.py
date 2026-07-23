@@ -49,16 +49,19 @@ class JournalEntry(BaseModel):
     #   phase         — the full PhaseResult delta (the replay payload)
     #   plan          — what the planner AUTHORED this phase BEFORE reduction: the tools it COULD
     #                   call (available), the intents it DECIDED to call (plan_calls), the direct
-    #                   ops it authored (plan_ops), + its narrative. Shares its phase's seq (an
-    #                   annotation, not a numbered step) and carries NO delta, so replay ignores
-    #                   it. It makes the plan visible on BOTH paths — the call path AND the
-    #                   scripted-direct-ops path, where there are no invocations to infer it from.
+    #                   ops it authored (plan_ops), the plan as a CHECKLIST of to-dos (todos —
+    #                   F1: each an objective + its call intents + op kinds + status), + its
+    #                   narrative. Shares its phase's seq (an annotation, not a numbered step) and
+    #                   carries NO delta, so replay ignores it. It makes the plan visible on BOTH
+    #                   paths — the call path AND the scripted-direct-ops path, where there are no
+    #                   invocations to infer it from.
     #   gate_opened   — the proposed action + evidence shown to the human (record)
     #   gate_decision — approve/refine/deny + actor (the consent record)
     #   message       — an operator steer/answer (Source.HUMAN)
     #   invocation    — a capability call's boundary outcome (data | empty | error | blocked):
     #                   every call leaves a durable trace now, incl. an approved write's
-    #                   execution — shares its phase's seq (annotation, not a numbered step)
+    #                   execution — shares its phase's seq (annotation, not a numbered step) and
+    #                   carries `todo`, the index of the plan to-do this call served (F1 attribution)
     #   rejection     — a drop OUTSIDE a phase delta: the engine's op_ceiling truncation (M5),
     #                   which cut the planner's over-cap ops with no trace before. In-delta
     #                   reducer rejections still ride PhaseResult.rejections — not duplicated here.
@@ -88,6 +91,12 @@ class JournalEntry(BaseModel):
     available: list[str] | None = None      # tools available that phase (PhaseSpec.allowed_intents)
     plan_calls: list[str] | None = None     # intended capability intents ([c.intent for c in plan.calls])
     plan_ops: list[str] | None = None       # direct-op summary ([type(o).__name__ for o in plan.ops])
+    # F1 — the plan as a CHECKLIST of to-dos (plan kind): each {objective, calls:[intent], ops:[kind],
+    # status} (+ op_budget/delegate seams when set). ADDITIVE + replay-inert (an annotation carries no
+    # delta), so the schema_version does NOT bump — a v2 journal with this field still loads (extra
+    # fields ignored), and an older journal without it reads todos=None.
+    todos: list[dict] | None = None
+    todo: int | None = None                 # invocation kind — the plan to-do index this call served (F1)
     refs: dict = Field(default_factory=dict)  # derived index: {nodes, edges, facts, events, hypotheses}
 
 
@@ -135,18 +144,21 @@ class Journal:
             actor=actor, reasoning=result.narrative, delta=result, refs=refs))
 
     def append_plan(self, seq: int, phase_id: str, *, tools_available: list[str],
-                    calls: list[str], ops: list[str], narrative: str) -> JournalEntry:
+                    calls: list[str], ops: list[str], narrative: str,
+                    todos: list[dict] | None = None) -> JournalEntry:
         """Record the planner's PLAN for a phase (owner goal: 'the planner's PLAN + the TOOLS
         AVAILABLE'). Carries the access surface (`available` = allowed_intents), the intents it
-        DECIDED to call (`plan_calls`), and the direct ops it authored (`plan_ops`) — so the plan
-        is visible on the scripted-direct-ops path too, where zero invocations are emitted and the
-        plan would otherwise be invisible except as after-the-fact facts. SHARES the phase's seq
-        (an annotation, not a numbered step) and carries NO delta, so phase/step numbering — and
-        every golden seq — is untouched and replay ignores it."""
+        DECIDED to call (`plan_calls`), the direct ops it authored (`plan_ops`), and the plan as a
+        CHECKLIST of to-dos (`todos` — F1: each objective + its call intents + op kinds + status) —
+        so the plan is visible on the scripted-direct-ops path too, where zero invocations are
+        emitted and the plan would otherwise be invisible except as after-the-fact facts. SHARES the
+        phase's seq (an annotation, not a numbered step) and carries NO delta, so phase/step
+        numbering — and every golden seq — is untouched and replay ignores it."""
         return self.append(JournalEntry(
             seq=seq, ts=self._clock(), kind="plan", phase_id=phase_id, actor="engine",
             reasoning=narrative, available=list(tools_available),
-            plan_calls=list(calls), plan_ops=list(ops)))
+            plan_calls=list(calls), plan_ops=list(ops),
+            todos=[dict(t) for t in todos] if todos is not None else None))
 
     def append_gate_opened(self, phase_id: str, *, gate_id: str, actions: list[dict],
                            reasoning: str, hypothesis: str | None,

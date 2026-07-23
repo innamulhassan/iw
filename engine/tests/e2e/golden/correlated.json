@@ -700,6 +700,32 @@
         "AddEdge"
       ],
       "seq": 1,
+      "todos": [
+        {
+          "calls": [
+            "get_correlated_incident",
+            "get_incident",
+            "get_ci",
+            "find_recent_changes"
+          ],
+          "objective": "BigPanda correlated a latency alert storm across payments-svc, orders-svc and ledger-svc into ONE incident (INC-6001) at 09:06 \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. ServiceNow's CMDB returns the backing datastore as an UNCLASSIFIED CI (class_hint cmdb_ci_db_ora), so it enters the topology as a generic_ci. p50 stays flat \u2014 the tail alone is blown.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -720,6 +746,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -740,6 +767,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -760,6 +788,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -781,6 +810,7 @@
       "reason": null,
       "seq": 1,
       "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -864,6 +894,17 @@
         "ProposeHypothesis"
       ],
       "seq": 2,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Change-first: CHG-DB-500 (DB migration) landed 6m before onset \u2014 prime suspect (H1). The BigPanda-correlated cluster (3 services, one storm) all read through the same datastore, a prior pointing at the shared migration, not any one app's code. A code regression is a weaker alternative (H2) pending investigation.",
+          "ops": [
+            "ProposeHypothesis",
+            "ProposeHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -921,6 +962,26 @@
         "UpdateHypothesis"
       ],
       "seq": 3,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "The unclassified CI GRADUATES to a DATABASE (Retype) once the class_hint is corroborated \u2014 its quarantined onset fact + airlocked dependency re-home to the real entity. An AppD-only observation is MERGED into payments-svc. The flaky 9999ms p99 is RETRACTED. On the real datastore: replication lag 8.5s, pool 98% \u2014 the migration's dropped index. p50 flat (44ms) refutes H2; H1 confirmed high.",
+          "ops": [
+            "AddAssertion",
+            "Retract",
+            "AddNode",
+            "AddAssertion",
+            "Merge",
+            "Retype",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "UpdateHypothesis",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -969,6 +1030,16 @@
         "UpdateHypothesis"
       ],
       "seq": 4,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Safest reversible fix: re-add the dropped index (or roll back CHG-DB-500). Awaiting approval (gated).",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1010,6 +1081,21 @@
         "UpdateHypothesis"
       ],
       "seq": 5,
+      "todos": [
+        {
+          "calls": [],
+          "objective": "Post-fix: the datastore recovered (lag 0.2s, pool 31%); anomaly cleared. Root confirmed.",
+          "ops": [
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        }
+      ],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1050,6 +1136,7 @@
       "plan_calls": [],
       "plan_ops": [],
       "seq": 6,
+      "todos": [],
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
