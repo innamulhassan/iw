@@ -366,3 +366,56 @@ def test_correlation_window_is_a_tunable():
                     clock_skew_bound_s={"default": 0.0}), anomaly_ref=ANOM)
     assert [c["event"] for c in wide] == ["evt-chg"]
     assert narrow == []                            # window shrunk → the candidate drops
+
+
+# ── §6 break A: evidence of ANY species (Event/Span cited, not just Fact) ──────────────
+def test_event_and_span_evidence_weigh_and_project_supports_edges():
+    """The evidence unit is the ASSERTION id of ANY species (2026-07-23 primitives §6): an EVENT and
+    a SPAN cited as supporting WEIGH (via their species-appropriate anchor — occurred_at / started_at)
+    AND project SUPPORTS edges from their subject node to the hypothesis; a SPAN addressed to an EDGE
+    is a legal cite but projects no edge (its subject is not a node)."""
+    from iw_engine.domain.assertion import Assertion
+    from iw_engine.domain.enums import Channel, SpanPhase, Species
+    from iw_engine.domain.event import Event
+    from iw_engine.graph.fold import _project_evidence_edges
+
+    g = graph_fixture()                     # ANOM --AFFECTS--> SVC ...; onset at T0
+    g.upsert_node(node("hyp:h1", NodeType.HYPOTHESIS))
+    g.add_event(Event(id="evt:restart", entity_ref=SVC, type="restarted", occurred_at=T0,
+                      observed_at=T0, source=Source.OCP, created_by=1))
+    g.add_span(Assertion(id="span:roll", subject_ref=SVC, name="rollout", species=Species.SPAN,
+                         channel=Channel.MEASURED, valid_from=T0, observed_at=T0,
+                         span_phase=SpanPhase.CLOSED, source=Source.APPD, source_reliability=0.9,
+                         created_by=1))
+    edge_subj = "edge:calls:svc->db"        # a Rung-1 hop addressed to a CALLS EDGE (no node subject)
+    g.add_span(Assertion(id="span:hop", subject_ref=edge_subj, name="hop", species=Species.SPAN,
+                         channel=Channel.MEASURED, valid_from=T0, observed_at=T0,
+                         span_phase=SpanPhase.CLOSED, source=Source.APPD, source_reliability=0.9,
+                         created_by=1))
+
+    # the event + span weigh: a band of 0.3 rises as supporting evidence accrues (was flat at 0.3
+    # before the generalization — an event/span cited then silently weighed nothing)
+    h = hyp(band=0.3, supporting=("evt:restart", "span:hop", "span:roll"))
+    assert belief.weighted_score(h, g, Tunables(), anomaly_ref=ANOM) > 0.3
+
+    # the fold recomputes SUPPORTS edges: SVC -> hyp for BOTH the event and the node-span (idempotent
+    # by id → one edge from SVC); the edge-subject hop projects nothing (subject is not a node)
+    _project_evidence_edges(h, 2, g)
+    supports = [e for e in g.in_edges("hyp:h1", EdgeType.SUPPORTS) if e.state == FactState.ACTIVE]
+    assert {e.src for e in supports} == {SVC}
+    assert edge_subj not in {e.src for e in supports}
+
+
+def test_fact_evidence_path_is_unchanged_by_the_generalization():
+    """Golden-safety guard: a FACT cited as evidence resolves in the facts view exactly as before —
+    the assertion-store fallback is reached ONLY when the id is not a fact (an event/span)."""
+    g = graph_fixture()
+    g.add_fact(fact("f-red", SVC, "error_rate", 0.4, T0, reliability=0.9))
+    h_fact = hyp(band=0.3, supporting=("f-red",))
+    # identical to weighing the single fact directly through evidence_weight
+    onset, onset_source = belief.onset_of(g, ANOM)
+    dist = g.structural_distances(ANOM)
+    w = belief.evidence_weight(g.facts["f-red"], onset=onset, onset_source=onset_source,
+                               distances=dist, tunables=Tunables())
+    expected = round((Tunables().prior_weight * 0.3 + w) / (Tunables().prior_weight + w), 4)
+    assert belief.weighted_score(h_fact, g, Tunables(), anomaly_ref=ANOM) == expected

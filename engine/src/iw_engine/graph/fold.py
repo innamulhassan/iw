@@ -47,25 +47,28 @@ def _apply_to_graph(result: PhaseResult, graph: Graph) -> None:
 
 def _project_evidence_edges(h: Hypothesis, seq: int, graph: Graph) -> None:
     """Recompute a hypothesis's SUPPORTS/REFUTES graph edges FROM its canonical evidence
-    fact-id lists (VALIDATION-VERDICT §B P0 #1 — the Fact is the one addressable evidence
-    unit). Each edge is a thin projection: fact.subject -> hypothesis, derived, never
-    planner-emitted, so the graph view can never disagree with the store. Runs inside the
-    single mutation seam, so journal replay reproduces it bit-for-bit.
+    id-lists (2026-07-23 primitives §6 break A — the ASSERTION of ANY species is the one
+    addressable evidence unit; the Fact was a special case). Each edge is a thin projection:
+    evidence.subject -> hypothesis, derived, never planner-emitted, so the graph view can never
+    disagree with the store. Runs inside the single mutation seam, so journal replay reproduces it
+    bit-for-bit.
 
     The projection is a full RECONCILIATION, not append-only (audit finding #2): an active
-    inferred SUPPORTS/REFUTES edge into this hypothesis whose backing fact-id has LEFT the list
+    inferred SUPPORTS/REFUTES edge into this hypothesis whose backing evidence-id has LEFT the list
     (the list SHRANK) is TOMBSTONED (state=RETRACTED), so the graph can never keep asserting
-    evidence the store no longer holds. Facts not (yet) materialised, or whose subject is not a
-    graph node, are simply not projected."""
+    evidence the store no longer holds. Evidence not (yet) materialised, or whose subject is not a
+    graph node (e.g. a SPAN addressed to an EDGE), is simply not projected."""
     desired: set[str] = set()
     to_add: list[tuple[EdgeType, str, str]] = []   # (etype, eid, subj_id) in delta order
-    for etype, fact_ids in ((EdgeType.SUPPORTS, h.supporting_facts),
+    for etype, evid_ids in ((EdgeType.SUPPORTS, h.supporting_facts),
                             (EdgeType.REFUTES, h.refuting_facts)):
-        for fid in fact_ids:
-            fact = graph.facts.get(fid)
-            if fact is None:
+        for eid_evid in evid_ids:
+            # resolve in the ONE assertion store (any species) — the facts view drops event/span,
+            # so a cited EVENT/SPAN must resolve here or its SUPPORTS edge would never render (§6).
+            a = graph.assertions.get(eid_evid)
+            if a is None:
                 continue
-            subj = graph.node(fact.subject_ref)
+            subj = graph.node(a.subject_ref)
             if subj is None or subj.type == NodeType.HYPOTHESIS:
                 continue
             if not edge_allowed(etype, subj.type, NodeType.HYPOTHESIS):

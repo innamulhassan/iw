@@ -31,7 +31,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from ..domain.enums import FactState, NodeType, Source
+from ..domain.assertion import Assertion
+from ..domain.enums import FactState, NodeType, Source, Species
 from ..domain.fact import Fact
 from ..domain.hypothesis import Hypothesis
 from ..domain.playbook import Tunables
@@ -87,14 +88,15 @@ def onset_of(graph: Graph, anomaly_ref: str | None) -> tuple[datetime, Source] |
 
 
 # ── the three factors ─────────────────────────────────────────────────────────
-def reliability_of(fact: Fact) -> float:
-    """The fact's own belief channel: measured → source_reliability, inferred → banded
-    confidence (exactly one exists per the Fact model's R-C4 validator)."""
+def reliability_of(fact: Fact | Assertion) -> float:
+    """The datum's own belief channel: measured → source_reliability, inferred → banded
+    confidence (exactly one exists per the model's R-C4 validator). Duck-types over Fact AND
+    Assertion — both carry the same two belief fields — so evidence of any species weighs by it."""
     if fact.source_reliability is not None:
         return fact.source_reliability
     if fact.confidence is not None:
         return fact.confidence.value
-    return 0.0   # unreachable under the model invariant — a channel-less fact weighs nothing
+    return 0.0   # unreachable under the model invariant — a channel-less datum weighs nothing
 
 
 def temporal_proximity(t: datetime | None, source: Source | None,
@@ -137,6 +139,32 @@ def evidence_weight(fact: Fact, *, onset: datetime | None, onset_source: Source 
     return rel * prox * spec
 
 
+# ── evidence of ANY species (§6 break A: the evidence unit is the ASSERTION id) ────────
+def assertion_anchor(a: Assertion) -> datetime | None:
+    """The species-appropriate temporal anchor for proximity-to-onset (2026-07-23 primitives §6):
+    EVENT → `occurred_at`, SPAN → `started_at` (`valid_from`), READING → `window.start|at`,
+    STATE/PROPERTY → `valid_from`. So a cited EVENT/READING/SPAN weighs by ITS own time, not a
+    Fact.valid_from it may not carry — the generalization the evidence-linkage break demanded."""
+    if a.species is Species.EVENT:
+        return a.occurred_at
+    if a.species is Species.READING and a.window is not None:
+        return a.window.start or a.window.at
+    return a.valid_from
+
+
+def assertion_weight(a: Assertion, *, onset: datetime | None, onset_source: Source | None,
+                     distances: dict[str, int] | None, tunables: Tunables) -> float:
+    """Evidence weight for a cited assertion of ANY species — the same
+    reliability x proximity x specificity blend as `evidence_weight`, but reading the
+    species-appropriate time anchor (`assertion_anchor`). `reliability_of` already duck-types on
+    the shared belief fields (source_reliability / confidence), so it is reused unchanged."""
+    rel = reliability_of(a)
+    prox = temporal_proximity(assertion_anchor(a), a.source, onset, onset_source, tunables)
+    spec = (1.0 if distances is None
+            else topological_specificity(distances.get(a.subject_ref), tunables))
+    return rel * prox * spec
+
+
 # ── the weighted score (the blend) ────────────────────────────────────────────
 def weighted_score(h: Hypothesis, graph: Graph, tunables: Tunables,
                    *, anomaly_ref: str | None = None) -> float:
@@ -147,21 +175,30 @@ def weighted_score(h: Hypothesis, graph: Graph, tunables: Tunables,
                 (prior_weight + Σ w(supporting) + Σ w(refuting))
 
     Supporting evidence pulls toward 1, refuting toward 0, each by its earned weight; no
-    resolvable evidence ⇒ exactly the band. Only materialised, non-RETRACTED facts weigh
-    (the Fact is the one addressable evidence unit — a disavowed observation stops
-    counting, a superseded one was still the truth of its window). Rounded to 4 decimals
-    (the reducer's precision precedent) for stable goldens."""
+    resolvable evidence ⇒ exactly the band. Only materialised, non-RETRACTED evidence weighs
+    (the ASSERTION of any species is the one addressable evidence unit, §6 break A — a disavowed
+    observation stops counting, a superseded one was still the truth of its window). Rounded to 4
+    decimals (the reducer's precision precedent) for stable goldens."""
     anchor = anomaly_ref if anomaly_ref is not None else find_anomaly(graph)
     distances = graph.structural_distances(anchor) if anchor is not None else None
     ons = onset_of(graph, anchor)
     onset, onset_source = ons if ons is not None else (None, None)
 
-    def w(fact_id: str) -> float:
-        f = graph.facts.get(fact_id)
-        if f is None or f.state == FactState.RETRACTED:
+    def w(evid_id: str) -> float:
+        # the Fact path is unchanged (readings/states/properties live in the facts view);
+        f = graph.facts.get(evid_id)
+        if f is not None:
+            if f.state == FactState.RETRACTED:
+                return 0.0
+            return evidence_weight(f, onset=onset, onset_source=onset_source,
+                                   distances=distances, tunables=tunables)
+        # §6 break A: an EVENT or SPAN cited as evidence is NOT in the facts view — resolve it in
+        # the ONE assertion store and weigh it by its species-appropriate anchor (assertion_anchor).
+        a = graph.assertions.get(evid_id)
+        if a is None or a.state == FactState.RETRACTED:
             return 0.0
-        return evidence_weight(f, onset=onset, onset_source=onset_source,
-                               distances=distances, tunables=tunables)
+        return assertion_weight(a, onset=onset, onset_source=onset_source,
+                                distances=distances, tunables=tunables)
 
     s_for = sum(w(fid) for fid in h.supporting_facts)
     s_against = sum(w(fid) for fid in h.refuting_facts)

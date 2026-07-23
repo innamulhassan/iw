@@ -80,8 +80,13 @@ class ProposeHypothesis(_Op):
     root_candidate: str | None = None
     causal_chain: list[ChainLink] = Field(default_factory=list)
     confidence_level: ConfidenceLevel = ConfidenceLevel.LOW
-    supporting: list[str] = Field(default_factory=list)   # FactIds
-    refuting: list[str] = Field(default_factory=list)
+    # AssertionIds of ANY species (§6 break A): a datum is linked to a hypothesis by CITING its id
+    # here — a Fact/State/Reading OR an Event/Span (belief.py weighs each by its species-appropriate
+    # anchor). Citation is lightweight (an id in a list) and does NOT reify the datum (reification
+    # test 3 is STRUCTURAL referability, not evidential citation). The LLM never draws the edge —
+    # the fold RECOMPUTES SUPPORTS/REFUTES from these ids.
+    supporting: list[str] = Field(default_factory=list)   # AssertionIds (any species)
+    refuting: list[str] = Field(default_factory=list)     # AssertionIds (any species)
     predictions: list[str] = Field(default_factory=list)
 
 

@@ -41,8 +41,12 @@ class Hypothesis(BaseModel):
     root_candidate: str | None = None            # NodeId — the chain head (initiating change/fault)
     status: HypothesisStatus = HypothesisStatus.PROPOSED
     confidence: Confidence
-    supporting_facts: list[str] = Field(default_factory=list)   # FactIds (SUPPORTS)
-    refuting_facts: list[str] = Field(default_factory=list)     # FactIds (REFUTES)
+    # AssertionIds of ANY species (§6 break A — the Fact was a special case; an Event/Span/Reading
+    # cited as evidence resolves in the one assertion store, weighed by its species-appropriate time
+    # anchor). The field name keeps its Fact-era spelling for store/journal compatibility; its
+    # semantics are now "cited evidence assertions", the SUPPORTS/REFUTES edges recomputed from them.
+    supporting_facts: list[str] = Field(default_factory=list)   # AssertionIds (SUPPORTS)
+    refuting_facts: list[str] = Field(default_factory=list)     # AssertionIds (REFUTES)
     predictions: list[Prediction] = Field(default_factory=list)
     created_by: int
     updated_by: list[int] = Field(default_factory=list)
