@@ -106,6 +106,27 @@ def _deny_script():
     return subject, [base[0], base[1], base[2], act, verify, wind_down]
 
 
+# ── F1: the live capability_call stream carries the to-do each call served ─────────────
+def test_capability_call_events_carry_the_todo_index():
+    """The workbench groups tool cards under their to-do from the live stream, so each
+    `capability_call` event carries its to-do index. On the scripted default every call sits under
+    the single synthesized to-do (todo == 0). Uses the deployment twin (it makes read calls)."""
+    from e2e import scenario_deployment as dep
+
+    from iw_engine.capability import MockSource
+
+    subject, script, fixtures = dep.build()
+    pb = load_playbook(PLAYBOOK)
+    layer = CapabilityLayer(default_adapters(), source=MockSource(fixtures))
+    session = InvestigationSession(subject, pb, ScriptedPlanner(script), layer=layer, clock=_clock)
+    events = session.advance()
+
+    caps = [e for e in events if e["type"] == "capability_call"]
+    assert caps, "the deployment twin makes tool calls"
+    assert all("todo" in e for e in caps), "every capability_call carries its to-do (F1)"
+    assert all(e["todo"] == 0 for e in caps), "scripted default → the single synthesized to-do"
+
+
 # ── the gate suspension + event stream ─────────────────────────────────────────
 def test_session_suspends_at_write_gate():
     subject, script = _approve_script()

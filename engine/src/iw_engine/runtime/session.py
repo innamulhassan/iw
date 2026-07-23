@@ -607,7 +607,12 @@ class InvestigationSession:
         if include_phase_started:
             self._emit("phase_started", phase=result.phase_id)
         self._emit("reasoning", phase=result.phase_id, narrative=result.narrative)
-        for inv in self._engine.invocations[self._inv_cursor:]:
+        # F1: `invocation_todos` is the engine's parallel attribution list — the plan to-do index
+        # each invocation served — so the stream carries `todo` and the workbench groups tool cards
+        # under their to-do (index-aligned; None on any call with no to-do, defensively).
+        new_invs = self._engine.invocations[self._inv_cursor:]
+        new_todos = self._engine.invocation_todos[self._inv_cursor:]
+        for i, inv in enumerate(new_invs):
             # `outcome` is the load-bearing honesty field (P3 step 1 / part4-capability §4):
             # data · empty (clean-empty) · error · blocked — the UI must never infer "clean"
             # from op_count == 0 alone (that conflation is the silent-empty poison).
@@ -619,7 +624,8 @@ class InvestigationSession:
                        params=inv.params, summary=inv.summary,
                        # transport provenance (M1): mock-vs-live + the declared Binding, on the stream
                        served_by=inv.served_by,
-                       binding=inv.binding.value if inv.binding else None)
+                       binding=inv.binding.value if inv.binding else None,
+                       todo=new_todos[i] if i < len(new_todos) else None)   # F1 to-do attribution
         self._inv_cursor = len(self._engine.invocations)
         self._emit("graph_delta",
                    nodes=[{"id": n.id, "type": n.type.value, "created_by": n.created_by,
