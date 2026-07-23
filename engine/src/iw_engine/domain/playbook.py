@@ -175,8 +175,10 @@ class Playbook(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
-    applies_to: str
-    capabilities: list[str] = Field(default_factory=list)
+    # NB: `applies_to` (domain→playbook routing) and `capabilities` (adapter filter) were read
+    # nowhere and drifted (the yaml list declared 8 providers while ALL_ADAPTERS wires 9 — bigpanda
+    # missing). Removed as dead+decorative (M26). Making them load-bearing is deferred multi-domain
+    # routing (fork F7); a future domain-router re-introduces them as DATA the engine actually reads.
     entry_phase: str | None = None                 # role binding; defaults to the FIRST declared phase
     phases: list[PhaseSpec]
     tunables: Tunables = Field(default_factory=Tunables)
