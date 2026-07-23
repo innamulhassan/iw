@@ -14,7 +14,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .common import Confidence, EvidenceRef
+from .common import Confidence, EvidenceRef, enforce_belief_exclusivity
 from .enums import FactState, Source
 
 # a fact value is one of a small typed set; `unit` qualifies numbers
@@ -65,22 +65,16 @@ class Fact(BaseModel):
         """Enforce R-C4 (VALIDATION-VERDICT §B P0 #3): exactly one belief channel is meaningful,
         and WHICH one is fixed by provenance — an INFERRED fact (source=llm, the model reasoned
         it into being) carries a `confidence`; a directly-MEASURED fact (any tool/engine/human
-        observation) carries `source_reliability`. Neither-nor-both was prose-only before; this
-        makes it a hard invariant so a naked inferred fact can't defeat the discipline."""
-        if self.source == Source.LLM:
-            if self.confidence is None:
-                raise ValueError(f"fact {self.id}: inferred (source=llm) fact must carry a confidence")
-            if self.source_reliability is not None:
-                raise ValueError(
-                    f"fact {self.id}: inferred fact carries confidence, not source_reliability")
-        else:
-            if self.source_reliability is None:
-                raise ValueError(
-                    f"fact {self.id}: measured (source={self.source.value}) fact must carry "
-                    "source_reliability")
-            if self.confidence is not None:
-                raise ValueError(
-                    f"fact {self.id}: measured fact carries source_reliability, not a confidence")
+        observation) carries `source_reliability`. The rule itself is the ONE shared enforcer
+        (`common.enforce_belief_exclusivity`): a Fact is a view over an Assertion, so both records
+        route through the SAME function instead of hand-writing the invariant twice (M16 — before,
+        this keyed on source==llm while `Assertion._belief_channel` keyed on channel, two
+        implementations of one rule that could drift)."""
+        enforce_belief_exclusivity(
+            f"fact {self.id}:", inferred=(self.source == Source.LLM),
+            inferred_desc="inferred (source=llm) fact",
+            measured_desc=f"measured (source={self.source.value}) fact",
+            confidence=self.confidence, source_reliability=self.source_reliability)
         return self
 
     @property

@@ -69,6 +69,69 @@ def test_engine_channel_uses_reliability():
     assert a.channel is Channel.ENGINE and a.source_reliability == 1.0
 
 
+# ── M16: ONE authoritative belief-channel enforcer (the Assertion atom + its Fact view share it) ─
+def test_belief_exclusivity_is_the_one_shared_enforcer():
+    """M16: R-C4 (exactly one belief field) has a SINGLE enforcer — `common.enforce_belief_exclusivity`
+    — not two hand-written copies. Both the Assertion atom and its Fact view import the SAME symbol,
+    so the invariant can never drift. Exercise every branch of the one rule directly."""
+    from iw_engine.domain import assertion as assertion_mod
+    from iw_engine.domain import fact as fact_mod
+    from iw_engine.domain.common import enforce_belief_exclusivity
+
+    # the two validators import the exact same function object — one home, no dual implementation
+    assert assertion_mod.enforce_belief_exclusivity is enforce_belief_exclusivity
+    assert fact_mod.enforce_belief_exclusivity is enforce_belief_exclusivity
+
+    ok_conf = Confidence(value=0.5, basis="b")
+    # inferred → confidence required, reliability forbidden
+    enforce_belief_exclusivity("x:", inferred=True, inferred_desc="inferred x",
+                               measured_desc="measured x", confidence=ok_conf,
+                               source_reliability=None)
+    with pytest.raises(ValueError, match="must carry a confidence"):
+        enforce_belief_exclusivity("x:", inferred=True, inferred_desc="inferred x",
+                                   measured_desc="measured x", confidence=None,
+                                   source_reliability=None)
+    with pytest.raises(ValueError, match="carries confidence, not reliability"):
+        enforce_belief_exclusivity("x:", inferred=True, inferred_desc="inferred x",
+                                   measured_desc="measured x", confidence=ok_conf,
+                                   source_reliability=0.9)
+    # measured/declared/engine → reliability required, confidence forbidden
+    enforce_belief_exclusivity("x:", inferred=False, inferred_desc="inferred x",
+                               measured_desc="measured x", confidence=None, source_reliability=0.9)
+    with pytest.raises(ValueError, match="must carry source_reliability"):
+        enforce_belief_exclusivity("x:", inferred=False, inferred_desc="inferred x",
+                                   measured_desc="measured x", confidence=None,
+                                   source_reliability=None)
+    with pytest.raises(ValueError, match="carries source_reliability, not a confidence"):
+        enforce_belief_exclusivity("x:", inferred=False, inferred_desc="inferred x",
+                                   measured_desc="measured x", confidence=ok_conf,
+                                   source_reliability=0.9)
+
+
+def test_fact_and_assertion_enforce_the_same_belief_rule():
+    """M16 parity: the identical belief violation is rejected on BOTH the Fact record and the
+    equivalent Assertion — a measured record carrying a confidence, and an inferred record missing
+    one. One rule, two shapes, no divergence (the whole point of collapsing the dual enforcer)."""
+    from iw_engine.domain.fact import Fact
+
+    # measured record carrying BOTH belief fields → rejected on both shapes
+    with pytest.raises(ValidationError):
+        Fact(id="f1", subject_ref="service:x", predicate="red_errors", value=0.4, valid_from=T0,
+             observed_at=T0, source=Source.PROMETHEUS, source_reliability=0.9,
+             confidence=Confidence(value=0.6, basis="b"), created_by=1)
+    with pytest.raises(ValidationError):
+        _state(channel=Channel.MEASURED, source=Source.PROMETHEUS, source_reliability=0.9,
+               confidence=Confidence(value=0.6, basis="b"))
+
+    # inferred record missing its confidence → rejected on both shapes
+    with pytest.raises(ValidationError):
+        Fact(id="f2", subject_ref="service:x", predicate="root_cause_guess", value="x",
+             valid_from=T0, observed_at=T0, source=Source.LLM, created_by=1)
+    with pytest.raises(ValidationError):
+        _state(species=Species.DESCRIPTOR, channel=Channel.INFERRED, source=Source.LLM,
+               source_reliability=None, confidence=None, valid_from=None)
+
+
 # ── species / time shape ──────────────────────────────────────────────────────
 def test_identity_has_no_observed_at():
     with pytest.raises(ValidationError, match="write-once — no observed_at"):

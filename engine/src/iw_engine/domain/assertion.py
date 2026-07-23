@@ -20,7 +20,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .common import Confidence, EvidenceRef
+from .common import Confidence, EvidenceRef, enforce_belief_exclusivity
 from .enums import Channel, FactState, Source, Species, Stat
 
 # an assertion value is one of a small typed set; `unit` qualifies numbers (mirrors FactValue).
@@ -154,8 +154,9 @@ class Assertion(BaseModel):
         ENGINE carry a source_reliability. IDENTITY is asserted truth, not a belief: it carries
         neither. EVENT is lenient in P1a — an occurrence had no belief channel in the Fact/Event
         era, so a shim-minted event may carry belief or none (P1b makes events first-class
-        belief-bearing per §2.2); only never both. This is the Fact-era R-C4 discipline restated
-        on the envelope."""
+        belief-bearing per §2.2); only never both. The exactly-one-belief rule for every OTHER
+        species is the ONE shared enforcer (`common.enforce_belief_exclusivity`) — the same
+        function the Fact view calls, so R-C4 is written once, not hand-duplicated (M16)."""
         if self.species is Species.IDENTITY:
             if self.confidence is not None or self.source_reliability is not None:
                 raise ValueError(
@@ -166,21 +167,11 @@ class Assertion(BaseModel):
                 raise ValueError(
                     f"assertion {self.id}: event carries at most one belief field, not both")
             return self
-        if self.channel is Channel.INFERRED:
-            if self.confidence is None:
-                raise ValueError(f"assertion {self.id}: inferred assertion must carry a confidence")
-            if self.source_reliability is not None:
-                raise ValueError(
-                    f"assertion {self.id}: inferred assertion carries confidence, not reliability")
-        else:
-            if self.source_reliability is None:
-                raise ValueError(
-                    f"assertion {self.id}: {self.channel.value} assertion must carry "
-                    "source_reliability")
-            if self.confidence is not None:
-                raise ValueError(
-                    f"assertion {self.id}: {self.channel.value} assertion carries "
-                    "source_reliability, not a confidence")
+        enforce_belief_exclusivity(
+            f"assertion {self.id}:", inferred=(self.channel is Channel.INFERRED),
+            inferred_desc="inferred assertion",
+            measured_desc=f"{self.channel.value} assertion",
+            confidence=self.confidence, source_reliability=self.source_reliability)
         return self
 
     @property
