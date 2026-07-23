@@ -166,6 +166,7 @@ def label_dictionary() -> dict:
     from ..capability.adapters.remediation import RemediationAdapter
     from ..domain.dictionary import DICTIONARY
     from ..domain.enums import EdgeType
+    from ..domain.nodes import NODE_SPECS
 
     def humanize(s: str) -> str:
         return s.replace("_", " ")
@@ -176,6 +177,21 @@ def label_dictionary() -> dict:
         "relations": {e.value: humanize(e.value) for e in EdgeType},
         "intents": {i: a.meta.summary for a in adapters if getattr(a, "meta", None)
                     for i in sorted(a.intents)},
+        # The datum-shape SPECIES per canonical predicate (2026-07-23 primitives §2) — the ONE
+        # authority the node-detail view categorizes a fact by (property/state/reading/span). The
+        # species rides on the Assertion, is DERIVED-not-stored on the Fact view (the reducer folds a
+        # READING op into a Fact and re-derives STATE, so a per-fact species in the bundle could not
+        # tell reading from state), and a fact always carries its CANONICAL predicate — so the UI maps
+        # `fact.predicate -> species` HERE, authoritatively, rather than re-authoring a client-side
+        # guess. A predicate absent from the dictionary (a provisional/quarantined name) has no
+        # cataloged species; the UI falls back to STATE (the §9.1 "when in doubt -> state" default).
+        # Served on the snapshot envelope only (like `predicates`/`phase_rail`), never in the batch
+        # export_bundle, so the 12 goldens stay byte-identical.
+        "species": {name: entry.species.value for name, entry in sorted(DICTIONARY.items())},
+        # The IDENTITY keys per node type (NodeSpec.identity_keys, §2.1) — the props that MAKE the
+        # entity THIS entity. The node card serves props as a flat dict; the UI splits IDENTITY from
+        # PROPERTY by this map so identity renders as its own category, never re-authored client-side.
+        "identity_keys": {nt.value: list(spec.identity_keys) for nt, spec in NODE_SPECS.items()},
     }
 
 
