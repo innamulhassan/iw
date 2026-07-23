@@ -14,7 +14,8 @@ Design:
   JSON is returned unchanged; if it already matches the adapter, it just works).
 - `MappingSource` — a `Source` wrapper that maps the inner transport's output
   before returning. Fixtures bypass it (they're already adapter-shaped); wire it
-  around `McpSource`/`RestSource`/`RoutedSource` for real tools.
+  around the live router `ProviderRoutedSource` (or a single `McpSource`/`RestSource`)
+  for real tools — this is what `build_live_layer` composes.
 
 Translators ship for the highest-impact providers (Prometheus, ServiceNow, Splunk,
 Git). The rest are pass-through by default — the framework is in place; add a
@@ -77,10 +78,10 @@ def map_response(provider: str, intent: str, vendor_raw: dict,
 
 # ── MappingSource: a Source wrapper that translates before returning ───────────
 class MappingSource:
-    """Composes over any `Source` (McpSource/RestSource/RoutedSource): fetches from
-    the inner transport, then maps the vendor JSON to the adapter shape via
-    `map_response`. Fixtures don't need this — they're already adapter-shaped; use
-    it only for real tool transports.
+    """Composes over any `Source` (the live router `ProviderRoutedSource`, or a single
+    `McpSource`/`RestSource`): fetches from the inner transport, then maps the vendor
+    JSON to the adapter shape via `map_response`. Fixtures don't need this — they're
+    already adapter-shaped; use it only for real tool transports.
 
     The wrapper also remembers the intent->provider map (built from the layer's
     adapters) so it can route a fetch's intent to the right translator."""

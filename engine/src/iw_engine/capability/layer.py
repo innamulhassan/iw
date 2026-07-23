@@ -24,6 +24,7 @@ from .registry import CapabilityRegistry, Policy
 from .sources import (
     McpSource,
     MockSource,
+    ProviderRoutedSource,
     RestSource,
     RoutedSource,
     ScenarioSource,
@@ -37,6 +38,10 @@ __all__ = [
     "Invocation",
     "McpSource",
     "MockSource",
+    # ProviderRoutedSource is the LIVE router (route by provider, arity 9); RoutedSource is the
+    # demoted single-endpoint back-compat router — both re-exported here so this surface AGREES
+    # with capability/__init__.py on what the live seam is (M21).
+    "ProviderRoutedSource",
     "RestSource",
     "RoutedSource",
     "ScenarioSource",

@@ -185,6 +185,20 @@ def test_build_provider_transports_wires_only_configured_providers():
     assert transports["prometheus"].routes == {"instant_query": "/api/v1/query"}
 
 
+# ── M21: the two export surfaces AGREE on what the live seam is ─────────────────────
+def test_layer_and_package_agree_the_live_router_is_provider_routed():
+    """`capability.layer` and `capability/__init__` must name the SAME live router. Before M21
+    layer.__all__ re-exported only RoutedSource (arity-3, the demoted back-compat one) while the
+    package exported ProviderRoutedSource — a surface disagreement about the live seam. Both now
+    export the SAME ProviderRoutedSource object, and RoutedSource stays reachable as back-compat."""
+    from iw_engine import capability as pkg
+    from iw_engine.capability import layer as layer_mod
+    assert pkg.ProviderRoutedSource is layer_mod.ProviderRoutedSource
+    assert "ProviderRoutedSource" in layer_mod.__all__ and "ProviderRoutedSource" in pkg.__all__
+    # RoutedSource remains for single-endpoint back-compat, from both surfaces
+    assert pkg.RoutedSource is layer_mod.RoutedSource
+
+
 # ── ProviderRoutedSource: route by PROVIDER (arity 9), not Binding (arity 3) ────────
 def test_provider_routed_source_dispatches_on_provider():
     calls: dict[str, list] = {"servicenow": [], "splunk": []}

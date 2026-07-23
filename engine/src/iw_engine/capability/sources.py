@@ -97,15 +97,15 @@ class RestSource:
 
 
 class RoutedSource:
-    """Composes the per-binding transports behind the one fetch seam - dispatches each request
-    to the transport wired for its adapter's `Binding`. This is how a LIVE layer runs mixed
-    tools (McpSource for MCP, RestSource for REST, ...); the hermetic suite needs no routing
-    because `MockSource` answers every binding from a fixture.
+    """BACK-COMPAT single-endpoint router — NOT the live seam (M21). Dispatches each request to
+    the transport wired for its adapter's `Binding`.
 
-    NOTE - routing arity: `Binding` has arity 3 (MCP/REST/A2A), so this collapses all 7 MCP
-    providers onto ONE endpoint+token. A real mixed-tool run needs `ProviderRoutedSource`
-    (arity 9 - one transport per PROVIDER, part4-capability §3). This binding-router remains for
-    the single-endpoint case and back-compat."""
+    NOTE - routing arity: `Binding` has arity 3 (MCP/REST/A2A), so this collapses ALL MCP
+    providers onto ONE endpoint+token — wrong for a real mixed-tool run where `servicenow` and
+    `splunk` are distinct MCP servers. **The live router is `ProviderRoutedSource`** (arity 9 -
+    one transport per PROVIDER, part4-capability §3), which is what `build_live_layer` composes and
+    what `MappingSource` wraps. This binding-router is retained only for the single-shared-endpoint
+    case + import back-compat; new wiring uses `ProviderRoutedSource`."""
 
     def __init__(self, transports: dict[Binding, Source]) -> None:
         self.transports = dict(transports)
