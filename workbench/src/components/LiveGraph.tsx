@@ -601,6 +601,14 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                     {f.unit ? ` ${f.unit}` : ""}
                     {f.where ? <span className="node-detail__where"> @{f.where}</span> : null}
                     {f.source && <span className="node-detail__meta"> · {f.source}</span>}
+                    {/* M4 — the vendor's OWN field spelling (P3 airlock provenance): served but
+                        previously read by no component. Shown when it differs from the friendly
+                        label, so the operator sees the raw name the source actually returned. */}
+                    {f.source_native_name && f.source_native_name !== humanizePredicate(f.predicate) && (
+                      <span className="node-detail__native" title="the source's own field name (provenance)">
+                        {f.source_native_name}
+                      </span>
+                    )}
                     {f.provisional && <span className="prov-chip">provisional</span>}
                   </li>
                 ))}
@@ -616,6 +624,12 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
                   {selectedEvents.map((ev) => (
                     <li key={ev.id} className={ev.provisional ? "is-provisional" : ""}>
                       <span className="node-detail__evtype">{ev.type}</span>
+                      {/* M4 — the source's own event-type spelling (provenance), when it differs */}
+                      {ev.source_native_name && ev.source_native_name !== ev.type && (
+                        <span className="node-detail__native" title="the source's own field name (provenance)">
+                          {ev.source_native_name}
+                        </span>
+                      )}
                       {ev.at && <span className="node-detail__meta"> · {new Date(ev.at).toLocaleTimeString()}</span>}
                       {ev.provisional && <span className="prov-chip">provisional</span>}
                     </li>

@@ -1362,6 +1362,13 @@ code {
   color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 10px;
 }
 .node-detail__where { color: var(--text-faint); }
+/* M4 — the source's own field spelling (P3 airlock provenance), a subtle monospace chip so the
+   raw vendor name reads distinct from the friendly predicate label. */
+.node-detail__native {
+  margin-left: 6px; padding: 0 5px; border-radius: 4px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 10px; color: var(--text-muted); background: #eef1f6;
+}
 .node-detail__facts li.is-highlight {
   background: var(--accent-soft); border-radius: var(--radius-sm); padding: 2px 6px; margin: 0 -6px;
 }
