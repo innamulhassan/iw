@@ -55,13 +55,26 @@ def test_every_phase_journals_its_plan_and_tools_available():
 
 
 def test_scripted_direct_ops_plan_is_visible_not_fabricated():
-    """INC-4821's twin authors its evidence as DIRECT ops (zero CapabilityCalls), so it journals
-    ZERO invocations — honestly (the owner: 'if the scripted path legitimately makes no tool
-    calls, journal that honestly — do not fabricate'). The PLAN entry makes that provenance
+    """A scripted plan MAY author its evidence as DIRECT ops (zero CapabilityCalls) — the engine
+    journals ZERO invocations, honestly (the owner: 'if the scripted path legitimately makes no
+    tool calls, journal that honestly — do not fabricate'). The PLAN entry makes that provenance
     visible: plan_calls is empty, but plan_ops (the direct ops) and available (what it COULD have
-    called) are on the record, so an audit is no longer blind to what the phase did."""
-    subject, script = cr.build()
-    res = run(subject, script, None)            # no fixtures / no layer — the direct-ops path
+    called) are on the record, so an audit is no longer blind to what the phase did. (The flagship
+    twin now authors reasoned CALLS, so the direct-ops back-compat is exercised with a minimal
+    inline plan, decoupled from any one scenario's evolving content.)"""
+    from e2e._helpers import fact, nid, node, phase
+
+    from iw_engine.domain.enums import NodeType
+    from iw_engine.domain.subject import SubjectRef
+
+    subject = SubjectRef(domain="app-incident", id="INC-DIRECT", kind="incident")
+    anom = nid(NodeType.ANOMALY, anomaly_id="ANOM-1")
+    at = datetime(2026, 7, 19, tzinfo=UTC)
+    script = [phase("frame", [node(NodeType.ANOMALY, anomaly_id="ANOM-1"),
+                              fact(anom, "onset_value", 0.40, at)],
+                    "framed from direct ops — no tools called", status="advance"),
+              phase("investigate", [], "nothing further to investigate", status="blocked")]
+    res = run(subject, script, None)            # no fixtures / no calls — the direct-ops path
     jr = res.journal
 
     invs = [e for e in jr.entries if e.kind == "invocation"]

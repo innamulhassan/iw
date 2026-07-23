@@ -89,7 +89,20 @@ def test_plan_entry_serves_todo_checklist_and_invocations_carry_todo():
 
 # ── a scripted-direct-ops run serves its plan (visible) with zero invocations (honest) ──
 def test_scripted_direct_ops_bundle_serves_plan_without_invocations():
-    subject, script = cr.build()
+    # a minimal DIRECT-ops plan (no calls, no fixtures) — the flagship twin now authors reasoned
+    # calls, so the layer-less direct-ops path is exercised inline, decoupled from a scenario.
+    from e2e._helpers import fact, nid, node, phase
+
+    from iw_engine.domain.enums import NodeType
+    from iw_engine.domain.subject import SubjectRef
+
+    subject = SubjectRef(domain="app-incident", id="INC-DIRECT", kind="incident")
+    anom = nid(NodeType.ANOMALY, anomaly_id="ANOM-1")
+    at = datetime(2026, 7, 19, tzinfo=UTC)
+    script = [phase("frame", [node(NodeType.ANOMALY, anomaly_id="ANOM-1"),
+                              fact(anom, "onset_value", 0.40, at)],
+                    "framed from direct ops", status="advance"),
+              phase("investigate", [], "nothing further", status="blocked")]
     view = export_bundle(run(subject, script, None))["journal"]
     assert not [j for j in view if j["kind"] == "invocation"], "no calls made — none served"
     plans = [j for j in view if j["kind"] == "plan"]

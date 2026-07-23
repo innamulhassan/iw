@@ -153,9 +153,14 @@ def run(subject, script, fixtures: dict | None = None):
     from iw_engine.runtime import Engine, ScriptedPlanner, load_playbook
 
     pb = load_playbook(pathlib.Path(iw_engine.__file__).parent / "playbooks" / "incident.yaml")
-    # the layer now owns its fetch transport (Source); the mock is the hermetic test transport
-    layer = (CapabilityLayer(default_adapters(), source=MockSource(fixtures))
-             if fixtures is not None else None)
+    # the layer now owns its fetch transport (Source); the mock is the hermetic test transport.
+    # Wire it when a scenario passes fixtures OR when the plan itself authors capability calls (a
+    # reasoned-todo scenario like code_regression serves its calls to journal the tool-by-tool
+    # story — an unfixtured intent folds to zero ops, so the twin's AUTHORED ops stay the graph
+    # delta). A plain direct-ops plan (no calls, no fixtures) still runs layer-less, unchanged.
+    needs_layer = fixtures is not None or any(p.calls for p in script)
+    layer = (CapabilityLayer(default_adapters(), source=MockSource(fixtures or {}))
+             if needs_layer else None)
     def clock():
         return datetime(2026, 7, 19, tzinfo=UTC)
     return Engine(pb, ScriptedPlanner(script), clock=clock, layer=layer).run(subject)

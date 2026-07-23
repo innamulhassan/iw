@@ -9,6 +9,19 @@
         "confidence": null,
         "dst": "service:payments-api|prod",
         "established": null,
+        "id": "edge:affects:incident:inc-4821->service:payments-api|prod:discovered",
+        "invalidated_by": null,
+        "origin": "discovered",
+        "source": null,
+        "src": "incident:inc-4821",
+        "state": "active",
+        "type": "affects",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "service:payments-api|prod",
+        "established": null,
         "id": "edge:affects:anomaly:anom-1->service:payments-api|prod:discovered",
         "invalidated_by": null,
         "origin": "discovered",
@@ -29,6 +42,19 @@
         "src": "alert:alt-1",
         "state": "active",
         "type": "fired_on",
+        "valid_to": null
+      },
+      {
+        "confidence": null,
+        "dst": "database:payments-ora",
+        "established": null,
+        "id": "edge:depends_on:service:payments-api|prod->database:payments-ora:declared",
+        "invalidated_by": null,
+        "origin": "declared",
+        "source": null,
+        "src": "service:payments-api|prod",
+        "state": "active",
+        "type": "depends_on",
         "valid_to": null
       },
       {
@@ -55,32 +81,6 @@
         "src": "anomaly:anom-1",
         "state": "active",
         "type": "correlated_with",
-        "valid_to": null
-      },
-      {
-        "confidence": null,
-        "dst": "service:payments-api|prod",
-        "established": null,
-        "id": "edge:affects:incident:inc-4821->service:payments-api|prod:discovered",
-        "invalidated_by": null,
-        "origin": "discovered",
-        "source": null,
-        "src": "incident:inc-4821",
-        "state": "active",
-        "type": "affects",
-        "valid_to": null
-      },
-      {
-        "confidence": null,
-        "dst": "database:payments-ora",
-        "established": null,
-        "id": "edge:depends_on:service:payments-api|prod->database:payments-ora:declared",
-        "invalidated_by": null,
-        "origin": "declared",
-        "source": null,
-        "src": "service:payments-api|prod",
-        "state": "active",
-        "type": "depends_on",
         "valid_to": null
       },
       {
@@ -178,6 +178,17 @@
     "events": [
       {
         "at": "2026-07-19T14:00:00+00:00",
+        "entity": "incident:inc-4821",
+        "id": "evt:8ad3f3d52cdecb52",
+        "invalidated_by": null,
+        "payload": {},
+        "source": "servicenow",
+        "source_native_name": "declared",
+        "state": "active",
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:00:00+00:00",
         "entity": "service:payments-api|prod",
         "id": "evt:81e181ebac96fa73",
         "invalidated_by": null,
@@ -210,17 +221,6 @@
         "source_native_name": "implemented",
         "state": "active",
         "type": "implemented"
-      },
-      {
-        "at": "2026-07-19T14:00:00+00:00",
-        "entity": "incident:inc-4821",
-        "id": "evt:8ad3f3d52cdecb52",
-        "invalidated_by": null,
-        "payload": {},
-        "source": "servicenow",
-        "source_native_name": "declared",
-        "state": "active",
-        "type": "declared"
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -272,6 +272,32 @@
       }
     ],
     "facts": [
+      {
+        "at": "2026-07-19T14:00:00+00:00",
+        "id": "fact:bb5e757aef06772b",
+        "observed_at": "2026-07-19T14:00:00+00:00",
+        "predicate": "tier",
+        "source": "servicenow",
+        "source_native_name": "tier",
+        "state": "active",
+        "subject": "service:payments-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": "tier-1"
+      },
+      {
+        "at": "2026-07-19T14:00:00+00:00",
+        "id": "fact:dc94854d6b8faf39",
+        "observed_at": "2026-07-19T14:00:00+00:00",
+        "predicate": "slo_availability_target",
+        "source": "servicenow",
+        "source_native_name": "slo_target",
+        "state": "active",
+        "subject": "service:payments-api|prod",
+        "unit": null,
+        "valid_to": null,
+        "value": 0.999
+      },
       {
         "at": "2026-07-19T14:00:00+00:00",
         "id": "fact:88c0c2c371a465b2",
@@ -326,29 +352,16 @@
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
-        "id": "fact:bb5e757aef06772b",
+        "id": "fact:8d304a434d6b3f97",
         "observed_at": "2026-07-19T14:00:00+00:00",
-        "predicate": "tier",
-        "source": "servicenow",
-        "source_native_name": "tier",
+        "predicate": "latency_p99",
+        "source": "appd",
+        "source_native_name": "red_latency_p99",
         "state": "active",
         "subject": "service:payments-api|prod",
-        "unit": null,
+        "unit": "ms",
         "valid_to": null,
-        "value": "tier-1"
-      },
-      {
-        "at": "2026-07-19T14:00:00+00:00",
-        "id": "fact:dc94854d6b8faf39",
-        "observed_at": "2026-07-19T14:00:00+00:00",
-        "predicate": "slo_availability_target",
-        "source": "servicenow",
-        "source_native_name": "slo_target",
-        "state": "active",
-        "subject": "service:payments-api|prod",
-        "unit": null,
-        "valid_to": null,
-        "value": 0.999
+        "value": 4200
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
@@ -375,19 +388,6 @@
         "unit": null,
         "valid_to": null,
         "value": 2
-      },
-      {
-        "at": "2026-07-19T14:00:00+00:00",
-        "id": "fact:8d304a434d6b3f97",
-        "observed_at": "2026-07-19T14:00:00+00:00",
-        "predicate": "latency_p99",
-        "source": "appd",
-        "source_native_name": "red_latency_p99",
-        "state": "active",
-        "subject": "service:payments-api|prod",
-        "unit": "ms",
-        "valid_to": null,
-        "value": 4200
       },
       {
         "at": "2026-07-19T14:12:00+00:00",
@@ -510,18 +510,20 @@
     "nodes": [
       {
         "first_seen": "2026-07-19T14:00:00+00:00",
-        "first_source": "prometheus",
-        "id": "service:payments-api|prod",
-        "last_seen": "2026-07-19T14:27:00+00:00",
-        "origin": false,
+        "first_source": "servicenow",
+        "id": "incident:inc-4821",
+        "last_seen": "2026-07-19T14:00:00+00:00",
+        "origin": true,
         "props": {
-          "env": "prod",
-          "owner": "payments-platform@corp.example",
-          "service_name": "payments-api",
-          "version": "v4.12.0"
+          "caller_id": "monitoring.alerting",
+          "description": "PagerDuty routed High5xxRate to SRE at 14:00 UTC. payments-api (prod, tier-1) is 5xx-ing on ~40% of requests; throughput holds but the error tail drags p99 to 4.2s while p50 stays flat \u2014 a code-fault shape. Onset is 13 minutes after release v4.12.0 (13:47). Card auth + capture impacted.",
+          "incident_id": "INC-4821",
+          "short_description": "payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
+          "title": "payments-api elevated 5xx errors",
+          "work_notes": "High5xxRate paged SRE; v4.12.0 shipped just before onset."
         },
-        "source": "prometheus",
-        "type": "service"
+        "source": "servicenow",
+        "type": "incident"
       },
       {
         "first_seen": "2026-07-19T14:00:00+00:00",
@@ -548,35 +550,19 @@
         "type": "alert"
       },
       {
-        "first_seen": "2026-07-19T13:47:00+00:00",
-        "first_source": "servicenow",
-        "id": "change_event:chg-1",
-        "last_seen": "2026-07-19T13:47:00+00:00",
+        "first_seen": "2026-07-19T14:00:00+00:00",
+        "first_source": "prometheus",
+        "id": "service:payments-api|prod",
+        "last_seen": "2026-07-19T14:27:00+00:00",
         "origin": false,
         "props": {
-          "change_id": "CHG-1",
-          "description": "Standard release of payments-api v4.12.0 via Argo Rollouts; bumps the shared taxcalc library to add intl VAT regions. Blue/green with a 10% canary, auto-promoted after the analysis gate.",
-          "short_description": "Deploy payments-api v4.12.0 to prod (intl tax-calc)"
+          "env": "prod",
+          "owner": "payments-platform@corp.example",
+          "service_name": "payments-api",
+          "version": "v4.12.0"
         },
-        "source": "servicenow",
-        "type": "change_event"
-      },
-      {
-        "first_seen": "2026-07-19T14:00:00+00:00",
-        "first_source": "servicenow",
-        "id": "incident:inc-4821",
-        "last_seen": "2026-07-19T14:00:00+00:00",
-        "origin": true,
-        "props": {
-          "caller_id": "monitoring.alerting",
-          "description": "PagerDuty routed High5xxRate to SRE at 14:00 UTC. payments-api (prod, tier-1) is 5xx-ing on ~40% of requests; throughput holds but the error tail drags p99 to 4.2s while p50 stays flat \u2014 a code-fault shape. Onset is 13 minutes after release v4.12.0 (13:47). Card auth + capture impacted.",
-          "incident_id": "INC-4821",
-          "short_description": "payments-api 5xx spiked to 40% ~13m after the v4.12.0 deploy",
-          "title": "payments-api elevated 5xx errors",
-          "work_notes": "High5xxRate paged SRE; v4.12.0 shipped just before onset."
-        },
-        "source": "servicenow",
-        "type": "incident"
+        "source": "prometheus",
+        "type": "service"
       },
       {
         "first_seen": "2026-07-19T14:12:00+00:00",
@@ -592,6 +578,20 @@
         },
         "source": "prometheus",
         "type": "database"
+      },
+      {
+        "first_seen": "2026-07-19T13:47:00+00:00",
+        "first_source": "servicenow",
+        "id": "change_event:chg-1",
+        "last_seen": "2026-07-19T13:47:00+00:00",
+        "origin": false,
+        "props": {
+          "change_id": "CHG-1",
+          "description": "Standard release of payments-api v4.12.0 via Argo Rollouts; bumps the shared taxcalc library to add intl VAT regions. Blue/green with a 10% canary, auto-promoted after the analysis gate.",
+          "short_description": "Deploy payments-api v4.12.0 to prod (intl tax-calc)"
+        },
+        "source": "servicenow",
+        "type": "change_event"
       },
       {
         "first_seen": null,
@@ -741,12 +741,21 @@
       "kind": "plan",
       "narrative": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
       "phase": "frame",
-      "plan_calls": [],
+      "plan_calls": [
+        "get_incident",
+        "range_query",
+        "get_dependencies",
+        "find_recent_changes",
+        "fetch_traces"
+      ],
       "plan_ops": [
         "AddNode",
+        "AddAssertion",
+        "AddAssertion",
+        "AddEdge",
+        "AddAssertion",
         "AddNode",
         "AddNode",
-        "AddNode",
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
@@ -756,56 +765,245 @@
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
-        "AddAssertion",
-        "AddAssertion",
-        "AddAssertion",
-        "AddEdge",
-        "AddEdge",
         "AddEdge",
         "AddEdge",
         "AddNode",
         "AddNode",
         "AddEdge",
-        "AddEdge",
+        "AddNode",
         "AddAssertion",
+        "AddEdge",
+        "AddEdge",
         "AddAssertion"
       ],
       "seq": 1,
       "todos": [
         {
-          "calls": [],
-          "objective": "payments-api 5xx spiked to 40% at 14:00, 13m after the v4.12.0 deploy at 13:47. Declared SEV2. Still bleeding; the only dependency is payments-ora. Investigate, don't blind-mitigate.",
+          "calls": [
+            "get_incident"
+          ],
+          "objective": "pull the incident record to scope impact, tier and SLO",
+          "observation": "INC-4821: payments-api (prod, tier-1, SLO 99.9%) declared SEV2 at 14:00 \u2014 card auth + capture impacted, onset ~13m after v4.12.0.",
+          "ops": [
+            "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [
+            "range_query"
+          ],
+          "objective": "quantify the blast radius \u2014 how much is 5xx-ing, and what is the latency shape",
+          "observation": "40% of ~820 rpm are 5xx; p50 holds at 58ms but the error tail drags p99 to 4.2s \u2014 a code-fault shape, not saturation.",
           "ops": [
             "AddNode",
             "AddNode",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddAssertion",
+            "AddEdge",
+            "AddEdge"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [
+            "get_dependencies"
+          ],
+          "objective": "map what payments-api depends on",
+          "observation": "payments-api's only declared dependency is payments-ora (Oracle 19c).",
+          "ops": [
             "AddNode",
             "AddNode",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddAssertion",
-            "AddEdge",
-            "AddEdge",
-            "AddEdge",
-            "AddEdge",
+            "AddEdge"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [
+            "find_recent_changes"
+          ],
+          "objective": "find the change that lines up with onset",
+          "observation": "v4.12.0 (CHG-1) deployed at 13:47 \u2014 13 minutes before onset; it bumps the shared taxcalc library.",
+          "ops": [
             "AddNode",
-            "AddNode",
-            "AddEdge",
-            "AddEdge",
             "AddAssertion",
+            "AddEdge",
+            "AddEdge"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [
+            "fetch_traces"
+          ],
+          "objective": "capture the error shape at onset",
+          "observation": "a captured onset trace errored after ~920ms against payments-api.",
+          "ops": [
             "AddAssertion"
           ],
           "status": "pending"
         }
       ],
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_incident",
+      "kind": "invocation",
+      "narrative": "start from the incident of record \u2014 who paged, what tier is at risk, what SLO it burns",
+      "op_count": 5,
+      "outcome": "empty",
+      "params": {
+        "incident_id": "INC-4821"
+      },
+      "phase": "frame",
+      "produced": [
+        "node incident INC-4821",
+        "fact tier=tier-1",
+        "fact slo_target=0.999",
+        "link affects incident:inc-4821\u2192service:payments-api|prod",
+        "event declared={}"
+      ],
+      "provider": "servicenow",
+      "reason": null,
+      "result": "INC-4821: payments-api (prod, tier-1, SLO 99.9%) declared SEV2 at 14:00 \u2014 card auth + capture impacted, onset ~13m after v4.12.0.",
+      "seq": 1,
+      "served_by": "mock",
+      "todo": 0,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "rest",
+      "blocked": false,
+      "effect": "read",
+      "intent": "range_query",
+      "kind": "invocation",
+      "narrative": "measure the RED signals over the onset window \u2014 error ratio, throughput and the p50/p99 latency spread",
+      "op_count": 13,
+      "outcome": "empty",
+      "params": {
+        "service_name": "payments-api",
+        "window": "15m"
+      },
+      "phase": "frame",
+      "produced": [
+        "node anomaly ANOM-1",
+        "node alert ALT-1",
+        "fact red_errors=0.4",
+        "fact degraded=True",
+        "fact red_rate=820 rpm",
+        "fact red_latency_p50=58 ms",
+        "fact red_latency_p99=4200 ms",
+        "fact onset_value=0.4",
+        "fact severity_score=2",
+        "event degraded_started={}",
+        "event fired={}",
+        "link affects anomaly:anom-1\u2192service:payments-api|prod",
+        "link fired_on alert:alt-1\u2192service:payments-api|prod"
+      ],
+      "provider": "prometheus",
+      "reason": null,
+      "result": "40% of ~820 rpm are 5xx; p50 holds at 58ms but the error tail drags p99 to 4.2s \u2014 a code-fault shape, not saturation.",
+      "seq": 1,
+      "served_by": "mock",
+      "todo": 1,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_dependencies",
+      "kind": "invocation",
+      "narrative": "pull the declared topology \u2014 a failing dependency is the alternative to a code fault",
+      "op_count": 3,
+      "outcome": "empty",
+      "params": {
+        "service_name": "payments-api"
+      },
+      "phase": "frame",
+      "produced": [
+        "node service payments-api prod",
+        "node database payments-ora",
+        "link depends_on service:payments-api|prod\u2192database:payments-ora"
+      ],
+      "provider": "cmdb",
+      "reason": null,
+      "result": "payments-api's only declared dependency is payments-ora (Oracle 19c).",
+      "seq": 1,
+      "served_by": "mock",
+      "todo": 2,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "find_recent_changes",
+      "kind": "invocation",
+      "narrative": "change-first triage \u2014 a deploy minutes before onset is the prime suspect",
+      "op_count": 4,
+      "outcome": "empty",
+      "params": {
+        "service_name": "payments-api",
+        "window": "2h"
+      },
+      "phase": "frame",
+      "produced": [
+        "node change_event CHG-1",
+        "event implemented={'change': 'deploy payments-api v4.12.0'}",
+        "link changed_by service:payments-api|prod\u2192change_event:chg-1",
+        "link correlated_with anomaly:anom-1\u2192change_event:chg-1"
+      ],
+      "provider": "servicenow",
+      "reason": null,
+      "result": "v4.12.0 (CHG-1) deployed at 13:47 \u2014 13 minutes before onset; it bumps the shared taxcalc library.",
+      "seq": 1,
+      "served_by": "mock",
+      "todo": 3,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "fetch_traces",
+      "kind": "invocation",
+      "narrative": "pull a trace from the onset window to see how the request actually fails",
+      "op_count": 1,
+      "outcome": "empty",
+      "params": {
+        "service_name": "payments-api",
+        "window": "5m"
+      },
+      "phase": "frame",
+      "produced": [
+        "fact trace={'error': True}"
+      ],
+      "provider": "appd",
+      "reason": null,
+      "result": "a captured onset trace errored after ~920ms against payments-api.",
+      "seq": 1,
+      "served_by": "mock",
+      "todo": 4,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -817,38 +1015,38 @@
       "phase": "frame",
       "refs": {
         "edges": [
+          "edge:affects:incident:inc-4821->service:payments-api|prod:discovered",
           "edge:affects:anomaly:anom-1->service:payments-api|prod:discovered",
           "edge:fired_on:alert:alt-1->service:payments-api|prod:discovered",
+          "edge:depends_on:service:payments-api|prod->database:payments-ora:declared",
           "edge:changed_by:service:payments-api|prod->change_event:chg-1:discovered",
-          "edge:correlated_with:anomaly:anom-1->change_event:chg-1:inferred",
-          "edge:affects:incident:inc-4821->service:payments-api|prod:discovered",
-          "edge:depends_on:service:payments-api|prod->database:payments-ora:declared"
+          "edge:correlated_with:anomaly:anom-1->change_event:chg-1:inferred"
         ],
         "events": [
+          "evt:8ad3f3d52cdecb52",
           "evt:81e181ebac96fa73",
           "evt:674c1ef24ed73a69",
-          "evt:f11f7436dca6c5f8",
-          "evt:8ad3f3d52cdecb52"
+          "evt:f11f7436dca6c5f8"
         ],
         "facts": [
+          "fact:bb5e757aef06772b",
+          "fact:dc94854d6b8faf39",
           "fact:88c0c2c371a465b2",
           "fact:bb63e88ab0c3d031",
           "fact:e0e3e62e29e8d41a",
           "fact:fba377268b5d142b",
-          "fact:bb5e757aef06772b",
-          "fact:dc94854d6b8faf39",
+          "fact:8d304a434d6b3f97",
           "fact:6ac933d081e39eea",
-          "fact:29399f0484f294c0",
-          "fact:8d304a434d6b3f97"
+          "fact:29399f0484f294c0"
         ],
         "hypotheses": [],
         "nodes": [
-          "service:payments-api|prod",
+          "incident:inc-4821",
           "anomaly:anom-1",
           "alert:alt-1",
-          "change_event:chg-1",
-          "incident:inc-4821",
-          "database:payments-ora"
+          "service:payments-api|prod",
+          "database:payments-ora",
+          "change_event:chg-1"
         ]
       },
       "seq": 1,
@@ -871,7 +1069,10 @@
       "kind": "plan",
       "narrative": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1.",
       "phase": "investigate",
-      "plan_calls": [],
+      "plan_calls": [
+        "get_commit",
+        "list_related_incidents"
+      ],
       "plan_ops": [
         "AddNode",
         "AddEdge",
@@ -887,23 +1088,102 @@
       "seq": 2,
       "todos": [
         {
-          "calls": [],
-          "objective": "Change-first: the deploy is the prime suspect (H1); the DB is a weaker alternative (H2). 2 sibling services (billing-api, invoicing-api) filed the same NPE after adopting the shared taxcalc lib in v4.12.0 \u2014 a related prior reinforcing H1.",
+          "calls": [
+            "get_commit"
+          ],
+          "objective": "identify exactly what code shipped in the change",
+          "observation": "abc123 (PR #1487) adds intl VAT regions via the shared taxcalc library \u2014 the code v4.12.0 shipped.",
           "ops": [
             "AddNode",
-            "AddEdge",
+            "AddEdge"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [
+            "list_related_incidents"
+          ],
+          "objective": "check whether any sibling service hit the same failure",
+          "observation": "billing-api and invoicing-api both filed the same TaxCalculator NPE after adopting the shared taxcalc lib in v4.12.0.",
+          "ops": [
             "AddNode",
             "AddNode",
             "AddAssertion",
             "AddAssertion",
             "AddEdge",
-            "AddEdge",
+            "AddEdge"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [],
+          "objective": "frame the rival hypotheses to test",
+          "observation": "change-first: the deploy (abc123) is the prime suspect (H1); payments-ora pool exhaustion is the weaker alternative (H2).",
+          "ops": [
             "ProposeHypothesis",
             "ProposeHypothesis"
           ],
           "status": "pending"
         }
       ],
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "rest",
+      "blocked": false,
+      "effect": "read",
+      "intent": "get_commit",
+      "kind": "invocation",
+      "narrative": "read the commit behind CHG-1 \u2014 what did the deploy actually change",
+      "op_count": 2,
+      "outcome": "empty",
+      "params": {
+        "repo": "payments-api",
+        "sha": "abc123"
+      },
+      "phase": "investigate",
+      "produced": [
+        "node code_commit abc123",
+        "link introduced_by change_event:chg-1\u2192code_commit:abc123"
+      ],
+      "provider": "git",
+      "reason": null,
+      "result": "abc123 (PR #1487) adds intl VAT regions via the shared taxcalc library \u2014 the code v4.12.0 shipped.",
+      "seq": 2,
+      "served_by": "mock",
+      "todo": 0,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "list_related_incidents",
+      "kind": "invocation",
+      "narrative": "co-firing incidents on the same shared library would sharpen the code-fault hypothesis",
+      "op_count": 6,
+      "outcome": "empty",
+      "params": {
+        "incident_id": "INC-4821",
+        "window": "1h"
+      },
+      "phase": "investigate",
+      "produced": [
+        "node incident INC-4788",
+        "node incident INC-4790",
+        "event declared={'affected_ci': 'billing-api'}",
+        "event declared={'affected_ci': 'invoicing-api'}",
+        "link similar_to incident:inc-4821\u2192incident:inc-4788",
+        "link similar_to incident:inc-4821\u2192incident:inc-4790"
+      ],
+      "provider": "servicenow",
+      "reason": null,
+      "result": "billing-api and invoicing-api both filed the same TaxCalculator NPE after adopting the shared taxcalc lib in v4.12.0.",
+      "seq": 2,
+      "served_by": "mock",
+      "todo": 1,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -956,43 +1236,134 @@
       "kind": "plan",
       "narrative": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123.",
       "phase": "investigate",
-      "plan_calls": [],
+      "plan_calls": [
+        "fetch_metrics",
+        "error_signature_topk"
+      ],
       "plan_ops": [
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
         "AddAssertion",
+        "UpdateHypothesis",
         "AddNode",
         "AddAssertion",
         "AddAssertion",
         "AddEdge",
         "AddEdge",
-        "UpdateHypothesis",
         "UpdateHypothesis"
       ],
       "seq": 3,
       "todos": [
         {
-          "calls": [],
-          "objective": "Ruled out the DB (pool 28%, 56/200 conns, no slow-query surge). Traces pin an NPE in TaxCalculator introduced by abc123.",
+          "calls": [
+            "fetch_metrics"
+          ],
+          "objective": "rule the database in or out \u2014 is payments-ora saturated",
+          "observation": "payments-ora is healthy on every axis: pool 28% (56/200 conns), replication 0.2s, only 3 slow queries/min.",
           "ops": [
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",
-            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [],
+          "objective": "refute the database hypothesis on the evidence",
+          "observation": "H2 refuted: a store this healthy cannot be driving a 40% 5xx rate.",
+          "ops": [
+            "UpdateHypothesis"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [
+            "error_signature_topk"
+          ],
+          "objective": "check whether the stack trace pins the code path",
+          "observation": "152 NPEs at TaxCalculator.java:88 since onset \u2014 the null Region path the taxcalc change introduced.",
+          "ops": [
             "AddNode",
             "AddAssertion",
             "AddAssertion",
+            "AddEdge"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [],
+          "objective": "support the code-regression hypothesis and pin its root",
+          "observation": "H1 supported: the NPE traces straight to the taxcalc change in abc123.",
+          "ops": [
             "AddEdge",
-            "AddEdge",
-            "UpdateHypothesis",
             "UpdateHypothesis"
           ],
           "status": "pending"
         }
       ],
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "rest",
+      "blocked": false,
+      "effect": "read",
+      "intent": "fetch_metrics",
+      "kind": "invocation",
+      "narrative": "pull payments-ora's USE metrics \u2014 pool, connections, replication and slow queries",
+      "op_count": 5,
+      "outcome": "empty",
+      "params": {
+        "service_name": "payments-ora",
+        "window": "15m"
+      },
+      "phase": "investigate",
+      "produced": [
+        "fact conn_pool_util=0.28",
+        "fact active_connections=56 conn",
+        "fact max_connections=200 conn",
+        "fact replication_lag=0.2 s",
+        "fact slow_query_rate=3 per_min"
+      ],
+      "provider": "prometheus",
+      "reason": null,
+      "result": "payments-ora is healthy on every axis: pool 28% (56/200 conns), replication 0.2s, only 3 slow queries/min.",
+      "seq": 3,
+      "served_by": "mock",
+      "todo": 0,
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "mcp",
+      "blocked": false,
+      "effect": "read",
+      "intent": "error_signature_topk",
+      "kind": "invocation",
+      "narrative": "get the top error signature since onset \u2014 does the stack trace land in the changed code",
+      "op_count": 4,
+      "outcome": "empty",
+      "params": {
+        "service_name": "payments-api",
+        "window": "15m"
+      },
+      "phase": "investigate",
+      "produced": [
+        "node error_signature npe-taxcalc",
+        "fact count=152",
+        "fact last_seen=2026-07-19T14:12:00+00:00",
+        "link emitted service:payments-api|prod\u2192error_signature:npe-taxcalc"
+      ],
+      "provider": "splunk",
+      "reason": null,
+      "result": "152 NPEs at TaxCalculator.java:88 since onset \u2014 the null Region path the taxcalc change introduced.",
+      "seq": 3,
+      "served_by": "mock",
+      "todo": 2,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1085,7 +1456,9 @@
       "kind": "plan",
       "narrative": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed.",
       "phase": "verify",
-      "plan_calls": [],
+      "plan_calls": [
+        "range_query"
+      ],
       "plan_ops": [
         "AddAssertion",
         "AddAssertion",
@@ -1096,18 +1469,58 @@
       "seq": 5,
       "todos": [
         {
-          "calls": [],
-          "objective": "Post-rollback: 5xx back to 1%, anomaly cleared. Root cause confirmed.",
+          "calls": [
+            "range_query"
+          ],
+          "objective": "re-check the RED signals after the rollback",
+          "observation": "post-rollback: 5xx back to 1%, degraded false, anomaly cleared.",
           "ops": [
             "AddAssertion",
             "AddAssertion",
             "AddAssertion",
-            "AddAssertion",
+            "AddAssertion"
+          ],
+          "status": "pending"
+        },
+        {
+          "calls": [],
+          "objective": "confirm the root cause on the recovery",
+          "observation": "recovery confirms the causal chain \u2014 reverting abc123 cleared the symptom.",
+          "ops": [
             "UpdateHypothesis"
           ],
           "status": "pending"
         }
       ],
+      "ts": "2026-07-19T00:00:00+00:00"
+    },
+    {
+      "actor": "engine",
+      "binding": "rest",
+      "blocked": false,
+      "effect": "read",
+      "intent": "range_query",
+      "kind": "invocation",
+      "narrative": "re-measure error ratio and degraded state post-rollback \u2014 did the symptom actually clear",
+      "op_count": 4,
+      "outcome": "empty",
+      "params": {
+        "service_name": "payments-api",
+        "window": "15m"
+      },
+      "phase": "verify",
+      "produced": [
+        "fact red_errors=0.01",
+        "fact degraded=False",
+        "event degraded_cleared={}",
+        "event cleared={}"
+      ],
+      "provider": "prometheus",
+      "reason": null,
+      "result": "post-rollback: 5xx back to 1%, degraded false, anomaly cleared.",
+      "seq": 5,
+      "served_by": "mock",
+      "todo": 0,
       "ts": "2026-07-19T00:00:00+00:00"
     },
     {
@@ -1241,6 +1654,12 @@
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
+        "entity": "incident:inc-4821",
+        "payload": {},
+        "type": "declared"
+      },
+      {
+        "at": "2026-07-19T14:00:00+00:00",
         "entity": "service:payments-api|prod",
         "payload": {},
         "type": "degraded_started"
@@ -1250,12 +1669,6 @@
         "entity": "alert:alt-1",
         "payload": {},
         "type": "fired"
-      },
-      {
-        "at": "2026-07-19T14:00:00+00:00",
-        "entity": "incident:inc-4821",
-        "payload": {},
-        "type": "declared"
       },
       {
         "at": "2026-07-19T14:00:00+00:00",
