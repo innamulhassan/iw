@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { SessionEvent, SessionState, Subject } from "../types";
-import { advance, createSession, decideGate, decideReview, getSnapshot, sendMessage, streamUrl } from "./api";
+import { createSession, decideGate, decideReview, getSnapshot, sendMessage, streamUrl } from "./api";
 import type { GateDecision } from "./api";
 import { emptyState, reduce } from "./store";
 
@@ -254,24 +254,6 @@ export function useInvestigation() {
     [reconcile]
   );
 
-  /** Manually step to the next pause (used only if a run pauses without a gate). */
-  const step = useCallback(async () => {
-    const id = idRef.current;
-    if (!id) return;
-    setBusy(true);
-    try {
-      const res = await advance(id);
-      dispatch({ kind: "events", events: res.events });
-      await reconcile(id);
-    } catch (err) {
-      // surface a failed advance (backend 4xx/5xx/unreachable) like every other action —
-      // otherwise the spinner just stops and the run looks stalled with no feedback
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }, [reconcile]);
-
   const reset = useCallback(() => {
     closeStream();
     idRef.current = null;
@@ -284,5 +266,5 @@ export function useInvestigation() {
 
   useEffect(() => () => closeStream(), [closeStream]);
 
-  return { state, error, busy, open, openExisting, decide, review, send, step, reset };
+  return { state, error, busy, open, openExisting, decide, review, send, reset };
 }

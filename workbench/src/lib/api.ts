@@ -69,12 +69,6 @@ export async function decideGate(
   );
 }
 
-export async function advance(id: string): Promise<{ events: SessionEvent[]; state: SessionState }> {
-  return json(
-    await fetchSafe(`${BASE}/sessions/${encodeURIComponent(id)}/advance`, { method: "POST" })
-  );
-}
-
 /** Answer an open phase-review (owner 2026-07-23): approve (advance) · refine (re-run the phase
  *  with `text` as a steer) · deny (halt). Parallels decideGate but on the DIRECTION, not a write. */
 export async function decideReview(

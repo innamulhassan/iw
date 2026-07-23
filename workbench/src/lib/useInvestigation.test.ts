@@ -48,7 +48,7 @@ class MockEventSource {
 
 const last = () => MockEventSource.instances[MockEventSource.instances.length - 1];
 
-// ── fetch routing: snapshot GET for openExisting/reconcile, POST /advance for step ──
+// ── fetch routing: snapshot GET for openExisting/reconcile ──
 const SNAPSHOT = {
   session_id: "app-incident:INC-1",
   subject: { domain: "app-incident", id: "INC-1", kind: "incident" },
@@ -73,10 +73,7 @@ const SNAPSHOT = {
   ],
 } as unknown as Snapshot;
 
-let advanceResponse: { ok: boolean; status?: number; statusText?: string; json: () => Promise<unknown> };
-
 function routeFetch(url: string) {
-  if (url.includes("/advance")) return advanceResponse;
   if (/\/sessions\/[^/]+$/.test(url)) return { ok: true, json: async () => SNAPSHOT };
   return { ok: false, status: 404, statusText: "not found", json: async () => ({ detail: "not found" }) };
 }
@@ -92,7 +89,6 @@ async function openHook() {
 
 beforeEach(() => {
   MockEventSource.instances = [];
-  advanceResponse = { ok: false, status: 500, statusText: "unset", json: async () => ({ detail: "unset" }) };
   vi.stubGlobal("EventSource", MockEventSource);
   vi.stubGlobal(
     "fetch",
@@ -227,39 +223,5 @@ describe("useInvestigation — SSE reconnect (review finding 3)", () => {
     act(() => void vi.advanceTimersByTime(600_000)); // the old timer must be dead
     expect(MockEventSource.instances).toHaveLength(2);
     expect(last()).toBe(fresh);
-  });
-});
-
-describe("useInvestigation — step() error surfacing (review finding 19)", () => {
-  it("a failed advance surfaces a visible error and still clears busy", async () => {
-    advanceResponse = {
-      ok: false,
-      status: 502,
-      statusText: "bad gateway",
-      json: async () => ({ detail: "backend restarting" }),
-    };
-    const { result } = await openHook();
-    await act(async () => {
-      await result.current.step();
-    });
-    expect(result.current.error).toBe("502 backend restarting"); // visible, not console-only
-    expect(result.current.busy).toBe(false);
-  });
-
-  it("a successful advance folds the returned events", async () => {
-    advanceResponse = {
-      ok: true,
-      json: async () => ({
-        events: [{ seq: 9, ts: "t", type: "phase_started", phase: "investigate" }],
-        state: "running",
-      }),
-    };
-    const { result } = await openHook();
-    await act(async () => {
-      await result.current.step();
-    });
-    expect(result.current.state.lastSeq).toBe(9);
-    expect(result.current.error).toBeNull();
-    expect(result.current.busy).toBe(false);
   });
 });
