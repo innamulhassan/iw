@@ -68,6 +68,19 @@ class ReviewDecision(StrEnum):
     DENY = "deny"             # halt the investigation — terminal
 
 
+class CloseCause(StrEnum):
+    """WHY a session terminated (M17). Every terminal path funnels through `_finalize`, which
+    writes ONE `closed` lifecycle record carrying this cause — so 'did it terminate, and why' is a
+    single journal read. Before M17, four paths emitted three event names (closed / max_steps_
+    exhausted / error) and two skipped a `closed` record, so the answer took three reads."""
+
+    FINISHED = "finished"     # the engine's phase route completed — a DONE terminal, or an unrouted
+    #                           verdict that drained the route (both leave current_phase None)
+    EXHAUSTED = "exhausted"   # max_steps hit before a terminal — the interactive step budget ran out
+    ERROR = "error"           # a live LLM/transport failure crashed the drive mid-run
+    DENIED = "denied"         # a human DENIED direction at a phase-review — halted, terminal
+
+
 class _GateSuspend(Exception):
     """Internal control-flow signal: raised by the wrapped planner (after the plan is computed,
     before the write is served) so the engine step unwinds cleanly with nothing applied. Only
@@ -281,16 +294,13 @@ class InvestigationSession:
         try:
             self._drive()
         except Exception as exc:                          # a live LLM/transport failure mid-drive
-            self._emit("session_error", message=f"{type(exc).__name__}: {exc}")
-            self.state = SessionState.CLOSED
-            try:  # the terminal outcome is a lifecycle record too — best-effort on a dead run
-                self._engine.journal.append_lifecycle(
-                    "error", outcome="error",
-                    detail={"error": f"{type(exc).__name__}: {exc}"})
-                self._persist()
-            except Exception:
-                pass
-            self._emit("session_state", state=self.state.value, phase=None, outcome="error")
+            detail = f"{type(exc).__name__}: {exc}"
+            self._emit("session_error", message=detail)
+            # ONE terminal record carrying cause=error (M17); outcome='error' so a crashed run
+            # never reports 'open' on list_view or persisted meta (M18). The durable write is
+            # best-effort — the run is already dead — but the close still marks CLOSED + streams.
+            self._finalize(CloseCause.ERROR, outcome="error", detail={"error": detail},
+                           best_effort=True)
         finally:
             with self._drive_lock:
                 self._driving = False
@@ -330,18 +340,13 @@ class InvestigationSession:
                    phase=pr.from_phase, to_phase=pr.to_phase)
 
     def _deny_close(self, pr: _PendingReview, *, actor: str) -> None:
-        """DENY halts the investigation at the review — terminal. A durable `closed` lifecycle
-        record names WHY (phase_review_denied) so the run ends DIAGNOSABLY (never a zombie), and
-        the SSE stream closes. The outcome is the engine's terminal label (open — close was never
-        reached)."""
-        self.state = SessionState.CLOSED
-        res = self._engine.result()
-        self._outcome = res.close_outcome or "open"
-        self._engine.journal.append_lifecycle(
-            "closed", phase_id=pr.from_phase, outcome=self._outcome,
-            detail={"reason": "phase_review_denied", "actor": actor, "to_phase": pr.to_phase})
-        self._emit("session_state", state=self.state.value, phase=None, outcome=self._outcome)
-        self._persist()
+        """DENY halts the investigation at the review — terminal. The unified `closed` lifecycle
+        record names the cause (denied) + WHY (phase_review_denied) so the run ends DIAGNOSABLY
+        (never a zombie), and the SSE stream closes. The outcome is the engine's terminal label
+        (open — close was never reached)."""
+        self._finalize(CloseCause.DENIED, phase_id=pr.from_phase,
+                       detail={"reason": "phase_review_denied", "actor": actor,
+                               "to_phase": pr.to_phase})
 
     def add_message(self, text: str, *, actor: str = "operator") -> dict:
         """Record an operator turn in the two-way chat (obs 2). The message becomes a first-class
@@ -659,33 +664,46 @@ class InvestigationSession:
                 "value": f.value, "unit": f.unit, "source": f.source.value}
 
     def _close(self) -> None:
-        self.state = SessionState.CLOSED
-        res = self._engine.result()
-        self._outcome = res.close_outcome or "open"
-        # JOURNAL v2 lifecycle (part2 §1/§3): the terminal outcome is a durable record — a
-        # run that ended by finishing, or by an unrouted BLOCKED verdict draining the phase
-        # route, closes DIAGNOSABLY. (Routing BLOCKED/DONE somewhere better is P7's phase
-        # work; the lifecycle-journal + stream-close half lives here.)
-        self._engine.journal.append_lifecycle("closed", outcome=self._outcome)
-        self._emit("session_state", state=self.state.value, phase=None, outcome=self._outcome)
-        self._persist()                      # final durable write on close
+        # The engine's phase route completed — a genuine DONE terminal, or an unrouted verdict
+        # that drained the route (both leave current_phase None). ONE `closed` lifecycle record,
+        # cause=finished (M17); the terminal outcome is whatever the engine resolved. (Routing
+        # BLOCKED/DONE somewhere better is P7's phase work; the close half lives here.)
+        self._finalize(CloseCause.FINISHED)
 
     def _exhaust(self) -> None:
         """ZOMBIE FIX (P6 step 5, part2 §3): max-steps exhaustion used to leave the session
-        RUNNING forever — no close, no journal trace, the SSE stream dying only by idle
-        timeout, the zombie undiagnosable. Now: a durable `lifecycle` entry names the cause,
-        the session CLOSES (which ends the SSE loop — the stream closes), and the run stays
-        reopenable read-only from disk like any other closed investigation."""
-        phase = self._engine.current_phase
+        RUNNING forever — no close, no journal trace, the SSE stream dying only by idle timeout,
+        the zombie undiagnosable. Now it funnels through the ONE terminal path: a durable `closed`
+        lifecycle record names the cause (exhausted, M17), the session CLOSES (ending the SSE
+        loop), and the run stays reopenable read-only from disk like any other closed run."""
+        self._finalize(CloseCause.EXHAUSTED, phase_id=self._engine.current_phase)
+
+    def _finalize(self, cause: CloseCause, *, phase_id: str | None = None,
+                  outcome: str | None = None, detail: dict | None = None,
+                  best_effort: bool = False) -> None:
+        """The ONE terminal transition (M17). Finished, exhausted, errored and denied all end
+        HERE: state→CLOSED, the outcome resolved once, a SINGLE `closed` lifecycle record carrying
+        the CAUSE, the terminal `session_state` on the stream, and the final durable write — so
+        'did it terminate, and why' is a single journal read (kind=lifecycle, event=closed, then
+        `cause`), where before four paths emitted three event names and two skipped a `closed`
+        record. `outcome` OVERRIDES the engine's terminal label: an errored run whose engine never
+        reached a terminal carries 'error' (M18), so list_view + persisted meta never report a
+        crash as 'open'; the healthy paths pass None and take `close_outcome or 'open'` exactly as
+        before (meta byte-identical). `best_effort` swallows a durable-write failure on an
+        already-dead run (the error path) while still marking CLOSED and streaming the close."""
         self.state = SessionState.CLOSED
-        res = self._engine.result()
-        self._outcome = res.close_outcome or "open"
-        self._engine.journal.append_lifecycle(
-            "max_steps_exhausted", phase_id=phase, outcome=self._outcome)
-        self._emit("session_state", state=self.state.value,
-                   phase=phase, outcome=self._outcome,
-                   reason="max_steps_exhausted")
-        self._persist()
+        self._outcome = (outcome if outcome is not None
+                         else (self._engine.result().close_outcome or "open"))
+        try:
+            self._engine.journal.append_lifecycle(
+                "closed", phase_id=phase_id, outcome=self._outcome,
+                detail={"cause": cause.value, **(detail or {})})
+            self._emit("session_state", state=self.state.value, phase=phase_id,
+                       outcome=self._outcome, cause=cause.value)
+            self._persist()
+        except Exception:
+            if not best_effort:
+                raise
 
     def _emit(self, etype: str, **payload) -> dict:
         self._event_seq += 1
@@ -700,11 +718,14 @@ class InvestigationSession:
     def _persist(self) -> None:
         """Append the journal + rewrite the graph/meta on disk (no-op without a store). Called
         after each fold/step, when a gate opens, on close, and on an operator message — the
-        journal is append-only so this is cheap and crash-safe."""
+        journal is append-only so this is cheap and crash-safe. Threads the session `_outcome`
+        into meta so a crashed run persists 'error', never 'open' (M18) — during a live run it is
+        'open' and equals the engine's derived label, so healthy metas stay byte-identical."""
         if self._store is None:
             return
         self._persisted_journal = self._store.persist(
-            self.subject, self._engine, prior=self._persisted_journal, state=self.state.value)
+            self.subject, self._engine, prior=self._persisted_journal, state=self.state.value,
+            outcome=self._outcome)
 
 
 class SessionManager:

@@ -154,6 +154,7 @@ def test_review_deny_halts_terminal():
     assert rdecs and rdecs[0].decision == "deny"
     life = [e for e in session._engine.journal.entries if e.kind == "lifecycle"]
     assert life[-1].action["event"] == "closed"
+    assert life[-1].action["cause"] == "denied"       # M17: the terminal cause names the deny
     assert life[-1].action["reason"] == "phase_review_denied"
     # the closing session_state event fires with a terminal outcome
     st = [e for e in session.events() if e["type"] == "session_state"]

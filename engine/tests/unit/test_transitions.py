@@ -148,20 +148,28 @@ def _clock() -> datetime:
     return datetime(2026, 7, 19, tzinfo=UTC)
 
 
+def _terminal_closed(session):
+    """The run's terminal lifecycle records (M17: every terminal path emits ONE `closed`)."""
+    return [e for e in session._engine.journal.entries
+            if e.kind == "lifecycle" and e.action.get("event") == "closed"]
+
+
 def test_max_steps_exhaustion_closes_with_lifecycle():
-    """The RUNNING-forever zombie dies: exhausting max_steps CLOSES the session (ending the
-    SSE stream — the server loop exits on CLOSED) and journals WHY, durably."""
+    """The RUNNING-forever zombie dies: exhausting max_steps CLOSES the session (ending the SSE
+    stream — the server loop exits on CLOSED) and journals WHY via the ONE terminal record
+    (event=closed, cause=exhausted). M17 folded the old distinct `max_steps_exhausted` event and
+    the ad-hoc session_state `reason` into the unified closed-record + `cause`."""
     subject, script = s1.build()
     pb = load_playbook(PLAYBOOK)
     session = InvestigationSession(subject, pb, ScriptedPlanner(script),
                                    clock=_clock, max_steps=2)
     session.advance()
     assert session.state == SessionState.CLOSED, "exhaustion must close, never zombie"
-    life = [e for e in session._engine.journal.entries if e.kind == "lifecycle"]
-    assert life and life[-1].action["event"] == "max_steps_exhausted"
-    assert life[-1].phase_id is not None            # WHERE it starved is on the record
+    closed = _terminal_closed(session)
+    assert len(closed) == 1 and closed[0].action["cause"] == "exhausted"
+    assert closed[0].phase_id is not None           # WHERE it starved is on the record
     states = [e for e in session.events() if e["type"] == "session_state"]
-    assert states[-1]["state"] == "closed" and states[-1]["reason"] == "max_steps_exhausted"
+    assert states[-1]["state"] == "closed" and states[-1]["cause"] == "exhausted"
 
 
 def test_normal_close_writes_terminal_lifecycle():
@@ -170,15 +178,17 @@ def test_normal_close_writes_terminal_lifecycle():
     session = InvestigationSession(subject, pb, ScriptedPlanner(script), clock=_clock)
     session.advance()
     assert session.state == SessionState.CLOSED
-    life = [e for e in session._engine.journal.entries if e.kind == "lifecycle"]
-    assert life and life[-1].action["event"] == "closed"
-    assert life[-1].decision == "resolved"          # the terminal outcome rides the record
+    closed = _terminal_closed(session)
+    assert len(closed) == 1                          # M17: exactly one terminal record
+    assert closed[0].action["cause"] == "finished"   # reached the terminal cleanly
+    assert closed[0].decision == "resolved"          # the terminal outcome rides the record
 
 
 def test_blocked_verdict_closes_with_lifecycle():
-    """An unrouted BLOCKED verdict drains the phase route — the session must CLOSE with a
-    terminal lifecycle record (outcome open), never hang. (Routing BLOCKED somewhere better
-    is P7's phase work; the diagnosable-close half lands here.)"""
+    """An unrouted BLOCKED verdict drains the phase route — the session must CLOSE with the ONE
+    terminal lifecycle record (event=closed, outcome open), never hang. The engine journals the
+    `unrouted_verdict` separately; the terminal record's cause is `finished` (the route ran out).
+    (Routing BLOCKED somewhere better is P7's phase work; the diagnosable-close half lands here.)"""
     subject, base = s1.build()
     script = [base[0], phase("investigate", [], "cannot proceed: access denied", status="blocked")]
     pb = load_playbook(PLAYBOOK)
@@ -186,5 +196,30 @@ def test_blocked_verdict_closes_with_lifecycle():
     session.advance()
     assert session.state == SessionState.CLOSED
     assert session.outcome == "open"
-    life = [e for e in session._engine.journal.entries if e.kind == "lifecycle"]
-    assert life and life[-1].action["event"] == "closed" and life[-1].decision == "open"
+    closed = _terminal_closed(session)
+    assert len(closed) == 1
+    assert closed[0].action["cause"] == "finished" and closed[0].decision == "open"
+
+
+def test_errored_drive_closes_with_error_cause_and_outcome():
+    """M17 + M18: a live drive that crashes mid-run funnels through the SAME terminal path — state
+    CLOSED and ONE `closed` record with cause=error — and sets outcome='error' (NOT the default
+    'open') on both `_outcome` and list_view(), so a crashed run never masquerades as still-open."""
+    subject, _ = s1.build()
+    pb = load_playbook(PLAYBOOK)
+
+    class _BoomPlanner:
+        def plan(self, ctx):
+            raise RuntimeError("live transport died mid-drive")
+
+    session = InvestigationSession(subject, pb, _BoomPlanner(), clock=_clock)
+    session._drive_and_clear()                       # the background error path, run synchronously
+    assert session.state == SessionState.CLOSED
+    assert session.outcome == "error" and session.list_view()["outcome"] == "error"
+    closed = _terminal_closed(session)
+    assert len(closed) == 1 and closed[0].action["cause"] == "error"
+    # the crash was announced on the stream, then the unified close (cause=error)
+    types = [e["type"] for e in session.events()]
+    assert "session_error" in types
+    states = [e for e in session.events() if e["type"] == "session_state"]
+    assert states[-1]["state"] == "closed" and states[-1]["cause"] == "error"

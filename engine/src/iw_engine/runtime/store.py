@@ -115,10 +115,14 @@ class InvestigationStore:
             _atomic_write(p, "\n".join(lines) + "\n")
         return len(entries)
 
-    def persist(self, subject: SubjectRef, engine, *, prior: int, state: str) -> int:
+    def persist(self, subject: SubjectRef, engine, *, prior: int, state: str,
+                outcome: str | None = None) -> int:
         """Land the current session state on disk: append the journal (fsync'd), atomically
         rewrite the graph cache — stamped with the journal-head watermark it projects — + meta.
-        Returns the new persisted-journal count (feed it back as `prior`)."""
+        Returns the new persisted-journal count (feed it back as `prior`). `outcome` is the
+        session's own terminal label: an errored run that never reached an engine terminal passes
+        'error' (M18) so meta never records a crash as 'open'; None falls back to the engine's
+        derived `close_outcome or 'open'` (a running or healthy run — byte-identical to before)."""
         key = subject.key
         d = self.dir_for(key)
         d.mkdir(parents=True, exist_ok=True)
@@ -132,7 +136,7 @@ class InvestigationStore:
             "key": key,
             "subject": subject.model_dump(),
             "state": state,
-            "outcome": res.close_outcome or "open",
+            "outcome": outcome if outcome is not None else (res.close_outcome or "open"),
             "close_outcome": res.close_outcome,
             "origin_node": res.origin_node,   # the subject_node role binding's id (P7 step 5)
             "phases_run": list(res.phases_run),

@@ -197,3 +197,30 @@ def test_partial_tail_journal_still_reopens(tmp_path):
     reopened = fresh.reopen(KEY)
     assert reopened is not None and reopened["read_only"] is True
     assert reopened["graph"]["nodes"], "the surviving journal entries still serve the reopen"
+
+
+def test_errored_run_persists_outcome_error_not_open(tmp_path):
+    """M18: a crashed drive persists `outcome='error'` in meta.json (and the on-disk list row) —
+    the disk record of a crashed run must never say 'open'. Pairs with the in-memory _outcome/
+    list_view fix (test_transitions.test_errored_drive_closes_with_error_cause_and_outcome)."""
+    import pathlib
+
+    import iw_engine
+    from iw_engine.runtime import load_playbook
+    from iw_engine.runtime.session import InvestigationSession
+
+    class _BoomPlanner:
+        def plan(self, ctx):
+            raise RuntimeError("live transport died mid-drive")
+
+    root = tmp_path / "investigations"
+    pb = load_playbook(pathlib.Path(iw_engine.__file__).parent / "playbooks" / "incident.yaml")
+    session = InvestigationSession(_subject(), pb, _BoomPlanner(),
+                                   store=InvestigationStore(root))
+    session._drive_and_clear()                                  # crash the drive → error terminal
+    assert session.state == SessionState.CLOSED
+
+    meta = json.loads((root / safe_key(KEY) / "meta.json").read_text())
+    assert meta["outcome"] == "error"                          # NOT the default "open"
+    row = {r["id"]: r for r in InvestigationStore(root).list_disk()}[KEY]
+    assert row["outcome"] == "error"                           # GET /sessions never shows a phantom 'open'

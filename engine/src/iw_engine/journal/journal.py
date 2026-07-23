@@ -65,7 +65,8 @@ class JournalEntry(BaseModel):
     #   repair        — a planner repair record: an off-catalog tool / unparseable-or-illegal op /
     #                   coerced verdict the LIVE planner dropped BEFORE the reducer (M6). Used to
     #                   reach only the verbose log + dev summary; now durable and fed back.
-    #   lifecycle     — run started/resumed/max-steps-exhausted/terminal outcome
+    #   lifecycle     — run started/resumed/unrouted_verdict/closed; the ONE terminal `closed`
+    #                   record carries a cause {finished|exhausted|error|denied} (M17)
     #   phase_review  — the between-phases DIRECTION review shown to the human (summary + the
     #                   proposed advance), durable like gate_opened (owner 2026-07-23)
     #   review_decision — approve/refine/deny of a phase-review + actor (the direction consent)
@@ -201,7 +202,9 @@ class Journal:
     def append_lifecycle(self, event: str, *, phase_id: str | None = None,
                          outcome: str | None = None, detail: dict | None = None) -> JournalEntry:
         """Run lifecycle record (part2 §1/§3: zombie states die diagnosable): started / resumed /
-        max_steps_exhausted / closed — with the terminal outcome where one exists."""
+        unrouted_verdict / closed. The TERMINAL record is always `closed`, carrying its CAUSE
+        {finished|exhausted|error|denied} in `detail` (M17) + the terminal outcome where one
+        exists — so a single read answers 'did it terminate, and why'."""
         return self.append(JournalEntry(
             ts=self._clock(), kind="lifecycle", phase_id=phase_id, actor="engine",
             reasoning=event, decision=outcome,

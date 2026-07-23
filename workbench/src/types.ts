@@ -436,6 +436,7 @@ export interface SessionStateEvent extends EventBase {
   phase: string | null;
   verdict?: string;
   outcome?: string;
+  cause?: string; // on a terminal (closed) state: finished | exhausted | error | denied (M17)
 }
 /** The human's write-gate answer — WHO decided (actor + Source.HUMAN), and how. */
 export interface GateDecisionEvent extends EventBase {
