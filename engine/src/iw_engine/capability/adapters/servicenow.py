@@ -51,10 +51,12 @@ class ServiceNowAdapter:
                 "incident_id": inc["number"],
                 "severity": inc.get("priority"),
                 "commander": inc.get("assigned_to"),
-                # M2: the incident's human-readable record (title/short_description/work_notes/
-                # caller_id) folded onto the ORIGIN node so it stops being a bare id — included
-                # only when ServiceNow returns them, so a thin fixture mints the exact same node.
-                **{k: inc[k] for k in ("title", "short_description", "work_notes", "caller_id")
+                # M2: the incident's human-readable record (title/short_description/description/
+                # work_notes/caller_id) folded onto the ORIGIN node so it stops being a bare id —
+                # included only when ServiceNow returns them, so a thin fixture mints the exact
+                # same node (finish-completeness adds the full `description` body over the M2 four).
+                **{k: inc[k] for k in ("title", "short_description", "description",
+                                       "work_notes", "caller_id")
                    if inc.get(k) is not None},
             }
             ops.append(AddNode(type=NodeType.INCIDENT, props=inc_props))
@@ -72,7 +74,8 @@ class ServiceNowAdapter:
                 # backbone that lets each later tool be queried by ITS OWN id (AppD by app_id,
                 # git by repo, the platform by k8s_workload), not by the display name.
                 svc_props = {"service_name": ci["display_value"], "env": inc_env,
-                             **{k: ci[k] for k in ("app_id", "sys_id", "repo", "k8s_workload")
+                             **{k: ci[k] for k in ("app_id", "sys_id", "repo", "k8s_workload",
+                                                   "owner", "version")
                                 if ci.get(k)}}
                 ops.append(AddNode(type=NodeType.SERVICE, props=svc_props))
                 svc_id = registry.node_id(NodeType.SERVICE, svc_props)
@@ -86,6 +89,11 @@ class ServiceNowAdapter:
                 "target_ref": (ch.get("cmdb_ci") or {}).get("display_value"),
                 "actor": ch.get("requested_by"),
                 "ticket_id": ch["number"],
+                # the change's own human record (its summary + the actual change detail) — folded
+                # onto the ChangeEvent node like the incident's, and only when present, so a thin
+                # change fixture mints the identical node (finish-completeness).
+                **{k: ch[k] for k in ("short_description", "description")
+                   if ch.get(k) is not None},
             }
             ops.append(AddNode(type=NodeType.CHANGE_EVENT, props=ch_props))
             ch_id = registry.node_id(NodeType.CHANGE_EVENT, ch_props)
@@ -155,7 +163,8 @@ class ServiceNowAdapter:
                 "commander": ri.get("assigned_to"),
                 # M2: the related prior's human record too (same conditional fold as get_incident),
                 # so a co-firing/recurrence incident carries its own title/description when served.
-                **{k: ri[k] for k in ("title", "short_description", "work_notes", "caller_id")
+                **{k: ri[k] for k in ("title", "short_description", "description",
+                                       "work_notes", "caller_id")
                    if ri.get(k) is not None},
             }
             ops.append(AddNode(type=NodeType.INCIDENT, props=ri_props))

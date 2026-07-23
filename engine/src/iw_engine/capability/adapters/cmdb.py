@@ -71,29 +71,38 @@ _REL_KEYWORDS: tuple[tuple[str, tuple[EdgeType, ...]], ...] = (
 )
 
 
+# CI-wide descriptive attributes CMDB carries on every class (ownership + version), folded
+# onto whatever typed node the CI maps to — only when present, so a thin ci_attrs entry mints
+# the identical node (finish-completeness: "CI attributes — owner, environment, version").
+_SHARED_CI_ATTRS: tuple[str, ...] = ("owner", "version")
+
+
 def _props_for(ntype: NodeType, name: str, sys_class_name: str, env: str, attrs: dict) -> dict:
-    """Build the identity + static props for a CI, keyed off its typed NodeType."""
+    """Build the identity + static props for a CI, keyed off its typed NodeType. Ownership +
+    version descriptors (`_SHARED_CI_ATTRS`) are folded on top for every class when supplied."""
     if ntype is NodeType.SERVICE:
-        return {"service_name": name, "env": attrs.get("env", env),
+        base = {"service_name": name, "env": attrs.get("env", env),
                 **{k: attrs[k] for k in ("repo", "language") if k in attrs}}
-    if ntype is NodeType.DATABASE:
+    elif ntype is NodeType.DATABASE:
         keys = ("engine", "ha_role", "endpoint")
-        return {"db_id": name, **{k: attrs[k] for k in keys if k in attrs}}
-    if ntype is NodeType.HOST:
+        base = {"db_id": name, **{k: attrs[k] for k in keys if k in attrs}}
+    elif ntype is NodeType.HOST:
         keys = ("asset_id", "cpu_cores", "mem_gb", "region")
-        return {"fqdn": name, **{k: attrs[k] for k in keys if k in attrs}}
-    if ntype is NodeType.MESSAGE_QUEUE:
-        return {"topic_id": name, **{k: attrs[k] for k in ("broker", "partitions") if k in attrs}}
-    if ntype is NodeType.LOAD_BALANCER:
-        return {"lb_id": name, "name": name}
-    if ntype is NodeType.BATCH_JOB:
-        return {"job_name": name, "schedule_id": attrs.get("schedule_id", "adhoc"),
+        base = {"fqdn": name, **{k: attrs[k] for k in keys if k in attrs}}
+    elif ntype is NodeType.MESSAGE_QUEUE:
+        base = {"topic_id": name, **{k: attrs[k] for k in ("broker", "partitions") if k in attrs}}
+    elif ntype is NodeType.LOAD_BALANCER:
+        base = {"lb_id": name, "name": name}
+    elif ntype is NodeType.BATCH_JOB:
+        base = {"job_name": name, "schedule_id": attrs.get("schedule_id", "adhoc"),
                 **({"schedule": attrs["schedule"]} if "schedule" in attrs else {})}
-    if ntype is NodeType.NETWORK_SEGMENT:
-        return {"segment_id": name, **{k: attrs[k] for k in ("cidr", "vlan") if k in attrs}}
-    # escape valve: the generic CMDB CI shape (registry docstring: "prefer this over
-    # GENERIC_CI whenever sys_class_name maps to a recognizable platform concept").
-    return {"ci_id": name, "sys_class_name": sys_class_name, "name": name}
+    elif ntype is NodeType.NETWORK_SEGMENT:
+        base = {"segment_id": name, **{k: attrs[k] for k in ("cidr", "vlan") if k in attrs}}
+    else:
+        # escape valve: the generic CMDB CI shape (registry docstring: "prefer this over
+        # GENERIC_CI whenever sys_class_name maps to a recognizable platform concept").
+        base = {"ci_id": name, "sys_class_name": sys_class_name, "name": name}
+    return {**base, **{k: attrs[k] for k in _SHARED_CI_ATTRS if k in attrs}}
 
 
 def _edge_type_for(rel_type: str, src_t: NodeType, dst_t: NodeType) -> EdgeType | None:

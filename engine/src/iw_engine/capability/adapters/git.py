@@ -38,6 +38,9 @@ class GitAdapter:
                 "author": commit.get("author"),
                 "parent_sha": commit.get("parent_sha"),
                 "authored_at": commit.get("authored_at"),
+                # the commit's own message — folded only when present, so a hermetic fixture
+                # without it mints the byte-identical node (finish-completeness).
+                **({"message": commit["message"]} if commit.get("message") is not None else {}),
             }
             ops.append(AddNode(type=NodeType.CODE_COMMIT, props=props))
             commit_id = registry.node_id(NodeType.CODE_COMMIT, props)
