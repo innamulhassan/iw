@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .enums import EdgeType, NodeType, Origin
+from .enums import EdgeClass, EdgeType, NodeType, Origin
 
 
 @dataclass(frozen=True)
@@ -26,9 +26,15 @@ class NodeSpec:
 class EdgeSpec:
     type: EdgeType
     allowed: tuple[tuple[NodeType, NodeType], ...]   # legal (src_type, dst_type) pairs
+    edge_class: EdgeClass                      # the settled semantic class (NODE-EDGE-PRIMITIVES §5.2) —
+                                               # required: every EdgeType maps onto one of the seven classes
     default_origin: Origin = Origin.DISCOVERED
     requires_confidence: bool = False          # inferred/causal edges must carry Confidence + evidence
     derived: bool = False                      # a projection the fold recomputes — the planner may NOT
                                                # emit it directly (evidence edges: VALIDATION-VERDICT §B P0 #1)
     fact_predicates: tuple[str, ...] = ()      # allowed fact predicates ON THE EDGE (edge-borne RED on
                                                # a discovered CALLS/READS_FROM/…; governed like node facts §C2)
+    immutable: bool = False                    # PROVENANCE/lineage discipline (§5.2 class 2): the relation
+                                               # never un-happens — superseded-on-rebuild, NEVER retracted-as-wrong
+    symmetric: bool = False                    # CORRESPONDENCE discipline (§5.2 class 6): stored in a canonical
+                                               # direction, read as symmetric (same_as/similar_to/recurrence_of)

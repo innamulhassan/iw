@@ -84,7 +84,7 @@ class Species(StrEnum):
     READING = "reading"
     EVENT = "event"
     SPAN = "span"
-    DESCRIPTOR = "property"   # back-compat alias → PROPERTY (renamed 2026-07-23); hidden from iteration
+    DESCRIPTOR = "property"   # back-compat alias -> PROPERTY (renamed 2026-07-23); hidden from iteration
 
     @classmethod
     def _missing_(cls, value: object) -> Species | None:
@@ -143,7 +143,7 @@ class FactState(StrEnum):
     the P0 lifecycle fix, Edge and Event (VALIDATION-VERDICT §B P0 #2). One enum, not three:
     a refuted CAUSED_BY edge and a wrong telemetry Event tombstone exactly as a Fact does.
     (SUPERSEDED is meaningful for facts/edges with a valid-time window; events, being
-    point-in-time occurrences, only ever go ACTIVE → RETRACTED.)"""
+    point-in-time occurrences, only ever go ACTIVE -> RETRACTED.)"""
 
     ACTIVE = "active"
     SUPERSEDED = "superseded"   # a newer value closed this fact's/edge's valid_to
@@ -290,10 +290,44 @@ class EdgeType(StrEnum):
     # evidence layer — DERIVED projections of the canonical Hypothesis.{supporting,refuting}_facts
     # fact-id lists (VALIDATION-VERDICT §B P0 #1). The Fact is the ONE addressable evidence unit;
     # these edges are recomputed by the fold, never emitted by the planner. EVIDENCE_FOR/AGAINST
-    # (a redundant second pair pointing the same node→hypothesis) were dropped.
+    # (a redundant second pair pointing the same node->hypothesis) were dropped.
     SUPPORTS = "supports"
     REFUTES = "refutes"
     REMEDIATED_BY = "remediated_by"
+
+
+class EdgeClass(StrEnum):
+    """The SEVEN settled semantic classes an EdgeType falls into (NODE-EDGE-PRIMITIVES 2026-07-23
+    §5.2), each pinning one cell of `(relatum-kind x epistemic-default x validity-temporality)` and
+    fixing its confidence + direction + refutability discipline. The class is orthogonal to the
+    physical group module (structural/supply/causal): it is the BEHAVIORAL mapping the settled model
+    names, so the reducer/queries key on the discipline, not the file.
+
+    - STRUCTURAL   — the wiring/plant spine (depends_on, calls, runs_on, contains, …) PLUS `owns`
+                     (reassigned here from lineage §5.2: ownership behaves structurally — mutable,
+                     retractable on reorg — not like immutable lineage). Observed; interval-valid &
+                     retractable; DECLARED ~1.0 or DISCOVERED graded < 1. Direction: dependent -> provider.
+    - PROVENANCE   — where a thing CAME FROM (built_from, released_as, runs_version, deployed_as,
+                     introduced_by). IMMUTABLE: a release *was* built from a commit — it never
+                     un-happens; superseded-on-rebuild, never retracted-as-wrong. Direction: derived -> source.
+    - PARTICIPATION— entity <-> occurrence (fired_on, emitted, affects, triggered_by, changed_by). The
+                     edge's `[valid_from,valid_to)` IS the participant's involvement window (§5.2 F).
+    - CAUSAL       — influence & explanation (caused_by, correlated_with, impacts). DERIVED/INFERRED;
+                     confidence mandatory; belief-as-of-a-reasoning-run. Direction: effect -> cause.
+    - EVIDENTIAL   — evidence <-> hypothesis (supports, refutes). A fold-RECOMPUTED projection of the
+                     hypothesis store (`derived=True`); the planner may NOT author it. Direction: evidence -> hyp.
+    - CORRESPONDENCE— same-as / like (similar_to, recurrence_of; same_as/alias_of are next-step). SYMMETRIC-
+                     READ: stored in a canonical direction, read as symmetric. Direction: canonical pair.
+    - REMEDIATION  — problem(hypothesis) <-> action (remediated_by). Belief-then-confirmed. Direction: hyp -> action.
+    """
+
+    STRUCTURAL = "structural"
+    PROVENANCE = "provenance"
+    PARTICIPATION = "participation"
+    CAUSAL = "causal"
+    EVIDENTIAL = "evidential"
+    CORRESPONDENCE = "correspondence"
+    REMEDIATION = "remediation"
 
 
 # ── Operation kinds (the LLM's only output channel — DESIGN §2.1/§2.2) ─────────

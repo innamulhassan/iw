@@ -10,12 +10,13 @@ permissive than blocking a real scenario, per the build brief).
 """
 from __future__ import annotations
 
-from ..enums import EdgeType, NodeType, Origin
+from ..enums import EdgeClass, EdgeType, NodeType, Origin
 from ..spec import EdgeSpec
 
 SPECS: tuple[EdgeSpec, ...] = (
     EdgeSpec(
         type=EdgeType.OWNS,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.TEAM, NodeType.SERVICE),
             (NodeType.TEAM, NodeType.APPLICATION),
@@ -27,6 +28,8 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.BUILT_FROM,
+        edge_class=EdgeClass.PROVENANCE,
+        immutable=True,
         allowed=(
             (NodeType.BUILD_ARTIFACT, NodeType.CODE_COMMIT),
             (NodeType.RELEASE, NodeType.BUILD_ARTIFACT),
@@ -36,6 +39,8 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.RELEASED_AS,
+        edge_class=EdgeClass.PROVENANCE,
+        immutable=True,
         allowed=(
             (NodeType.BUILD_ARTIFACT, NodeType.RELEASE),
         ),
@@ -44,6 +49,8 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.RUNS_VERSION,
+        edge_class=EdgeClass.PROVENANCE,
+        immutable=True,
         allowed=(
             (NodeType.DEPLOYMENT, NodeType.RELEASE),
             (NodeType.POD, NodeType.RELEASE),
@@ -55,6 +62,8 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.DEPLOYED_AS,
+        edge_class=EdgeClass.PROVENANCE,
+        immutable=True,
         allowed=(
             (NodeType.RELEASE, NodeType.DEPLOYMENT),
             (NodeType.RELEASE, NodeType.POD),
@@ -67,6 +76,8 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.INTRODUCED_BY,
+        edge_class=EdgeClass.PROVENANCE,
+        immutable=True,
         allowed=(
             (NodeType.CHANGE_EVENT, NodeType.CODE_COMMIT),
             (NodeType.CHANGE_EVENT, NodeType.RELEASE),

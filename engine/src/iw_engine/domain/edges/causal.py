@@ -16,7 +16,7 @@ thing — was dropped.
 """
 from __future__ import annotations
 
-from ..enums import EdgeType, NodeType, Origin
+from ..enums import EdgeClass, EdgeType, NodeType, Origin
 from ..spec import EdgeSpec
 
 _EVIDENCE_SOURCES: tuple[tuple[NodeType, NodeType], ...] = tuple(
@@ -26,6 +26,7 @@ _EVIDENCE_SOURCES: tuple[tuple[NodeType, NodeType], ...] = tuple(
 SPECS: tuple[EdgeSpec, ...] = (
     EdgeSpec(
         type=EdgeType.FIRED_ON,
+        edge_class=EdgeClass.PARTICIPATION,
         allowed=(
             (NodeType.ALERT, NodeType.SERVICE),
             (NodeType.ALERT, NodeType.API_ENDPOINT),
@@ -47,6 +48,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.EMITTED,
+        edge_class=EdgeClass.PARTICIPATION,
         allowed=(
             (NodeType.SERVICE, NodeType.ERROR_SIGNATURE),
             (NodeType.POD, NodeType.ERROR_SIGNATURE),
@@ -59,6 +61,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.AFFECTS,
+        edge_class=EdgeClass.PARTICIPATION,
         allowed=(
             (NodeType.ANOMALY, NodeType.SERVICE),
             (NodeType.ANOMALY, NodeType.API_ENDPOINT),
@@ -75,6 +78,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.TRIGGERED_BY,
+        edge_class=EdgeClass.PARTICIPATION,
         allowed=(
             (NodeType.INCIDENT, NodeType.ALERT),
             (NodeType.ANOMALY, NodeType.ALERT),
@@ -85,6 +89,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.IMPACTS,
+        edge_class=EdgeClass.CAUSAL,
         allowed=(
             (NodeType.CHANGE_EVENT, NodeType.SERVICE),
             (NodeType.CHANGE_EVENT, NodeType.DATABASE),
@@ -97,6 +102,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.CHANGED_BY,
+        edge_class=EdgeClass.PARTICIPATION,
         allowed=(
             (NodeType.SERVICE, NodeType.CHANGE_EVENT),
             (NodeType.DATABASE, NodeType.CHANGE_EVENT),
@@ -121,6 +127,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.CORRELATED_WITH,
+        edge_class=EdgeClass.CAUSAL,
         allowed=(
             (NodeType.ANOMALY, NodeType.CHANGE_EVENT),
             (NodeType.ANOMALY, NodeType.ALERT),
@@ -133,18 +140,23 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.SIMILAR_TO,
+        edge_class=EdgeClass.CORRESPONDENCE,
+        symmetric=True,
         allowed=((NodeType.INCIDENT, NodeType.INCIDENT),),
         default_origin=Origin.INFERRED,
         requires_confidence=True,
     ),
     EdgeSpec(
         type=EdgeType.RECURRENCE_OF,
+        edge_class=EdgeClass.CORRESPONDENCE,
+        symmetric=True,
         allowed=((NodeType.INCIDENT, NodeType.INCIDENT),),
         default_origin=Origin.INFERRED,
         requires_confidence=True,
     ),
     EdgeSpec(
         type=EdgeType.CAUSED_BY,
+        edge_class=EdgeClass.CAUSAL,
         allowed=(
             (NodeType.HYPOTHESIS, NodeType.CHANGE_EVENT),
             (NodeType.HYPOTHESIS, NodeType.CODE_COMMIT),
@@ -197,6 +209,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.SUPPORTS,
+        edge_class=EdgeClass.EVIDENTIAL,
         allowed=_EVIDENCE_SOURCES,
         default_origin=Origin.INFERRED,
         requires_confidence=True,
@@ -204,6 +217,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.REFUTES,
+        edge_class=EdgeClass.EVIDENTIAL,
         allowed=_EVIDENCE_SOURCES,
         default_origin=Origin.INFERRED,
         requires_confidence=True,
@@ -211,6 +225,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.REMEDIATED_BY,
+        edge_class=EdgeClass.REMEDIATION,
         allowed=(
             (NodeType.HYPOTHESIS, NodeType.CHANGE_EVENT),
             (NodeType.HYPOTHESIS, NodeType.RELEASE),

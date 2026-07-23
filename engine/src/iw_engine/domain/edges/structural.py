@@ -6,12 +6,13 @@ is a MultiDiGraph so both coexist, DESIGN §2.1 R-G8).
 """
 from __future__ import annotations
 
-from ..enums import EdgeType, NodeType, Origin
+from ..enums import EdgeClass, EdgeType, NodeType, Origin
 from ..spec import EdgeSpec
 
 SPECS: tuple[EdgeSpec, ...] = (
     EdgeSpec(
         type=EdgeType.DEPENDS_ON,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.SERVICE, NodeType.SERVICE),
             (NodeType.SERVICE, NodeType.DATABASE),
@@ -33,6 +34,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.CALLS,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.SERVICE, NodeType.SERVICE),
             (NodeType.SERVICE, NodeType.API_ENDPOINT),
@@ -54,6 +56,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.REALIZES,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.POD, NodeType.REPLICASET),
             (NodeType.REPLICASET, NodeType.DEPLOYMENT),
@@ -64,6 +67,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.INSTANCE_OF,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.POD, NodeType.DEPLOYMENT),
             (NodeType.REPLICASET, NodeType.DEPLOYMENT),
@@ -74,6 +78,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.RUNS_ON,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.POD, NodeType.HOST),
             (NodeType.CONTAINER, NodeType.HOST),
@@ -85,6 +90,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.HOSTED_ON,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.HOST, NodeType.CLUSTER),
             (NodeType.DATABASE, NodeType.HOST),
@@ -98,6 +104,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.DEPLOYED_TO,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.DEPLOYMENT, NodeType.NAMESPACE),
             (NodeType.DEPLOYMENT, NodeType.CLUSTER),
@@ -109,6 +116,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.CONTAINS,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.NAMESPACE, NodeType.POD),
             (NodeType.NAMESPACE, NodeType.DEPLOYMENT),
@@ -122,6 +130,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.MEMBER_OF,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.HOST, NodeType.CLUSTER),
             (NodeType.POD, NodeType.NAMESPACE),
@@ -133,6 +142,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.EXPOSES,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.SERVICE, NodeType.API_ENDPOINT),
             (NodeType.DEPLOYMENT, NodeType.API_ENDPOINT),
@@ -145,6 +155,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.ROUTES_TO,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.LOAD_BALANCER, NodeType.SERVICE),
             (NodeType.ROUTE, NodeType.SERVICE),
@@ -172,6 +183,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.CONNECTS_TO,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.HOST, NodeType.NETWORK_SEGMENT),
             (NodeType.SERVICE, NodeType.NETWORK_SEGMENT),
@@ -185,6 +197,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.READS_FROM,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.SERVICE, NodeType.DATABASE),
             (NodeType.SERVICE, NodeType.CACHE),
@@ -197,6 +210,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.WRITES_TO,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.SERVICE, NodeType.DATABASE),
             (NodeType.SERVICE, NodeType.CACHE),
@@ -210,6 +224,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.PRODUCES_TO,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.SERVICE, NodeType.MESSAGE_QUEUE),
             (NodeType.BATCH_JOB, NodeType.MESSAGE_QUEUE),
@@ -220,6 +235,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.CONSUMES_FROM,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.SERVICE, NodeType.MESSAGE_QUEUE),
             (NodeType.BATCH_JOB, NodeType.MESSAGE_QUEUE),
@@ -230,6 +246,7 @@ SPECS: tuple[EdgeSpec, ...] = (
     ),
     EdgeSpec(
         type=EdgeType.SECURED_BY,
+        edge_class=EdgeClass.STRUCTURAL,
         allowed=(
             (NodeType.SERVICE, NodeType.FIREWALL_RULE),
             (NodeType.NETWORK_SEGMENT, NodeType.FIREWALL_RULE),

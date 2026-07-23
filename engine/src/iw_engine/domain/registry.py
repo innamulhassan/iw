@@ -10,7 +10,7 @@ import hashlib
 from datetime import datetime
 
 from .edges import EDGE_SPECS, STRUCTURAL_EDGE_TYPES  # dict[EdgeType, EdgeSpec] + spine set
-from .enums import EdgeType, NodeType, Origin
+from .enums import EdgeClass, EdgeType, NodeType, Origin
 from .nodes import NODE_SPECS  # dict[NodeType, NodeSpec]
 from .spec import EdgeSpec, NodeSpec
 
@@ -29,6 +29,25 @@ def node_spec(t: NodeType) -> NodeSpec:
 
 def edge_spec(t: EdgeType) -> EdgeSpec:
     return EDGE_SPECS[t]
+
+
+def edge_class(t: EdgeType) -> EdgeClass:
+    """The settled semantic class of an edge type (NODE-EDGE-PRIMITIVES §5.2) — the behavioral
+    mapping the reducer/queries key on (STRUCTURAL/PROVENANCE/PARTICIPATION/CAUSAL/EVIDENTIAL/
+    CORRESPONDENCE/REMEDIATION), orthogonal to the physical group module it lives in."""
+    return EDGE_SPECS[t].edge_class
+
+
+def is_immutable_edge(t: EdgeType) -> bool:
+    """PROVENANCE/lineage discipline (§5.2 class 2): a lineage edge never un-happens — it is
+    superseded-on-rebuild, NEVER retracted-as-wrong. The reducer refuses to tombstone one."""
+    return EDGE_SPECS[t].immutable
+
+
+def is_symmetric_edge(t: EdgeType) -> bool:
+    """CORRESPONDENCE discipline (§5.2 class 6): stored in a canonical direction, read as
+    symmetric. `graph.symmetric_neighbours` reads such an edge from either endpoint."""
+    return EDGE_SPECS[t].symmetric
 
 
 # ── deterministic ids (planner + reducer + scenarios share these) ─────────────
