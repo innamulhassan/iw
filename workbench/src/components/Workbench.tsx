@@ -8,6 +8,10 @@ import LiveGraph from "./LiveGraph";
 import HypothesisPanel from "./HypothesisPanel";
 import DiscoveryPanel from "./DiscoveryPanel";
 import PostmortemCard from "./PostmortemCard";
+import type { PanelControlState } from "./PanelControls";
+
+/** The three main vertical panels — each with its own maximize/minimize controls. */
+type PanelId = "chat" | "graph" | "hypotheses";
 
 interface Props {
   live: LiveState;
@@ -34,18 +38,44 @@ export default function Workbench({
   // cross-highlights the node + fact in the graph, and clicking a node selects it here.
   const [selection, setSelection] = useState<Selection | null>(null);
 
-  // full-window story mode (owner: "I should be able to see the chat in a full window"): the chat
-  // pane expands to the whole workbench body — graph + sidebar hidden — for reading the complete
-  // investigation end to end. Esc restores the split layout (accessible: keyboard escape hatch).
-  const [chatExpanded, setChatExpanded] = useState(false);
+  // The shared PANEL-LAYOUT model (generalizes the chat's original "Full window" toggle): each of
+  // the three vertical panels — chat, graph, hypotheses — can MAXIMIZE (expand to the full workbench
+  // width, hiding the others; at most one at a time) or MINIMIZE (collapse to a thin labeled strip;
+  // independent per panel). Maximizing a panel clears its own minimized flag; minimizing the
+  // maximized panel restores the split. Esc restores from any maximize (the chat's keyboard escape
+  // hatch, now shared). Default state (no max, none min) renders the original split untouched.
+  const [maximized, setMaximized] = useState<PanelId | null>(null);
+  const [minimized, setMinimized] = useState<Record<PanelId, boolean>>({
+    chat: false,
+    graph: false,
+    hypotheses: false,
+  });
+
+  const toggleMaximize = (id: PanelId) => {
+    setMaximized((cur) => (cur === id ? null : id));
+    setMinimized((m) => (m[id] ? { ...m, [id]: false } : m)); // maximize un-minimizes itself
+  };
+  const minimizePanel = (id: PanelId) => {
+    setMinimized((m) => ({ ...m, [id]: true }));
+    setMaximized((cur) => (cur === id ? null : cur)); // minimizing the maximized panel un-maximizes it
+  };
+  const restorePanel = (id: PanelId) => setMinimized((m) => ({ ...m, [id]: false }));
+
   useEffect(() => {
-    if (!chatExpanded) return;
+    if (!maximized) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setChatExpanded(false);
+      if (e.key === "Escape") setMaximized(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [chatExpanded]);
+  }, [maximized]);
+
+  // the control-cluster props each panel renders in its own header (chat/graph/hypotheses headers)
+  const panelProps = (id: PanelId): PanelControlState => ({
+    maximized: maximized === id,
+    onToggleMaximize: () => toggleMaximize(id),
+    onMinimize: () => minimizePanel(id),
+  });
 
   // The blank-page fix: a NEW investigation spins up through `open()` (reset → createSession →
   // seed) / `openExisting()` (reset → getSnapshot → seed). Between the reset and the seed the store
@@ -88,57 +118,91 @@ export default function Workbench({
         onBack={onBack}
       />
       {error && <div className="workbench__error">{error}</div>}
-      <div className={`workbench__body${chatExpanded ? " workbench__body--chat-full" : ""}`}>
-        <section className={`pane pane--chat${chatExpanded ? " pane--chat-full" : ""}`}>
-          <ChatPane
-            live={live}
-            busy={busy}
-            onDecide={onDecide}
-            onReview={onReview}
-            onSend={onSend}
-            expanded={chatExpanded}
-            onToggleExpand={() => setChatExpanded((v) => !v)}
-          />
-        </section>
-        {/* graph + sidebar collapse away in full-window story mode — the chat is the whole view */}
-        {!chatExpanded && (
-        <section className="pane pane--graph">
-          <LiveGraph live={live} selection={selection} onSelect={setSelection} />
-        </section>
-        )}
-        {/* The right side holds only what's about THIS investigation: the LIVE belief state.
-            The chat IS the complete journal (so the Journal + Rejections panels are gone —
-            rejections render inline in their turn), the incident SWITCHER is gone (navigation
-            lives in the "← Incidents" back button; similar/related incidents surface in the
-            graph), and Discovery appears only when it has something to show. */}
-        {!chatExpanded && (
-        <aside className="workbench__sidebar">
-          {/* the close-out card (M29): once the investigation is CLOSED, lead the sidebar with the
-              postmortem the engine served in every bundle (root cause · ruled-out-with-basis ·
-              timeline · narrative) — previously computed and rendered by nothing. */}
-          {live.state === "closed" && live.postmortem && (
-            <section className="pane pane--postmortem">
-              <PostmortemCard postmortem={live.postmortem} outcome={live.outcome} />
+      {/* When a panel is maximized only it renders (full width); otherwise all three render, each
+          either full or — if minimized — as a thin restorable strip. `shows(id)` gates a panel out
+          entirely while another is maximized; `strip(id)` is true when a panel should collapse. */}
+      <div className={`workbench__body${maximized ? " workbench__body--maxed" : ""}`}>
+        {/* CHAT */}
+        {(!maximized || maximized === "chat") &&
+          (minimized.chat && !maximized ? (
+            <MinimizedStrip label="Chat" onRestore={() => restorePanel("chat")} />
+          ) : (
+            <section className={`pane pane--chat${maximized === "chat" ? " pane--maxed" : ""}`}>
+              <ChatPane
+                live={live}
+                busy={busy}
+                onDecide={onDecide}
+                onReview={onReview}
+                onSend={onSend}
+                panel={panelProps("chat")}
+              />
             </section>
-          )}
-          <section className="pane pane--hypotheses">
-            <HypothesisPanel
-              hypotheses={hypothesisList(live)}
-              facts={live.facts}
-              nodes={live.nodes}
-              selection={selection}
-              onSelect={setSelection}
-            />
-          </section>
-          {(Object.keys(live.discovery.class_hints).length > 0 ||
-            Object.keys(live.discovery.quarantined_names).length > 0) && (
-            <section className="pane pane--discovery">
-              <DiscoveryPanel discovery={live.discovery} />
+          ))}
+
+        {/* GRAPH */}
+        {(!maximized || maximized === "graph") &&
+          (minimized.graph && !maximized ? (
+            <MinimizedStrip label="Graph" onRestore={() => restorePanel("graph")} />
+          ) : (
+            <section className={`pane pane--graph${maximized === "graph" ? " pane--maxed" : ""}`}>
+              <LiveGraph live={live} selection={selection} onSelect={setSelection} panel={panelProps("graph")} />
             </section>
-          )}
-        </aside>
-        )}
+          ))}
+
+        {/* HYPOTHESES — the right side holds only what's about THIS investigation: the LIVE belief
+            state. The chat IS the complete journal (so the Journal + Rejections panels are gone —
+            rejections render inline in their turn), the incident SWITCHER is gone (navigation lives
+            in the "← Incidents" back button; similar/related incidents surface in the graph), and
+            Discovery appears only when it has something to show. */}
+        {(!maximized || maximized === "hypotheses") &&
+          (minimized.hypotheses && !maximized ? (
+            <MinimizedStrip label="Hypotheses" onRestore={() => restorePanel("hypotheses")} />
+          ) : (
+            <aside className={`workbench__sidebar${maximized === "hypotheses" ? " pane--maxed" : ""}`}>
+              {/* the close-out card (M29): once the investigation is CLOSED, lead the sidebar with the
+                  postmortem the engine served in every bundle (root cause · ruled-out-with-basis ·
+                  timeline · narrative) — previously computed and rendered by nothing. */}
+              {live.state === "closed" && live.postmortem && (
+                <section className="pane pane--postmortem">
+                  <PostmortemCard postmortem={live.postmortem} outcome={live.outcome} />
+                </section>
+              )}
+              <section className="pane pane--hypotheses">
+                <HypothesisPanel
+                  hypotheses={hypothesisList(live)}
+                  facts={live.facts}
+                  nodes={live.nodes}
+                  selection={selection}
+                  onSelect={setSelection}
+                  panel={panelProps("hypotheses")}
+                />
+              </section>
+              {(Object.keys(live.discovery.class_hints).length > 0 ||
+                Object.keys(live.discovery.quarantined_names).length > 0) && (
+                <section className="pane pane--discovery">
+                  <DiscoveryPanel discovery={live.discovery} />
+                </section>
+              )}
+            </aside>
+          ))}
       </div>
     </div>
+  );
+}
+
+/** A MINIMIZED panel — a thin labeled strip that restores the panel on click (the whole strip is
+ *  the restore control, for a large keyboard/pointer target). */
+function MinimizedStrip({ label, onRestore }: { label: string; onRestore: () => void }) {
+  return (
+    <button
+      type="button"
+      className="pane pane--min"
+      onClick={onRestore}
+      aria-label={`Restore the ${label} panel`}
+      title={`Restore the ${label} panel`}
+    >
+      <span className="pane-min__icon" aria-hidden="true">⤢</span>
+      <span className="pane-min__label">{label}</span>
+    </button>
   );
 }

@@ -5,6 +5,8 @@ import type { GraphFact, GraphSpan } from "../types";
 import { humanizePredicate } from "../lib/format";
 import { servedIdentityKeys, servedRelationLabel, servedSpeciesForPredicate } from "../lib/labels";
 import { TIER_LABELS, TIER_ORDER, layerLabelForType, tierForType } from "../lib/tiers";
+import PanelControls from "./PanelControls";
+import type { PanelControlState } from "./PanelControls";
 
 const NODE_W = 168;
 const NODE_H = 66;
@@ -206,6 +208,9 @@ interface Props {
   live: LiveState;
   selection: Selection | null;
   onSelect: (sel: Selection | null) => void;
+  /** The shared MAXIMIZE / MINIMIZE controls (Workbench owns the layout state). Optional so the
+   *  graph renders standalone in tests without the workbench chrome. */
+  panel?: PanelControlState;
 }
 
 interface View {
@@ -219,7 +224,7 @@ interface View {
 // its DENSE creation-order number (#1 = the ServiceNow incident ORIGIN), its LAYER, and WHERE it
 // was fetched from (source). Zoom + pan + fit; the hypotheses and graph share one selection so
 // clicking a fact/hypothesis cross-highlights the node + fact here. The ENGINE drives growth.
-export default function LiveGraph({ live, selection, onSelect }: Props) {
+export default function LiveGraph({ live, selection, onSelect, panel }: Props) {
   const [view, setView] = useState<View>({ tx: 0, ty: 0, scale: 1 });
   const dragRef = useRef<{ x: number; y: number; tx: number; ty: number; moved: boolean } | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -401,18 +406,21 @@ export default function LiveGraph({ live, selection, onSelect }: Props) {
     <div className="graph-pane">
       <div className="graph-pane__header">
         <h2 className="pane-title">Incident graph</h2>
-        <div className="graph-controls">
-          <span className="graph-controls__hint">drag to pan · scroll to zoom</span>
-          <button className="graph-controls__btn" onClick={() => zoomBy(1 / 1.2)} title="Zoom out">
-            −
-          </button>
-          <span className="graph-controls__zoom">{Math.round(view.scale * 100)}%</span>
-          <button className="graph-controls__btn" onClick={() => zoomBy(1.2)} title="Zoom in">
-            +
-          </button>
-          <button className="graph-controls__btn graph-controls__btn--fit" onClick={onFit} title="Fit to view">
-            ⤢
-          </button>
+        <div className="graph-pane__tools">
+          <div className="graph-controls">
+            <span className="graph-controls__hint">drag to pan · scroll to zoom</span>
+            <button className="graph-controls__btn" onClick={() => zoomBy(1 / 1.2)} title="Zoom out">
+              −
+            </button>
+            <span className="graph-controls__zoom">{Math.round(view.scale * 100)}%</span>
+            <button className="graph-controls__btn" onClick={() => zoomBy(1.2)} title="Zoom in">
+              +
+            </button>
+            <button className="graph-controls__btn graph-controls__btn--fit" onClick={onFit} title="Fit to view">
+              ⤢
+            </button>
+          </div>
+          {panel && <PanelControls label="graph" {...panel} />}
         </div>
       </div>
 

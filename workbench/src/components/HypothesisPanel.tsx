@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { GraphFact, HypothesisItem } from "../types";
 import type { LiveNode, Selection } from "../lib/store";
 import { humanizePredicate } from "../lib/format";
+import PanelControls from "./PanelControls";
+import type { PanelControlState } from "./PanelControls";
 
 function shortId(id: string): string {
   const i = id.indexOf(":");
@@ -34,6 +36,9 @@ interface Props {
   nodes: Record<string, LiveNode>;
   selection: Selection | null;
   onSelect: (sel: Selection | null) => void;
+  /** The shared MAXIMIZE / MINIMIZE controls for this panel (Workbench owns the layout state).
+   *  Optional so the panel renders standalone in tests without the workbench chrome. */
+  panel?: PanelControlState;
 }
 
 /** One clickable evidence row (obs 8). The reasoner's supporting/refuting lists may hold a Fact
@@ -92,12 +97,15 @@ function FactRow({
 // Rendered in the ENGINE's ranked() order exactly as given — the store carries the bundle order and
 // this panel never re-sorts (the audit's divergent client-side ranking is gone). The % shown is the
 // ENGINE-EARNED weighted evidence score (P4); the LLM's band survives only inside the basis text.
-export default function HypothesisPanel({ hypotheses, facts, nodes, selection, onSelect }: Props) {
+export default function HypothesisPanel({ hypotheses, facts, nodes, selection, onSelect, panel }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
     <div className="hypotheses">
-      <h2 className="pane-title">Hypotheses</h2>
+      <div className="hyp-header">
+        <h2 className="pane-title">Hypotheses</h2>
+        {panel && <PanelControls label="hypotheses" {...panel} />}
+      </div>
       <p className="pane-subtitle">
         {hypotheses.length} hypothes{hypotheses.length === 1 ? "is" : "es"} considered — engine-ranked,
         both sides shown. Expand for the evidence chain.

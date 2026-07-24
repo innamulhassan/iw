@@ -112,29 +112,40 @@ describe("ChatPane — the to-do checklist (F1)", () => {
   });
 });
 
-// Full-window story mode — the chat can expand to the whole workbench for reading end to end.
-describe("ChatPane — full-window toggle", () => {
+// The shared per-panel MAXIMIZE / MINIMIZE controls — the chat's original full-window toggle,
+// generalized. Maximize expands the chat to the whole workbench; minimize collapses it to a strip.
+describe("ChatPane — panel maximize/minimize controls", () => {
   afterEach(() => cleanup());
 
-  it("renders an accessible maximize button that toggles and reflects the expanded state", () => {
-    const onToggle = vi.fn();
+  it("renders accessible maximize + minimize buttons that reflect state and call back", () => {
+    const onToggleMaximize = vi.fn();
+    const onMinimize = vi.fn();
     const { rerender } = render(
-      <ChatPane live={live(turn({}))} busy={false} onDecide={noop} onReview={noop} onSend={noop} expanded={false} onToggleExpand={onToggle} />
+      <ChatPane
+        live={live(turn({}))} busy={false} onDecide={noop} onReview={noop} onSend={noop}
+        panel={{ maximized: false, onToggleMaximize, onMinimize }}
+      />
     );
-    const btn = screen.getByRole("button", { name: /expand the chat to full window/i });
-    expect(btn.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(btn);
-    expect(onToggle).toHaveBeenCalledTimes(1);
-    // once expanded, the control offers to restore (aria reflects the pressed state)
+    const max = screen.getByRole("button", { name: /maximize the chat panel/i });
+    expect(max.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(max);
+    expect(onToggleMaximize).toHaveBeenCalledTimes(1);
+    const min = screen.getByRole("button", { name: /minimize the chat panel/i });
+    fireEvent.click(min);
+    expect(onMinimize).toHaveBeenCalledTimes(1);
+    // once maximized, the control offers to restore (aria reflects the pressed state)
     rerender(
-      <ChatPane live={live(turn({}))} busy={false} onDecide={noop} onReview={noop} onSend={noop} expanded={true} onToggleExpand={onToggle} />
+      <ChatPane
+        live={live(turn({}))} busy={false} onDecide={noop} onReview={noop} onSend={noop}
+        panel={{ maximized: true, onToggleMaximize, onMinimize }}
+      />
     );
-    const restore = screen.getByRole("button", { name: /restore the workbench layout/i });
+    const restore = screen.getByRole("button", { name: /restore the chat panel/i });
     expect(restore.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("omits the toggle when no handler is wired (standalone render)", () => {
+  it("omits the controls when no panel prop is wired (standalone render)", () => {
     render(<ChatPane live={live(turn({}))} busy={false} onDecide={noop} onReview={noop} onSend={noop} />);
-    expect(screen.queryByRole("button", { name: /full window/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /maximize the chat panel/i })).toBeNull();
   });
 });

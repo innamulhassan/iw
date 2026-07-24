@@ -5,6 +5,8 @@ import type { GateDecision } from "../lib/api";
 import ToolCallCard from "./ToolCallCard";
 import ApprovalCard from "./ApprovalCard";
 import ReviewCard from "./ReviewCard";
+import PanelControls from "./PanelControls";
+import type { PanelControlState } from "./PanelControls";
 
 // A DECORATIVE per-phase glyph overlay (not the phase rail — that's data-driven from the served
 // phase_rail, M22). Keyed on the incident phase ids for a nice touch; any unrecognised phase (a
@@ -24,11 +26,10 @@ interface Props {
   onDecide: (gateId: string, d: GateDecision, opts: { params?: Record<string, unknown>; reason?: string }) => void;
   onReview: (reviewId: string, d: GateDecision, opts: { text?: string }) => void;
   onSend: (text: string) => void;
-  /** Full-window story mode (owner: "I should be able to see the chat in a full window") — the chat
-   *  IS the sellable artifact, so it can expand to the whole workbench (graph + sidebar hidden) for
-   *  reading the complete investigation end to end. Optional so the pane renders standalone in tests. */
-  expanded?: boolean;
-  onToggleExpand?: () => void;
+  /** The shared MAXIMIZE / MINIMIZE controls (Workbench owns the layout state) — the chat's
+   *  original full-window toggle generalized into the per-panel cluster. Optional so the pane
+   *  renders standalone in tests without the workbench chrome. */
+  panel?: PanelControlState;
 }
 
 type Item = { seq: number; kind: "turn"; turn: Turn } | { seq: number; kind: "msg"; msg: UserMsg };
@@ -38,7 +39,7 @@ type Item = { seq: number; kind: "turn"; turn: Turn } | { seq: number; kind: "ms
 // journal holds for that phase — objective · plan · reasoning · tool calls · observations ·
 // rejections · the write-gate — as a compact SUMMARY the owner can EXPAND for depth. The
 // operator's own messages interleave by seq, and a composer lets the human steer or answer.
-export default function ChatPane({ live, busy, onDecide, onReview, onSend, expanded, onToggleExpand }: Props) {
+export default function ChatPane({ live, busy, onDecide, onReview, onSend, panel }: Props) {
   const endRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState("");
 
@@ -83,18 +84,7 @@ export default function ChatPane({ live, busy, onDecide, onReview, onSend, expan
       <div className="chat__header">
         <div className="chat__header-row">
           <h2 className="pane-title">Investigation chat</h2>
-          {onToggleExpand && (
-            <button
-              type="button"
-              className="chat__maximize"
-              onClick={onToggleExpand}
-              aria-pressed={!!expanded}
-              aria-label={expanded ? "Restore the workbench layout" : "Expand the chat to full window"}
-              title={expanded ? "Restore (Esc)" : "Read the full story — expand to full window"}
-            >
-              {expanded ? "⤢ Restore" : "⤢ Full window"}
-            </button>
-          )}
+          {panel && <PanelControls label="chat" {...panel} />}
         </div>
         <p className="pane-subtitle">
           The complete journal — objective, plan, reasoning, tools and findings, per phase. Expand
