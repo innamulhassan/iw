@@ -37,5 +37,8 @@ dist/
 .iw/
 
 # Investigation runtime state — file-backed sessions (journal/graph/meta per investigation).
-# Durable across a backend restart, but local runtime data, not source; never committed.
-engine/data/investigations/
+# Durable across a backend restart; local runtime data, not source. Ignore all sessions EXCEPT
+# the checked-in INC-4821 demo snapshot, so a fresh clone (incl. a Windows machine) opens the
+# closed flagship investigation as-is — the full journal/graph/hypotheses — WITHOUT re-running it.
+engine/data/investigations/*
+!engine/data/investigations/app-incident_INC-4821/

@@ -830,6 +830,10 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
           supporting: h.supporting ?? existing?.supporting ?? [],
           refuting: h.refuting ?? existing?.refuting ?? [],
           chain: existing?.chain ?? [],
+          // preserve the engine-served belief timestamps the snapshot seeded — a hypotheses_delta
+          // rebuild must not drop them (the delta stream doesn't re-send them; the reconcile refreshes).
+          proposed_at: existing?.proposed_at ?? null,
+          updated_at: existing?.updated_at ?? null,
         };
       }
       s.hypothesisOrder = mergeIds(s.hypothesisOrder, real.map((h) => h.id));

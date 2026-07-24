@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "key": "app-incident:INC-4821",
+  "subject": {
+    "domain": "app-incident",
+    "id": "INC-4821",
+    "kind": "incident"
+  },
+  "state": "closed",
+  "outcome": "resolved",
+  "close_outcome": "resolved",
+  "origin_node": "incident:inc-4821",
+  "phases_run": [
+    "frame",
+    "investigate",
+    "investigate",
+    "act",
+    "verify",
+    "close"
+  ],
+  "tunables": {
+    "confidence_gate": 0.8,
+    "op_ceiling": {
+      "frame": 60,
+      "investigate": 40,
+      "act": 15,
+      "verify": 20,
+      "close": 10
+    },
+    "max_retries": 2,
+    "delta": 0.15,
+    "source_reliability": {
+      "prometheus": 0.97,
+      "splunk": 0.95,
+      "appd": 0.95,
+      "servicenow": 0.8,
+      "cmdb": 0.8,
+      "ocp": 0.99,
+      "artifactory": 0.8,
+      "git": 0.99,
+      "bigpanda": 0.8,
+      "llm": 0.9,
+      "human": 0.8,
+      "engine": 1.0
+    },
+    "confidence_band": {
+      "low": 0.3,
+      "med": 0.6,
+      "high": 0.9
+    },
+    "discovery_penalty": 0.75,
+    "discovered_edge_reliability": 0.9,
+    "provisional_edge_floor": 0.5,
+    "derive_transitions": false,
+    "clock_skew_bound_s": {
+      "prometheus": 30.0,
+      "ocp": 30.0,
+      "appd": 60.0,
+      "splunk": 60.0,
+      "bigpanda": 60.0,
+      "git": 120.0,
+      "artifactory": 120.0,
+      "servicenow": 300.0,
+      "cmdb": 300.0,
+      "human": 300.0,
+      "llm": 0.0,
+      "engine": 0.0,
+      "default": 300.0
+    },
+    "proximity_halflife_s": 1800.0,
+    "specificity_decay": 0.8,
+    "specificity_floor": 0.25,
+    "prior_weight": 1.0,
+    "correlation_window_s": 3600.0,
+    "focus_budget": 40,
+    "focus_facts_per_node": 6,
+    "focus_frontier_hops": 1
+  },
+  "created_at": "2026-07-24T02:35:40.006243+00:00",
+  "updated_at": "2026-07-24T02:35:40.020887+00:00"
+}

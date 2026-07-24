@@ -1,0 +1,4 @@
+# Keep the checked-in investigation snapshot byte-stable across OSes so a Windows clone reopens
+# the closed INC-4821 demo exactly as committed (no CRLF rewrite of the journal/graph/meta).
+engine/data/investigations/** -text
+*.ndjsonl -text

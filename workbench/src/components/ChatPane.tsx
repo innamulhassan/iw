@@ -71,7 +71,11 @@ export default function ChatPane({ live, busy, onDecide, onReview, onSend, expan
     setDraft("");
   };
 
-  const canChat = live.sessionId != null && live.state !== "closed";
+  // The chat stays open AFTER close: a resolved investigation is still a live record you can
+  // interrogate — every follow-up is journaled (Source.HUMAN) + persisted, so the audit keeps
+  // growing and a live backend re-plans on the question (any resulting tool calls are recorded too).
+  const canChat = live.sessionId != null;
+  const closed = live.state === "closed";
   const suspended = live.state === "suspended" || live.state === "awaiting_review";
 
   return (
@@ -135,7 +139,13 @@ export default function ChatPane({ live, busy, onDecide, onReview, onSend, expan
             className="chat__input"
             rows={1}
             value={draft}
-            placeholder={suspended ? "Answer or steer the agent…" : "Steer the agent (e.g. “check the DB pool”, “ignore CHG-9”)…"}
+            placeholder={
+              closed
+                ? "Ask a follow-up about this closed investigation…"
+                : suspended
+                  ? "Answer or steer the agent…"
+                  : "Steer the agent (e.g. “check the DB pool”, “ignore CHG-9”)…"
+            }
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
