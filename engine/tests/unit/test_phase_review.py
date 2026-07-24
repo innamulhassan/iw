@@ -48,6 +48,35 @@ def _review_session(*, auto_review: bool = False) -> InvestigationSession:
                                clock=_clock, auto_review=auto_review)
 
 
+# ── EVERY non-terminal phase declares review_before_advance (no silent auto-advance) ──────
+def test_every_non_terminal_phase_declares_review_before_advance():
+    """Change 5 (owner 2026-07-24): the incident playbook pauses for approval at EVERY phase
+    boundary — frame, investigate, act, verify all declare `review_before_advance`; only the
+    terminal `close` (no advance to review) does not."""
+    pb = load_playbook(PLAYBOOK)
+    for p in pb.phases:
+        if p.id == pb.terminal_phase:
+            assert not p.review_before_advance, "the terminal phase has no advance to review"
+        else:
+            assert p.review_before_advance, \
+                f"phase '{p.id}' must pause for approval before advancing (no silent auto-advance)"
+
+
+# ── a scripted INTERACTIVE run does NOT silently advance past FRAME (framing is reviewed) ──
+def test_scripted_interactive_run_pauses_at_frame_and_does_not_auto_advance():
+    """The live/interactive backend (auto_review=False) SUSPENDS at frame->investigate — framing
+    included — before the next phase runs. Frame does not silently advance."""
+    session = _review_session(auto_review=False)
+    session.advance()                         # runs FRAME, then MUST pause before investigate
+    assert session.state == SessionState.AWAITING_REVIEW
+    assert session.pending_review is not None
+    assert session.pending_review["phase"] == "frame"
+    assert session.pending_review["to_phase"] == "investigate"
+    # frame RAN; investigate has NOT — the framing boundary paused, no silent auto-advance
+    assert session._engine._phases_run == ["frame"]
+    assert "investigate" not in session._engine._phases_run
+
+
 # ── interactive suspend at the first transition ────────────────────────────────
 def test_review_suspends_at_frame_to_investigate():
     session = _review_session()
