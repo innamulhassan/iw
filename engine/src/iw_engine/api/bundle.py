@@ -15,6 +15,47 @@ from ..journal.journal import Journal, JournalEntry
 from ..runtime.engine import RunResult
 from ..runtime.postmortem import render_postmortem
 
+# The DISCOVERED-layer map (owner: "the category is an OUTPUT of the investigation, not a
+# pre-label"): the fault CLASS is EARNED from the confirmed root's node TYPE, NEVER read from the
+# catalog's pre-assigned layer. Keyed on the real NodeType enum members so a rename breaks loudly;
+# an unmapped type falls through to its de-cased value ("message_queue" -> "Message queue"). The
+# root a fault-class investigation lands on is the ACTIONABLE cause the doctrine roots at — e.g. a
+# DB index-drop roots at the CHANGE_EVENT (-> "Change/Deployment"), NOT the database it saturates,
+# so a discovered layer legitimately differs from the incident's catalog label.
+_NODE_TYPE_LAYER: dict[NodeType, str] = {
+    NodeType.CODE_COMMIT: "Application code",
+    NodeType.ERROR_SIGNATURE: "Application code",
+    NodeType.CHANGE_EVENT: "Change/Deployment",
+    NodeType.DATABASE: "Database",
+    NodeType.NETWORK_SEGMENT: "Network",
+    NodeType.FIREWALL_RULE: "Firewall / Security",
+    NodeType.CACHE: "Caching",
+    NodeType.FEATURE_FLAG: "Configuration / Flag",
+    NodeType.CERTIFICATE: "TLS / Certificate",
+    NodeType.HOST: "Infra",
+}
+
+
+def _layer_for_node_type(nt: NodeType) -> str:
+    """The layer NAME earned by a confirmed root's node type — an explicit mapping for the classes
+    the doctrine roots at, else the node type de-cased (underscores -> spaces, sentence case)."""
+    return _NODE_TYPE_LAYER.get(nt, nt.value.replace("_", " ").capitalize())
+
+
+def discovered_layer(res: RunResult) -> str | None:
+    """The DISCOVERED fault layer — `None` UNTIL a hypothesis is CONFIRMED, then the layer NAME
+    derived from that hypothesis's ROOT node TYPE (via `_NODE_TYPE_LAYER`). It is EARNED from the
+    investigation's confirmed root, never the catalog's pre-assigned label, so the UI can stop
+    ASSUMING the category and show the one the evidence proved. `None` also when the confirmed
+    hypothesis has no root_candidate, or its root id resolves to no node in the graph."""
+    confirmed = res.hypothesis_store.confirmed()
+    if confirmed is None or not confirmed.root_candidate:
+        return None
+    root = res.graph.nodes.get(confirmed.root_candidate)
+    if root is None:
+        return None
+    return _layer_for_node_type(root.type)
+
 
 def _node_provenance(nid: str, g: Graph) -> dict:
     """Derive a node's provenance (obs 5) by reading REAL per-assertion provenance off the ONE
@@ -211,6 +252,11 @@ def export_bundle(res: RunResult) -> dict:
     bundle: dict = {
         "subject": res.subject.model_dump(),
         "outcome": res.close_outcome or "open",
+        # the DISCOVERED fault layer (owner: category is an OUTPUT, not a pre-label): null until a
+        # hypothesis is CONFIRMED, then EARNED from the confirmed root's node type. Served always
+        # (unconditionally null pre-confirmation) so the UI reads one stable field, never the
+        # incident's assumed catalog layer.
+        "discovered_layer": discovered_layer(res),
         "phases": list(res.phases_run),
         "graph": {
             "nodes": [{"id": n.id, "type": n.type.value, "props": n.props,

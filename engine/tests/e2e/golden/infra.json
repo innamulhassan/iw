@@ -1,4 +1,5 @@
 {
+  "discovered_layer": "Batch job",
   "discovery": {
     "class_hints": {},
     "quarantined_names": {}

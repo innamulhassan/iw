@@ -1,4 +1,5 @@
 {
+  "discovered_layer": "Firewall / Security",
   "discovery": {
     "class_hints": {},
     "quarantined_names": {}

@@ -1,4 +1,5 @@
 {
+  "discovered_layer": "Configuration / Flag",
   "discovery": {
     "class_hints": {},
     "quarantined_names": {}
