@@ -605,6 +605,7 @@
       "chain": [],
       "confidence": 0.9271,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "batch_job:etl-nightly|sched-3",
       "statement": "the etl-nightly batch job (co-scheduled on node-prod-17) grew its heap unbounded and starved the node's memory, so the kubelet evicted the lowest-priority tenant \u2014 checkout-svc's pod",
@@ -612,20 +613,23 @@
       "supporting": [
         "fact:0c60f0ee5d8c2adf",
         "fact:ab1e95d5ba643738"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "checkout-svc has an application memory leak that OOM-pressured its own pod off t",
       "chain": [],
       "confidence": 0.2529,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:f86874b4474c16d8"
       ],
       "root_candidate": "pod:checkout-7c9f-abc12",
       "statement": "checkout-svc has an application memory leak that OOM-pressured its own pod off the node",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

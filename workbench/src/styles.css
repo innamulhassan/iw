@@ -447,6 +447,15 @@ code {
   color: var(--text-faint);
 }
 
+/* WHEN the belief last moved — a quiet, deterministic "updated HH:MM" stamp above the basis. */
+.hypothesis-card__stamp {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
 .hypothesis-card__evidence {
   display: flex;
   gap: 8px;
@@ -1603,6 +1612,18 @@ code {
 .toolcall__transport--mcp,
 .toolcall__transport--rest,
 .toolcall__transport--scenario { background: var(--accent-soft); color: var(--accent); }
+/* MOCK honesty badge: the mock does NOT speak the protocol — it mimes the shape. Read it as a
+   caution (amber), distinct from a live transport, so "MOCK · simulates MCP" can never be mistaken
+   for a real call. */
+.toolcall__transport--mock { background: var(--amber-soft); color: var(--amber); font-weight: 700; }
+/* Declared-protocol pill (the binding a LIVE call would dispatch on): a neutral monospace tag,
+   visually distinct from the served-by/mock badge so the two facts never blur together. */
+.toolcall__protocol {
+  font-size: 9.5px; letter-spacing: 0.04em; font-weight: 700;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  padding: 1px 6px; border-radius: 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); white-space: nowrap;
+}
 
 /* obs 2 — two-way chat: operator messages + composer */
 .usermsg {
@@ -1659,7 +1680,15 @@ code {
 .hypothesis-card__chevron.is-open { transform: rotate(90deg); }
 .hypothesis-card__detail { margin-top: 8px; }
 .evidence-chip--chain { background: #f3e8ff; color: var(--violet); }
-.hypothesis-card__rootlink { background: none; border: none; padding: 0; font: inherit; cursor: pointer; color: var(--accent); }
+/* a clickable CHIP that cross-highlights the root node in the graph (parity with the evidence rows) */
+.hypothesis-card__rootlink {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  background: var(--accent-soft); border: 1px solid #d6e4ff; border-radius: var(--radius-sm);
+  padding: 2px 8px; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+  color: var(--accent);
+}
+.hypothesis-card__rootlink:hover { border-color: var(--accent); }
+.hypothesis-card__rootlink code { font-size: 11px; }
 .hypothesis-card__empty { font-size: 12px; color: var(--text-faint); font-style: italic; }
 .ev-group { margin-top: 8px; }
 .ev-group__label {
@@ -1677,6 +1706,16 @@ code {
   color: var(--text); cursor: pointer; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap;
 }
 .evrow:hover, .chainrow:hover { background: var(--accent-soft); border-color: #d6e4ff; }
+/* corroborating vs disconfirming, marked on the row itself (not just the group label): a green
+   "supports" / red "refutes" tag plus a colored left edge, so the two sides never blur at a glance. */
+.evrow--supporting { border-left: 3px solid var(--green); }
+.evrow--refuting { border-left: 3px solid var(--red); }
+.evrow__stance {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+  padding: 1px 5px; border-radius: 8px; flex-shrink: 0;
+}
+.evrow__stance--supporting { color: var(--green); background: var(--green-soft); }
+.evrow__stance--refuting { color: var(--red); background: var(--red-soft); }
 .evrow.is-selected { background: var(--accent-soft); border-color: var(--accent); }
 .evrow__src, .chainrow__note { color: var(--text-faint); }
 .evrow__id { font-size: 11px; color: var(--text-muted); }

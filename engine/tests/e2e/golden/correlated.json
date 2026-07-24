@@ -669,6 +669,7 @@
       "chain": [],
       "confidence": 0.9478,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "change_event:chg-db-500",
       "statement": "CHG-DB-500 (DB migration) dropped an index on the payments datastore, forcing full-table scans that saturate the pool and cascade latency across the correlated services",
@@ -676,20 +677,23 @@
       "supporting": [
         "fact:4142f5c31d771395",
         "fact:cefbcbc2aee49420"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "a recent payments-svc application code deploy introduced an inefficient/blocking",
       "chain": [],
       "confidence": 0.1912,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:3072d3986d292b2d"
       ],
       "root_candidate": "service:payments-svc|prod",
       "statement": "a recent payments-svc application code deploy introduced an inefficient/blocking hot path",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

@@ -1013,26 +1013,30 @@
       "chain": [],
       "confidence": 0.9278,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "code_commit:9f2a1e0",
       "statement": "rev43 (PR #482, commit 9f2a1e0) removed the required ConfigMap key DB_HOST; the container panics on boot, so the pod never reaches Ready",
       "status": "confirmed",
       "supporting": [
         "fact:9ad712ec8131cff2"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "checkout-db is overloaded/unreachable, causing the readiness probe to fail",
       "chain": [],
       "confidence": 0.2042,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:1bff02001bf479d6"
       ],
       "root_candidate": "database:checkout-db",
       "statement": "checkout-db is overloaded/unreachable, causing the readiness probe to fail",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

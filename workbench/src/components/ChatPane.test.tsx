@@ -52,9 +52,10 @@ describe("ChatPane — the to-do checklist (F1)", () => {
     // each tool card is grouped UNDER its own to-do (matched by ToolCall.todo)
     const items = document.querySelectorAll(".turn__todo");
     expect(items).toHaveLength(2);
-    expect(within(items[0] as HTMLElement).getByText("get_dependencies")).toBeTruthy();
-    expect(within(items[0] as HTMLElement).queryByText("active_alerts")).toBeNull();
-    expect(within(items[1] as HTMLElement).getByText("active_alerts")).toBeTruthy();
+    // the card's callable is provider-qualified (e.g. "cmdb.get_dependencies"), so match the intent
+    expect(within(items[0] as HTMLElement).getByText(/get_dependencies/)).toBeTruthy();
+    expect(within(items[0] as HTMLElement).queryByText(/active_alerts/)).toBeNull();
+    expect(within(items[1] as HTMLElement).getByText(/active_alerts/)).toBeTruthy();
 
     // the delegatable seam (F2) surfaces as a chip; the direct-op count shows too
     expect(screen.getByText(/delegatable/)).toBeTruthy();
@@ -91,7 +92,7 @@ describe("ChatPane — the to-do checklist (F1)", () => {
     });
     render(<ChatPane live={live(t)} busy={false} onDecide={noop} onReview={noop} onSend={noop} />);
     expect(document.querySelector(".turn__todos")).toBeNull(); // no checklist
-    expect(screen.getByText("get_dependencies")).toBeTruthy(); // the flat card still renders
+    expect(screen.getByText(/get_dependencies/)).toBeTruthy(); // the flat card still renders (provider-qualified)
   });
 
   it("renders a reasoning step's conclusion as a finding, and does not duplicate a fetch step's observation", () => {

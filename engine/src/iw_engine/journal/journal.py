@@ -128,7 +128,11 @@ class Journal:
             self.entries.append(entry)
         return entry
 
-    def append_phase(self, seq: int, result: PhaseResult, actor: str = "engine") -> JournalEntry:
+    def append_phase(self, seq: int, result: PhaseResult, actor: str = "engine",
+                     ts: datetime | None = None) -> JournalEntry:
+        # `ts` lets the caller pin the phase entry's timestamp to the SAME clock read it stamped the
+        # hypothesis store's apply() with (so the journal ts and the in-memory proposed_at/updated_at
+        # agree, and a rebuild off this entry.ts reproduces them). Absent ⇒ read the clock here as before.
         refs = {
             "nodes": [n.id for n in result.nodes_touched],
             "edges": [e.id for e in result.edges_added],
@@ -140,7 +144,7 @@ class Journal:
             ],
         }
         return self.append(JournalEntry(
-            seq=seq, ts=self._clock(), kind="phase", phase_id=result.phase_id,
+            seq=seq, ts=ts or self._clock(), kind="phase", phase_id=result.phase_id,
             actor=actor, reasoning=result.narrative, delta=result, refs=refs))
 
     def append_plan(self, seq: int, phase_id: str, *, tools_available: list[str],

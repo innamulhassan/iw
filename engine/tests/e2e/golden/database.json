@@ -927,6 +927,7 @@
       "chain": [],
       "confidence": 0.959,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "change_event:chg-9",
       "statement": "CHG-9 (DB migration) dropped an index on orders.order_items, forcing full-table scans that exhaust the JDBC connection pool and spike orders-api latency",
@@ -935,20 +936,23 @@
         "fact:51f9286d11a5d0bc",
         "fact:c784f1b1553ac872",
         "fact:fe51cbe6dcc7c4de"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "A recent orders-api application code deploy introduced an inefficient/blocking c",
       "chain": [],
       "confidence": 0.1928,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:8ed5e6be3dd2f760"
       ],
       "root_candidate": "service:orders-api|prod",
       "statement": "A recent orders-api application code deploy introduced an inefficient/blocking code path",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

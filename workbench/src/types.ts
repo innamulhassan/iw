@@ -170,6 +170,11 @@ export interface HypothesisItem {
   supporting: string[];
   refuting: string[];
   chain: ChainLink[];
+  /** Engine-served, golden-DETERMINISTIC belief timestamps (stamped from the phase clock, never
+   *  wall-clock): when the hypothesis was first proposed and last moved. Absent on a purely-live
+   *  hypothesis until the next bundle reconcile threads them in — the panel hides the line then. */
+  proposed_at?: string | null;
+  updated_at?: string | null;
 }
 
 /** The airlock's promotion counters (P3 step 5) — the discovery signal telling a human WHICH

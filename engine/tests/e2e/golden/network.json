@@ -775,6 +775,7 @@
       "chain": [],
       "confidence": 0.9574,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "network_segment:seg-edge-12",
       "statement": "MTU/uplink change on network segment SEG-EDGE-12 (CHG-77) is causing packet loss and retransmits on the checkout-svc -> pricing-svc path",
@@ -783,20 +784,23 @@
         "fact:0a2356b4503f3457",
         "fact:1fb9df3f5e758089",
         "fact:4e0aa79895d8ac3a"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "pricing-svc's own database (pricing-db) is degraded (pool exhaustion / slow quer",
       "chain": [],
       "confidence": 0.2201,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:eb92f6cdf77b059b"
       ],
       "root_candidate": "database:pricing-db",
       "statement": "pricing-svc's own database (pricing-db) is degraded (pool exhaustion / slow queries) \u2014 a code/db-side cause independent of the network",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

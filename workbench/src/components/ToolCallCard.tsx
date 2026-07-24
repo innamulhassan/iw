@@ -53,6 +53,19 @@ function fmtDuration(ms?: number | null): string | null {
   if (ms == null) return null;
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
 }
+
+// The DECLARED transport a LIVE call would use — the adapter's Binding, upper-cased for the badge.
+// (This is the protocol a real fetch dispatches on; the mock IGNORES it — see MOCK_HONESTY.)
+const PROTOCOL: Record<string, string> = { mcp: "MCP", rest: "REST", a2a: "A2A" };
+function protocolLabel(binding?: string | null): string | null {
+  if (!binding) return null;
+  return PROTOCOL[binding] ?? binding.toUpperCase();
+}
+// The owner's honesty line: a mock does NOT speak MCP/REST/A2A — it mimes the tool's shape. The
+// badge must say "simulates", never "mock · mcp" (which reads as 'the mock uses mcp').
+const MOCK_HONESTY =
+  "the mock test transport mimes the tool's shape — no real MCP/REST/A2A call is made; " +
+  "the protocol shown is the binding a live call would use.";
 function fmtClock(iso?: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
@@ -106,8 +119,16 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
   const [open, setOpen] = useState(false);
   const isWrite = call.effect === "write";
   const outcome = outcomeOf(call);
+  // HONESTY (owner): a mock never really transported anything, so it has no genuine wall-clock
+  // duration — show "simulated · instant", never a misleading "0ms". A live call keeps its measured
+  // span. The DECLARED protocol (binding) is shown regardless; only the served-by label distinguishes
+  // "this MIMED MCP" (mock) from "this DID call over MCP" (live).
+  const isMock = call.servedBy === "mock";
+  const protocol = protocolLabel(call.binding);
   const dur = fmtDuration(call.durationMs);
+  const timing = isMock ? "simulated · instant" : dur; // never "0ms" for a mock
   const started = fmtClock(call.startedAt);
+  const callable = `${call.provider}.${call.intent}`; // the provider-qualified CALLABLE invoked
   const kind = call.kind ?? (isWrite ? "workflow" : "tool");
   // The WHY, in priority order: the planner's OWN per-call rationale (the real reasoning it
   // authored) → curated per-intent purpose → engine-served capability purpose → de-underscored raw.
@@ -124,24 +145,38 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
         <span className="toolcall__icon" aria-hidden="true">
           {OUTCOME_ICON[outcome] ?? (isWrite ? "✍️" : "🔧")}
         </span>
-        <code className="toolcall__intent">{call.intent}</code>
-        <span className="toolcall__provider">{call.provider}</span>
-        {call.servedBy && (
+        <code className="toolcall__intent">{callable}</code>
+        {protocol && (
           <span
-            className={`toolcall__transport toolcall__transport--${call.servedBy}`}
-            title={`served via ${call.servedBy}${call.binding ? ` · ${call.binding} binding` : ""} — the transport that fetched this (mock vs live)`}
+            className="toolcall__protocol"
+            title={`declared transport — a live call would use ${protocol}`}
           >
-            📡 {call.servedBy}
-            {call.binding ? ` · ${call.binding}` : ""}
+            {protocol}
           </span>
         )}
+        {call.servedBy &&
+          (isMock ? (
+            // the mock MIMES the protocol — say so, never "mock · mcp" (owner's core honesty point)
+            <span className="toolcall__transport toolcall__transport--mock" title={MOCK_HONESTY}>
+              MOCK{protocol ? ` · simulates ${protocol}` : " · simulated"}
+            </span>
+          ) : (
+            // a live transport DID speak the protocol — show it plainly
+            <span
+              className={`toolcall__transport toolcall__transport--${call.servedBy}`}
+              title={`served live via ${call.servedBy}${protocol ? ` — a real ${protocol} call was made` : ""}`}
+            >
+              📡 {call.servedBy}
+            </span>
+          ))}
         <span className={`toolcall__kind toolcall__kind--${kind}`}>{kind}</span>
         {outcome !== "data" && (
           <span className={`toolcall__outcome toolcall__outcome--${outcome}`}>{outcome}</span>
         )}
         <span className="toolcall__result">
           → {out}
-          {dur && <span className="toolcall__dur"> · {dur}</span>}
+          {/* only a LIVE call shows a measured span here; the mock's honesty rides its badge + trace */}
+          {!isMock && dur && <span className="toolcall__dur"> · {dur}</span>}
         </span>
       </button>
       {open && (
@@ -197,9 +232,18 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
             <div className="tr-row">
               <span className="tr-k">via</span>
               <span className="tr-v tr-muted">
-                {call.servedBy}
-                {call.binding ? ` · ${call.binding} binding` : ""}
-                <span className="tr-muted"> — the transport that served this call (mock vs live)</span>
+                {isMock ? (
+                  <>
+                    MOCK{protocol ? ` — simulates ${protocol}` : ""}: the mock test transport mimes the
+                    tool's shape; no real {protocol ?? "MCP/REST/A2A"} call is made
+                    {protocol ? ` (${protocol} is the binding a live call would use)` : ""}.
+                  </>
+                ) : (
+                  <>
+                    {call.servedBy}
+                    {protocol ? ` · a real ${protocol} call served this` : " — live transport"}
+                  </>
+                )}
               </span>
             </div>
           )}
@@ -207,8 +251,9 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
             <span className="tr-k">trace</span>
             <span className="tr-v tr-muted">
               {kind}
+              {/* the invocation TIMESTAMP always; then the live span, or "simulated · instant" for a mock */}
               {started ? ` · ${started}` : ""}
-              {dur ? ` · ${dur}` : ""}
+              {timing ? ` · ${timing}` : ""}
             </span>
           </div>
         </div>

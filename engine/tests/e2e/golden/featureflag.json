@@ -726,26 +726,30 @@
       "chain": [],
       "confidence": 0.9312,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "feature_flag:new-tax-engine|prod",
       "statement": "the new-tax-engine flag gates an untested tax path that throws TaxEngineException on carts with >5 line items",
       "status": "confirmed",
       "supporting": [
         "fact:1927e798d939c012"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "application code regression in cart-api's last deploy (c3d4e5f)",
       "chain": [],
       "confidence": 0.1936,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:69a1f89404dcd171"
       ],
       "root_candidate": "code_commit:c3d4e5f",
       "statement": "application code regression in cart-api's last deploy (c3d4e5f)",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

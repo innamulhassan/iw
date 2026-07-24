@@ -252,6 +252,10 @@ def export_bundle(res: RunResult) -> dict:
                     "confidence": store.score(h), "basis": h.confidence.basis,
                     "root_candidate": h.root_candidate, "supporting": h.supporting_facts,
                     "refuting": h.refuting_facts,
+                    # DETERMINISTIC belief timestamps (stamped from the phase clock, never wall-clock):
+                    # when the hypothesis was first proposed and last moved — served for the UI's
+                    # "updated HH:MM" line. None on a hypothesis stamped by a clock-less path.
+                    "proposed_at": h.proposed_at, "updated_at": h.updated_at,
                     "chain": [c.model_dump(mode="json") for c in h.causal_chain]}
                    for h in store.ranked()],
         # the WHOLE journal, in seq order — EVERY kind (phase · plan · invocation · gate_opened ·

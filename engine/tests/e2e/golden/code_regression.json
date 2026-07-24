@@ -721,26 +721,30 @@
       "chain": [],
       "confidence": 0.933,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "code_commit:abc123",
       "statement": "v4.12.0 (commit abc123) introduced a NullPointerException in TaxCalculator",
       "status": "confirmed",
       "supporting": [
         "fact:da70219d53e3f4c5"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "payments-ora connection-pool exhaustion",
       "chain": [],
       "confidence": 0.2012,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:f09f2c94be57f5d3"
       ],
       "root_candidate": "database:payments-ora",
       "statement": "payments-ora connection-pool exhaustion",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

@@ -540,26 +540,30 @@
       "chain": [],
       "confidence": 0.929,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "database:checkout-db",
       "statement": "Organic traffic surge saturated checkout-db's connection pool (USE-saturation, no code/deploy change)",
       "status": "supported",
       "supporting": [
         "fact:8b676678d1d87f14"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "An unreported deploy or config change to checkout-api caused the regression",
       "chain": [],
       "confidence": 0.1987,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:ba27f114089e1f33"
       ],
       "root_candidate": null,
       "statement": "An unreported deploy or config change to checkout-api caused the regression",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

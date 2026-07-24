@@ -50,6 +50,12 @@ class Hypothesis(BaseModel):
     predictions: list[Prediction] = Field(default_factory=list)
     created_by: int
     updated_by: list[int] = Field(default_factory=list)
+    # GOLDEN-DETERMINISTIC belief timestamps: stamped by the store's apply() from the DETERMINISTIC
+    # phase clock (the seq's journaled ts), NEVER a wall-clock read — so a replayed store reproduces
+    # them bit-for-bit (R-J1). `proposed_at` is frozen at first CREATE; `updated_at` moves on every
+    # change (create / evidence / rerank / verdict). ISO strings (None until a clock-bearing apply).
+    proposed_at: str | None = None
+    updated_at: str | None = None
 
 
 class HypAction(StrEnum):

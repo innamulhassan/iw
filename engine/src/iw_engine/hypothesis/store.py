@@ -17,6 +17,7 @@ behavior.
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 
 from ..domain.enums import HypothesisStatus
 from ..domain.hypothesis import HypAction, HypDelta, Hypothesis
@@ -68,15 +69,24 @@ class HypothesisStore:
         ref = self._anomaly() if callable(self._anomaly) else self._anomaly
         return belief.weighted_score(h, self._graph, self._tunables, anomaly_ref=ref)
 
-    def apply(self, deltas: list[HypDelta], seq: int) -> None:
+    def apply(self, deltas: list[HypDelta], seq: int, ts: datetime | None = None) -> None:
+        # GOLDEN-DETERMINISTIC belief timestamps (never wall-clock): `ts` is the phase seq's engine
+        # clock time — the SAME value the phase entry is journaled with, so a rebuild from the journal
+        # (which passes `entry.ts`) reproduces proposed_at/updated_at bit-for-bit (R-J1). None on the
+        # bare-unit-test path leaves them unstamped. `proposed_at` freezes at first CREATE; `updated_at`
+        # moves on every mutation.
+        stamp = ts.isoformat() if ts is not None else None
+        touched = {"updated_at": stamp} if stamp is not None else {}
         for d in deltas:
             if d.action == HypAction.CREATE and d.hypothesis is not None:
                 h = d.hypothesis
                 existing = self.hypotheses.get(h.id)
                 if existing is None:
-                    # first CREATE of this hid — insert
+                    # first CREATE of this hid — insert; proposed_at freezes here (updated_at == it)
                     self.hypotheses[h.id] = h.model_copy(
-                        update={"created_by": h.created_by or seq})
+                        update={"created_by": h.created_by or seq,
+                                **({"proposed_at": stamp, "updated_at": stamp}
+                                   if stamp is not None else {})})
                 elif existing.status not in _TERMINAL:
                     # re-CREATE of a LIVE hid is an UPDATE, never a destructive overwrite
                     # (Track-4 #1): the accumulated status, evidence lists, chain, and created_by
@@ -89,14 +99,14 @@ class HypothesisStore:
                         "supporting_facts": sorted({*existing.supporting_facts, *h.supporting_facts}),
                         "refuting_facts": sorted({*existing.refuting_facts, *h.refuting_facts}),
                         "causal_chain": [*existing.causal_chain, *h.causal_chain],
-                        "updated_by": [*existing.updated_by, seq]})
+                        "updated_by": [*existing.updated_by, seq], **touched})
                 # else: existing is TERMINAL (REFUTED/CONFIRMED/SUPERSEDED) — indestructible no-op
                 continue
             hid = d.hypothesis_id
             if hid is None or hid not in self.hypotheses:
                 continue
             h = self.hypotheses[hid]
-            upd: dict = {"updated_by": [*h.updated_by, seq]}
+            upd: dict = {"updated_by": [*h.updated_by, seq], **touched}
             if d.new_status is not None:
                 upd["status"] = d.new_status
             if d.confidence is not None:

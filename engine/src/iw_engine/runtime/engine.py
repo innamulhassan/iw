@@ -363,8 +363,12 @@ class Engine:
             remaps=mat.remaps,             # identity graduations ride the delta (P5 — §9.2)
             rejections=mat.rejections)   # journaled with the delta (P3 step 2 — never memory-only)
 
+        # one DETERMINISTIC clock read for this phase seq — used for BOTH the hypothesis-store stamp
+        # (proposed_at/updated_at) and the phase journal entry below, so the in-memory store and the
+        # journaled ts agree and a rebuild off entry.ts reproduces the timestamps (golden-stable).
+        phase_ts = self._clock()
         # apply the delta via the single mutation seam FIRST, then gate against the updated store
-        apply_delta(result, seq, self.graph, self.hypothesis_store)
+        apply_delta(result, seq, self.graph, self.hypothesis_store, ts=phase_ts)
 
         gated = check_gate(spec, result, self.hypothesis_store, self.playbook.tunables,
                            graph=self.graph, journal=self.journal,
@@ -389,7 +393,7 @@ class Engine:
         result = result.model_copy(update={"verdict": gated})
         # remember WHY a gate failed so the NEXT plan is told (clears on a pass) — GAP 3
         self._gate_feedback = gated.gate_reason
-        self.journal.append_phase(seq, result)
+        self.journal.append_phase(seq, result, ts=phase_ts)
         return result
 
     @staticmethod

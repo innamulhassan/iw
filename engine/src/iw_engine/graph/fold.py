@@ -5,6 +5,8 @@ that the journal is the durable source of truth (DESIGN §2.4 R-J1).
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from ..domain.edge import Edge
 from ..domain.enums import EdgeType, FactState, NodeType, Origin
 from ..domain.hypothesis import Hypothesis
@@ -90,12 +92,18 @@ def _project_evidence_edges(h: Hypothesis, seq: int, graph: Graph) -> None:
                             created_by=seq))
 
 
-def apply_delta(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore) -> None:
+def apply_delta(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore,
+                ts: datetime | None = None) -> None:
     """THE single graph+hypothesis-store mutation seam. A phase computes a PhaseResult delta;
     this is the only thing that writes it into the projections. Journaling is separate (below)
-    so an interactive write-gate can hold a computed-but-unapplied delta pending human approval."""
+    so an interactive write-gate can hold a computed-but-unapplied delta pending human approval.
+
+    `ts` is the phase seq's DETERMINISTIC clock time — threaded into the store so hypothesis
+    proposed_at/updated_at are stamped from it (never wall-clock). The live engine passes its
+    clock read (also used for the phase journal entry); a rebuild passes the journaled entry.ts,
+    so the replayed store reproduces the timestamps bit-for-bit (R-J1)."""
     _apply_to_graph(result, graph)
-    store.apply(result.hypotheses_updated, seq)
+    store.apply(result.hypotheses_updated, seq, ts)
     # project the evidence edges of every hypothesis this delta touched, from the store's
     # (now-updated) canonical fact-id lists — the single source of "facts for/against H".
     # Dedup in delta order (never a set — iteration order must be deterministic for replay).
@@ -112,8 +120,11 @@ def apply_delta(result: PhaseResult, seq: int, graph: Graph, store: HypothesisSt
 
 def fold(result: PhaseResult, seq: int, graph: Graph, store: HypothesisStore,
          journal: Journal) -> None:
-    apply_delta(result, seq, graph, store)
-    journal.append_phase(seq, result)
+    # journal FIRST so the phase entry's ts is the single deterministic clock read, then apply the
+    # delta stamped with that same ts — so the store's proposed_at/updated_at equal the journaled ts
+    # and a rebuild (which replays from entry.ts) reproduces them exactly.
+    entry = journal.append_phase(seq, result)
+    apply_delta(result, seq, graph, store, ts=entry.ts)
 
 
 def rebuild(journal: Journal, *, tunables=None) -> tuple[Graph, HypothesisStore]:
@@ -126,7 +137,7 @@ def rebuild(journal: Journal, *, tunables=None) -> tuple[Graph, HypothesisStore]
     graph, store = Graph(), HypothesisStore()
     for entry in journal.phase_entries():
         assert entry.delta is not None
-        apply_delta(entry.delta, entry.seq, graph, store)
+        apply_delta(entry.delta, entry.seq, graph, store, ts=entry.ts)
     if tunables is not None:
         store.bind_scoring(graph, tunables)
     return graph, store

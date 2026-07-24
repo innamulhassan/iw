@@ -815,26 +815,30 @@
       "chain": [],
       "confidence": 0.9276,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "firewall_rule:fw-egr-118",
       "statement": "FirewallRule FW-EGR-118 (tightened by CHG-3311, 'egress ACL hardening on prod-vpc') is blocking egress to fraud-score.vendor.com",
       "status": "confirmed",
       "supporting": [
         "fact:971526db5e5cb0cf"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "Physical-layer link flapping/packet loss on network segment egress-fraud-score",
       "chain": [],
       "confidence": 0.204,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:a68a8d983f35e0ba"
       ],
       "root_candidate": "network_segment:egress-fraud-score",
       "statement": "Physical-layer link flapping/packet loss on network segment egress-fraud-score",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

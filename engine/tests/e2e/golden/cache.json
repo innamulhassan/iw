@@ -666,6 +666,7 @@
       "chain": [],
       "confidence": 0.9572,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "code_commit:9f8e7d6",
       "statement": "v3.4.0 (commit 9f8e7d6) disabled client-side cache coalescing (singleflight), causing a read stampede into product-redis",
@@ -674,20 +675,23 @@
         "fact:2d13525f25782d60",
         "fact:51590443c48dcc98",
         "fact:7abce9e1a24ac277"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "application code regression in product-api v3.4.0 request handler",
       "chain": [],
       "confidence": 0.1928,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:814574990eaa3ea6"
       ],
       "root_candidate": "code_commit:9f8e7d6",
       "statement": "application code regression in product-api v3.4.0 request handler",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

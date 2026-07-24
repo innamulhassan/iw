@@ -641,6 +641,7 @@
       "chain": [],
       "confidence": 0.9392,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "certificate:auth-tls-intermediate",
       "statement": "the Corp Intermediate CA cert expired, breaking the TLS chain for clients that validate the intermediate (~40%)",
@@ -648,20 +649,23 @@
       "supporting": [
         "fact:89e4648ff8b96541",
         "fact:d5c6257a91e4a7a0"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "auth-svc service-side outage (pod crash / resource exhaustion)",
       "chain": [],
       "confidence": 0.1928,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:b1a8996a6a0c5e80"
       ],
       "root_candidate": "service:auth-svc|prod",
       "statement": "auth-svc service-side outage (pod crash / resource exhaustion)",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

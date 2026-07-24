@@ -227,7 +227,9 @@ class InvestigationStore:
         if graph is not None:
             store = HypothesisStore()
             for entry in journal.phase_entries():
-                store.apply(entry.delta.hypotheses_updated, entry.seq)
+                # replay stamps proposed_at/updated_at from the journaled entry.ts — the SAME
+                # deterministic clock the live run used, so the reopened store matches it exactly.
+                store.apply(entry.delta.hypotheses_updated, entry.seq, entry.ts)
             store.bind_scoring(graph, tun)
         else:
             graph, store = rebuild(journal, tunables=tun)

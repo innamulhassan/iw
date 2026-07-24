@@ -617,6 +617,7 @@
       "chain": [],
       "confidence": 0.9478,
       "id": "hyp:h1",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [],
       "root_candidate": "change_event:chg-55",
       "statement": "CHG-55 (consumer deploy) shipped a slower per-message handler, dropping the consumer group's processing rate below the ingress rate so lag on orders.events accumulates",
@@ -624,13 +625,15 @@
       "supporting": [
         "fact:5170bdb64edd0bc4",
         "fact:d9ac47ac5b923a7d"
-      ]
+      ],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     },
     {
       "basis": "The broker is unhealthy (a partition rebalance storm) OR upstream producers floo",
       "chain": [],
       "confidence": 0.1567,
       "id": "hyp:h2",
+      "proposed_at": "2026-07-19T00:00:00+00:00",
       "refuting": [
         "fact:5170bdb64edd0bc4",
         "fact:6c1b2f9190cdc8e3"
@@ -638,7 +641,8 @@
       "root_candidate": "message_queue:orders.events",
       "statement": "The broker is unhealthy (a partition rebalance storm) OR upstream producers flooded the topic with a traffic surge",
       "status": "refuted",
-      "supporting": []
+      "supporting": [],
+      "updated_at": "2026-07-19T00:00:00+00:00"
     }
   ],
   "journal": [

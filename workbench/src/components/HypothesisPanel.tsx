@@ -18,6 +18,16 @@ function fmtValue(v: unknown): string {
   return String(v);
 }
 
+/** The hypothesis's belief timestamp (engine-served, golden-deterministic): a readable HH:MM for
+ *  the "updated HH:MM" line. Null when absent (a purely-live hypothesis before the bundle reconcile)
+ *  or unparseable — the caller hides the line gracefully. */
+function fmtStamp(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 interface Props {
   hypotheses: HypothesisItem[];
   facts: Record<string, GraphFact>;
@@ -31,12 +41,14 @@ interface Props {
  *  it highlights the relevant node in the graph. */
 function FactRow({
   fid,
+  kind,
   facts,
   nodes,
   selected,
   onSelect,
 }: {
   fid: string;
+  kind: "supporting" | "refuting";
   facts: Record<string, GraphFact>;
   nodes: Record<string, LiveNode>;
   selected: boolean;
@@ -47,10 +59,14 @@ function FactRow({
   return (
     <li>
       <button
-        className={`evrow${selected ? " is-selected" : ""}${f?.provisional ? " is-provisional" : ""}`}
+        className={`evrow evrow--${kind}${selected ? " is-selected" : ""}${f?.provisional ? " is-provisional" : ""}`}
         onClick={() => onSelect({ kind: "fact", id: fid })}
         title={f ? `on ${f.subject}` : fid}
       >
+        {/* corroborating vs disconfirming, made visible per-row (not just on the group label) */}
+        <span className={`evrow__stance evrow__stance--${kind}`}>
+          {kind === "refuting" ? "refutes" : "supports"}
+        </span>
         {f ? (
           <>
             <strong>{humanizePredicate(f.predicate)}</strong> = {fmtValue(f.value)}
@@ -132,15 +148,24 @@ export default function HypothesisPanel({ hypotheses, facts, nodes, selection, o
 
               {open && (
                 <div className="hypothesis-card__detail">
+                  {/* WHEN the belief last moved (engine-served, deterministic) — falls back to when
+                      it was first proposed; hidden entirely if the engine served neither. */}
+                  {(() => {
+                    const stamp = fmtStamp(item.updated_at ?? item.proposed_at);
+                    return stamp ? <p className="hypothesis-card__stamp">updated {stamp}</p> : null;
+                  })()}
+                  {/* the basis — the reasoning / semantic-meta the belief rests on */}
                   <p className="hypothesis-card__basis">{item.basis}</p>
                   {item.root_candidate && (
                     <p className="hypothesis-card__root">
-                      Root candidate:{" "}
+                      {/* a clickable chip cross-highlighting the root node in the graph (same onSelect
+                          pattern the evidence rows use) */}
                       <button
                         className="hypothesis-card__rootlink"
                         onClick={() => onSelect({ kind: "node", id: item.root_candidate! })}
+                        title={`highlight ${item.root_candidate} in the graph`}
                       >
-                        <code>{item.root_candidate}</code>
+                        root → <code>{item.root_candidate}</code>
                       </button>
                     </p>
                   )}
@@ -153,6 +178,7 @@ export default function HypothesisPanel({ hypotheses, facts, nodes, selection, o
                           <FactRow
                             key={fid}
                             fid={fid}
+                            kind="supporting"
                             facts={facts}
                             nodes={nodes}
                             selected={selection?.kind === "fact" && selection.id === fid}
@@ -171,6 +197,7 @@ export default function HypothesisPanel({ hypotheses, facts, nodes, selection, o
                           <FactRow
                             key={fid}
                             fid={fid}
+                            kind="refuting"
                             facts={facts}
                             nodes={nodes}
                             selected={selection?.kind === "fact" && selection.id === fid}

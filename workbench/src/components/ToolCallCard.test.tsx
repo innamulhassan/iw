@@ -62,6 +62,47 @@ describe("ToolCallCard — outcome honesty", () => {
   });
 });
 
+// The honest capability trace (owner): the CALLABLE is provider-qualified, the PROTOCOL is the
+// declared binding, and a MOCK must say it SIMULATES that protocol — it does NOT speak MCP/REST/A2A.
+describe("ToolCallCard — capability trace honesty (callable · protocol · mock-mimes · timing)", () => {
+  afterEach(() => cleanup());
+
+  it("shows the provider-qualified callable name", () => {
+    render(<ToolCallCard call={call({ provider: "servicenow", intent: "get_incident", outcome: "data", summary: "1 record" })} />);
+    expect(screen.getByText("servicenow.get_incident")).toBeTruthy();
+  });
+
+  it("a MOCK call says it SIMULATES the protocol — never 'mock · mcp', never a fake '0ms'", () => {
+    render(
+      <ToolCallCard
+        call={call({ provider: "servicenow", intent: "get_incident", servedBy: "mock", binding: "mcp", outcome: "data", durationMs: 0 })}
+      />
+    );
+    // the honest served-by label + the declared-transport (protocol) badge
+    expect(screen.getByText("MOCK · simulates MCP")).toBeTruthy();
+    expect(screen.getByText("MCP")).toBeTruthy();
+    // never the owner's misread ("mock uses mcp"), and never a misleading "0ms" for a simulated call
+    expect(screen.queryByText(/mock · mcp/)).toBeNull();
+    expect(screen.queryByText(/0ms/)).toBeNull();
+    // expand → the trace reads "simulated · instant" and the via row spells out no real call is made
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.getByText(/simulated · instant/)).toBeTruthy();
+    expect(screen.getByText(/no real .*call is made/i)).toBeTruthy();
+  });
+
+  it("a LIVE call shows the real transport plainly and keeps its measured duration", () => {
+    render(
+      <ToolCallCard
+        call={call({ provider: "prometheus", intent: "range_query", servedBy: "live", binding: "rest", outcome: "data", durationMs: 142 })}
+      />
+    );
+    expect(screen.getByText("REST")).toBeTruthy(); // the declared protocol
+    expect(screen.getByText(/live/)).toBeTruthy(); // the real transport, plainly (it DID call over REST)
+    expect(screen.getByText(/142ms/)).toBeTruthy(); // the measured span survives for a live call
+    expect(screen.queryByText(/simulates/)).toBeNull();
+  });
+});
+
 // JOURNAL story fidelity: the WHY is the planner's OWN rationale (never a canned purpose when
 // reasoning exists), the summary leads with the result LINE (not "N ops"), and a reasoned step that
 // produced findings reads as "data" even when the mock transport outcome was "empty".

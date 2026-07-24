@@ -48,6 +48,33 @@ describe("HypothesisPanel", () => {
     expect(statements[1]).toMatch(/commit deadbeef broke things/);
   });
 
+  it("shows the belief timestamp, a clickable root chip, and per-row supports/refutes stance", () => {
+    const sel: unknown[] = [];
+    const hyp = {
+      ...fixtureBundle.hypotheses[0], // confirmed, root_candidate code_commit:deadbeef, supporting fact:test-1
+      updated_at: "2026-07-19T14:27:00+00:00",
+      refuting: ["fact:test-1"], // give it a refuting row too, so both stances render
+    };
+    const facts = { "fact:test-1": fixtureBundle.graph.facts[0] };
+    render(
+      <HypothesisPanel hypotheses={[hyp]} facts={facts} nodes={{}} selection={null} onSelect={(s) => sel.push(s)} />
+    );
+    fireEvent.click(document.querySelector(".hypothesis-card__toggle")!);
+
+    // (B1) the "updated HH:MM" stamp (locale/TZ-agnostic — rendered in the viewer's local time)
+    expect(screen.getByText(/^updated \d{1,2}:\d\d/)).toBeTruthy();
+
+    // (B3) the root renders as a "root → <node>" chip that cross-highlights the node on click
+    const rootChip = screen.getByRole("button", { name: /root →/ });
+    fireEvent.click(rootChip);
+    expect(sel).toContainEqual({ kind: "node", id: "code_commit:deadbeef" });
+
+    // (B4) supporting vs refuting are marked per-row, not just on the group label
+    expect(document.querySelector(".evrow__stance--supporting")?.textContent).toBe("supports");
+    expect(document.querySelector(".evrow__stance--refuting")?.textContent).toBe("refutes");
+    expect(document.querySelectorAll(".evrow--refuting").length).toBe(1);
+  });
+
   it("marks provisional (airlocked) evidence as tentative", () => {
     const facts = {
       "fact:test-1": { ...fixtureBundle.graph.facts[0], provisional: true },
