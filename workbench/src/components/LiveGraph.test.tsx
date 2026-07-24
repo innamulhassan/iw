@@ -50,6 +50,75 @@ describe("LiveGraph — provisional rendering", () => {
   });
 });
 
+// ── the graph LEGEND reflects EXACTLY what's drawn ────────────────────────────────────────────
+describe("LiveGraph — the legend mirrors the drawn roles, layers and edges", () => {
+  afterEach(() => cleanup());
+
+  function legendSnapshot(): Snapshot {
+    return {
+      session_id: "s2",
+      state: "closed",
+      subject: { domain: "app-incident", id: "INC-2", kind: "incident" },
+      outcome: "resolved",
+      phases: ["frame"],
+      graph: {
+        nodes: [
+          { id: "incident:INC-2", type: "incident", props: {}, origin: true },
+          { id: "anomaly:a1", type: "anomaly", props: {} },
+          { id: "service:pay|prod", type: "service", props: {} },
+          { id: "database:orders", type: "database", props: {} },
+          { id: "code_commit:abc123", type: "code_commit", props: {} },
+        ],
+        edges: [
+          // a SUPPORTS (causal, green) + an AFFECTS (structural) + a provisional discovered edge
+          { id: "e-sup", type: "supports", src: "anomaly:a1", dst: "service:pay|prod", origin: "inferred", confidence: 0.8 },
+          { id: "e-aff", type: "affects", src: "anomaly:a1", dst: "service:pay|prod", origin: "declared", confidence: null },
+          { id: "e-prov", type: "connects_to", src: "service:pay|prod", dst: "database:orders", origin: "discovered", confidence: null, provisional: true },
+        ],
+        facts: [],
+        events: [],
+      },
+      hypotheses: [
+        {
+          id: "hyp:1", statement: "commit abc123 broke it", status: "confirmed", confidence: 0.9,
+          basis: "rollback fixed it", root_candidate: "code_commit:abc123", supporting: [], refuting: [], chain: [],
+        },
+      ],
+      journal: [],
+      postmortem: { root_cause: null, ruled_out: [], contributing: [], timeline: [], narrative: [] },
+      pending_gate: null,
+      pending_review: null,
+      messages: [],
+      events: [],
+    };
+  }
+
+  it("shows the role, layer and edge keys that are present — and omits the ones that are not", () => {
+    const live = reduce(emptyState(), { kind: "seed", snapshot: legendSnapshot() });
+    render(<LiveGraph live={live} selection={null} onSelect={() => {}} />);
+    const legend = document.querySelector(".graph-legend") as HTMLElement;
+    expect(legend).toBeTruthy();
+
+    // node roles present in the graph
+    expect(within(legend).getByText("origin — incident")).toBeTruthy();
+    expect(within(legend).getByText("symptom — anomaly")).toBeTruthy();
+    expect(within(legend).getByText("root — confirmed cause")).toBeTruthy(); // a confirmed hypothesis roots here
+
+    // layer columns present (Case/Signal/Service/Database/Change lanes are all populated)
+    expect(within(legend).getByText("Service")).toBeTruthy();
+    expect(within(legend).getByText("Database")).toBeTruthy();
+    expect(within(legend).getByText("Change")).toBeTruthy();
+
+    // edge kinds present — supports (causal), a structural link, and a provisional edge
+    expect(within(legend).getByText("supports")).toBeTruthy();
+    expect(within(legend).getByText("structural link")).toBeTruthy();
+    expect(within(legend).getByText("provisional (tentative)")).toBeTruthy();
+    // no refutes/correlated edge was drawn, so the legend must not claim them
+    expect(within(legend).queryByText("refutes")).toBeNull();
+    expect(within(legend).queryByText("correlated")).toBeNull();
+  });
+});
+
 // ── node-detail renders the six datum-shape categories (2026-07-23 primitives §2) ─────────────
 const SVC = "service:payments-api|prod";
 

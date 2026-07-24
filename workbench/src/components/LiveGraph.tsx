@@ -294,6 +294,43 @@ export default function LiveGraph({ live, selection, onSelect, panel }: Props) {
     [live.hypotheses]
   );
 
+  // ── legend data: reflect EXACTLY what's drawn, so the key never claims more than the canvas shows ──
+  // node ROLE markers present (origin/symptom/root/related), and the EDGE kinds present — bucketed by
+  // the SAME rule the draw path uses (colorForEdge + the `causal` test), so the legend line for a
+  // color appears iff an edge of that color is on screen. Layer columns come from `columns` below.
+  const legend = useMemo(() => {
+    const roles = {
+      origin: ordered.some((n) => n.origin),
+      symptom: ordered.some((n) => n.type === "anomaly"),
+      root: ordered.some((n) => rootCandidates.has(n.id)),
+      related: relatedIds.size > 0,
+    };
+    const edges = {
+      causal: false,
+      supports: false,
+      refutes: false,
+      correlated: false,
+      related: false,
+      structural: false,
+      provisional: false,
+    };
+    for (const e of Object.values(live.edges)) {
+      if (e.provisional) edges.provisional = true;
+      if (e.type === "supports") edges.supports = true;
+      else if (e.type === "refutes") edges.refutes = true;
+      else if (e.type === "correlated_with") edges.correlated = true;
+      else if (e.type === "caused_by" || (!EDGE_COLORS[e.type] && e.origin === "inferred")) edges.causal = true;
+      else if (RELATED_EDGE_TYPES.has(e.type)) edges.related = true;
+      else edges.structural = true;
+    }
+    return {
+      roles,
+      edges,
+      anyRole: roles.origin || roles.symptom || roles.root || roles.related,
+      anyEdge: Object.values(edges).some(Boolean),
+    };
+  }, [ordered, rootCandidates, relatedIds, live.edges]);
+
   // fit the whole graph into the viewport (UI-SPEC §4 "viewable in full")
   const fitView = useCallback(() => {
     const svg = svgRef.current;
@@ -312,6 +349,19 @@ export default function LiveGraph({ live, selection, onSelect, panel }: Props) {
   useLayoutEffect(() => {
     if (!interactedRef.current) fitView();
   }, [fitView, ordered.length]);
+
+  // re-fit when the PANE resizes (a panel maximize/minimize/restore, or a window resize) — as long
+  // as the user hasn't taken the view over — so the graph stays fully framed after a layout change
+  // instead of stranding the content in a corner at the old fit. (ResizeObserver is absent in jsdom.)
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (!interactedRef.current) fitView();
+    });
+    ro.observe(svg);
+    return () => ro.disconnect();
+  }, [fitView]);
 
   // native, non-passive wheel listener so we can preventDefault (zoom the canvas, not the page)
   useEffect(() => {
@@ -425,6 +475,93 @@ export default function LiveGraph({ live, selection, onSelect, panel }: Props) {
       </div>
 
       <div className="graph-canvas-scroll">
+        {/* the LEGEND (compact + collapsible) — floats top-left; reflects EXACTLY the node roles,
+            layer columns and edge kinds currently drawn so it never over-claims. Collapsed by
+            default (just a "Legend" chip) so it never crowds the canvas; one click reveals the key. */}
+        <details className="graph-legend">
+          <summary className="graph-legend__summary">
+            <span className="graph-legend__key" aria-hidden="true">▾</span> Legend
+          </summary>
+          <div className="graph-legend__body">
+            {legend.anyRole && (
+              <div className="graph-legend__group">
+                <span className="graph-legend__grouphead">Nodes</span>
+                {legend.roles.origin && (
+                  <span className="graph-legend__row">
+                    <span className="legend-noderole legend-noderole--origin" aria-hidden="true" />origin — incident
+                  </span>
+                )}
+                {legend.roles.symptom && (
+                  <span className="graph-legend__row">
+                    <span className="legend-noderole legend-noderole--symptom" aria-hidden="true" />symptom — anomaly
+                  </span>
+                )}
+                {legend.roles.root && (
+                  <span className="graph-legend__row">
+                    <span className="legend-noderole legend-noderole--root" aria-hidden="true" />root — confirmed cause
+                  </span>
+                )}
+                {legend.roles.related && (
+                  <span className="graph-legend__row">
+                    <span className="legend-noderole legend-noderole--related" aria-hidden="true" />related — prior incident
+                  </span>
+                )}
+              </div>
+            )}
+            {columns.length > 0 && (
+              <div className="graph-legend__group">
+                <span className="graph-legend__grouphead">Layers (columns)</span>
+                {columns.map((c) => (
+                  <span className="graph-legend__row" key={c.tier}>
+                    <span className={`legend-swatch legend-swatch--${c.tier}`} aria-hidden="true" />
+                    {TIER_LABELS[c.tier]}
+                  </span>
+                ))}
+              </div>
+            )}
+            {legend.anyEdge && (
+              <div className="graph-legend__group">
+                <span className="graph-legend__grouphead">Edges</span>
+                {legend.edges.causal && (
+                  <span className="graph-legend__row">
+                    <span className="legend-edge legend-edge--caused_by" aria-hidden="true" />caused by / inferred
+                  </span>
+                )}
+                {legend.edges.supports && (
+                  <span className="graph-legend__row">
+                    <span className="legend-edge legend-edge--supports" aria-hidden="true" />supports
+                  </span>
+                )}
+                {legend.edges.refutes && (
+                  <span className="graph-legend__row">
+                    <span className="legend-edge legend-edge--refutes" aria-hidden="true" />refutes
+                  </span>
+                )}
+                {legend.edges.correlated && (
+                  <span className="graph-legend__row">
+                    <span className="legend-edge legend-edge--correlated" aria-hidden="true" />correlated
+                  </span>
+                )}
+                {legend.edges.related && (
+                  <span className="graph-legend__row">
+                    <span className="legend-edge legend-edge--related" aria-hidden="true" />related incident
+                  </span>
+                )}
+                {legend.edges.structural && (
+                  <span className="graph-legend__row">
+                    <span className="legend-edge legend-edge--structural" aria-hidden="true" />structural link
+                  </span>
+                )}
+                {legend.edges.provisional && (
+                  <span className="graph-legend__row">
+                    <span className="legend-edge legend-edge--provisional" aria-hidden="true" />provisional (tentative)
+                  </span>
+                )}
+                <span className="graph-legend__note">Arrows point along directed, belief-bearing links.</span>
+              </div>
+            )}
+          </div>
+        </details>
         <svg
           ref={svgRef}
           className="graph-canvas"
