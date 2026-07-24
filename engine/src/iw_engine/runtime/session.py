@@ -26,6 +26,7 @@ replay. A `SessionManager` keeps a registry so many incidents can be listed + re
 """
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -42,6 +43,11 @@ from ..domain.subject import SubjectRef
 from .engine import Engine
 from .planner import PlanContext, Planner, PlanOutput
 from .store import InvestigationStore
+
+# the orchestration log (configured by api/server.setup_logging): key run points — session
+# created, phase start/end, planner calls, capability invocations, gate + review open/decide,
+# and the drive error path (log.exception) — so a live run is traceable end-to-end in the file.
+log = logging.getLogger(__name__)
 
 
 class SessionState(StrEnum):
@@ -130,6 +136,9 @@ class _GatePlanner:
         ctx.messages = list(s._messages)                 # two-way steering into the live planner (obs 2)
         if s._pending is not None and s._pending.phase == ctx.phase:
             return s._resolve_pending_plan(ctx)          # resume: the decided plan for this phase
+        # planner call: live (LivePlanner) vs scripted (ScriptedPlanner), for which phase.
+        live = "live" if type(self._inner).__name__ == "LivePlanner" else "scripted"
+        log.info("session %s: planner call (%s) · phase=%s", s.id, live, ctx.phase)
         out = self._inner.plan(ctx)
         write_calls = s._write_calls(ctx, out)
         if write_calls:
@@ -202,6 +211,8 @@ class InvestigationSession:
         self._persisted_journal = 0
         if self._store is not None:
             self._store.reset(self.id)   # fresh run overwrites any prior on-disk run of this id
+        log.info("session created: %s (subject=%s, entry_phase=%s, auto_review=%s)",
+                 self.id, subject.key, self._engine.current_phase, self._auto_review)
 
     # ── public driving surface ─────────────────────────────────────────────────
     def advance(self, *, after: int | None = None) -> list[dict]:
@@ -295,6 +306,10 @@ class InvestigationSession:
             self._drive()
         except Exception as exc:                          # a live LLM/transport failure mid-drive
             detail = f"{type(exc).__name__}: {exc}"
+            # capture the FULL stack in the rolling file (not just uvicorn's stderr) — this is the
+            # 500 we saw on the background drive path, now diagnosable end-to-end.
+            log.exception("session %s: drive FAILED at phase=%s — %s", self.id,
+                          self._engine.current_phase, detail)
             self._emit("session_error", message=detail)
             # ONE terminal record carrying cause=error (M17); outcome='error' so a crashed run
             # never reports 'open' on list_view or persisted meta (M18). The durable write is
@@ -324,6 +339,8 @@ class InvestigationSession:
         self._emit("gate_decision", gate_id=p.gate_id, decision=decision.value,
                    actor=actor, source=Source.HUMAN.value, reason=reason,
                    phase=p.phase)
+        log.info("session %s: write-gate DECISION · %s · %s by %s", self.id,
+                 p.gate_id, decision.value, actor)
 
     def _record_review_decision(self, decision: ReviewDecision, *, actor: str,
                                 reason: str) -> None:
@@ -338,6 +355,8 @@ class InvestigationSession:
         self._emit("phase_review_decision", review_id=pr.review_id, decision=decision.value,
                    actor=actor, source=Source.HUMAN.value, reason=reason,
                    phase=pr.from_phase, to_phase=pr.to_phase)
+        log.info("session %s: phase-review DECISION · %s · %s (%s → %s) by %s", self.id,
+                 pr.review_id, decision.value, pr.from_phase, pr.to_phase, actor)
 
     def _deny_close(self, pr: _PendingReview, *, actor: str) -> None:
         """DENY halts the investigation at the review — terminal. The unified `closed` lifecycle
@@ -428,12 +447,15 @@ class InvestigationSession:
             cur = self._engine.current_phase
             if src is not None and cur is not None and hasattr(src, "phase"):
                 src.phase = cur
+            log.info("session %s: phase start · %s", self.id, cur)
             try:
                 result = self._engine.step()
             except _GateSuspend:
                 return                       # gate opened; gate_opened + session_state already emitted
             if result is None:
                 break
+            log.info("session %s: phase end · %s → verdict=%s (next=%s)", self.id,
+                     result.phase_id, result.verdict.status.value, self._engine.current_phase)
             self._emit_step_events(result, include_phase_started=not resolving_gate)
             if resolving_gate:
                 self._pending = None
@@ -490,6 +512,8 @@ class InvestigationSession:
             evidence=[e.get("id") for e in payload["evidence"]])
         self._emit("gate_opened", **payload)
         self._emit("session_state", state=self.state.value, phase=ctx.phase)
+        log.info("session %s: write-gate OPENED · phase=%s · %s · actions=%s", self.id,
+                 ctx.phase, gate_id, [a["intent"] for a in payload["actions"]])
         self._persist()                      # a suspended run is durable at the open gate
 
     def _gate_payload(self, ctx: PlanContext, write_calls: list[CapabilityCall],
@@ -548,6 +572,8 @@ class InvestigationSession:
             facts=payload["facts"], nodes=payload["nodes"])
         self._emit("phase_review_opened", **payload)
         self._emit("session_state", state=self.state.value, phase=result.phase_id)
+        log.info("session %s: phase-review OPENED · %s · %s → %s", self.id,
+                 review_id, result.phase_id, payload["to_phase"])
         self._persist()                      # a run awaiting review is durable at the pause
 
     def _review_payload(self, result, review_id: str) -> dict:
@@ -616,6 +642,8 @@ class InvestigationSession:
             # `outcome` is the load-bearing honesty field (P3 step 1 / part4-capability §4):
             # data · empty (clean-empty) · error · blocked — the UI must never infer "clean"
             # from op_count == 0 alone (that conflation is the silent-empty poison).
+            log.info("session %s: capability %s · served_by=%s · outcome=%s · ops=%s",
+                     self.id, inv.intent, inv.served_by, inv.outcome, inv.op_count)
             self._emit("capability_call", intent=inv.intent, provider=inv.provider,
                        effect=inv.effect.value, op_count=inv.op_count,
                        outcome=inv.outcome,

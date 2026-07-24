@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import pathlib
 from collections.abc import Callable
@@ -41,9 +42,12 @@ import iw_engine
 
 from ..domain.subject import SubjectRef
 from ..runtime.loader import load_playbook
+from ..runtime.logging_setup import setup_logging
 from ..runtime.planner import Planner
 from ..runtime.session import GateDecision, ReviewDecision, SessionManager, SessionState
 from ..runtime.store import InvestigationStore
+
+log = logging.getLogger(__name__)
 
 
 # Request bodies live at MODULE scope on purpose: with `from __future__ import annotations`
@@ -96,6 +100,12 @@ def create_server(manager: SessionManager | None = None, *,
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import StreamingResponse
 
+    # REAL logging FIRST — stdout + a rolling file — so building the manager, and every drive
+    # after it, is traceable end-to-end (and a live crash lands in the file with a full stack).
+    setup_logging()
+    live_env = os.environ.get("IW_LIVE", "").lower() in ("1", "true", "yes")
+    log.info("create_server: building session backend (IW_LIVE=%s)", live_env)
+
     catalog_fn: Callable[[], list[dict]] = list  # overwritten below to the scenario catalog
     # default the durability store so the workbench backend persists (and reopens) investigations.
     store = store if store is not None else InvestigationStore()
@@ -114,10 +124,13 @@ def create_server(manager: SessionManager | None = None, *,
             playbook = load_playbook(playbook_path) if playbook_path else None
             want_live = os.environ.get("IW_LIVE", "").lower() in ("1", "true", "yes")
             if want_live and make_live_client() is not None:
+                log.info("backend: LIVE (LLM-driven planner, human-gated phase reviews)")
                 manager = live_build_manager(playbook=playbook, store=store)
             else:
                 if want_live:
                     print("IW_LIVE set but no LLM key found — falling back to the scripted mock.")
+                    log.warning("IW_LIVE set but no LLM key found — falling back to the scripted mock.")
+                log.info("backend: scripted mock (deterministic scenario registry)")
                 manager = build_manager(playbook=playbook, store=store)
             catalog_fn = catalog
         else:
