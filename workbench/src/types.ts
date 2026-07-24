@@ -324,6 +324,11 @@ export interface InvestigationBundle {
   journal: JournalEntry[];
   rejections?: RejectionItem[]; // evidence withheld this run ("ops dropped")
   discovery?: DiscoveryCounters; // "the system keeps seeing unknown X"
+  /** The DISCOVERED fault layer (engine bundle `discovered_layer`) — `null` UNTIL a hypothesis is
+   *  CONFIRMED, then the layer NAME EARNED from that confirmed root's node type (never the catalog's
+   *  pre-assigned label). Lets the header stop ASSUMING the category and show the one the evidence
+   *  proved. Optional: an older bundle without it leaves the header in the "determining…" state. */
+  discovered_layer?: string | null;
   postmortem: Postmortem;
 }
 

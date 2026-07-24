@@ -13,7 +13,6 @@ interface Props {
   live: LiveState;
   busy: boolean;
   error: string | null;
-  layer?: string;
   title?: string; // the incident's one-line description (CatalogItem.title) — M2
   onDecide: (gateId: string, d: GateDecision, opts: { params?: Record<string, unknown>; reason?: string }) => void;
   onReview: (reviewId: string, d: GateDecision, opts: { text?: string }) => void;
@@ -25,7 +24,6 @@ export default function Workbench({
   live,
   busy,
   error,
-  layer,
   title,
   onDecide,
   onReview,
@@ -85,7 +83,7 @@ export default function Workbench({
         counts={phaseCounts(live)}
         state={live.state}
         outcome={live.outcome}
-        layer={layer}
+        discoveredLayer={live.discoveredLayer}
         title={title}
         onBack={onBack}
       />

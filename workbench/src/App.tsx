@@ -8,20 +8,19 @@ import Workbench from "./components/Workbench";
 export default function App() {
   const { state, error, busy, open, openExisting, decide, review, send, reset } = useInvestigation();
   const [view, setView] = useState<"start" | "workbench">("start");
-  const [layers, setLayers] = useState<Record<string, string>>({});
   const [titles, setTitles] = useState<Record<string, string>>({});
 
-  // small id → layer / id → title maps so the workbench header can label the incident. M2: the
-  // CatalogItem.title was fetched for the start selector but DROPPED here — thread it through so
-  // the PhaseStepper header carries a one-line description of what's being investigated.
+  // small id → title map so the workbench header can label the incident. M2: the CatalogItem.title
+  // was fetched for the start selector but DROPPED here — thread it through so the PhaseStepper
+  // header carries a one-line description of what's being investigated. The catalog's LAYER is NOT
+  // threaded any more: the header shows the DISCOVERED layer (live.discoveredLayer), earned from the
+  // confirmed root — it must not pre-reveal the catalog's assumed class during the run.
   useEffect(() => {
     getCatalog()
       .then((c: CatalogItem[]) => {
-        setLayers(Object.fromEntries(c.map((i) => [i.id, i.layer])));
         setTitles(Object.fromEntries(c.map((i) => [i.id, i.title])));
       })
       .catch(() => {
-        setLayers({});
         setTitles({});
       });
   }, []);
@@ -56,7 +55,6 @@ export default function App() {
       live={state}
       busy={busy}
       error={error}
-      layer={state.subject ? layers[state.subject.id] : undefined}
       title={state.subject ? titles[state.subject.id] : undefined}
       onDecide={decide}
       onReview={review}

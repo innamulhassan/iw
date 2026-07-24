@@ -22,12 +22,15 @@ interface Props {
   /** How many turns each phase has run (investigate is ONE loop — repeats collapse onto its
    *  single step and surface as an ×N badge, never as extra columns). */
   counts?: Record<string, number>;
-  layer?: string;
+  /** The DISCOVERED fault layer — `null` UNTIL the engine confirms a root, then the earned layer
+   *  name. The header shows "Layer — determining…" while null and never pre-reveals the catalog's
+   *  pre-assigned guess (discovered, not assumed). */
+  discoveredLayer?: string | null;
   title?: string; // the incident's one-line description (CatalogItem.title) — M2
   onBack: () => void;
 }
 
-export default function PhaseStepper({ subject, rail, reached, current, state, outcome, counts, layer, title, onBack }: Props) {
+export default function PhaseStepper({ subject, rail, reached, current, state, outcome, counts, discoveredLayer, title, onBack }: Props) {
   const reachedSet = new Set(reached);
   // the served rail drives the stepper; before the first snapshot, fall back to the reached phases
   const steps: PhaseRailItem[] = rail.length ? rail : reached.map((id) => ({ id, focus: true }));
@@ -46,7 +49,20 @@ export default function PhaseStepper({ subject, rail, reached, current, state, o
               {title}
             </span>
           )}
-          {layer && <span className="phase-bar__layer">{layer}</span>}
+          {/* LAYER is DISCOVERED, not assumed: muted "determining…" while the engine hasn't confirmed
+              a root, resolving to the earned layer once it has — never the catalog's up-front guess. */}
+          {discoveredLayer ? (
+            <span className="phase-bar__layer" title="Fault layer — discovered from the confirmed root cause">
+              {discoveredLayer}
+            </span>
+          ) : (
+            <span
+              className="phase-bar__layer phase-bar__layer--determining"
+              title="The fault layer is earned from the confirmed root cause — not assumed up front"
+            >
+              Layer — determining…
+            </span>
+          )}
         </div>
         <div className="phase-bar__status">
           {state && (

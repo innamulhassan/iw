@@ -272,6 +272,21 @@ describe("store reducer — the live event fold", () => {
     expect(s2.postmortem).toBeNull();
   });
 
+  it("threads discovered_layer — null while unproven, resolving to the earned layer on reconcile", () => {
+    // seeded null (no confirmed root yet) → the header shows "determining…", not the catalog's guess
+    const midRun = reduce(emptyState(), { kind: "seed", snapshot: mkSnap({ discovered_layer: null }) });
+    expect(midRun.discoveredLayer).toBeNull();
+    // a snapshot without the field at all also stays null (older bundle) — never a fabricated class
+    const legacy = reduce(emptyState(), { kind: "seed", snapshot: mkSnap({}) });
+    expect(legacy.discoveredLayer).toBeNull();
+    // reconcile once the engine confirms the root → the EARNED layer resolves in
+    const resolved = reduce(midRun, { kind: "mergeDetail", snapshot: mkSnap({ discovered_layer: "Application code" }) });
+    expect(resolved.discoveredLayer).toBe("Application code");
+    // a later bundle that omits it does NOT drop a known layer (it only ever moves null→value)
+    const kept = reduce(resolved, { kind: "mergeDetail", snapshot: mkSnap({}) });
+    expect(kept.discoveredLayer).toBe("Application code");
+  });
+
   it("carries the invocation OUTCOME on the tool call — error is a failed call, never 'no data'", () => {
     const evs: SessionEvent[] = [
       { seq: 1, ts: "t", type: "phase_started", phase: "investigate" },

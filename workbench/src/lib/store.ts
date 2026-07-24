@@ -192,6 +192,10 @@ export interface LiveState {
   reviewDecisions: Record<string, Decision>; // review_id → the operator's direction decision
   phasesRun: string[]; // phases reached, in order (unique)
   phaseRail: PhaseRailItem[]; // the full declared phase rail (M22) — the stepper renders from this
+  // the DISCOVERED fault layer (bundle `discovered_layer`) — null until a root is CONFIRMED, then
+  // the layer NAME earned from that root's node type. The header shows "determining…" while null
+  // and resolves to this once the engine proves the class (discovered, never the catalog's guess).
+  discoveredLayer: string | null;
   // the close-out projection (M29): root cause + ruled-out-rivals-with-basis + structured timeline +
   // per-phase narrative, folded from the journal by the engine and served in every bundle. The
   // close-out card renders it once the investigation closes; null until a snapshot lands one.
@@ -225,6 +229,7 @@ export function emptyState(): LiveState {
     reviewDecisions: {},
     phasesRun: [],
     phaseRail: [],
+    discoveredLayer: null,
     postmortem: null,
     error: null,
     lastSeq: 0,
@@ -573,6 +578,7 @@ function seed(snap: Snapshot): LiveState {
   s.state = snap.state;
   s.outcome = snap.outcome;
   s.phaseRail = snap.phase_rail ?? []; // the served declared rail (M22); [] until a snapshot lands
+  s.discoveredLayer = snap.discovered_layer ?? null; // null until the root is confirmed (header: "determining…")
   s.postmortem = snap.postmortem ?? null; // the close-out projection (M29); rendered on close
   for (const n of snap.graph.nodes)
     s.nodes[n.id] = {
@@ -658,6 +664,9 @@ function mergeDetail(state: LiveState, snap: Snapshot): LiveState {
     // carried them; reconcile's fresh bundle does) — keeps live parity with the reopen fold.
     turns: enrichTurnsFromJournal(state.turns, snap.journal, rejections),
     phaseRail: snap.phase_rail ?? state.phaseRail, // static rail; prefer fresh, keep what we had
+    // resolve the discovered layer as the run reconciles — null→layer once the root is confirmed
+    // (it only moves null→value and never back, so keep a known layer if a stray bundle omits it)
+    discoveredLayer: snap.discovered_layer ?? state.discoveredLayer,
     postmortem: snap.postmortem ?? state.postmortem, // the close-out projection (M29)
     outcome: snap.outcome,
   };
