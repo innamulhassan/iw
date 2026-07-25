@@ -248,3 +248,64 @@ def test_session_refine_edits_params():
     rollbacks = [e for e in session._engine.graph.events.values()
                  if e.type == "deployed" and e.payload.get("action") == "rollback"]
     assert rollbacks and rollbacks[0].payload["to_version"] == "v4.11.2"   # the refined target
+
+
+# ── #8 chat streaming: the turn opens BEFORE the LLM is asked ──────────────────
+class _StreamProbe:
+    """Wraps a planner and records, at each `plan()` call, the stream the session had ALREADY
+    emitted — the only vantage point from which #8 is observable. The finished event LIST looks
+    identical whether `phase_started` is emitted before the planner call or after the fold, so a
+    post-hoc assertion cannot tell the two apart; this can."""
+
+    def __init__(self, inner, holder: list) -> None:
+        self._inner = inner
+        self._holder = holder            # [session] — filled after the session is constructed
+        self.seen: list[tuple[str, list[dict]]] = []
+
+    def plan(self, ctx):
+        session = self._holder[0] if self._holder else None
+        stream = list(session.events()) if session is not None else []
+        self.seen.append((ctx.phase, stream))
+        return self._inner.plan(ctx)
+
+
+def test_phase_turn_opens_before_the_planner_is_called():
+    """#8: when the planner is asked to plan phase X, X's turn is ALREADY on the stream — that is
+    what lets the workbench show the phase with its "Proposing an action…" placeholder while the
+    LLM works, instead of the whole turn materialising at phase end. Regression: `phase_started`
+    used to be emitted by `_emit_step_events` AFTER the fold, so at every planner call the stream
+    carried no turn for the phase being planned (this test failed on that code)."""
+    subject, script = _approve_script()
+    holder: list = []
+    probe = _StreamProbe(ScriptedPlanner(script), holder)
+    session = InvestigationSession(subject, load_playbook(PLAYBOOK), probe,
+                                   layer=_layer(), clock=_clock)
+    holder.append(session)
+    session.advance()
+    session.answer_gate(GateDecision.APPROVE)
+
+    assert probe.seen, "the planner was never called — the probe proves nothing"
+    for phase_id, stream in probe.seen:
+        opened = [e["phase"] for e in stream if e["type"] == "phase_started"]
+        assert opened, (
+            f"planner asked to plan {phase_id!r} with an EMPTY turn stream — "
+            "the phase turn must be opened before the LLM call (#8)")
+        assert opened[-1] == phase_id, (
+            f"planner asked to plan {phase_id!r} but the newest open turn is {opened[-1]!r} — "
+            "the stream must open THIS phase's turn before planning it")
+
+
+def test_gated_phase_opens_exactly_one_turn():
+    """The gated phase suspends mid-step and resumes on approval — one phase RUN, so exactly one
+    turn. `_open_gate` used to announce the phase itself (it had to: nothing else had); now that
+    `_drive` opens the turn up front, a re-announce there would fold a DUPLICATE act turn."""
+    subject, script = _approve_script()
+    session = _session(script, subject)
+    opened = session.advance()
+    resumed = session.answer_gate(GateDecision.APPROVE)
+
+    act_starts = [e for e in [*opened, *resumed]
+                  if e["type"] == "phase_started" and e["phase"] == "act"]
+    assert len(act_starts) == 1, (
+        f"the gated act phase opened {len(act_starts)} turns, expected exactly 1 — "
+        "a duplicate phase_started folds a second, empty turn in the workbench")

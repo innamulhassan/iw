@@ -15,9 +15,14 @@ Two things this layer adds, both by COMPOSITION (no engine edits):
    denial as a synthetic hypothesis store result fed back so the next plan replans — a divergent journal.
 
 2. **An ordered event stream** derived purely from what the engine already recorded (the
-   journal / graph / hypothesis store) — `phase_started`, `reasoning`, `capability_call`, `graph_delta`
-   (each node WITH its `created_by` seq), `hypotheses_delta`, `gate_opened`, `session_state`.
-   Nothing here is invented: every delta is read back off the PhaseResult the engine folded.
+   journal / graph / hypothesis store) — `phase_started` emitted BEFORE the planner call (#8), so
+   the live SSE stream opens the phase's turn immediately instead of batching it at phase end;
+   the turn lands with no `reasoning` yet, which is exactly the state the workbench renders as
+   "Proposing an action…" — that placeholder IS the "LLM is working" signal, so no separate
+   `thinking` event exists. Then `reasoning`, `capability_call` (one per invocation),
+   `graph_delta` (each node WITH its `created_by` seq), `hypotheses_delta`, `gate_opened`,
+   `session_state`. Nothing here is invented: every delta is read back off the PhaseResult the
+   engine folded.
 
 The session id is the investigation identity (`subject.key`); the journal is the checkpointer,
 so `snapshot()` is export_bundle-shaped and the whole state is reconstructable by journal
@@ -448,6 +453,13 @@ class InvestigationSession:
             if src is not None and cur is not None and hasattr(src, "phase"):
                 src.phase = cur
             log.info("session %s: phase start · %s", self.id, cur)
+            # #8 chat streaming: OPEN the phase's turn BEFORE the planner call, not after the fold.
+            # The turn arrives with empty `reasoning`, which the workbench already renders as
+            # "Proposing an action…" — the live "LLM is working" signal. Suppressed when resolving
+            # a gate: that phase's turn was opened on the pass that suspended, and re-announcing it
+            # would fold a duplicate turn for one phase.
+            if not resolving_gate and cur is not None:
+                self._emit("phase_started", phase=cur)
             try:
                 result = self._engine.step()
             except _GateSuspend:
@@ -456,7 +468,7 @@ class InvestigationSession:
                 break
             log.info("session %s: phase end · %s → verdict=%s (next=%s)", self.id,
                      result.phase_id, result.verdict.status.value, self._engine.current_phase)
-            self._emit_step_events(result, include_phase_started=not resolving_gate)
+            self._emit_step_events(result)
             if resolving_gate:
                 self._pending = None
                 self._decision = None
@@ -500,7 +512,8 @@ class InvestigationSession:
         # "approve advancing past act" review.
         self._gated_phases.add(ctx.phase)
         self.state = SessionState.SUSPENDED
-        self._emit("phase_started", phase=ctx.phase)
+        # (#8) No `phase_started` here: `_drive` already opened this phase's turn before the
+        # planner call that led to this gate. Re-announcing it folded a duplicate turn.
         payload = self._gate_payload(ctx, write_calls, gate_id, out.narrative)
         # JOURNAL v2 (part2 §1): the gate OPENING is durable — what was proposed, on whose
         # behalf, on what evidence. Was an in-memory event only ("the journal proves consent"
@@ -629,9 +642,9 @@ class InvestigationSession:
             "narrative": p.plan.narrative + f" [DENIED by operator — {d.reason or 'no reason given'}; replanning]"})
 
     # ── event emission (all derived from the folded PhaseResult) ────────────────
-    def _emit_step_events(self, result, *, include_phase_started: bool) -> None:
-        if include_phase_started:
-            self._emit("phase_started", phase=result.phase_id)
+    def _emit_step_events(self, result) -> None:
+        # NOTE: `phase_started` is NOT emitted here — `_drive` opens the turn BEFORE the planner
+        # call (#8). This method only fills the turn the stream already opened.
         self._emit("reasoning", phase=result.phase_id, narrative=result.narrative)
         # F1: `invocation_todos` is the engine's parallel attribution list — the plan to-do index
         # each invocation served — so the stream carries `todo` and the workbench groups tool cards
