@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -86,6 +87,31 @@ def retry_delay(err: urllib.error.HTTPError, *, fallback: float, cap: float = 90
     return min(cap, fallback)
 
 
+class _LastMeta:
+    """#7 raw-exchange stash — PER THREAD, deliberately.
+
+    ONE client instance is shared by every live session (`live_build_manager` builds a single
+    client and its `planner_factory` closes over it), and each session drives on its OWN daemon
+    thread. `LivePlanner._capture_exchange` reads this back AFTER `complete_json` returns, so a
+    plain instance attribute lets a concurrent investigation overwrite the slot in between — one
+    run's raw prompt/completion would be journaled as another's. The journal is the project's
+    truth surface ("reconstructable back to its evidence"), so mis-attributed evidence there is
+    an invariant break, not a cosmetic race. Thread-local keeps the stash on the thread that made
+    the call — the same thread that reads it — and leaves the `complete_json` return contract
+    untouched."""
+
+    def __init__(self) -> None:
+        self._local = threading.local()
+
+    @property
+    def value(self) -> dict | None:
+        return getattr(self._local, "value", None)
+
+    @value.setter
+    def value(self, meta: dict | None) -> None:
+        self._local.value = meta
+
+
 # ── concrete clients (stdlib urllib only) ──────────────────────────────────────
 class GeminiClient:
     """Google Gemini generateContent JSON client."""
@@ -98,6 +124,16 @@ class GeminiClient:
         self.name = f"gemini/{model}"
         self.min_interval = min_interval   # RPM throttle (free tier ~15 rpm)
         self._last = 0.0
+        # #7 raw-exchange capture: this THREAD's last call's raw completion text (before parsing)
+        # + the provider's token accounting, stashed so LivePlanner can journal the full LLM
+        # exchange without changing the `complete_json` return contract. See `_LastMeta` for why
+        # it is per-thread. None until this thread's first call.
+        self._meta = _LastMeta()
+
+    @property
+    def last_meta(self) -> dict | None:
+        """This thread's last raw exchange (#7). Read by `LivePlanner._capture_exchange`."""
+        return self._meta.value
 
     def complete_json(self, system: str, user: str) -> dict:
         gap = self.min_interval - (time.monotonic() - self._last)
@@ -131,6 +167,10 @@ class GeminiClient:
                 raise
             parts = d.get("candidates", [{}])[0].get("content", {}).get("parts", [])
             text = "".join(p.get("text", "") for p in parts)
+            usage = d.get("usageMetadata") or {}
+            self._meta.value = {"raw_response": text,
+                                "tokens_in": usage.get("promptTokenCount"),
+                                "tokens_out": usage.get("candidatesTokenCount")}
             return loads_salvage(text)   # do NOT re-call on parse error — conserve quota
         raise RuntimeError("LLM call exhausted retries")
 
@@ -143,6 +183,14 @@ class XaiClient:
         self.model = model
         self.temperature = temperature
         self.name = f"xai/{model}"
+        # #7 raw-exchange capture — see `_LastMeta` (per-thread, shared client). None until this
+        # thread's first call.
+        self._meta = _LastMeta()
+
+    @property
+    def last_meta(self) -> dict | None:
+        """This thread's last raw exchange (#7). Read by `LivePlanner._capture_exchange`."""
+        return self._meta.value
 
     def complete_json(self, system: str, user: str) -> dict:
         url = "https://api.x.ai/v1/chat/completions"
@@ -160,7 +208,12 @@ class XaiClient:
             try:
                 with urllib.request.urlopen(req, timeout=120) as r:
                     d = json.load(r)
-                return json.loads(d["choices"][0]["message"]["content"])
+                content = d["choices"][0]["message"]["content"]
+                usage = d.get("usage") or {}
+                self._meta.value = {"raw_response": content,
+                                    "tokens_in": usage.get("prompt_tokens"),
+                                    "tokens_out": usage.get("completion_tokens")}
+                return json.loads(content)
             except urllib.error.HTTPError as e:
                 if e.code in (429, 500, 503) and attempt < 5:
                     time.sleep(4 * (2 ** attempt))

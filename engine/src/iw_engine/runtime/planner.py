@@ -107,6 +107,12 @@ class PlanOutput(BaseModel):
     # absent, `effective_todos` derives ONE default to-do from calls/ops — so every existing
     # (scripted) plan reads as a single-item checklist with zero authoring churn.
     todos: list[Todo] = Field(default_factory=list)
+    # #7 — the raw LLM exchange behind this plan (LIVE path only): {model, system, prompt,
+    # raw_response, tokens_in, tokens_out, latency_ms, n_todos}. The LivePlanner sets it after
+    # mapping the completion; the engine journals it as an `llm_exchange` annotation sharing the
+    # phase seq (replay-inert). None for the deterministic ScriptedPlanner — so the scripted/golden
+    # path stays untouched (no exchange is journaled, the goldens are byte-identical).
+    llm_exchange: dict | None = None
 
     @model_validator(mode="after")
     def _reconcile_todos(self) -> PlanOutput:

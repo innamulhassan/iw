@@ -16,6 +16,7 @@ The LLM never emits free-form graph mutations except through the closed op set:
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -346,10 +347,43 @@ class LivePlanner:
     def plan(self, ctx: PlanContext) -> PlanOutput:
         self._attempts[ctx.phase] = self._attempts.get(ctx.phase, 0) + 1
         user = self._build_prompt(ctx)
+        t0 = time.perf_counter()
         raw = self.client.complete_json(self.system, user)
+        latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
         out = self._to_plan_output(ctx, raw)
         self._called.update(c.intent for c in out.calls)
+        # #7: capture the FULL raw LLM exchange for the journal (LIVE-ONLY — a ScriptedPlanner never
+        # runs this code, so it emits nothing). It rides on the RETURNED PlanOutput so the engine
+        # journals it right after the plan() call, and it survives the session's _GatePlanner
+        # wrapping (which returns this same PlanOutput / a model_copy of it, carrying the field).
+        out.llm_exchange = self._capture_exchange(user, raw, latency_ms, out)
         return out
+
+    def _capture_exchange(self, user: str, raw, latency_ms: float, out: PlanOutput) -> dict:
+        """Assemble the #7 raw-exchange record for the journal: the model, the EXACT text sent (the
+        system prompt + this phase's user prompt), the raw completion text BEFORE parsing, the token
+        accounting and the wall-clock latency. `raw_response`/tokens come off the client's
+        `last_meta` (the shipped XaiClient/GeminiClient stash the real completion text + usage); a
+        client exposing neither (a hermetic stub) falls back to re-serializing the parsed plan, so
+        the exchange is ALWAYS captured. `n_todos` is the plan size, so the journal SUMMARY can read
+        'model · tokens · latency · #to-dos' without the bundle re-deriving it from a sibling entry."""
+        meta = getattr(self.client, "last_meta", None) or {}
+        raw_response = meta.get("raw_response")
+        if not raw_response:
+            try:
+                raw_response = json.dumps(raw, default=str)
+            except (TypeError, ValueError):
+                raw_response = str(raw)
+        return {
+            "model": getattr(self.client, "name", "?"),
+            "system": self.system,
+            "prompt": user,
+            "raw_response": raw_response,
+            "tokens_in": meta.get("tokens_in"),
+            "tokens_out": meta.get("tokens_out"),
+            "latency_ms": latency_ms,
+            "n_todos": len(out.effective_todos),
+        }
 
     # ── prompt ────────────────────────────────────────────────────────────────
     def _build_prompt(self, ctx: PlanContext) -> str:

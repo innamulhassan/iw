@@ -381,3 +381,43 @@ def test_xai_429_exponential_backoff_then_raises():
             c.complete_json("system", "user")
     assert calls["n"] == 6
     assert sleeps == [4, 8, 16, 32, 64]
+
+
+# ── #7 raw-exchange stash is PER THREAD ────────────────────────────────────────
+def test_last_meta_is_isolated_per_thread():
+    """One client instance is shared by EVERY live session (`live_build_manager` builds a single
+    client; its `planner_factory` closes over it) and each session drives on its own daemon
+    thread. `LivePlanner._capture_exchange` reads `last_meta` back AFTER `complete_json` returns,
+    so a plain instance attribute lets a concurrent investigation overwrite the slot in between —
+    one run's raw prompt/completion journaled as another's, i.e. mis-attributed evidence in the
+    surface the invariant says must be reconstructable. The barrier makes the interleaving
+    deterministic: BOTH threads stash before EITHER reads back."""
+    import threading
+
+    client = XaiClient("k")
+    ready = threading.Barrier(2)
+    seen: dict[str, str | None] = {}
+
+    def worker(tag: str) -> None:
+        client._meta.value = {"raw_response": tag}
+        ready.wait(timeout=5)          # both stashed — now the plain-attribute version has lost one
+        meta = client.last_meta
+        seen[tag] = meta["raw_response"] if meta else None
+
+    threads = [threading.Thread(target=worker, args=(t,)) for t in ("A", "B")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=5)
+
+    assert seen == {"A": "A", "B": "B"}, (
+        f"raw exchanges crossed threads: {seen} — a shared client must stash #7 metadata "
+        "per-thread or one investigation's LLM exchange is journaled as another's")
+
+
+def test_last_meta_starts_empty_and_survives_the_protocol():
+    """`last_meta` is a read-only view of this thread's stash: None before any call, and the
+    client still satisfies the structural LLMClient Protocol with it as a property."""
+    client = XaiClient("k")
+    assert client.last_meta is None
+    assert isinstance(client, LLMClient)

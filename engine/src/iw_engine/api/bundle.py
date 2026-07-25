@@ -147,6 +147,17 @@ def _journal_entry(e: JournalEntry) -> dict:
                 "served_by": a.get("served_by"), "binding": a.get("binding"),
                 **({"result": a["result"]} if "result" in a else {}),
                 **({"produced": a["produced"]} if "produced" in a else {})}
+    if e.kind == "llm_exchange":
+        # #7 the RAW LLM exchange: a relevant SUMMARY (model · tokens · latency · #to-dos, in
+        # `summary`) for the collapsed view, PLUS the full prompt (system + user) and the raw
+        # completion text for expand-on-demand — the UI shows the summary collapsed, the full text
+        # on expand. The full text passes through whole (the UI collapses it). Never in a golden
+        # (batch/scripted emits none), so serving it here is additive-only.
+        return {**base, "summary": e.reasoning, "model": a.get("model"),
+                "prompt": a.get("prompt"), "system": a.get("system"),
+                "raw_response": a.get("raw_response"),
+                "tokens_in": a.get("tokens_in"), "tokens_out": a.get("tokens_out"),
+                "latency_ms": a.get("latency_ms"), "n_todos": a.get("n_todos")}
     if e.kind == "gate_opened":
         # the write-GATE question: proposed action + serving hypothesis + evidence.
         return {**base, "intent": e.intent, "narrative": e.reasoning,

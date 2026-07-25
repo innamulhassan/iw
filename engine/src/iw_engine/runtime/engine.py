@@ -236,6 +236,20 @@ class Engine:
             ops=[type(o).__name__ for o in plan.ops], narrative=plan.narrative,
             todos=self._todo_views(plan))   # F1: the plan as a checklist of to-dos on the record
 
+        # #7: JOURNAL the RAW LLM exchange behind this plan — the model, the exact prompt sent, the
+        # raw completion BEFORE parsing, tokens + latency — as an `llm_exchange` annotation sharing
+        # the phase seq (replay-inert). The LIVE planner exposes it on the PlanOutput; a
+        # ScriptedPlanner leaves it None, so this is a no-op on the scripted/golden path (goldens
+        # stay byte-identical). Placed right after the plan entry: the plan is the headline, the
+        # raw exchange the drill-down.
+        if plan.llm_exchange is not None:
+            x = plan.llm_exchange
+            self.journal.append_llm_exchange(
+                seq, phase, model=x.get("model"), system=x.get("system"),
+                prompt=x.get("prompt"), raw_response=x.get("raw_response"),
+                tokens_in=x.get("tokens_in"), tokens_out=x.get("tokens_out"),
+                latency_ms=x.get("latency_ms"), n_todos=x.get("n_todos"))
+
         # M6: JOURNAL the planner's OWN reject+repair drops (off-catalog tool, unparseable/illegal
         # op, coerced verdict) — `repair` annotations sharing the phase seq (replay-inert). They
         # are ALSO fed to the next plan below, unifying the planner's enforcement channel with the

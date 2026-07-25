@@ -20,9 +20,12 @@ Endpoints:
     GET  /sessions                     list every session (incl. CLOSED)
     GET  /sessions/{id}                full export_bundle-shaped snapshot
 
-With no `manager`/`planner_factory`, the app is built from the six-scenario registry
+With no `manager`/`planner_factory`, the app is built from the scenario registry
 (`runtime/scenarios.py`), so `uvicorn iw_engine.api.server:create_server --factory` boots a
-fully runnable workbench backend with every use case listed on `/catalog`.
+fully runnable workbench backend with every use case listed on `/catalog`. The DEFAULT planner
+is the LIVE LLM backend when a key is configured (the product); with no key it falls back —
+loudly — to the TEST-ONLY scripted planner. `IW_SCRIPTED=1` forces the scripted net for
+hermetic/CI runs.
 
 FastAPI is imported lazily inside `create_server`, so importing this module never requires the
 `server` extra to be installed (the hermetic test suite never touches it).
@@ -103,18 +106,21 @@ def create_server(manager: SessionManager | None = None, *,
     # REAL logging FIRST — stdout + a rolling file — so building the manager, and every drive
     # after it, is traceable end-to-end (and a live crash lands in the file with a full stack).
     setup_logging()
-    live_env = os.environ.get("IW_LIVE", "").lower() in ("1", "true", "yes")
-    log.info("create_server: building session backend (IW_LIVE=%s)", live_env)
+    log.info("create_server: building session backend (default = LIVE LLM planner)")
 
     catalog_fn: Callable[[], list[dict]] = list  # overwritten below to the scenario catalog
     # default the durability store so the workbench backend persists (and reopens) investigations.
     store = store if store is not None else InvestigationStore()
     if manager is None:
         if planner_factory is None:
-            # default backend: the six-scenario registry — every use case runnable (UI-SPEC §1).
-            # IW_LIVE=1 selects the LLM-driven backend (obs 10: "you should not be in the
-            # execution") when a key is present; otherwise the deterministic scripted mock (the
-            # CI net) — so tests/offline always work and the product runs live on demand.
+            # DEFAULT backend: the LIVE LLM planner (obs 10: "the LLM is the product; you should not
+            # be in the execution"). The scripted registry is the CI/hermetic NET, not the product —
+            # so the default is inverted: resolve a real LLM client and, when one exists, drive the
+            # LLM-backed session backend (`live_build_manager`). Only when NO key is configured do we
+            # fall back to the deterministic scripted planner — and we say so LOUDLY, because a
+            # scripted run is TEST-ONLY and never a real end-to-end investigation. `IW_SCRIPTED=1` is
+            # the explicit escape hatch that forces scripted (hermetic/CI); `IW_LIVE` is no longer
+            # required (live is the default now) — it survives only as a harmless alias.
             from ..runtime.scenarios import (
                 build_manager,
                 catalog,
@@ -122,15 +128,23 @@ def create_server(manager: SessionManager | None = None, *,
                 make_live_client,
             )
             playbook = load_playbook(playbook_path) if playbook_path else None
-            want_live = os.environ.get("IW_LIVE", "").lower() in ("1", "true", "yes")
-            if want_live and make_live_client() is not None:
-                log.info("backend: LIVE (LLM-driven planner, human-gated phase reviews)")
-                manager = live_build_manager(playbook=playbook, store=store)
+            force_scripted = os.environ.get("IW_SCRIPTED", "").lower() in ("1", "true", "yes")
+            client = None if force_scripted else make_live_client()
+            if client is not None:
+                log.info("backend: LIVE (LLM-driven planner · model=%s · human-gated phase reviews)",
+                         client.name)
+                manager = live_build_manager(playbook=playbook, store=store, client=client)
             else:
-                if want_live:
-                    print("IW_LIVE set but no LLM key found — falling back to the scripted mock.")
-                    log.warning("IW_LIVE set but no LLM key found — falling back to the scripted mock.")
-                log.info("backend: scripted mock (deterministic scenario registry)")
+                if force_scripted:
+                    log.info("backend: SCRIPTED (IW_SCRIPTED set — deterministic scenario "
+                             "registry; hermetic/CI net)")
+                else:
+                    log.warning(
+                        "backend: SCRIPTED FALLBACK — no LLM key found, so this is the TEST-ONLY "
+                        "scripted planner (deterministic scenario registry). Real end-to-end "
+                        "investigation needs an LLM key: set XAI_API_KEY (see runtime/llm_client "
+                        "for the full provider cascade). Set IW_SCRIPTED=1 to force scripted "
+                        "deliberately.")
                 manager = build_manager(playbook=playbook, store=store)
             catalog_fn = catalog
         else:
