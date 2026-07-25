@@ -36,6 +36,11 @@ dist/
 # iw.py controller runtime (pids + logs — local only)
 .iw/
 
+# Rolling engine log written by runtime/logging_setup.py at server startup. Regenerable
+# local runtime output, never source — it appeared untracked the first time a session
+# restarted the backend after the live-first flip (2026-07-26).
+engine/data/logs/
+
 # Investigation runtime state — file-backed sessions (journal/graph/meta per investigation).
 # Durable across a backend restart; local runtime data, not source. Ignore all sessions EXCEPT
 # the checked-in INC-4821 demo snapshot, so a fresh clone (incl. a Windows machine) opens the
