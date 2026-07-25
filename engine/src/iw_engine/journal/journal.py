@@ -62,6 +62,11 @@ class JournalEntry(BaseModel):
     #                   every call leaves a durable trace now, incl. an approved write's
     #                   execution — shares its phase's seq (annotation, not a numbered step) and
     #                   carries `todo`, the index of the plan to-do this call served (F1 attribution)
+    #   llm_exchange  — the RAW LLM exchange behind a live plan (#7): the model, the exact prompt
+    #                   (system + user) sent, the raw completion text BEFORE parsing, tokens in/out
+    #                   and latency. LIVE PATH ONLY (a ScriptedPlanner emits none) — shares its
+    #                   phase's seq (annotation, not a numbered step) and carries NO delta, so
+    #                   phase numbering and every golden seq are untouched and replay ignores it.
     #   rejection     — a drop OUTSIDE a phase delta: the engine's op_ceiling truncation (M5),
     #                   which cut the planner's over-cap ops with no trace before. In-delta
     #                   reducer rejections still ride PhaseResult.rejections — not duplicated here.
@@ -76,7 +81,7 @@ class JournalEntry(BaseModel):
     #   step          — the v1 union of gate_decision+message, accepted read-only
     kind: Literal["phase", "plan", "step", "invocation", "gate_opened", "gate_decision",
                   "message", "rejection", "repair", "lifecycle",
-                  "phase_review", "review_decision"] = "phase"
+                  "phase_review", "review_decision", "llm_exchange"] = "phase"
     phase_id: str | None = None              # playbook-declared phase id (P7 phase-as-data)
     actor: str = "engine"                    # WHO produced this entry (engine, or a human approver)
     source: Source | None = None             # provenance of a decision entry (Source.HUMAN on a gate answer)
@@ -163,6 +168,28 @@ class Journal:
             reasoning=narrative, available=list(tools_available),
             plan_calls=list(calls), plan_ops=list(ops),
             todos=[dict(t) for t in todos] if todos is not None else None))
+
+    def append_llm_exchange(self, seq: int, phase_id: str, *, model: str | None,
+                            system: str | None, prompt: str | None, raw_response: str | None,
+                            tokens_in: int | None, tokens_out: int | None,
+                            latency_ms: float | None, n_todos: int | None) -> JournalEntry:
+        """Record the RAW LLM exchange behind a live plan (#7): the model, the EXACT prompt sent
+        (system + user), the raw completion text BEFORE parsing, tokens in/out and latency. The full
+        text rides in `action` (the bundle serves both a relevant SUMMARY and the full prompt/raw
+        for expand-on-demand); `reasoning` is the human one-line summary. LIVE PATH ONLY (the engine
+        calls this only when the planner exposed an exchange — a ScriptedPlanner never does). SHARES
+        the phase's seq (an annotation, not a numbered step) and carries NO delta, so phase/step
+        numbering — and every golden seq — is untouched and replay ignores it."""
+        summary = (f"{model or '?'} · {tokens_in if tokens_in is not None else '?'}"
+                   f"/{tokens_out if tokens_out is not None else '?'} tok · "
+                   f"{latency_ms if latency_ms is not None else '?'}ms · "
+                   f"{n_todos if n_todos is not None else 0} to-dos")
+        return self.append(JournalEntry(
+            seq=seq, ts=self._clock(), kind="llm_exchange", phase_id=phase_id, actor="engine",
+            intent=model, reasoning=summary,
+            action={"model": model, "system": system, "prompt": prompt,
+                    "raw_response": raw_response, "tokens_in": tokens_in,
+                    "tokens_out": tokens_out, "latency_ms": latency_ms, "n_todos": n_todos}))
 
     def append_gate_opened(self, phase_id: str, *, gate_id: str, actions: list[dict],
                            reasoning: str, hypothesis: str | None,
