@@ -254,6 +254,10 @@ export interface JournalEntry {
   // authored to-dos; absent on a call from a no-to-do plan (so the pre-story goldens stay byte-stable).
   result?: string; // what the call returned, as a human line (= the serving to-do's observation)
   produced?: string[]; // per-op summary of what the call folded ("fact red_errors=0.40", "node …")
+  // The EVIDENCE behind `result`: the payload the transport actually returned, verbatim, before
+  // the adapter folded it. `result`/`produced` are the projection; this is the record — the stack
+  // trace, the PromQL series, the blame snippet. Present only when the call carried a payload.
+  raw?: Record<string, unknown>;
   blocked?: boolean;
   reason?: string | null;
   served_by?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
