@@ -128,7 +128,24 @@ def code_regression() -> tuple[SubjectRef, dict, str]:
                             "\tat com.corp.payments.tax.TaxCalculator.compute(TaxCalculator.java:54)",
                             "\tat com.corp.payments.charge.CaptureService.capture(CaptureService.java:210)",
                             "\tat com.corp.payments.api.ChargeController.post(ChargeController.java:96)"]}]}},
-        "git": {"*": {
+        # PER-INTENT fixtures (ScenarioSource resolves <intent> before the provider default): a
+        # blame, a diff and a PR lookup return genuinely different shapes in the real world, so
+        # they must here too — otherwise the agent learns nothing from choosing a better tool and
+        # simply re-asks. A live grok-4.5 run made that visible once raw payloads were journaled.
+        "git": {
+            "diff_range": {"diff": {
+                "from_tag": "v4.11.3", "to_tag": "v4.12.0", "repo": "payments-api",
+                "commits": 6, "files_changed": 11, "insertions": 214, "deletions": 37,
+                "files": ["src/main/java/com/corp/payments/tax/TaxCalculator.java",
+                          "src/main/java/com/corp/payments/tax/RegionResolver.java",
+                          "src/test/java/com/corp/payments/tax/TaxCalculatorTest.java"]}},
+            "get_pr_for_commit": {"pull_request": {
+                "number": 1487, "repo": "payments-api", "title": "feat(tax): add intl VAT regions",
+                "author": "dev-kco", "reviewers": ["dev-lho"], "approvals": 1,
+                "merged_at": t_chg.isoformat(), "merge_commit_sha": "abc123",
+                "checks": {"unit": "passed", "integration": "passed", "canary": "skipped"},
+                "labels": ["tax", "intl"]}},
+            "*": {
             "commit": {"sha": "abc123", "repo": "payments-api", "author": "dev-kco",
                        "parent_sha": "9f8e7d6", "authored_at": t_chg, "branch": "main",
                        "message": ("feat(tax): add intl VAT regions via shared taxcalc v4.12.0\n\n"
