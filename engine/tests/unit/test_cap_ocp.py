@@ -193,3 +193,62 @@ def test_unknown_intent_is_recorded_not_crashing():
     layer = CapabilityLayer([OcpAdapter()])
     ops, inv = layer.invoke("nonexistent_intent", {}, allow_write=False)
     assert ops == [] and inv.blocked and "no capability" in inv.reason
+
+
+# ── partial rollout: the deployment's image is INTENT, the pod's is REALITY ────
+_SKEW_RAW = {
+    "pods": [
+        {"uid": "pod-uid-new", "name": "checkout-7d9c-aaaa", "namespace": "prod",
+         "phase": "Running", "ready": True, "node_name": "worker-dc1-01.corp.example",
+         "image": "registry/checkout@sha256:1f3c9e2b", "at": "2026-07-19T14:05:00+00:00"},
+        {"uid": "pod-uid-old", "name": "checkout-6b4a-bbbb", "namespace": "prod",
+         "phase": "Running", "ready": True, "node_name": "worker-dc2-07.corp.example",
+         "image": "registry/checkout@sha256:9a7d41ff", "at": "2026-07-19T14:05:00+00:00"},
+    ]
+}
+
+
+def _materialize(raw: dict):
+    layer = CapabilityLayer([OcpAdapter()], Tunables())
+    ops, _inv = layer.invoke("pod_status", raw, allow_write=False)
+    return materialize(ops, 1, Graph(), Tunables())
+
+
+def test_pod_image_skew_survives_as_two_coexisting_facts():
+    """A partial rollout — some replicas on the new digest, some still on the old — is the case
+    where the deployment's declared image and the fleet's actual images diverge. Recording image
+    ONLY at the deployment level made that structurally invisible: the graph showed one uniform
+    image and an investigation would conclude the fleet was uniform when it was not.
+
+    Pods are identity-keyed on {uid,name,namespace}, so two pods are two NODES and their image
+    facts coexist — neither supersedes the other. This pins that."""
+    mat = _materialize(_SKEW_RAW)
+    assert mat.rejections == [], mat.rejections
+
+    images = {f.subject_ref: f.value for f in mat.facts if f.predicate == "image"}
+    assert len(images) == 2, (
+        f"expected one image fact per pod, got {len(images)} — pod-level image skew was collapsed, "
+        "which is exactly the partial-rollout blindness this records")
+    assert set(images.values()) == {
+        "registry/checkout@sha256:1f3c9e2b",
+        "registry/checkout@sha256:9a7d41ff",
+    }, "both digests must survive verbatim — a divergence is the signal, not noise"
+
+
+def test_pod_image_is_attributed_to_the_right_pod_and_host():
+    """The skew is only actionable if each image is attributable to a specific pod and the host
+    it runs on — that is what turns 'the fleet is mixed' into 'these replicas, on these nodes'."""
+    mat = _materialize(_SKEW_RAW)
+
+    new_id = registry.node_id(NodeType.POD, {"uid": "pod-uid-new", "name": "checkout-7d9c-aaaa",
+                                             "namespace": "prod"})
+    old_id = registry.node_id(NodeType.POD, {"uid": "pod-uid-old", "name": "checkout-6b4a-bbbb",
+                                             "namespace": "prod"})
+    by_subject = {f.subject_ref: f.value for f in mat.facts if f.predicate == "image"}
+    assert by_subject.get(new_id) == "registry/checkout@sha256:1f3c9e2b"
+    assert by_subject.get(old_id) == "registry/checkout@sha256:9a7d41ff"
+
+    # and each pod still carries its RUNS_ON host, so the skew maps onto physical placement
+    runs_on = {e.src: e.dst for e in mat.edges if e.type is EdgeType.RUNS_ON}
+    assert runs_on.get(new_id) != runs_on.get(old_id), \
+        "the two pods run on different hosts — the placement dimension of the skew"

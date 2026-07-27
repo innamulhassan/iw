@@ -39,6 +39,15 @@ from ..layer import CapabilityMeta
 _POD_FACT_SPECIES: dict[str, tuple[Species, Stat | None]] = {
     "phase": (Species.STATE, None),
     "ready": (Species.STATE, None),
+    # WHICH IMAGE THIS POD ACTUALLY RUNS — open-interval STATE, same species the rollout records
+    # it as at the deployment level. Recorded per-pod because the deployment's image is the
+    # INTENT and the pod's is the REALITY, and a partial rollout is exactly where the two differ:
+    # some replicas on the new digest, some still on the old. With image only at the deployment
+    # level that skew is structurally invisible — the graph shows one uniform image and the
+    # investigation concludes the fleet is uniform when it is not. Pods are identity-keyed on
+    # {uid,name,namespace}, so per-pod images are distinct facts on distinct nodes and coexist
+    # rather than superseding one another.
+    "image": (Species.STATE, None),
     "node_name": (Species.PROPERTY, None),
     "restart_count": (Species.READING, Stat.COUNTER),
     "cpu_utilization": (Species.READING, Stat.GAUGE),
@@ -164,7 +173,7 @@ class OcpAdapter:
 
             at = pod.get("at")
             if at:
-                for pred in ("phase", "ready", "node_name", "restart_count",
+                for pred in ("phase", "ready", "image", "node_name", "restart_count",
                              "cpu_utilization", "mem_utilization"):
                     if pred in pod and pod[pred] is not None:
                         species, stat = _POD_FACT_SPECIES[pred]
