@@ -216,3 +216,42 @@ def test_no_ondisk_line_is_kindless_and_roundtrips():
     jr = Journal.from_ndjson(text)
     assert [e.seq for e in jr.entries] == [e.seq for e in session._engine.journal.entries]
     assert all(e.kind for e in jr.entries), "every LOADED entry carries its kind"
+
+
+# ── the EVIDENCE behind the summary, not just the conclusion ───────────────────
+def test_invocation_journals_the_raw_transport_payload():
+    """The journal's own invariant is 'reconstructable back to its evidence'. It used to keep the
+    CONCLUSION of a tool call (`result`: "152 NPEs at TaxCalculator.java:88") and DISCARD the
+    payload that proved it — the stack trace, trace_id, host, logger. That left the audit trail
+    asserting findings it could not substantiate, and left the workbench nothing to expand into.
+    A fixture-served call must now carry its raw payload verbatim onto the journal entry."""
+    subject, script, fixtures = dep.build()
+    bundle = run(subject, script, fixtures)
+    invocations = [e for e in bundle.journal.entries if e.kind == "invocation"]
+    assert invocations, "the deployment scenario makes capability calls"
+
+    with_raw = [e for e in invocations if (e.action or {}).get("raw")]
+    assert with_raw, "a fixture-served invocation must journal its RAW payload, not only a summary"
+
+    # the raw is the TRANSPORT's payload, verbatim — not a re-summary of it
+    entry = with_raw[0]
+    raw = entry.action["raw"]
+    assert isinstance(raw, dict) and raw, "raw is the payload dict the transport returned"
+    served = next((f for f in fixtures.values() if isinstance(f, dict)), None)
+    assert served is not None
+
+    # and the summary/result projection still rides alongside — raw REPLACES nothing
+    assert "capability" in entry.action and "provider" in entry.action
+
+
+def test_no_payload_no_raw_key():
+    """A call whose transport returned nothing carries NO `raw` key at all — the field is
+    omitted-when-empty, so a blocked/error/planner-direct call keeps its exact prior shape and an
+    absent payload is never rendered as an empty one. code_regression is the live proof: it ships
+    NO fixtures, so every one of its calls is served `{}`."""
+    subject, script = cr.build()
+    bundle = run(subject, script)
+    invocations = [e for e in bundle.journal.entries if e.kind == "invocation"]
+    assert invocations, "code_regression makes capability calls"
+    assert all("raw" not in (e.action or {}) for e in invocations), \
+        "an empty transport read must not fabricate a raw payload"

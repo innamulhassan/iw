@@ -934,6 +934,28 @@
       "params": {},
       "phase": "frame",
       "provider": "prometheus",
+      "raw": {
+        "alerts": [
+          {
+            "alertname": "ExternalDependencyErrorRateHigh",
+            "at": "2026-07-19 09:12:00+00:00",
+            "id": "ALT-1",
+            "state": "firing"
+          }
+        ],
+        "metrics": [
+          {
+            "at": "2026-07-19 09:12:00+00:00",
+            "predicate": "red_errors",
+            "reliability": 0.97,
+            "value": 0.18
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-api"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -953,6 +975,23 @@
       "params": {},
       "phase": "frame",
       "provider": "servicenow",
+      "raw": {
+        "changes": [
+          {
+            "cmdb_ci": {
+              "display_value": "checkout-api",
+              "owner": "netops@corp.example"
+            },
+            "description": "Automated NetOps change tightening the prod-vpc egress ACL as part of the quarterly least-privilege sweep. Narrows FW-EGR-118's allowed destinations; the fraud-score vendor CIDR was dropped from the allow list in error. Pushed via Terraform, no canary.",
+            "env": "prod",
+            "number": "CHG-3311",
+            "requested_by": "netops-automation",
+            "short_description": "Tighten egress ACL on prod-vpc (FW-EGR-118)",
+            "start_date": "2026-07-19 09:05:00+00:00",
+            "type": "network"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1073,6 +1112,21 @@
       "params": {},
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-7702",
+        "related_incidents": [
+          {
+            "cmdb_ci": "checkout-api",
+            "confidence": "high",
+            "number": "INC-7699",
+            "opened_at": "2026-06-19 09:00:00+00:00",
+            "priority": "2 - High",
+            "relation": "recurrence",
+            "short_description": "Same FW-EGR-118 egress deny to the fraud vendor; reverted",
+            "title": "fraud-scoring egress blocked by ACL (last quarter)"
+          }
+        ]
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -1177,6 +1231,60 @@
       "params": {},
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 09:25:00+00:00",
+            "predicate": "probe_success",
+            "reliability": 0.99,
+            "subject": "network_segment:egress-fraud-score",
+            "value": 0
+          },
+          {
+            "at": "2026-07-19 09:25:00+00:00",
+            "predicate": "packet_loss",
+            "reliability": 0.97,
+            "subject": "network_segment:egress-fraud-score",
+            "value": 0.0
+          },
+          {
+            "at": "2026-07-19 09:25:00+00:00",
+            "predicate": "retrans_segs",
+            "reliability": 0.97,
+            "subject": "network_segment:egress-fraud-score",
+            "unit": "count",
+            "value": 0
+          },
+          {
+            "at": "2026-07-19 09:25:00+00:00",
+            "predicate": "probe_success",
+            "reliability": 0.99,
+            "subject": "network_segment:egress-geoip",
+            "value": 1
+          },
+          {
+            "at": "2026-07-19 09:25:00+00:00",
+            "predicate": "packet_loss",
+            "reliability": 0.97,
+            "subject": "network_segment:egress-geoip",
+            "value": 0.0
+          },
+          {
+            "at": "2026-07-19 09:25:00+00:00",
+            "predicate": "probe_success",
+            "reliability": 0.99,
+            "subject": "network_segment:egress-payment-gw",
+            "value": 1
+          },
+          {
+            "at": "2026-07-19 09:25:00+00:00",
+            "predicate": "packet_loss",
+            "reliability": 0.97,
+            "subject": "network_segment:egress-payment-gw",
+            "value": 0.0
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -1196,6 +1304,27 @@
       "params": {},
       "phase": "investigate",
       "provider": "splunk",
+      "raw": {
+        "fw_denies": [
+          {
+            "_time": "2026-07-19 09:25:00+00:00",
+            "action": "blocked",
+            "deny_count": 214,
+            "direction": "egress",
+            "dst": "fraud-score.vendor.com/32",
+            "firewall": "pafw-prod-01",
+            "index": "prod_firewall",
+            "port_range": "443",
+            "proto": "tcp",
+            "reliability": 0.97,
+            "rule_id": "FW-EGR-118",
+            "rule_name": "prod-vpc-egress-allowlist",
+            "sample_log": "2026-07-19T09:25:04Z pafw-prod-01 DENY egress tcp 10.20.0.31:51442 -> 34.120.88.4:443 rule=FW-EGR-118 action=blocked",
+            "sourcetype": "pan:traffic",
+            "src": "10.20.0.0/24"
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

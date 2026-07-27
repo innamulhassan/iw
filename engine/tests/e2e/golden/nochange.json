@@ -651,6 +651,20 @@
       "params": {},
       "phase": "frame",
       "provider": "prometheus",
+      "raw": {
+        "alerts": [
+          {
+            "alertname": "HighConnPoolUtilization",
+            "at": "2026-07-19 09:00:00+00:00",
+            "id": "ALT-1",
+            "state": "firing"
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-api"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -670,6 +684,28 @@
       "params": {},
       "phase": "frame",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 09:00:00+00:00",
+            "predicate": "red_rate",
+            "reliability": 0.97,
+            "unit": "x_baseline",
+            "value": 3.4
+          },
+          {
+            "at": "2026-07-19 09:00:00+00:00",
+            "predicate": "red_latency_p99",
+            "reliability": 0.96,
+            "unit": "ms",
+            "value": 6800
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-api"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -689,6 +725,23 @@
       "params": {},
       "phase": "frame",
       "provider": "appd",
+      "raw": {
+        "service": {
+          "env": "prod",
+          "name": "checkout-api"
+        },
+        "snapshots": [
+          {
+            "exit_calls": [
+              {
+                "db_id": "checkout-db",
+                "engine": "postgres",
+                "type": "JDBC"
+              }
+            ]
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -795,6 +848,9 @@
       "params": {},
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "changes": []
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",

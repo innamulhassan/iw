@@ -1055,6 +1055,21 @@
       },
       "phase": "frame",
       "provider": "servicenow",
+      "raw": {
+        "changes": [
+          {
+            "cmdb_ci": {
+              "display_value": "orders-api"
+            },
+            "description": "DBA-approved schema change on orders-pg. Flyway migration V812 drops idx_order_items_order_id, flagged 'unused' by pg_stat_user_indexes, to reclaim write throughput on the hot order_items table. No application read-path analysis attached.",
+            "number": "CHG-9",
+            "requested_by": "dba-jsmith",
+            "short_description": "Drop unused index idx_order_items_order_id (reclaim write IOPS)",
+            "start_date": "2026-07-19 13:57:00+00:00",
+            "type": "database"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1077,6 +1092,20 @@
       },
       "phase": "frame",
       "provider": "prometheus",
+      "raw": {
+        "alerts": [
+          {
+            "alertname": "HighLatencyP99",
+            "at": "2026-07-19 14:05:00+00:00",
+            "id": "ALT-1",
+            "state": "firing"
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "orders-api"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1201,6 +1230,27 @@
       },
       "phase": "investigate",
       "provider": "git",
+      "raw": {
+        "change": {
+          "change_id": "CHG-9",
+          "change_type": "database"
+        },
+        "commit": {
+          "author": "dba-jsmith",
+          "authored_at": "2026-07-19 13:57:00+00:00",
+          "message": "V812: drop unused index idx_order_items_order_id on order_items",
+          "parent_sha": "9f8e7d6",
+          "repo": "db-migrations",
+          "sha": "a1b2c3d"
+        },
+        "diff": {
+          "at": "2026-07-19 13:57:00+00:00",
+          "files_changed": 1,
+          "lines_added": 1,
+          "lines_deleted": 0,
+          "reliability": 0.99
+        }
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -1223,6 +1273,38 @@
       },
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-7734",
+        "related_incidents": [
+          {
+            "cmdb_ci": "billing-api",
+            "confidence": "high",
+            "number": "INC-7735",
+            "opened_at": "2026-07-19 14:06:00+00:00",
+            "priority": "3 - Moderate",
+            "short_description": "billing-api slow on order_items reads \u2014 same orders-pg",
+            "title": "billing-api p99 latency spike"
+          },
+          {
+            "cmdb_ci": "fulfillment-api",
+            "confidence": "high",
+            "number": "INC-7736",
+            "opened_at": "2026-07-19 14:07:00+00:00",
+            "priority": "3 - Moderate",
+            "short_description": "fulfillment-api slow queries on orders-pg order_items",
+            "title": "fulfillment-api p99 latency spike"
+          },
+          {
+            "cmdb_ci": "returns-api",
+            "confidence": "med",
+            "number": "INC-7737",
+            "opened_at": "2026-07-19 14:08:00+00:00",
+            "priority": "4 - Low",
+            "short_description": "returns-api tail latency on the same shared orders-pg",
+            "title": "returns-api elevated latency"
+          }
+        ]
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -1334,6 +1416,39 @@
       },
       "phase": "investigate",
       "provider": "appd",
+      "raw": {
+        "bt_metrics": [
+          {
+            "at": "2026-07-19 14:20:00+00:00",
+            "predicate": "red_latency_p99",
+            "reliability": 0.93,
+            "unit": "ms",
+            "value": 7900
+          },
+          {
+            "at": "2026-07-19 14:20:00+00:00",
+            "predicate": "red_latency_p50",
+            "reliability": 0.95,
+            "unit": "ms",
+            "value": 42
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "orders-api"
+        },
+        "snapshots": [
+          {
+            "exit_calls": [
+              {
+                "db_id": "orders-pg",
+                "engine": "postgres",
+                "type": "JDBC"
+              }
+            ]
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -1355,6 +1470,50 @@
       },
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 14:20:00+00:00",
+            "predicate": "active_connections",
+            "reliability": 0.97,
+            "subject": "database:orders-pg",
+            "unit": "conn",
+            "value": 200
+          },
+          {
+            "at": "2026-07-19 14:20:00+00:00",
+            "predicate": "max_connections",
+            "reliability": 0.97,
+            "subject": "database:orders-pg",
+            "unit": "conn",
+            "value": 200
+          },
+          {
+            "at": "2026-07-19 14:20:00+00:00",
+            "predicate": "conn_pool_util",
+            "reliability": 0.97,
+            "subject": "database:orders-pg",
+            "unit": "ratio",
+            "value": 1.0
+          },
+          {
+            "at": "2026-07-19 14:20:00+00:00",
+            "predicate": "slow_query_rate",
+            "reliability": 0.95,
+            "subject": "database:orders-pg",
+            "unit": "per_min",
+            "value": 342
+          },
+          {
+            "at": "2026-07-19 14:20:00+00:00",
+            "predicate": "replication_lag",
+            "reliability": 0.96,
+            "subject": "database:orders-pg",
+            "unit": "s",
+            "value": 0.3
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

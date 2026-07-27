@@ -146,7 +146,12 @@ def _journal_entry(e: JournalEntry) -> dict:
                 "op_count": o.get("op_count"), "todo": e.todo,
                 "served_by": a.get("served_by"), "binding": a.get("binding"),
                 **({"result": a["result"]} if "result" in a else {}),
-                **({"produced": a["produced"]} if "produced" in a else {})}
+                **({"produced": a["produced"]} if "produced" in a else {}),
+                # the EVIDENCE behind `result`, verbatim — served whole so the workbench can
+                # expand a tool call down to what the tool actually returned (same collapsed-
+                # summary / raw-on-expand contract #7 uses for the LLM exchange). Omitted when
+                # the call carried no payload (blocked, error, or a planner-direct step).
+                **({"raw": a["raw"]} if a.get("raw") else {})}
     if e.kind == "llm_exchange":
         # #7 the RAW LLM exchange: a relevant SUMMARY (model · tokens · latency · #to-dos, in
         # `summary`) for the collapsed view, PLUS the full prompt (system + user) and the raw

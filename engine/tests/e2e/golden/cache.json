@@ -983,6 +983,20 @@
       },
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-5500",
+        "related_incidents": [
+          {
+            "cmdb_ci": "search-api",
+            "confidence": "high",
+            "number": "INC-4210",
+            "opened_at": "2026-07-19 13:10:00+00:00",
+            "priority": "3 - Moderate",
+            "short_description": "search-api hit the same stampede when it disabled coalescing",
+            "title": "search-api cache stampede (prior quarter)"
+          }
+        ]
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -1113,6 +1127,34 @@
       },
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 14:31:00+00:00",
+            "predicate": "hit_rate",
+            "reliability": 0.97,
+            "subject": "cache:product-redis",
+            "unit": "ratio",
+            "value": 0.41
+          },
+          {
+            "at": "2026-07-19 14:31:00+00:00",
+            "predicate": "eviction_rate",
+            "reliability": 0.95,
+            "subject": "cache:product-redis",
+            "unit": "per_min",
+            "value": 420
+          },
+          {
+            "at": "2026-07-19 14:31:00+00:00",
+            "predicate": "mem_utilization",
+            "reliability": 0.97,
+            "subject": "cache:product-redis",
+            "unit": "ratio",
+            "value": 0.94
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

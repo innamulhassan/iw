@@ -164,6 +164,15 @@ class Invocation(BaseModel):
     # (what the tool folded into the graph) - so the UI reads like a real agent trace: query + result.
     params: dict = Field(default_factory=dict)
     summary: str = ""
+    # The RAW payload the transport returned, verbatim, BEFORE normalize() folded it into ops.
+    # `summary` is the PROJECTION ("152 NPEs at TaxCalculator.java:88"); this is the RECORD (the
+    # actual stack trace, trace_id, host, logger, the PromQL series, the git blame snippet).
+    # Standing decision: "journal = complete raw record; default view = relevant projection; raw
+    # on expand" — #7 already honours it for the LLM exchange; without this the same promise was
+    # broken for every capability call, which is the bulk of an investigation's evidence. Keeping
+    # only the summary left the audit trail holding conclusions it could not substantiate, and
+    # left the workbench nothing to expand into.
+    raw: dict | None = None
     # agent-trace span (obs 9: "when tool ran, how long, tool vs workflow"). Wall-clock timing,
     # stamped by the engine around serve() - ephemeral (never journaled, never in export_bundle),
     # so goldens stay deterministic. `kind` distinguishes tool | workflow | llm | handoff.
@@ -258,7 +267,9 @@ class CapabilityLayer:
         return ops, Invocation(intent=intent, provider=a.provider, effect=effect,
                                op_count=len(ops), params=dict(params or {}),
                                outcome="data" if ops else "empty",
-                               summary=_summarize_ops(ops))
+                               summary=_summarize_ops(ops),
+                               # the evidence behind the summary, kept verbatim (see Invocation.raw)
+                               raw=dict(raw) if isinstance(raw, dict) and raw else None)
 
     def _error_invocation(self, a: Adapter | None, intent: str, effect: Effect,
                           exc: BaseException, params: dict | None = None) -> Invocation:
