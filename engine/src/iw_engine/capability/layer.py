@@ -13,6 +13,7 @@ PRE-FETCHED raw payload (the seam unit tests feed directly).
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -81,6 +82,21 @@ def _summarize_ops(ops: list[Operation]) -> str:
     if c.get("UpdateHypothesis"):
         parts.append(f"{c['UpdateHypothesis']} hypothesis update{'s' if c['UpdateHypothesis'] != 1 else ''}")
     return " · ".join(parts) or "no new data"
+
+
+def _json_safe(raw: object) -> dict | None:
+    """Coerce a transport payload to JSON-serializable primitives, or None when there is nothing
+    to keep. A payload legitimately carries datetimes (a fixture's `authored_at`, a vendor's parsed
+    timestamp), and `raw` now travels THREE paths with different encoders: the journal (dumped with
+    default=str), export_bundle, and the live SSE event stream (plain json.dumps, which raises on a
+    datetime and kills the stream mid-run). Normalizing once here means every consumer gets the
+    same safe shape rather than each re-learning this the hard way."""
+    if not isinstance(raw, dict) or not raw:
+        return None
+    try:
+        return json.loads(json.dumps(raw, default=str))
+    except (TypeError, ValueError):
+        return None      # an unserializable payload degrades to no-raw, never to a broken stream
 
 
 def _served_by(source: Source | None) -> str | None:
@@ -269,7 +285,7 @@ class CapabilityLayer:
                                outcome="data" if ops else "empty",
                                summary=_summarize_ops(ops),
                                # the evidence behind the summary, kept verbatim (see Invocation.raw)
-                               raw=dict(raw) if isinstance(raw, dict) and raw else None)
+                               raw=_json_safe(raw))
 
     def _error_invocation(self, a: Adapter | None, intent: str, effect: Effect,
                           exc: BaseException, params: dict | None = None) -> Invocation:

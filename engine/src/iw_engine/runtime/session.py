@@ -666,6 +666,11 @@ class InvestigationSession:
                        # transport provenance (M1): mock-vs-live + the declared Binding, on the stream
                        served_by=inv.served_by,
                        binding=inv.binding.value if inv.binding else None,
+                       # the EVIDENCE, on the LIVE stream too. The journal carries it for a
+                       # reopened investigation, but a live run is watched as it happens — that is
+                       # exactly when "what did the tool actually return" is asked. Omitting it
+                       # here meant raw appeared only after the fact, on reload.
+                       raw=inv.raw,
                        todo=new_todos[i] if i < len(new_todos) else None)   # F1 to-do attribution
         self._inv_cursor = len(self._engine.invocations)
         self._emit("graph_delta",

@@ -754,6 +754,7 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
         servedBy: ev.served_by ?? null, // transport provenance (M1)
         binding: ev.binding ?? null,
         todo: ev.todo ?? null, // F1 — the to-do this call served (from the live stream)
+        ...(ev.raw ? { raw: ev.raw } : {}), // the evidence, live (not only after a reload)
       };
       mutateTurn(s, (t) => ({ ...t, calls: [...t.calls, call] }));
       break;

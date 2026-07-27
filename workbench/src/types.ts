@@ -425,6 +425,10 @@ export interface CapabilityCallEvent extends EventBase {
   served_by?: string | null; // the transport that SERVED it (mock|scenario|mcp|rest) — M1
   binding?: string | null; // the adapter's declared Binding (mcp|rest|a2a) — M1
   todo?: number | null; // F1 — the plan to-do index this call served (for grouping tool cards)
+  // the raw payload the transport returned — carried on the LIVE stream as well as the journal,
+  // so "what did the tool actually return" is answerable while the run is happening, not only on
+  // reload. Absent when the call carried no payload.
+  raw?: Record<string, unknown>;
 }
 export interface GraphDeltaNode {
   id: string;
