@@ -47,3 +47,6 @@ engine/data/logs/
 # closed flagship investigation as-is — the full journal/graph/hypotheses — WITHOUT re-running it.
 engine/data/investigations/*
 !engine/data/investigations/app-incident_INC-4821/
+# and the deterministic SCRIPTED snapshot kept beside it: the live run above is the product
+# experience, this one is the reproducible reference that needs no LLM key to open.
+!engine/data/investigations/app-incident_INC-4821-scripted-demo/

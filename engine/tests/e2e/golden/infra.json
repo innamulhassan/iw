@@ -721,6 +721,20 @@
       "params": {},
       "phase": "frame",
       "provider": "prometheus",
+      "raw": {
+        "alerts": [
+          {
+            "alertname": "PodEvicted",
+            "at": "2026-07-19 02:18:00+00:00",
+            "id": "ALT-9",
+            "state": "firing"
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-svc"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -740,6 +754,17 @@
       "params": {},
       "phase": "frame",
       "provider": "ocp",
+      "raw": {
+        "pods": [
+          {
+            "node_name": "node-prod-17",
+            "phase": "Failed",
+            "ready": false,
+            "reason": "Evicted",
+            "uid": "checkout-7c9f-abc12"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -854,6 +879,9 @@
       "params": {},
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "changes": []
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -873,6 +901,20 @@
       "params": {},
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-8900",
+        "related_incidents": [
+          {
+            "cmdb_ci": "search-svc",
+            "confidence": "med",
+            "number": "INC-8901",
+            "opened_at": "2026-07-19 02:19:00+00:00",
+            "priority": "4 - Low",
+            "short_description": "search-svc briefly evicted from the same memory-pressured node",
+            "title": "search-svc pod restart on node-prod-17"
+          }
+        ]
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -974,6 +1016,20 @@
       "params": {},
       "phase": "investigate",
       "provider": "appd",
+      "raw": {
+        "bt_metrics": [
+          {
+            "at": "2026-07-19 02:30:00+00:00",
+            "predicate": "red_errors",
+            "reliability": 0.95,
+            "value": 0.09
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-svc"
+        }
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -993,6 +1049,17 @@
       "params": {},
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 02:30:00+00:00",
+            "predicate": "mem_utilization",
+            "reliability": 0.97,
+            "subject": "host:node-prod-17",
+            "value": 0.98
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

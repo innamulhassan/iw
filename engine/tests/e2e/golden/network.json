@@ -894,6 +894,20 @@
       "params": {},
       "phase": "frame",
       "provider": "prometheus",
+      "raw": {
+        "alerts": [
+          {
+            "alertname": "HighRetransSegs",
+            "at": "2026-07-19 13:40:00+00:00",
+            "id": "ALT-1",
+            "state": "firing"
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-svc"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -913,6 +927,18 @@
       "params": {},
       "phase": "frame",
       "provider": "servicenow",
+      "raw": {
+        "changes": [
+          {
+            "description": "NetOps change lowering the MTU on the SEG-EDGE-12 uplink from 1500 to 1400 for a new overlay tunnel, without clamping MSS \u2014 oversized frames to pricing-svc are dropped, driving retransmits and probe failures.",
+            "number": "CHG-77",
+            "requested_by": "netops-oncall",
+            "short_description": "MTU/uplink change on SEG-EDGE-12 (edge-agg-2.dc1)",
+            "start_date": "2026-07-19 13:10:00+00:00",
+            "type": "network_change"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -932,6 +958,37 @@
       "params": {},
       "phase": "frame",
       "provider": "appd",
+      "raw": {
+        "bt": {
+          "name": "CheckoutFlow"
+        },
+        "bt_metrics": [
+          {
+            "at": "2026-07-19 13:40:00+00:00",
+            "predicate": "art_p95",
+            "reliability": 0.95,
+            "unit": "ms",
+            "value": 4800
+          },
+          {
+            "at": "2026-07-19 13:40:00+00:00",
+            "predicate": "epm",
+            "reliability": 0.93,
+            "unit": "calls_per_min",
+            "value": 57000
+          },
+          {
+            "at": "2026-07-19 13:40:00+00:00",
+            "predicate": "delta_vs_baseline",
+            "reliability": 0.9,
+            "value": 3.2
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-svc"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -951,6 +1008,23 @@
       "params": {},
       "phase": "frame",
       "provider": "appd",
+      "raw": {
+        "flowmap": [
+          {
+            "exit_calls": [
+              {
+                "target_env": "prod",
+                "target_service": "pricing-svc",
+                "type": "HTTP"
+              }
+            ]
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-svc"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1158,6 +1232,18 @@
       "params": {},
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 13:55:00+00:00",
+            "predicate": "retrans_segs",
+            "reliability": 0.97,
+            "subject": "network_segment:seg-edge-12",
+            "unit": "count",
+            "value": 245
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -1177,6 +1263,18 @@
       "params": {},
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 13:55:00+00:00",
+            "predicate": "probe_success",
+            "reliability": 0.95,
+            "subject": "network_segment:seg-edge-12",
+            "unit": "ratio",
+            "value": 0.42
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -1196,6 +1294,13 @@
       "params": {},
       "phase": "investigate",
       "provider": "appd",
+      "raw": {
+        "service": {
+          "env": "prod",
+          "name": "pricing-svc"
+        },
+        "violations": []
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

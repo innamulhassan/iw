@@ -13,6 +13,7 @@ PRE-FETCHED raw payload (the seam unit tests feed directly).
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -81,6 +82,21 @@ def _summarize_ops(ops: list[Operation]) -> str:
     if c.get("UpdateHypothesis"):
         parts.append(f"{c['UpdateHypothesis']} hypothesis update{'s' if c['UpdateHypothesis'] != 1 else ''}")
     return " · ".join(parts) or "no new data"
+
+
+def _json_safe(raw: object) -> dict | None:
+    """Coerce a transport payload to JSON-serializable primitives, or None when there is nothing
+    to keep. A payload legitimately carries datetimes (a fixture's `authored_at`, a vendor's parsed
+    timestamp), and `raw` now travels THREE paths with different encoders: the journal (dumped with
+    default=str), export_bundle, and the live SSE event stream (plain json.dumps, which raises on a
+    datetime and kills the stream mid-run). Normalizing once here means every consumer gets the
+    same safe shape rather than each re-learning this the hard way."""
+    if not isinstance(raw, dict) or not raw:
+        return None
+    try:
+        return json.loads(json.dumps(raw, default=str))
+    except (TypeError, ValueError):
+        return None      # an unserializable payload degrades to no-raw, never to a broken stream
 
 
 def _served_by(source: Source | None) -> str | None:
@@ -164,6 +180,15 @@ class Invocation(BaseModel):
     # (what the tool folded into the graph) - so the UI reads like a real agent trace: query + result.
     params: dict = Field(default_factory=dict)
     summary: str = ""
+    # The RAW payload the transport returned, verbatim, BEFORE normalize() folded it into ops.
+    # `summary` is the PROJECTION ("152 NPEs at TaxCalculator.java:88"); this is the RECORD (the
+    # actual stack trace, trace_id, host, logger, the PromQL series, the git blame snippet).
+    # Standing decision: "journal = complete raw record; default view = relevant projection; raw
+    # on expand" — #7 already honours it for the LLM exchange; without this the same promise was
+    # broken for every capability call, which is the bulk of an investigation's evidence. Keeping
+    # only the summary left the audit trail holding conclusions it could not substantiate, and
+    # left the workbench nothing to expand into.
+    raw: dict | None = None
     # agent-trace span (obs 9: "when tool ran, how long, tool vs workflow"). Wall-clock timing,
     # stamped by the engine around serve() - ephemeral (never journaled, never in export_bundle),
     # so goldens stay deterministic. `kind` distinguishes tool | workflow | llm | handoff.
@@ -258,7 +283,9 @@ class CapabilityLayer:
         return ops, Invocation(intent=intent, provider=a.provider, effect=effect,
                                op_count=len(ops), params=dict(params or {}),
                                outcome="data" if ops else "empty",
-                               summary=_summarize_ops(ops))
+                               summary=_summarize_ops(ops),
+                               # the evidence behind the summary, kept verbatim (see Invocation.raw)
+                               raw=_json_safe(raw))
 
     def _error_invocation(self, a: Adapter | None, intent: str, effect: Effect,
                           exc: BaseException, params: dict | None = None) -> Invocation:

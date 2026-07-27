@@ -1830,6 +1830,16 @@ code {
 .toolcall__result{ margin-left:auto; font-size:11px; color:var(--text-muted); max-width:46%;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
+/* raw evidence — what the tool ACTUALLY returned, collapsed by default (relevant projection by
+   default, raw on expand). Scrolls inside its own box so a long stack trace never stretches the
+   card or the pane. */
+.tr-raw__toggle{ cursor:pointer; font-size:11px; color:var(--text-muted); user-select:none; }
+.tr-raw__toggle:hover{ color:var(--text); }
+.tr-raw[open] .tr-raw__toggle{ margin-bottom:4px; }
+.tr-raw__body{ font-family:var(--mono); font-size:10.5px; line-height:1.5; margin:0;
+  padding:8px 10px; background:var(--surface-2, #f8fafc); border:1px solid var(--border, #e2e8f0);
+  border-radius:6px; max-height:280px; overflow:auto; white-space:pre; }
+
 /* all-runs summary: status badge + colour per incident card */
 .start__section-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
 .start__summary-count{ font-family:var(--mono); font-size:12px; color:var(--text-muted); }

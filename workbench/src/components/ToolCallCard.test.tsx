@@ -147,3 +147,79 @@ describe("ToolCallCard — the reasoned step's story", () => {
     expect(screen.getByText("node anomaly ANOM-1")).toBeTruthy();
   });
 });
+
+// A FIXTURE transport must never claim it spoke to a real system, and the payload it replayed
+// must be readable on the card — the two halves of "what actually happened, without leaving the
+// screen".
+describe("ToolCallCard — fixture provenance and raw evidence", () => {
+  afterEach(() => cleanup());
+
+  it("labels a `scenario`-served call as a fixture, not a live protocol call", () => {
+    render(
+      <ToolCallCard
+        call={call({
+          provider: "splunk",
+          intent: "error_signature_topk",
+          servedBy: "scenario",
+          binding: "mcp",
+          outcome: "data",
+        })}
+      />,
+    );
+    // ScenarioSource replays canned fixtures exactly as MockSource does. Testing for the literal
+    // string "mock" missed it, so it rendered "📡 scenario — served live via scenario … a real MCP
+    // call was made": a false statement on screen, over fixture data.
+    expect(screen.queryByText(/📡\s*scenario/)).toBeNull();
+    expect(screen.getByText(/MOCK/)).toBeTruthy();
+  });
+
+  it("still shows a genuinely live transport as live", () => {
+    render(
+      <ToolCallCard
+        call={call({ provider: "prometheus", intent: "range_query", servedBy: "rest", binding: "rest", outcome: "data" })}
+      />,
+    );
+    expect(screen.getByText(/📡\s*rest/)).toBeTruthy();
+    expect(screen.queryByText(/MOCK/)).toBeNull();
+  });
+
+  it("expands to what the tool actually returned", () => {
+    render(
+      <ToolCallCard
+        call={call({
+          provider: "splunk",
+          intent: "error_signature_topk",
+          servedBy: "scenario",
+          binding: "mcp",
+          outcome: "data",
+          result: "152 NPEs at TaxCalculator.java:88 since onset",
+          raw: {
+            errors: [
+              {
+                exception_class: "java.lang.NullPointerException",
+                file_line: "TaxCalculator.java:88",
+                trace_id: "tr-9f2a1",
+              },
+            ],
+          },
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    // the summary line names the provider so the row reads as evidence, not decoration
+    expect(screen.getByText(/what splunk actually returned/)).toBeTruthy();
+    // and the payload itself is present verbatim — the stack-trace detail the summary drops
+    expect(screen.getByText(/java\.lang\.NullPointerException/)).toBeTruthy();
+    expect(screen.getByText(/tr-9f2a1/)).toBeTruthy();
+  });
+
+  it("renders no raw row when the call carried no payload", () => {
+    render(
+      <ToolCallCard
+        call={call({ provider: "git", intent: "get_commit", servedBy: "mock", binding: "rest", outcome: "empty" })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    expect(screen.queryByText(/actually returned/)).toBeNull();
+  });
+});

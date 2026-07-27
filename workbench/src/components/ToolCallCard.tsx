@@ -64,8 +64,13 @@ function protocolLabel(binding?: string | null): string | null {
 // The owner's honesty line: a mock does NOT speak MCP/REST/A2A — it mimes the tool's shape. The
 // badge must say "simulates", never "mock · mcp" (which reads as 'the mock uses mcp').
 const MOCK_HONESTY =
-  "the mock test transport mimes the tool's shape — no real MCP/REST/A2A call is made; " +
-  "the protocol shown is the binding a live call would use.";
+  "a fixture transport replays a canned payload and mimes the tool's shape — no real " +
+  "MCP/REST/A2A call is made; the protocol shown is the binding a live call would use.";
+/** Transports that REPLAY a fixture rather than speaking to a real system. Both MockSource
+ *  ("mock") and ScenarioSource ("scenario") are canned; only "mcp"/"rest" are genuinely live.
+ *  Keep this in step with capability/layer.py `_served_by`, which derives the label from the
+ *  Source class name. */
+const FIXTURE_TRANSPORTS = new Set(["mock", "scenario"]);
 function fmtClock(iso?: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
@@ -123,7 +128,12 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
   // duration — show "simulated · instant", never a misleading "0ms". A live call keeps its measured
   // span. The DECLARED protocol (binding) is shown regardless; only the served-by label distinguishes
   // "this MIMED MCP" (mock) from "this DID call over MCP" (live).
-  const isMock = call.servedBy === "mock";
+  // Which transports are CANNED. `mock` (MockSource) and `scenario` (ScenarioSource) both replay
+  // fixtures; only `mcp`/`rest` speak a real protocol to a real system. Testing for the literal
+  // string "mock" missed `scenario` — the transport the LIVE backend uses for fixture-backed runs —
+  // so a canned read rendered as "📡 scenario … a real REST call was made". That sentence was false
+  // on screen, over fixture data, which is the one thing this card exists to prevent.
+  const isMock = FIXTURE_TRANSPORTS.has(call.servedBy ?? "");
   const protocol = protocolLabel(call.binding);
   const dur = fmtDuration(call.durationMs);
   const timing = isMock ? "simulated · instant" : dur; // never "0ms" for a mock
@@ -215,6 +225,25 @@ export default function ToolCallCard({ call }: { call: ToolCall }) {
                     <code key={`${p}-${i}`} className="tr-prod">{p}</code>
                   ))}
                 </span>
+              </span>
+            </div>
+          )}
+          {/* THE EVIDENCE, verbatim. `out`/`made` above are the projection — the human line and
+              the ops it folded. This is what the tool actually returned: the stack trace, the
+              PromQL series, the blame snippet. Collapsed by default (the journal's standing
+              contract is "relevant projection by default, raw on expand"), so the card stays
+              readable and nothing has to be taken on trust. */}
+          {call.raw && Object.keys(call.raw).length > 0 && (
+            <div className="tr-row">
+              <span className="tr-k">raw</span>
+              <span className="tr-v">
+                <details className="tr-raw">
+                  <summary className="tr-raw__toggle">
+                    what {call.provider} actually returned
+                    <span className="tr-muted"> · {Object.keys(call.raw).join(" · ")}</span>
+                  </summary>
+                  <pre className="tr-raw__body">{JSON.stringify(call.raw, null, 2)}</pre>
+                </details>
               </span>
             </div>
           )}

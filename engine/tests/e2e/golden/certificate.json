@@ -925,6 +925,20 @@
       },
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-5700",
+        "related_incidents": [
+          {
+            "cmdb_ci": "billing-svc",
+            "confidence": "high",
+            "number": "INC-3344",
+            "opened_at": "2025-07-19 14:30:00+00:00",
+            "priority": "3 - Moderate",
+            "short_description": "Same Corp Intermediate CA chain expiry; caught early",
+            "title": "billing-svc TLS handshake errors (last year)"
+          }
+        ]
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -1056,6 +1070,18 @@
       },
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 14:45:00+00:00",
+            "predicate": "days_to_expiry",
+            "reliability": 0.99,
+            "subject": "certificate:auth-tls-intermediate",
+            "unit": "days",
+            "value": -1
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -1077,6 +1103,20 @@
       },
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-5700",
+        "related_incidents": [
+          {
+            "cmdb_ci": "billing-svc",
+            "confidence": "high",
+            "number": "INC-3344",
+            "opened_at": "2025-07-19 14:30:00+00:00",
+            "priority": "3 - Moderate",
+            "short_description": "Same Corp Intermediate CA chain expiry; caught early",
+            "title": "billing-svc TLS handshake errors (last year)"
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

@@ -469,6 +469,14 @@ class Engine:
             action["result"] = observation_text
         if produced is not None:
             action["produced"] = list(produced)
+        # THE EVIDENCE, verbatim: the raw payload the transport returned before normalize() folded
+        # it. `result`/`produced` above are the projection — the one-line story and the ops it
+        # yielded — and were all the journal used to keep, so the record asserted "152 NPEs at
+        # TaxCalculator.java:88" while discarding the stack trace that proved it. A journal whose
+        # own invariant is "reconstructable back to its evidence" has to carry the evidence.
+        # Omitted-when-None, so a blocked/error call with no payload keeps its exact prior shape.
+        if getattr(inv, "raw", None):
+            action["raw"] = inv.raw
         self.journal.append(JournalEntry(
             seq=seq, ts=self._clock(), kind="invocation",
             phase_id=phase, actor="engine", intent=inv.intent, reasoning=why, todo=todo,

@@ -1136,6 +1136,29 @@
       "params": {},
       "phase": "frame",
       "provider": "cmdb",
+      "raw": {
+        "ci_attrs": {
+          "checkout-api": {
+            "owner": "checkout-platform@corp.example",
+            "version": "rev43"
+          },
+          "checkout-db": {
+            "engine": "postgresql",
+            "owner": "checkout-platform@corp.example",
+            "version": "15.4"
+          }
+        },
+        "dependencies": [
+          {
+            "child": "checkout-db",
+            "child_type": "cmdb_ci_database",
+            "parent": "checkout-api",
+            "parent_type": "cmdb_ci_service",
+            "rel_type": "Depends on::Used by"
+          }
+        ],
+        "env": "prod"
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1155,6 +1178,26 @@
       "params": {},
       "phase": "frame",
       "provider": "servicenow",
+      "raw": {
+        "changes": [
+          {
+            "cmdb_ci": {
+              "display_value": "checkout-api",
+              "owner": "checkout-platform@corp.example",
+              "version": "rev43"
+            },
+            "description": "Automated deploy of checkout-api rev43 via the delivery pipeline. PR #482 'chore(config): prune unused ConfigMap keys' merged as commit 9f2a1e0. Rolling update, maxUnavailable=0, progressDeadlineSeconds=120.",
+            "env": "prod",
+            "number": "CHG-DEP-99",
+            "requested_by": "svc-deploy-bot",
+            "short_description": "Deploy checkout-api rev43 (PR #482 \u2014 config cleanup)",
+            "start_date": "2026-07-19 09:00:00+00:00",
+            "type": "deployment",
+            "u_commit_sha": "9f2a1e0",
+            "u_release_tag": "checkout-api-rev43"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1174,6 +1217,20 @@
       "params": {},
       "phase": "frame",
       "provider": "prometheus",
+      "raw": {
+        "alerts": [
+          {
+            "alertname": "KubePodCrashLooping",
+            "at": "2026-07-19 09:04:00+00:00",
+            "id": "ALT-1",
+            "state": "firing"
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "checkout-api"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1193,6 +1250,23 @@
       "params": {},
       "phase": "frame",
       "provider": "ocp",
+      "raw": {
+        "deployment": {
+          "at": "2026-07-19 09:06:00+00:00",
+          "available_replicas": 0,
+          "desired_replicas": 3,
+          "image": "registry/checkout-api:rev43",
+          "name": "checkout-api",
+          "namespace": "checkout-prod",
+          "rollout_progress": 0,
+          "uid": "dep-checkout-api-7f9d8"
+        },
+        "release": {
+          "at": "2026-07-19 09:00:00+00:00",
+          "release_id": "checkout-api-rev43",
+          "version": "43"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1212,6 +1286,22 @@
       "params": {},
       "phase": "frame",
       "provider": "ocp",
+      "raw": {
+        "pods": [
+          {
+            "at": "2026-07-19 09:06:00+00:00",
+            "cpu_utilization": 0.02,
+            "mem_utilization": 0.05,
+            "name": "checkout-api-7f9d8-x1",
+            "namespace": "checkout-prod",
+            "node_name": "k8s-node-17.prod.internal",
+            "phase": "CrashLoopBackOff",
+            "ready": false,
+            "restart_count": 14,
+            "uid": "pod-checkout-api-7f9d8-x1"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1231,6 +1321,32 @@
       "params": {},
       "phase": "frame",
       "provider": "ocp",
+      "raw": {
+        "events": [
+          {
+            "at": "2026-07-19 09:06:00+00:00",
+            "involved_object": {
+              "kind": "Deployment",
+              "name": "checkout-api",
+              "namespace": "checkout-prod",
+              "uid": "dep-checkout-api-7f9d8"
+            },
+            "message": "Deployment does not have minimum availability.",
+            "reason": "ProgressDeadlineExceeded"
+          },
+          {
+            "at": "2026-07-19 09:06:00+00:00",
+            "involved_object": {
+              "kind": "Pod",
+              "name": "checkout-api-7f9d8-x1",
+              "namespace": "checkout-prod",
+              "uid": "pod-checkout-api-7f9d8-x1"
+            },
+            "message": "Back-off restarting failed container",
+            "reason": "BackOff"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -1431,6 +1547,21 @@
       "params": {},
       "phase": "investigate",
       "provider": "git",
+      "raw": {
+        "blame": {
+          "file": "config/loader.go",
+          "line": 57,
+          "repo": "checkout-api",
+          "sha": "9f2a1e0",
+          "snippet": "cfg.MustGet(\"DB_HOST\") // panics if key missing"
+        },
+        "error_signature": {
+          "exception_class": "ConfigMissingError",
+          "first_seen": "2026-07-19 09:04:00+00:00"
+        },
+        "error_signature_hash": "cfg-missing-dbhost",
+        "hypothesis_id": "h1"
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -1450,6 +1581,31 @@
       "params": {},
       "phase": "investigate",
       "provider": "git",
+      "raw": {
+        "commit": {
+          "author": "jdoe",
+          "authored_at": "2026-07-19 09:00:00+00:00",
+          "message": "chore(config): prune unused ConfigMap keys (PR #482)",
+          "parent_sha": "7a1c220",
+          "repo": "checkout-api",
+          "sha": "9f2a1e0"
+        },
+        "diff": {
+          "at": "2026-07-19 09:18:00+00:00",
+          "files_changed": 1,
+          "lines_added": 0,
+          "lines_deleted": 3,
+          "reliability": 0.98
+        },
+        "pr": {
+          "at": "2026-07-19 09:00:00+00:00",
+          "author": "jdoe",
+          "event": "merged",
+          "merged_sha": "9f2a1e0",
+          "pr_id": "482",
+          "repo": "checkout-api"
+        }
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -1469,6 +1625,49 @@
       "params": {},
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 09:18:00+00:00",
+            "predicate": "conn_pool_util",
+            "reliability": 0.99,
+            "subject": "database:checkout-db",
+            "value": 0.24
+          },
+          {
+            "at": "2026-07-19 09:18:00+00:00",
+            "predicate": "active_connections",
+            "reliability": 0.99,
+            "subject": "database:checkout-db",
+            "unit": "conn",
+            "value": 41
+          },
+          {
+            "at": "2026-07-19 09:18:00+00:00",
+            "predicate": "max_connections",
+            "reliability": 0.99,
+            "subject": "database:checkout-db",
+            "unit": "conn",
+            "value": 200
+          },
+          {
+            "at": "2026-07-19 09:18:00+00:00",
+            "predicate": "slow_query_rate",
+            "reliability": 0.98,
+            "subject": "database:checkout-db",
+            "unit": "per_min",
+            "value": 1
+          },
+          {
+            "at": "2026-07-19 09:18:00+00:00",
+            "predicate": "replication_lag",
+            "reliability": 0.98,
+            "subject": "database:checkout-db",
+            "unit": "s",
+            "value": 0.1
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

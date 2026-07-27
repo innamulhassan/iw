@@ -129,7 +129,12 @@ _FACT_ENTRIES: tuple[DictEntry, ...] = (
     DictEntry("probe_success", Species.READING, (_NT.NETWORK_SEGMENT,), "float", "ratio", "down",
               stat=Stat.RATIO),
     # deployment / batch / firewall / cert / flag
-    DictEntry("image", Species.STATE, (_NT.DEPLOYMENT,), "str", None, None),
+    # image is legal on the DEPLOYMENT (the declared intent), the POD (what a replica is actually
+    # running) and the CONTAINER (where an image truly belongs in the k8s model). Restricting it
+    # to DEPLOYMENT made a partial rollout unrepresentable: the reducer REJECTED a per-pod image
+    # as an illegal predicate, so a fleet running two digests folded to one uniform image and the
+    # divergence — the whole signal — was dropped as invalid rather than recorded as a finding.
+    DictEntry("image", Species.STATE, (_NT.DEPLOYMENT, _NT.POD, _NT.CONTAINER), "str", None, None),
     DictEntry("available_replicas", Species.STATE, (_NT.DEPLOYMENT,), "int", None, "down"),
     DictEntry("desired_replicas", Species.STATE, (_NT.DEPLOYMENT,), "int", None, None),
     DictEntry("rollout_progress", Species.STATE, (_NT.DEPLOYMENT,), "int", None, "down"),

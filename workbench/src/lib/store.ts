@@ -62,6 +62,10 @@ export interface ToolCall {
   rationale?: string; // per-call WHY (the planner's reason for this call, NOT a hardcoded purpose)
   result?: string; // the "what came back" line (= the serving to-do's observation)
   produced?: string[]; // per-op summary of what the call produced ("fact red_errors=0.40", …)
+  /** The raw payload the transport returned, verbatim — the EVIDENCE behind `result`. Threaded
+   *  from the journal invocation (the live SSE stream doesn't carry it), so the card can expand a
+   *  tool call down to what the tool actually said. Absent when the call carried no payload. */
+  raw?: Record<string, unknown>;
 }
 
 /** An operator turn in the two-way chat (obs 2). */
@@ -445,6 +449,7 @@ function enrichCalls(calls: ToolCall[], invs: JournalEntry[]): ToolCall[] {
       ...(inv.narrative ? { rationale: inv.narrative } : {}),
       ...(inv.result != null ? { result: inv.result } : {}),
       ...(inv.produced ? { produced: inv.produced } : {}),
+      ...(inv.raw ? { raw: inv.raw } : {}),
       ...(inv.op_count != null ? { op_count: inv.op_count } : {}),
       ...(inv.todo != null ? { todo: inv.todo } : {}),
     };
@@ -749,6 +754,7 @@ function applyOne(s: LiveState, ev: SessionEvent): void {
         servedBy: ev.served_by ?? null, // transport provenance (M1)
         binding: ev.binding ?? null,
         todo: ev.todo ?? null, // F1 — the to-do this call served (from the live stream)
+        ...(ev.raw ? { raw: ev.raw } : {}), // the evidence, live (not only after a reload)
       };
       mutateTurn(s, (t) => ({ ...t, calls: [...t.calls, call] }));
       break;

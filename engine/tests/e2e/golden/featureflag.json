@@ -1048,6 +1048,20 @@
       },
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-5600",
+        "related_incidents": [
+          {
+            "cmdb_ci": "pricing-api",
+            "confidence": "high",
+            "number": "INC-4988",
+            "opened_at": "2026-07-17 14:05:00+00:00",
+            "priority": "3 - Moderate",
+            "short_description": "pricing-api errored on large carts \u2014 same new-tax-engine flag",
+            "title": "pricing-api errors on bulk quotes"
+          }
+        ]
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -1198,6 +1212,20 @@
       },
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-5600",
+        "related_incidents": [
+          {
+            "cmdb_ci": "pricing-api",
+            "confidence": "high",
+            "number": "INC-4988",
+            "opened_at": "2026-07-17 14:05:00+00:00",
+            "priority": "3 - Moderate",
+            "short_description": "pricing-api errored on large carts \u2014 same new-tax-engine flag",
+            "title": "pricing-api errors on bulk quotes"
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

@@ -730,6 +730,23 @@
       "params": {},
       "phase": "frame",
       "provider": "servicenow",
+      "raw": {
+        "changes": [
+          {
+            "cmdb_ci": {
+              "display_value": "order-processor",
+              "owner": "fulfillment-platform@corp.example",
+              "version": "v3.2.0"
+            },
+            "description": "Deploy of order-processor v3.2.0. Replaces the batched pricing lookup in the message handler with a per-item synchronous enrichment call \u2014 a blocking RPC per message that ~2x'd handler latency, so the consumer group can no longer keep up.",
+            "number": "CHG-55",
+            "requested_by": "dev-mq",
+            "short_description": "Deploy order-processor v3.2.0 (per-item price enrichment)",
+            "start_date": "2026-07-19 09:30:00+00:00",
+            "type": "deployment"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -749,6 +766,20 @@
       "params": {},
       "phase": "frame",
       "provider": "prometheus",
+      "raw": {
+        "alerts": [
+          {
+            "alertname": "HighConsumerLag",
+            "at": "2026-07-19 09:42:00+00:00",
+            "id": "ALT-7",
+            "state": "firing"
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "order-processor"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -860,6 +891,27 @@
       "params": {},
       "phase": "investigate",
       "provider": "git",
+      "raw": {
+        "change": {
+          "change_id": "CHG-55",
+          "change_type": "deployment"
+        },
+        "commit": {
+          "author": "dev-mq",
+          "authored_at": "2026-07-19 09:30:00+00:00",
+          "message": "perf(pricing): per-item enrichment for fresher prices (PR #310)",
+          "parent_sha": "d4c3b2a",
+          "repo": "order-processor",
+          "sha": "e5f6a7b"
+        },
+        "diff": {
+          "at": "2026-07-19 09:30:00+00:00",
+          "files_changed": 1,
+          "lines_added": 22,
+          "lines_deleted": 4,
+          "reliability": 0.99
+        }
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -879,6 +931,20 @@
       "params": {},
       "phase": "investigate",
       "provider": "servicenow",
+      "raw": {
+        "primary_incident": "INC-8801",
+        "related_incidents": [
+          {
+            "cmdb_ci": "fulfilment-api",
+            "confidence": "high",
+            "number": "INC-8802",
+            "opened_at": "2026-07-19 09:44:00+00:00",
+            "priority": "3 - Moderate",
+            "short_description": "fulfilment-api SLA breach downstream of the orders.events lag",
+            "title": "fulfilment-api orders delayed"
+          }
+        ]
+      },
       "reason": null,
       "seq": 2,
       "served_by": "mock",
@@ -985,6 +1051,21 @@
       "params": {},
       "phase": "investigate",
       "provider": "appd",
+      "raw": {
+        "bt_metrics": [
+          {
+            "at": "2026-07-19 09:56:00+00:00",
+            "predicate": "red_latency_p99",
+            "reliability": 0.94,
+            "unit": "ms",
+            "value": 210
+          }
+        ],
+        "service": {
+          "env": "prod",
+          "name": "order-processor"
+        }
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",
@@ -1004,6 +1085,18 @@
       "params": {},
       "phase": "investigate",
       "provider": "prometheus",
+      "raw": {
+        "metrics": [
+          {
+            "at": "2026-07-19 09:56:00+00:00",
+            "predicate": "consumer_lag",
+            "reliability": 0.97,
+            "subject": "message_queue:orders.events",
+            "unit": "msgs",
+            "value": 61000
+          }
+        ]
+      },
       "reason": null,
       "seq": 3,
       "served_by": "mock",

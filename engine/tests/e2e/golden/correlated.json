@@ -777,6 +777,56 @@
       },
       "phase": "frame",
       "provider": "bigpanda",
+      "raw": {
+        "affected_services": [
+          {
+            "env": "prod",
+            "name": "payments-svc"
+          },
+          {
+            "env": "prod",
+            "name": "orders-svc"
+          },
+          {
+            "env": "prod",
+            "name": "ledger-svc"
+          }
+        ],
+        "correlated_alerts": [
+          {
+            "alertname": "HighLatencyP99",
+            "at": "2026-07-19 09:06:00+00:00",
+            "id": "BP-1",
+            "service": "payments-svc",
+            "state": "firing"
+          },
+          {
+            "alertname": "HighLatencyP99",
+            "at": "2026-07-19 09:06:00+00:00",
+            "id": "BP-2",
+            "service": "orders-svc",
+            "state": "firing"
+          },
+          {
+            "alertname": "ErrorRateHigh",
+            "at": "2026-07-19 09:06:00+00:00",
+            "id": "BP-3",
+            "service": "ledger-svc",
+            "state": "firing"
+          }
+        ],
+        "primary_incident": "INC-6001",
+        "related_incidents": [
+          {
+            "cmdb_ci": "payments-ora",
+            "confidence": "high",
+            "number": "INC-5990",
+            "opened_at": "2026-07-05 10:00:00+00:00",
+            "priority": "P2"
+          }
+        ],
+        "severity": "P1"
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -798,6 +848,31 @@
       },
       "phase": "frame",
       "provider": "servicenow",
+      "raw": {
+        "incident": {
+          "assigned_to": "sre-oncall",
+          "assignment_group": "SRE - Payments Platform",
+          "business_service": "Payments",
+          "caller_id": "bigpanda-correlation",
+          "cmdb_ci": {
+            "display_value": "payments-svc",
+            "owner": "payments-platform@corp.example",
+            "sys_id": "SYS-PAY-1",
+            "version": "v8.3.0"
+          },
+          "description": "BigPanda correlated a latency-alert storm across payments-svc, orders-svc and ledger-svc into ONE P1 (INC-6001) at 09:06 UTC \u2014 6 minutes after CHG-DB-500 (a DB migration) landed at 09:00. All three services read through the same payments datastore; p99 is blown while p50 stays flat, pointing at the shared DB boundary, not any one app's code. The backing CI returned unclassified from CMDB.",
+          "env": "prod",
+          "impact": "1 - High",
+          "number": "INC-6001",
+          "opened_at": "2026-07-19 09:06:00+00:00",
+          "priority": "P1",
+          "short_description": "payments/orders/ledger latency SEV1; AIOps rolled 3 alerts into one incident",
+          "state": "in_progress",
+          "title": "payments platform P1 \u2014 correlated latency storm",
+          "urgency": "1 - High",
+          "work_notes": "BigPanda correlated 3 alerts across 3 services. Suspect the 09:00 DB migration CHG-DB-500."
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -819,6 +894,13 @@
       },
       "phase": "frame",
       "provider": "servicenow",
+      "raw": {
+        "ci": {
+          "name": "payments-ora",
+          "sys_class_name": "cmdb_ci_db_ora",
+          "sys_id": "SYS-DB77"
+        }
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
@@ -841,6 +923,23 @@
       },
       "phase": "frame",
       "provider": "servicenow",
+      "raw": {
+        "changes": [
+          {
+            "cmdb_ci": {
+              "display_value": "payments-svc",
+              "owner": "payments-platform@corp.example"
+            },
+            "description": "Scheduled maintenance migration on the payments datastore. Drops a legacy composite index believed superseded, to speed up writes ahead of the quarter-end batch. No application read-path review \u2014 the migration forces full-table scans that saturate the pool and cascade latency across every service reading the datastore.",
+            "env": "prod",
+            "number": "CHG-DB-500",
+            "requested_by": "dba-team",
+            "short_description": "Payments datastore migration \u2014 drop legacy index",
+            "start_date": "2026-07-19 09:00:00+00:00",
+            "type": "db-migration"
+          }
+        ]
+      },
       "reason": null,
       "seq": 1,
       "served_by": "mock",
