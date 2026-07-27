@@ -208,7 +208,27 @@ class ScenarioSource:
         table = self.fixtures.get(provider) if provider else None
         if not table:
             return {}
-        blob = table.get(self.phase, table.get("*", {}))
+        # RESOLUTION ORDER, most specific first:
+        #   <intent>@<phase>  — this tool, in this phase (a verify-phase blame differs from a
+        #                       frame-phase one)
+        #   <intent>          — this tool, any phase
+        #   <phase>           — the provider's world-state for this phase (pre-existing)
+        #   "*"               — the provider's default blob (pre-existing)
+        # Per-intent keys are OPTIONAL and purely additive: a provider that authors none behaves
+        # exactly as before, so the "don't make the model guess intent names" property above is
+        # preserved — reaching for the right PROVIDER still returns data.
+        #
+        # Why it matters: with only provider-level blobs, get_commit / blame / diff_range /
+        # get_pr_for_commit all return ONE identical payload — four different questions, one
+        # answer. A live grok-4.5 run made that visible once raw payloads were journaled: it
+        # re-asked fetch_metrics five times, because choosing a different tool could never yield
+        # anything new. An agent that cannot learn from tool choice compensates by repeating.
+        for key in (f"{intent}@{self.phase}", intent, self.phase, "*"):
+            if key in table:
+                blob = table[key]
+                break
+        else:
+            return {}
         return dict(blob) if isinstance(blob, dict) else {"records": blob}
 
 

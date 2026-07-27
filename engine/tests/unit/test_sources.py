@@ -326,3 +326,39 @@ def test_adapter_bindings_are_declared_data():
     # (the split A2A placeholder adapter is retired — part4-capability §1)
     assert "ocp__restart" in OcpAdapter.intents
     assert OcpAdapter.effects["ocp__restart"] is Effect.WRITE
+
+
+# ── per-intent fixtures: four questions must not share one answer ──────────────
+def test_scenario_source_prefers_an_intent_specific_fixture():
+    """ScenarioSource resolves intent -> PROVIDER by design, so a live model need only pick the
+    right provider rather than guess a wired intent name. The cost, made visible once raw payloads
+    were journaled: get_commit/blame/diff_range/get_pr_for_commit all returned ONE identical blob,
+    so choosing a better tool could never yield new information and a live grok-4.5 run simply
+    re-asked. An <intent> key now wins over the provider default — additive, so a provider that
+    authors none behaves exactly as before."""
+    from iw_engine.capability.sources import ScenarioSource
+
+    src = ScenarioSource({"blame": "git", "diff_range": "git", "get_commit": "git"},
+                         {"git": {"diff_range": {"diff": {"files_changed": 11}},
+                                  "*": {"commit": {"sha": "abc123"}}}})
+    assert src.fetch(Binding.REST, "diff_range", {}) == {"diff": {"files_changed": 11}}
+    # an intent with no specific fixture still falls through to the provider blob (unchanged)
+    assert src.fetch(Binding.REST, "get_commit", {}) == {"commit": {"sha": "abc123"}}
+    assert src.fetch(Binding.REST, "blame", {}) == {"commit": {"sha": "abc123"}}
+
+
+def test_scenario_source_intent_beats_phase_and_phase_beats_default():
+    """Resolution order is <intent>@<phase> > <intent> > <phase> > "*", so per-intent realism and
+    the pre-existing phase-scoped world-state (a verify-phase metric read returning recovery
+    numbers) compose instead of competing."""
+    from iw_engine.capability.sources import ScenarioSource
+
+    src = ScenarioSource({"fetch_metrics": "prometheus"},
+                         {"prometheus": {"fetch_metrics@verify": {"v": "intent+phase"},
+                                         "fetch_metrics": {"v": "intent"},
+                                         "verify": {"v": "phase"},
+                                         "*": {"v": "default"}}})
+    src.phase = "verify"
+    assert src.fetch(Binding.REST, "fetch_metrics", {})["v"] == "intent+phase"
+    src.phase = "frame"
+    assert src.fetch(Binding.REST, "fetch_metrics", {})["v"] == "intent"
